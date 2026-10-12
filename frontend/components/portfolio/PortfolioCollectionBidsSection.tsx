@@ -1,27 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { CollectionMarketStats, Order } from "@/lib/core";
 import type { PortfolioBidCollectionMeta, PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { compareSortNum, compareSortText } from "@/lib/portfolio/portfolioTableHelpers";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
-import { TkButton, TkTable, TkTag } from "@/components/ds";
+import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
-import { PortfolioSortableTh, PortfolioStaticTh } from "./PortfolioSortableTh";
-import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
 import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
 
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
 type BidsStatusFilter = "" | "highest" | "outbid" | "expired";
-
-const BIDS_TOOLBAR_SORT: { value: BidsSortKey; label: string }[] = [
-  { value: "bid", label: "Your bid" },
-  { value: "top", label: "Top bid" },
-  { value: "expires", label: "Expiry" },
-];
 
 const BIDS_STATUS_OPTIONS: { id: BidsStatusFilter; label: string }[] = [
   { id: "", label: "All" },
@@ -47,6 +39,21 @@ function expiresMsRemaining(endTimeIso?: string | null): number | null {
   const endMs = Date.parse(endTimeIso);
   if (!Number.isFinite(endMs)) return null;
   return endMs - Date.now();
+}
+
+function formatExpiresLong(
+  endTimeIso: string | null | undefined,
+  expired: boolean,
+): string {
+  if (expired) return "Expired";
+  const ms = expiresMsRemaining(endTimeIso);
+  if (ms == null || ms <= 0) return "Expired";
+  const hours = Math.max(1, Math.floor(ms / 3_600_000));
+  if (hours >= 48) {
+    const days = Math.max(1, Math.floor(hours / 24));
+    return `Ends in ${days} day${days === 1 ? "" : "s"}`;
+  }
+  return `Ends in ${hours} hour${hours === 1 ? "" : "s"}`;
 }
 
 /** Portfolio.html: "In 5d" / "In 21h" / "Expired". */
@@ -90,6 +97,44 @@ function askUsdForToken(
   return floor != null && Number.isFinite(floor) ? floor : null;
 }
 
+function BidRowActions({
+  expired,
+  busy,
+  changing,
+  cancelling,
+  onChange,
+  onCancel,
+  onRebid,
+}: {
+  expired: boolean;
+  busy: boolean;
+  changing: boolean;
+  cancelling: boolean;
+  onChange: () => void;
+  onCancel: () => void;
+  onRebid: () => void;
+}) {
+  if (expired) {
+    return (
+      <div className="pf-ux-acts">
+        <button type="button" className="pf-ux-btn" disabled={busy} onClick={onRebid}>
+          {changing ? "Opening…" : "Re-bid"}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="pf-ux-acts">
+      <button type="button" className="pf-ux-btn" disabled={busy} onClick={onChange}>
+        {changing ? "Opening…" : "Change"}
+      </button>
+      <button type="button" className="pf-ux-btn" disabled={busy} onClick={onCancel}>
+        {cancelling ? "Cancelling…" : "Cancel"}
+      </button>
+    </div>
+  );
+}
+
 export function PortfolioCollectionBidsSection({
   loading,
   metaLoading,
@@ -125,18 +170,7 @@ export function PortfolioCollectionBidsSection({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BidsStatusFilter>("");
-  const [filterOpen, setFilterOpen] = useState(false);
-  const { sortKey, sortDir, toggleSort, setSort } =
-    usePortfolioTableSort<BidsSortKey>("bid", "desc");
-
-  useEffect(() => {
-    if (!filterOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFilterOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [filterOpen]);
+  const { sortKey, sortDir } = usePortfolioTableSort<BidsSortKey>("bid", "desc");
 
   const sortedBids = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -248,25 +282,26 @@ export function PortfolioCollectionBidsSection({
     );
   }
 
-  const filterActive = statusFilter !== "";
-
   return (
     <>
       <div className="pf-tbar" id="bids-tbar">
-        <button
-          type="button"
-          className={`pf-tbtn pf-tbtn--icon${filterActive ? " pf-tbtn--on" : ""}`}
-          aria-label="Filter bids"
-          aria-expanded={filterOpen}
-          onClick={() => setFilterOpen(true)}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <line x1="4" y1="6" x2="20" y2="6" />
-            <line x1="7" y1="12" x2="17" y2="12" />
-            <line x1="10" y1="18" x2="14" y2="18" />
+        <label className="pf-tdrop">
+          <span className="pf-tdrop__k">Filter:</span>
+          <select
+            aria-label="Filter bids by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as BidsStatusFilter)}
+          >
+            {BIDS_STATUS_OPTIONS.map((opt) => (
+              <option key={opt.id || "all"} value={opt.id}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+          <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
           </svg>
-          {filterActive ? <span className="pf-tbtn__dot" /> : null}
-        </button>
+        </label>
         <PortfolioToolbarSearch
           value={searchQuery}
           onChange={setSearchQuery}
@@ -274,276 +309,136 @@ export function PortfolioCollectionBidsSection({
           aria-label="Search your bids"
         />
         <div className="pf-tbar__spacer" />
-        <div className="pf-tbar__cluster">
-          <div className="pf-tbar__sortsel">
-            <select
-              aria-label="Sort bids"
-              value={sortKey === "name" || sortKey === "ask" ? "bid" : sortKey}
-              onChange={(e) => {
-                setSort(e.target.value as BidsSortKey, "desc");
-              }}
-            >
-              {BIDS_TOOLBAR_SORT.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
-        </div>
       </div>
-
-      {filterOpen ? (
-        <div className="pf-filter-drawer" role="presentation">
-          <button
-            type="button"
-            className="pf-filter-drawer__scrim"
-            aria-label="Close filter"
-            onClick={() => setFilterOpen(false)}
-          />
-          <div
-            className="pf-filter-drawer__sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Filter bids"
-          >
-            <div className="pf-filter-drawer__grip" />
-            <div className="pf-filter-drawer__h">Filter bids</div>
-            {BIDS_STATUS_OPTIONS.map((opt) => {
-              const sel = statusFilter === opt.id;
-              return (
-                <button
-                  key={opt.id || "all"}
-                  type="button"
-                  className={`pf-filter-drawer__opt${sel ? " pf-filter-drawer__opt--sel" : ""}`}
-                  onClick={() => {
-                    setStatusFilter(opt.id);
-                    setFilterOpen(false);
-                  }}
-                >
-                  {opt.label}
-                  <span className="pf-filter-drawer__ck" aria-hidden>
-                    ✓
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
 
       {sortedBids.length === 0 ? (
         <p className="pf-empty pf-empty--panel">No bids match your search.</p>
       ) : (
-      <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids">
-        <colgroup>
-          <col className="pf-col-card" />
-          <col className="pf-col-bid" />
-          <col className="pf-col-top" />
-          <col className="pf-col-ask" />
-          <col className="pf-col-status" />
-          <col className="pf-col-expires" />
-          <col className="pf-col-action" />
-        </colgroup>
+      <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids pf-ux">
         <thead>
           <tr>
-            <PortfolioSortableTh
-              label="Card"
-              sortKey="name"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as BidsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Your bid"
-              sortKey="bid"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as BidsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Top bid"
-              sortKey="top"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as BidsSortKey)}
-            />
-            <PortfolioSortableTh
-              label="Ask price"
-              sortKey="ask"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              onSort={(k) => toggleSort(k as BidsSortKey)}
-            />
-            <PortfolioStaticTh label="Status" />
-            <PortfolioSortableTh
-              label="Expires"
-              sortKey="expires"
-              activeKey={sortKey}
-              sortDir={sortDir}
-              muted
-              onSort={(k) => toggleSort(k as BidsSortKey)}
-            />
-            <PortfolioStaticTh label="Action" muted />
+            <th>Item</th>
+            <th>Action</th>
+            <th>Date</th>
+            <th>Status</th>
+            <th className="pf-ux-r" />
           </tr>
         </thead>
         <tbody>
-          {sortedBids.map((bid, index) => {
+          {sortedBids.map((bid) => {
             const meta = collectionMetaByKey.get(bid.collectionKey);
             const label =
               meta?.displayLabel?.trim() ||
               bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
-            const line2 = meta?.line2?.trim() || "";
             const hoverLabel = meta?.hoverLabel?.trim() || label;
+            const href = collectionDetailHref(bid.collectionKey, {
+              listingTokenId: bid.tokenId && bid.tokenId !== "0" ? bid.tokenId : null,
+            });
             const book =
               bidsByCollectionKey?.get(bid.collectionKey) ??
               bidsByCollectionKey?.get(bid.collectionKey.toLowerCase());
-            const listings =
-              listingsByCollectionKey?.get(bid.collectionKey) ??
-              listingsByCollectionKey?.get(bid.collectionKey.toLowerCase());
             const top = highestBidUsdForHolding(book, bid.tokenId);
-            const ask = askUsdForToken(
-              listings,
-              bid.tokenId,
-              statsByCollectionKey.get(bid.collectionKey)?.floor ?? null,
-            );
             const expired =
               bid.status === "expired" ||
               (expiresMsRemaining(bid.endTime) != null &&
                 (expiresMsRemaining(bid.endTime) as number) <= 0);
             const outbid = !expired && isOutbidByBook(bid.priceUsdc, top);
             const expires = formatExpiresLabel(bid.endTime, expired);
+            const expiresLong = formatExpiresLong(bid.endTime, expired);
             const busy =
               cancellingHash === bid.orderHash || changingHash === bid.orderHash;
-            const zebra = index % 2 === 1 ? "pf-table-row--zebra" : undefined;
-            const rowClass = [zebra, expired ? "pf-table-row--expired" : null]
-              .filter(Boolean)
-              .join(" ");
+            const statusLabel = expired ? "Expired" : outbid ? "Outbid" : "Highest";
+            const statusClass = expired ? "pf-ux-mute" : outbid ? "pf-ux-warn" : "pf-ux-pos";
+            const bidUsd = formatUsdListing(bid.priceUsdc);
+            const topUsd = top != null ? formatUsdListing(top) : "—";
+            const actions = (
+              <BidRowActions
+                expired={expired}
+                busy={busy}
+                changing={changingHash === bid.orderHash}
+                cancelling={cancellingHash === bid.orderHash}
+                onChange={() => onChangeBid(bid)}
+                onRebid={() => onRebid(bid)}
+                onCancel={() =>
+                  onCancel(bid.orderHash, bid.collectionKey, label, bid.priceLabel)
+                }
+              />
+            );
 
             return (
-              <tr key={bid.orderHash} className={rowClass || undefined}>
-                <td data-label="Card">
-                  <Link
-                    href={collectionDetailHref(bid.collectionKey, {
-                      listingTokenId:
-                        bid.tokenId && bid.tokenId !== "0" ? bid.tokenId : null,
-                    })}
-                    className="pf-table-card-cell"
-                  >
-                    <div className="pf-table-thumb pf-table-thumb--lg">
+              <tr
+                key={bid.orderHash}
+                className={`pf-ux-row${expired ? " is-dim" : ""}`}
+                style={{ cursor: "pointer" }}
+              >
+                <td data-label="Item">
+                  <div className="pf-ux-item">
+                    <span className="pf-ux-thumb">
                       {meta?.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={meta.imageUrl} alt="" />
                       ) : metaLoading ? (
-                        <div className="h-full w-full animate-pulse bg-white/5" />
+                        <span className="pf-ux-thumb__ph" />
                       ) : null}
-                    </div>
-                    <div className="pf-table-card-copy">
-                      <span
-                        className={`pf-table-card-name pf-table-card-name--bids ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                        title={hoverLabel}
-                      >
+                    </span>
+                    <span className="pf-ux-txt">
+                      <Link href={href} className="pf-ux-name" title={hoverLabel}>
                         {label}
-                      </span>
-                      {line2 ? (
-                        <span className="pf-table-card-sub pf-table-card-sub--hover">
-                          {line2}
+                      </Link>
+                      <span className="pf-ux-sub">
+                        <span className="pf-ux-mono">
+                          Your bid <b className="pf-ux-blue">{bidUsd}</b>
+                          {" · "}top {topUsd}
                         </span>
-                      ) : null}
-                    </div>
-                  </Link>
+                      </span>
+                    </span>
+                  </div>
                 </td>
-                <td data-label="Your bid">
-                  <span className="tkl-mono pf-table-bid">$ {bid.priceLabel}</span>
+                <td data-label="Action">
+                  <span className="pf-ux-v">Bid</span>
                 </td>
-                <td data-label="Top bid">
-                  <span
-                    className={`tkl-mono ${
-                      !expired && !outbid && top != null
-                        ? "pf-table-top-bid--mine"
-                        : "pf-table-muted"
-                    }`}
-                  >
-                    {top != null ? formatUsdListing(top) : "—"}
+                <td data-label="Date">
+                  <span className={`pf-ux-d${expires.urgent ? " pf-ux-warn" : ""}`}>
+                    {expires.text}
                   </span>
-                </td>
-                <td data-label="Ask price">
-                  <span className="tkl-mono pf-table-muted">
-                    {ask != null ? formatUsdListing(ask) : "—"}
+                  <span
+                    className={`pf-ux-dm${expires.urgent ? " pf-ux-warn" : ""}`}
+                  >
+                    {expiresLong}
                   </span>
                 </td>
                 <td data-label="Status">
-                  {expired ? (
-                    <TkTag tone="neutral" appearance="soft" className="pf-bid-status-tag">
-                      EXPIRED
-                    </TkTag>
-                  ) : outbid ? (
-                    <TkTag tone="warning" appearance="soft" className="pf-bid-status-tag">
-                      {top != null
-                        ? `OUTBID · TOP ${formatUsdListing(top)}`
-                        : "OUTBID"}
-                    </TkTag>
-                  ) : (
-                    <TkTag tone="positive" appearance="soft" className="pf-bid-status-tag">
-                      HIGHEST
-                    </TkTag>
-                  )}
+                  <span className={`pf-ux-v ${statusClass}`}>{statusLabel}</span>
                 </td>
-                <td data-label="Expires">
-                  <span
-                    className={`tkl-mono pf-table-expires ${
-                      expires.urgent ? "pf-table-expires--urgent" : ""
-                    } ${expired ? "pf-table-expires--done" : ""}`}
-                  >
-                    {expires.text}
-                  </span>
+                <td data-label="Trail" className="pf-ux-r">
+                  {actions}
                 </td>
-                <td data-label="Action">
-                  <div className="pf-table-actions">
-                    {expired ? (
-                      <TkButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="pf-table-btn pf-table-btn--bid-action"
-                        disabled={busy}
-                        onClick={() => onRebid(bid)}
-                      >
-                        {changingHash === bid.orderHash ? "Opening…" : "Re-bid"}
-                      </TkButton>
-                    ) : outbid ? (
-                      <TkButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="pf-table-btn pf-table-btn--bid-action"
-                        disabled={busy}
-                        onClick={() => onChangeBid(bid)}
-                      >
-                        {changingHash === bid.orderHash ? "Opening…" : "Change"}
-                      </TkButton>
-                    ) : (
-                      <TkButton
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="pf-table-btn pf-table-btn--bid-action"
-                        disabled={busy}
-                        onClick={() =>
-                          onCancel(
-                            bid.orderHash,
-                            bid.collectionKey,
-                            label,
-                            bid.priceLabel,
-                          )
-                        }
-                      >
-                        {cancellingHash === bid.orderHash ? "Cancelling…" : "Cancel"}
-                      </TkButton>
-                    )}
+                <td className="pf-ux-mc" data-label="Mobile">
+                  <div className="pf-ux-mc__card">
+                    <span className="pf-ux-mc__thumb">
+                      {meta?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={meta.imageUrl} alt="" />
+                      ) : null}
+                    </span>
+                    <div className="pf-ux-mc__body">
+                      <div className="pf-ux-mc__row">
+                        <Link href={href} className="pf-ux-mc__name" title={hoverLabel}>
+                          {label}
+                        </Link>
+                        <span className={`pf-ux-chip ${statusClass}`}>{statusLabel}</span>
+                      </div>
+                      <div className="pf-ux-mc__money">
+                        <span className="pf-ux-mono">
+                          Your bid <b className="pf-ux-blue">{bidUsd}</b>
+                          {" · "}top {topUsd}
+                        </span>
+                      </div>
+                      <div className={`pf-ux-mc__meta${expires.urgent ? " pf-ux-warn" : ""}`}>
+                        {expiresLong}
+                      </div>
+                      {actions}
+                    </div>
                   </div>
                 </td>
               </tr>

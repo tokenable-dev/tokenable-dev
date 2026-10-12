@@ -9,43 +9,9 @@ export type PortfolioMainTab =
   | "bids"
   | "history";
 
-function CollectiblesTabIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-
-function BidsTabIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-function HistoryTabIcon() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-      <circle cx="12" cy="12" r="10" />
-      <polyline points="12 6 12 12 16 14" />
-    </svg>
-  );
-}
-
-function TabCount({ value }: { value: number }) {
-  return <span className="pf-tab-n tkl-mono">{value}</span>;
-}
-
-/** Full tab names (desktop and phone). */
-function TabLabel({ full }: { full: string }) {
-  return <span className="pf-tab-label">{full}</span>;
+function TabCount({ value }: { value: number | undefined }) {
+  if (value === undefined) return null;
+  return <span className="pf-tab-n">{value}</span>;
 }
 
 export function PortfolioMainSection({
@@ -60,7 +26,12 @@ export function PortfolioMainSection({
 }: {
   activeTab: PortfolioMainTab;
   onTabChange: (tab: PortfolioMainTab) => void;
-  counts: { assets: number; redeem: number; bids: number; history: number };
+  counts: {
+    assets: number;
+    redeem: number;
+    bids: number | undefined;
+    history: number;
+  };
   variant?: "default" | "partner";
   collectiblesPanel: ReactNode;
   redeemPanel: ReactNode;
@@ -77,35 +48,35 @@ export function PortfolioMainSection({
       >
         <TkTab
           id="portfolio-tab-collectibles"
+          className="pf-tab"
           active={activeTab === "collectibles"}
           aria-controls="portfolio-panel-collectibles"
-          aria-label="My Assets"
+          aria-label="Items"
           onClick={() => onTabChange("collectibles")}
         >
-          <CollectiblesTabIcon />
-          <TabLabel full="My Assets" />
+          Items
           <TabCount value={counts.assets} />
         </TkTab>
         <TkTab
           id="portfolio-tab-bids"
+          className="pf-tab"
           active={activeTab === "bids"}
           aria-controls="portfolio-panel-bids"
-          aria-label="My Bids"
+          aria-label="Bids"
           onClick={() => onTabChange("bids")}
         >
-          <BidsTabIcon />
-          <TabLabel full="My Bids" />
+          Bids
           <TabCount value={counts.bids} />
         </TkTab>
         <TkTab
           id="portfolio-tab-history"
+          className="pf-tab"
           active={activeTab === "history"}
           aria-controls="portfolio-panel-history"
-          aria-label="Tx History"
+          aria-label="Transactions"
           onClick={() => onTabChange("history")}
         >
-          <HistoryTabIcon />
-          <TabLabel full="Tx History" />
+          Transactions
           <TabCount value={counts.history} />
         </TkTab>
       </TkTabs>

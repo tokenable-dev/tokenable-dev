@@ -1,5 +1,6 @@
 import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { PsaModule } from '../../psa/psa.module';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -22,6 +23,7 @@ import { CollectionMarketSnapshotService } from './collection-market-snapshot.se
 @Module({
   imports: [
     TypeOrmModule.forFeature([CollectionMarketSnapshot, Order, RwaToken]),
+    CardhedgerModule,
     BlockchainModule,
     PsaModule,
     MarketplaceMarketDataModule,

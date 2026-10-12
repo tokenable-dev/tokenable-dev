@@ -74,6 +74,8 @@ See [backend/sql/README.md](../../backend/sql/README.md#snapshot-worker-env). Co
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | 900 | Freshness window |
 | `MARKET_SNAPSHOT_CRON_ENABLED` | on | Background `@Cron` refresh |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | 4 | Parallel worker cap |
+| `MARKET_SNAPSHOT_BULK_COLD_START_CAP` | 12 | Cap `cold_start` and `stale_swr` enqueues from multi-key list/portfolio reads (0 = unlimited) |
+| `MARKET_SNAPSHOT_CIRCUIT_PAUSE_MS` | 30000 | Back off snapshot drain when Cardhedger circuit is OPEN |
 | `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | ignored | Mint-only PSA policy — snapshot refresh never calls PSA |
 | `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | 30000 | In-process full snapshot price index for portfolio joins |
 

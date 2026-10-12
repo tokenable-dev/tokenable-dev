@@ -8,147 +8,159 @@ export type SchemaRequirement =
 
 /**
  * Prod schema gates — add a row when code depends on a new table/column
- * that existing DBs get via `backend/sql/maintenance/*.sql` (not TypeORM sync).
+ * that existing DBs get via `backend/sql/maintenance/deploy-sync.sql` (not TypeORM sync).
  */
+const DEPLOY_SYNC_FIX = 'maintenance/deploy-sync.sql (or run apply-deploy-maintenance.sh)';
+
 export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   {
     kind: 'column',
     table: 'vault_cycles',
     column: 'mint_attempt',
-    fix: 'maintenance/add_vault_cycles_mint_attempt.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'rwa_tokens',
     column: 'display_image_back_url',
-    fix: 'maintenance/add_rwa_tokens_display_image_back_url.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'rwa_tokens',
     column: 'settlement_policy',
-    fix: 'maintenance/add_rwa_tokens_settlement_policy.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'rwa_tokens',
     column: 'vault_partner_id',
-    fix: 'maintenance/add_rwa_tokens_vault_partner_id.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'rwa_tokens',
     column: 'owner_wallet',
-    fix: 'maintenance/add_rwa_tokens_owner_wallet.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'table',
     name: 'rwa_owner_index_cursors',
-    fix: 'maintenance/add_rwa_owner_index_cursors.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'table',
     name: 'kbw_mystery_card_burns',
-    fix: 'maintenance/add_kbw_mystery_card_burns.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'payment_batch_id',
-    fix: 'maintenance/add_vault_redemptions_fee_payment.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'fee_total_usd',
-    fix: 'maintenance/add_vault_redemptions_fee_payment.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'payment_received_usdc_micros',
-    fix: 'maintenance/add_vault_redemptions_custody_refund.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'custody_tx_hash',
-    fix: 'maintenance/add_vault_redemptions_custody_refund.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'tracking_number',
-    fix: 'maintenance/add_vault_redemptions_custody_refund.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'refund_status',
-    fix: 'maintenance/add_vault_redemptions_custody_refund.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_redemptions',
     column: 'admin_memo',
-    fix: 'maintenance/add_vault_redemptions_custody_refund.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'table',
     name: 'vault_redeem_payment_claims',
-    fix: 'maintenance/add_vault_redeem_payment_claims.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'table',
     name: 'marketplace_partner_addresses',
-    fix: 'maintenance/add_marketplace_partner_addresses.sql (or schema/066_marketplace_partner_addresses.sql)',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'table',
     name: 'self_vault_settlements',
-    fix: 'maintenance/add_self_vault_settlements.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_submission_items',
     column: 'card_number',
-    fix: 'maintenance/add_vault_submission_item_display_fields.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'marketplace_collections',
     column: 'token_contract',
-    fix: 'maintenance/add_marketplace_collections_token_contract.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'vault_submissions',
     column: 'token_contract',
-    fix: 'maintenance/add_vault_submissions_token_contract.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'portfolio_daily_snapshots',
     column: 'token_contract',
-    fix: 'maintenance/add_portfolio_daily_snapshots_token_contract.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'bulk_mint_job_items',
     column: 'display_name',
-    fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'bulk_mint_job_items',
     column: 'collection_key',
-    fix: 'maintenance/add_bulk_mint_display_name_collection_key.sql',
+    fix: DEPLOY_SYNC_FIX,
   },
   {
     kind: 'column',
     table: 'user_buyer_listing_alert',
     column: 'token_contract',
-    fix: 'maintenance/user_buyer_listing_alert_token_contract.sql',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
+    name: 'partner_vault_mint_jobs',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
+    name: 'partner_vault_mint_job_items',
+    fix: DEPLOY_SYNC_FIX,
   },
 ];
 

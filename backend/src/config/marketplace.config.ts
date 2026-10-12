@@ -3,7 +3,7 @@ import { readCardhedgerFeatureFlags } from './cardhedger-feature-flags.util';
 
 export default registerAs('marketplace', () => {
   const adminUsername =
-    process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'skyand';
+    process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'tokenable_admin';
   const adminPassword =
     process.env.MARKETPLACE_ADMIN_PASSWORD?.trim() || '071725';
   const adminSessionSecret =

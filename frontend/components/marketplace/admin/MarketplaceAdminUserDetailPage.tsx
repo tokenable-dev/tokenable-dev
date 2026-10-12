@@ -179,10 +179,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
 
   return (
     <div>
-      <MarketplaceAdminPageHeader
-        title="유저"
-        subtitle="Sumsub 셀러 인증 상태와 정책 위반 셀러"
-      />
+      <MarketplaceAdminPageHeader title="유저" />
 
       <div
         className="mb-5 flex gap-1 border-b border-zinc-200 sm:mb-6"
@@ -208,7 +205,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
       <nav className="mb-4">
         <Link
           href="/marketplace/admin/users"
-          className={`inline-flex items-center gap-1 text-sm font-medium ${ADMIN_TEXT_SECONDARY} hover:text-zinc-900`}
+          className={`inline-flex max-w-full items-center gap-1 break-all text-sm font-medium ${ADMIN_TEXT_SECONDARY} hover:text-zinc-900`}
         >
           ← 유저 / {shortId}
         </Link>
@@ -250,18 +247,23 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
                     </span>
                   ) : null}
                 </div>
-                <p className={`mt-1 text-sm ${ADMIN_TEXT_MUTED}`}>
-                  {formatAdminUserEmail(detail.email)} · {shortId} · 가입{" "}
-                  {formatAdminJoinDate(detail.createdAt)}
+                <p
+                  className={`mt-1 break-all text-sm leading-relaxed ${ADMIN_TEXT_MUTED}`}
+                >
+                  {formatAdminUserEmail(detail.email)}
+                  <span className="text-zinc-400"> · </span>
+                  {shortId}
+                  <span className="text-zinc-400"> · </span>
+                  가입 {formatAdminJoinDate(detail.createdAt)}
                 </p>
               </div>
             </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
+            <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               {activePartner ? (
                 <button
                   type="button"
-                  className={ADMIN_BTN_SECONDARY}
+                  className={`${ADMIN_BTN_SECONDARY} col-span-2 w-full sm:col-span-1 sm:w-auto`}
                   disabled={busy}
                   onClick={() => void onRevokePartner()}
                 >
@@ -270,7 +272,7 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
               ) : (
                 <button
                   type="button"
-                  className={ADMIN_BTN_SECONDARY}
+                  className={`${ADMIN_BTN_SECONDARY} col-span-2 w-full sm:col-span-1 sm:w-auto`}
                   disabled={busy}
                   onClick={() => setPartnerModalOpen(true)}
                 >
@@ -279,21 +281,21 @@ export function MarketplaceAdminUserDetailPage({ userId }: { userId: string }) {
               )}
               <button
                 type="button"
-                className={ADMIN_BTN_SECONDARY}
+                className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
                 onClick={comingSoon}
               >
                 스트라이크 추가
               </button>
               <button
                 type="button"
-                className={ADMIN_BTN_SECONDARY}
+                className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
                 onClick={comingSoon}
               >
                 계정 제한
               </button>
               <button
                 type="button"
-                className={ADMIN_BTN_SECONDARY}
+                className={`${ADMIN_BTN_SECONDARY} col-span-2 w-full sm:col-span-1 sm:w-auto`}
                 onClick={comingSoon}
               >
                 판매 정지

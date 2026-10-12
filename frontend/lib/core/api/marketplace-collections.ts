@@ -106,6 +106,43 @@ export async function getMarketplaceCollectionsPage(opts?: {
   };
 }
 
+/** Markets browse page 1 — summaries + materialized list snapshots in one request. */
+export async function getMarketplaceMarketsBootstrapPage(opts?: {
+  limit?: number;
+  cursor?: string | null;
+  priceHistoryDuration?: string;
+}): Promise<{
+  items: MarketplaceCollectionSummary[];
+  nextCursor: string | null;
+  snapshots: { items: CollectionListMarketSnapshot[] };
+}> {
+  const sp = new URLSearchParams();
+  if (opts?.limit != null) sp.set("limit", String(opts.limit));
+  if (opts?.cursor) sp.set("cursor", opts.cursor);
+  if (opts?.priceHistoryDuration) {
+    sp.set("priceHistoryDuration", opts.priceHistoryDuration);
+  }
+  const q = sp.toString();
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/collections/markets-bootstrap${q ? `?${q}` : ""}`,
+  );
+  if (!res.ok) throw new Error("Failed to fetch markets bootstrap");
+  const body = (await res.json().catch(() => null)) as {
+    items?: MarketplaceCollectionSummary[];
+    nextCursor?: string | null;
+    snapshots?: { items?: CollectionListMarketSnapshot[] };
+  } | null;
+  return {
+    items: Array.isArray(body?.items) ? body.items.filter(Boolean) : [],
+    nextCursor: body?.nextCursor ?? null,
+    snapshots: {
+      items: Array.isArray(body?.snapshots?.items)
+        ? body.snapshots.items.filter(Boolean)
+        : [],
+    },
+  };
+}
+
 /** Card.html Similar items — same card name OR same set (excludes `collectionKey`). */
 export async function getMarketplaceCollectionSimilar(
   collectionKey: string,

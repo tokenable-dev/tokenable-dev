@@ -221,6 +221,22 @@
   cursor: not-allowed;
 }
 
+.tk-wd-item--parent .tk-wd-item__chevron {
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: transform 0.15s ease;
+}
+
+.tk-wd-item__chevron--open {
+  transform: rotate(180deg);
+}
+
+.tk-wd-item.is-active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .tk-wd-sub {
   padding-left: 32px;
   font-size: 13px;

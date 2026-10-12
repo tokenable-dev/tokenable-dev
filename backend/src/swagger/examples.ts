@@ -155,11 +155,6 @@ export const SWAGGER_BODY_EXAMPLES = {
   portfolioHide: { walletAddress: F.wallet, tokenId: F.tokenId },
   portfolioHoldingsBatch: { walletAddress: F.wallet, tokenIds: F.tokenIds },
   portfolioAssetsPage: { walletAddress: F.wallet, tokenIds: F.tokenIds },
-  portfolioSetCostBasis: {
-    walletAddress: F.wallet,
-    tokenId: F.tokenId,
-    costBasisUsd: 1250,
-  },
   adminSetCover: {
     coverImageUrl: F.coverUrl,
   },

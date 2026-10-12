@@ -304,6 +304,20 @@ Response: `{ topMovers, justVaulted, ticker, snapshots }`.
 
 ---
 
+### `GET /api/marketplace/collections/markets-bootstrap`
+
+Markets browse **first page** in one round-trip: same cursor-paginated `items` / `nextCursor` as `GET /collections`, plus `snapshots.items` for those keys from materialized rows only (no Cardhedger on the request). Subsequent pages use `GET /collections` + `POST …/market-snapshots`.
+
+| Query | Default | Description |
+|-------|---------|-------------|
+| `limit` | `50` | Max `60` |
+| `cursor` | — | Optional; usually omitted for page 1 |
+| `priceHistoryDuration` | `max` | Sparkline window (same as Markets list) |
+
+Response: `{ items, nextCursor, snapshots: { items } }`.
+
+---
+
 ### `GET /api/marketplace/search`
 
 Unified catalog search for the header typeahead and `/search` page.
@@ -554,7 +568,7 @@ Collection order book **Notify me** — not the same as watchlist. One-time in-a
 
 ## Portfolio holdings (hide + cost basis)
 
-Off-chain prefs — NFT remains in the wallet. `hidden_at` excludes a token from portfolio totals. `cost_basis_usd` powers P/L; `manual` edits are never overwritten by auto seed.
+Off-chain prefs — NFT remains in the wallet. `hidden_at` excludes a token from portfolio totals. `cost_basis_usd` powers per-row P/L when auto-seeded (`vault_delivery`, `marketplace_buy`). Legacy `manual` rows are read-only and are not overwritten by auto seed.
 
 ### `GET /api/marketplace/portfolio/hidden/:wallet`
 
@@ -593,10 +607,10 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
 
 Server-side pipeline (DB-first, parallel where possible):
 
-1. **`ownedTokenIds`** — DB owner index (newest-first). When the index is **ready**, registry heal runs in the **background** (never blocks My Assets). RPC `ownerOf` scan only when index is not ready **and** DB has no rows for the wallet.
+1. **`ownedTokenIds`** — DB owner index (newest-first), then per-id `ownerOf` verify (drops stale DB rows after off-platform sales). **`bootstrapFirstPage`** verifies the newest 24 ids and the remainder **in parallel** (same checks, lower wall-clock). Skips full-supply on-chain scan. Registry heal runs in the **background**.
 2. **Metadata** — `batchPortfolioMetadata` with **`allowExternal: false`**: PostgreSQL only (list stubs + DB slab URLs). Incomplete tokens are listed in `needsHeal` and filled by a **process-wide** background queue (concurrency 2, max 400) — not one IPFS fan-out per concurrent user. Daily snapshot may pass `allowExternal: true`. Ops: `POST …/admin/rwa-slab/backfill-list-ready` + optional `RWA_LIST_READY_BACKFILL_ENABLED=1`. See `docs/architecture/portfolio-list-materialization.md`.
 3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
-4. **Market** — preload `collection_market_snapshots` (full table price index, TTL) in parallel with metadata / holdings / `rwa_tokens.collection_key`, then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
+4. **Market** — load `collection_market_snapshots` rows **by this page’s `collection_key` set** (`findByKeys`), then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
 5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
 
 **UI:** Frontend restores localStorage paint on refresh. Cold visits: `ownedIdsOnly` → shells → first-page metadata. Bootstrap network errors keep the paint cache (no false empty wallet). `mintPreviews` stays `{}` on this endpoint — client follow-up only for tokens the snapshot cannot price (no matched preview **and** no grade strip with a resolvable PSA grade). Snapshot-priced tiles paint immediately; unpriced siblings may show `…` until mint-preview returns. Hero uses a partial live sum (avoids `$0` when no marks yet).
@@ -612,10 +626,6 @@ Honors `x-tokenable-chain-id`.
 **Response:** `{ items: [{ tokenId, hidden, costBasisUsd, costBasisSource, acquiredAt }] }`
 
 `costBasisSource`: `manual` | `vault_delivery` | `marketplace_buy` | null.
-
-### `PUT /api/marketplace/portfolio/holdings/cost-basis`
-
-**Body:** `{ walletAddress, tokenId, costBasisUsd }` — user manual edit (`source = manual`).
 
 **Vault deliver seed:** when admin delivers a custody NFT (`deliverCustodyNftToUser`), the backend seeds `vault_delivery` cost basis from the current market mark USD at deliver time. Manual rows are skipped.
 
@@ -637,7 +647,7 @@ Honors `x-tokenable-chain-id`.
 
 **Auth:** JWT cookie. Body `{ walletAddress }` (wallet is validated; burn is keyed to the session user’s contact email only). Not an on-chain NFT burn. Afterward, Portfolio hides the synthetic card for that email on every linked wallet.
 
-**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys and after `PUT …/cost-basis` (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or `manual` value.
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or legacy `manual` value.
 
 ---
 

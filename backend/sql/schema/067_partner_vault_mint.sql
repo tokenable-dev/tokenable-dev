@@ -1,5 +1,5 @@
 -- Partner self-vault bulk mint (sell flow) — server-side job queue.
--- Safe to re-run (IF NOT EXISTS).
+-- Entities: backend/src/rwa/entities/partner-vault-mint-job*.entity.ts
 
 CREATE TABLE IF NOT EXISTS partner_vault_mint_jobs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -36,3 +36,8 @@ CREATE TABLE IF NOT EXISTS partner_vault_mint_job_items (
 
 CREATE INDEX IF NOT EXISTS idx_partner_vault_mint_job_items_job_id
   ON partner_vault_mint_job_items (job_id);
+
+COMMENT ON TABLE partner_vault_mint_jobs IS
+  'Sell-flow partner vault mint jobs (user submission → server mint to recipient).';
+COMMENT ON TABLE partner_vault_mint_job_items IS
+  'Per-cert row for partner_vault_mint_jobs.';

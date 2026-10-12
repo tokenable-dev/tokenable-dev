@@ -180,8 +180,8 @@ export function MarketplaceAdminUserManagePanel({
             </Meta>
             <Meta label="Updated">{formatDate(detail.updatedAt)}</Meta>
           </dl>
-          <div className="mt-3 flex flex-wrap items-end gap-2">
-            <div className="min-w-[160px] flex-1">
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+            <div className="min-w-0 flex-1 sm:min-w-[160px]">
               <label className={ADMIN_LABEL}>Name</label>
               <input
                 className={ADMIN_INPUT}
@@ -192,7 +192,7 @@ export function MarketplaceAdminUserManagePanel({
             </div>
             <button
               type="button"
-              className={ADMIN_BTN_PRIMARY}
+              className={`${ADMIN_BTN_PRIMARY} w-full sm:w-auto`}
               disabled={busy}
               onClick={() => void onPatchName(detail.id, nameInput)}
             >
@@ -237,10 +237,10 @@ export function MarketplaceAdminUserManagePanel({
               {detail.kycRejectionReason ?? "—"}
             </Meta>
           </dl>
-          <div className="mt-3 flex flex-wrap items-end gap-2">
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-end">
             <button
               type="button"
-              className={ADMIN_BTN_SECONDARY}
+              className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
               disabled={busy || detail.kycStatus === "approved"}
               onClick={() =>
                 void runAction({
@@ -254,7 +254,7 @@ export function MarketplaceAdminUserManagePanel({
             </button>
             <button
               type="button"
-              className={ADMIN_BTN_SECONDARY}
+              className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
               disabled={busy || detail.kycStatus === "pending"}
               onClick={() =>
                 void runAction({
@@ -268,7 +268,7 @@ export function MarketplaceAdminUserManagePanel({
             </button>
             <button
               type="button"
-              className={ADMIN_BTN_SECONDARY}
+              className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
               disabled={busy || detail.kycStatus === "none"}
               onClick={() =>
                 void runAction({
@@ -280,7 +280,7 @@ export function MarketplaceAdminUserManagePanel({
             >
               Reset
             </button>
-            <div className="min-w-[180px] flex-1">
+            <div className="col-span-2 min-w-0 flex-1 sm:col-span-1 sm:min-w-[180px]">
               <label className={ADMIN_LABEL}>Reject reason</label>
               <input
                 className={ADMIN_INPUT}
@@ -292,7 +292,7 @@ export function MarketplaceAdminUserManagePanel({
             </div>
             <button
               type="button"
-              className={ADMIN_BTN_SECONDARY}
+              className={`${ADMIN_BTN_SECONDARY} col-span-2 w-full sm:col-span-1 sm:w-auto`}
               disabled={busy || !kycReason.trim()}
               onClick={() =>
                 void runAction({
@@ -374,7 +374,7 @@ export function MarketplaceAdminUserManagePanel({
               {detail.wallets.map((w) => (
                 <li
                   key={w.id}
-                  className="flex flex-wrap items-start justify-between gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2"
+                  className="flex flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between"
                 >
                   <div className="min-w-0 font-mono text-[10px] text-zinc-700">
                     <p className="break-all text-xs text-zinc-900">
@@ -396,7 +396,7 @@ export function MarketplaceAdminUserManagePanel({
                   </div>
                   <button
                     type="button"
-                    className={ADMIN_BTN_SECONDARY}
+                    className={`${ADMIN_BTN_SECONDARY} w-full shrink-0 sm:w-auto`}
                     disabled={busy}
                     onClick={() =>
                       void runAction({
@@ -412,9 +412,9 @@ export function MarketplaceAdminUserManagePanel({
               ))}
             </ul>
           )}
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
             <input
-              className={`${ADMIN_INPUT_MONO} min-w-[200px] flex-1`}
+              className={`${ADMIN_INPUT_MONO} min-w-0 flex-1 sm:min-w-[200px]`}
               placeholder="0x…"
               value={walletInput}
               onChange={(e) => setWalletInput(e.target.value)}
@@ -422,7 +422,7 @@ export function MarketplaceAdminUserManagePanel({
             />
             <button
               type="button"
-              className={ADMIN_BTN_SECONDARY}
+              className={`${ADMIN_BTN_SECONDARY} w-full sm:w-auto`}
               disabled={busy || !walletInput.trim()}
               onClick={() =>
                 void runAction({

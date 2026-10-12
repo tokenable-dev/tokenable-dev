@@ -13,19 +13,17 @@ export function AdminGa4ExternalLink({ variant = "full" }: Props) {
 
   return (
     <div className={`${ADMIN_ARTICLE} mb-5 sm:mb-6`}>
-      <AdminSectionTitle
-        title="Traffic analytics"
-        subtitle={
-          isCompact
-            ? "Visitors, sessions, and page views — open in Google Analytics"
-            : "Detailed traffic reports live in Google Analytics for now. In-app analytics will be added later."
-        }
-      />
-      <p className={`mb-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-        {isCompact
-          ? "Use the GA4 dashboard for realtime users, top pages, acquisition, and device breakdowns."
-          : "Sign in with a Google account that has access to the Tokenable GA4 property."}
-      </p>
+      {isCompact ? (
+        <AdminSectionTitle title="Traffic" />
+      ) : (
+        <>
+          <AdminSectionTitle title="Traffic analytics" />
+          <p className={`mb-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
+            Sign in with a Google account that has access to the Tokenable GA4
+            property.
+          </p>
+        </>
+      )}
       <a
         href={GA4_CONSOLE_URL}
         target="_blank"

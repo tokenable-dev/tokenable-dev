@@ -359,7 +359,8 @@ backend/sql/
 │   ├── 070_cardhedger.sql
 │   └── 900_triggers.sql
 ├── maintenance/
-│   └── reset_marketplace_data.sql
+│   ├── deploy-sync.sql              # every deploy (CI)
+│   └── reset_marketplace_data.sql   # manual wipe
 ├── seed/
 │   ├── marketplace-admin.sql
 │   └── dev-platform-chart-fills.sql
@@ -369,4 +370,4 @@ backend/sql/
 **Rules:**
 - Schema files are domain-grouped final DDL for fresh bootstrap (not incremental migrations)
 - `900_triggers.sql` is idempotent; re-applied in bootstrap
-- `maintenance/` scripts are optional ops; not in bootstrap
+- `maintenance/deploy-sync.sql` upgrades existing DBs on deploy; other maintenance files are manual ops

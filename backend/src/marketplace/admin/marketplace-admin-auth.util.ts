@@ -12,7 +12,7 @@ export type MarketplaceAdminAuthConfig = {
 export function readMarketplaceAdminAuthConfig(
   env: NodeJS.ProcessEnv,
 ): MarketplaceAdminAuthConfig {
-  const username = env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'skyand';
+  const username = env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'tokenable_admin';
   const password = env.MARKETPLACE_ADMIN_PASSWORD?.trim() || '071725';
   const sessionSecret =
     env.MARKETPLACE_ADMIN_SESSION_SECRET?.trim() ||

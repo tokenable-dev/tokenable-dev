@@ -12,6 +12,8 @@ import {
   ADMIN_INPUT_MONO,
   ADMIN_LABEL,
   ADMIN_TEXT_ERROR,
+  ADMIN_TABLE,
+  ADMIN_TABLE_WRAP,
   ADMIN_TEXT_META,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
@@ -215,8 +217,8 @@ export function MarketplaceAdminCreateCollectionPanel({
           {batchBusy ? "Running batch…" : "Run batch create test"}
         </button>
         {batchRows.length > 0 ? (
-          <div className="mt-3 max-h-64 overflow-auto rounded-md border border-zinc-200">
-            <table className="w-full text-left text-xs">
+          <div className={`${ADMIN_TABLE_WRAP} mt-3 max-h-64 overflow-y-auto`}>
+            <table className={ADMIN_TABLE}>
               <thead className="sticky top-0 bg-zinc-50 text-zinc-600">
                 <tr>
                   <th className="px-2 py-1 font-medium">Cert</th>

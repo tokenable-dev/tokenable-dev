@@ -33,7 +33,7 @@ export function CollectionOverviewMarketsClusterDesktop({
   const showTrade = marketsDockTradePanel && tradePanel != null;
 
   return (
-    <div className="relative hidden w-full min-w-0 max-w-full overflow-visible lg:block cd-markets-cluster">
+    <div className="relative hidden w-full min-w-0 max-w-full overflow-visible min-[1141px]:block cd-markets-cluster">
       <div className="cd-markets-cluster__inner w-full min-w-0 overflow-visible">
         <div className="cd-markets-cluster__mat cd-hero-sticky-scope w-full min-w-0 overflow-visible">
           {hasMetrics ? chartMetricsRow : null}

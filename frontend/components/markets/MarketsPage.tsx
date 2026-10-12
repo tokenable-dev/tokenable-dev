@@ -2,7 +2,6 @@
 
 import {
   useCallback,
-  useDeferredValue,
   useEffect,
   useMemo,
   useRef,
@@ -57,6 +56,7 @@ import {
   saveCollectionBrowseContext,
 } from "@/lib/marketplace/collectionBrowseContext";
 import { AppPageState } from "@/components/ui/AppPageState";
+import { TkButton } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
@@ -67,6 +67,7 @@ function filtersFromState(input: {
   priceMin: string;
   priceMax: string;
   gradeFilters: Set<MarketsGradeFilterId>;
+  vaultFilters: Set<MarketsVaultFilterId>;
   characters: string[];
   series: string[];
   sets: string[];
@@ -79,6 +80,7 @@ function filtersFromState(input: {
     priceMin: input.priceMin,
     priceMax: input.priceMax,
     grades: [...input.gradeFilters],
+    vaults: [...input.vaultFilters],
     characters: input.characters,
     series: input.series,
     sets: input.sets,
@@ -110,7 +112,7 @@ export default function MarketsPage() {
     () => new Set(urlFilters.grades),
   );
   const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(
-    new Set(),
+    () => new Set(urlFilters.vaults),
   );
   const [characters, setCharacters] = useState(urlFilters.characters);
   const [series, setSeries] = useState(urlFilters.series);
@@ -120,18 +122,6 @@ export default function MarketsPage() {
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
   const skipNextUrlWrite = useRef(false);
 
-  const deferredCategoryFilters = useDeferredValue(categoryFilters);
-  const deferredSortId = useDeferredValue(sortId);
-  const deferredPriceMin = useDeferredValue(priceMin);
-  const deferredPriceMax = useDeferredValue(priceMax);
-  const deferredGradeFilters = useDeferredValue(gradeFilters);
-  const deferredVaultFilters = useDeferredValue(vaultFilters);
-  const deferredCharacters = useDeferredValue(characters);
-  const deferredSeries = useDeferredValue(series);
-  const deferredSets = useDeferredValue(sets);
-  const deferredYearMin = useDeferredValue(yearMin);
-  const deferredYearMax = useDeferredValue(yearMax);
-
   // Sync local state when URL changes (Details deep-links, back/forward).
   useEffect(() => {
     skipNextUrlWrite.current = true;
@@ -140,6 +130,7 @@ export default function MarketsPage() {
     setPriceMin(urlFilters.priceMin);
     setPriceMax(urlFilters.priceMax);
     setGradeFilters(new Set(urlFilters.grades));
+    setVaultFilters(new Set(urlFilters.vaults));
     setCharacters(urlFilters.characters);
     setSeries(urlFilters.series);
     setSets(urlFilters.sets);
@@ -159,6 +150,7 @@ export default function MarketsPage() {
       priceMin,
       priceMax,
       gradeFilters,
+      vaultFilters,
       characters,
       series,
       sets,
@@ -181,6 +173,7 @@ export default function MarketsPage() {
     priceMin,
     priceMax,
     gradeFilters,
+    vaultFilters,
     characters,
     series,
     sets,
@@ -241,12 +234,14 @@ export default function MarketsPage() {
   const colInfinite = useMarketplaceCollectionsInfinite({
     q: isSearchMode ? searchQ : undefined,
   });
+  // Name matches are already covered by collection results; only cert #s surface individual cards.
+  const isCertQuery = /^\d{7,}$/.test(searchQ);
   const searchCardsQuery = useMarketplaceCatalogSearch(searchQ, {
-    enabled: isSearchMode && searchQ.length > 0,
+    enabled: isSearchMode && isCertQuery,
     cardLimit: 20,
     collectionLimit: 0,
   });
-  const searchCards = isSearchMode ? searchCardsQuery.cards : [];
+  const searchCards = isSearchMode && isCertQuery ? searchCardsQuery.cards : [];
   const {
     data: colPages,
     isPending: colInitialPending,
@@ -273,10 +268,11 @@ export default function MarketsPage() {
     enabled: collectionSummaries.length > 0,
   });
 
-  const isInitialLoading = ordersQuery.isPending || colInitialPending;
-  const loadFailed = ordersQuery.isError || colLoadError;
-  const loadError = ordersQuery.error ?? colError ?? null;
-  const showLoadingShell = !mounted || (isInitialLoading && !loadFailed);
+  const isInitialLoading = colInitialPending;
+  const loadFailed = colLoadError;
+  const loadError = colError ?? null;
+  const showLoadingShell =
+    !mounted || (isInitialLoading && collectionSummaries.length === 0 && !loadFailed);
 
   const snapshotKeysSorted = useMemo(() => {
     const u = new Set<string>();
@@ -291,7 +287,10 @@ export default function MarketsPage() {
     snapshotByKey,
     isPending: snapshotsPending,
     isFetching: snapshotsFetching,
-  } = useMarketsSnapshots(snapshotKeysSorted, !isInitialLoading);
+  } = useMarketsSnapshots(
+    snapshotKeysSorted,
+    collectionSummaries.length > 0 || !colInitialPending,
+  );
 
   const showMarketSnapshotLoadingBar =
     snapshotKeysSorted.length > 0 && !isInitialLoading && snapshotsPending;
@@ -299,7 +298,7 @@ export default function MarketsPage() {
   const sortedForRank = useMarketsStableSortedCollections(
     collectionSummaries,
     snapshotByKey,
-    deferredSortId,
+    sortId,
     snapshotsFetching,
   );
 
@@ -314,52 +313,52 @@ export default function MarketsPage() {
 
   const setFacetOptions = useMemo(() => {
     const pool =
-      deferredCategoryFilters.size === 0
+      categoryFilters.size === 0
         ? collectionSummaries
         : collectionSummaries.filter((c) =>
             collectionMatchesCategoryFilters(
-              deferredCategoryFilters,
+              categoryFilters,
               c,
               snapshotByKey.get(collectionKeyLower(c)),
             ),
           );
     return collectMarketsSetFacetOptions(pool);
-  }, [collectionSummaries, deferredCategoryFilters, snapshotByKey]);
+  }, [collectionSummaries, categoryFilters, snapshotByKey]);
 
   const filteredSorted = useMemo(() => {
     const categoryFiltered = sortedForRank.filter((c) =>
       collectionMatchesCategoryFilters(
-        deferredCategoryFilters,
+        categoryFilters,
         c,
         snapshotByKey.get(collectionKeyLower(c)),
       ),
     );
     return applyMarketsListingFilters(categoryFiltered, snapshotByKey, {
-      priceMin: deferredPriceMin,
-      priceMax: deferredPriceMax,
-      gradeFilters: deferredGradeFilters,
-      vaultFilters: deferredVaultFilters,
+      priceMin,
+      priceMax,
+      gradeFilters,
+      vaultFilters,
       vaultKindsByKey,
-      characters: deferredCharacters,
-      series: deferredSeries,
-      sets: deferredSets,
-      yearMin: deferredYearMin,
-      yearMax: deferredYearMax,
+      characters,
+      series,
+      sets,
+      yearMin,
+      yearMax,
     });
   }, [
     sortedForRank,
     snapshotByKey,
-    deferredCategoryFilters,
-    deferredPriceMin,
-    deferredPriceMax,
-    deferredGradeFilters,
-    deferredVaultFilters,
+    categoryFilters,
+    priceMin,
+    priceMax,
+    gradeFilters,
+    vaultFilters,
     vaultKindsByKey,
-    deferredCharacters,
-    deferredSeries,
-    deferredSets,
-    deferredYearMin,
-    deferredYearMax,
+    characters,
+    series,
+    sets,
+    yearMin,
+    yearMax,
   ]);
 
   const saveMarketsBrowseContext = useCallback(() => {
@@ -447,7 +446,14 @@ export default function MarketsPage() {
 
   return (
     <div className="markets-page">
-      <MarketsPageHeader searchQuery={isSearchMode ? searchQ : undefined} />
+      <MarketsPageHeader
+        searchQuery={isSearchMode ? searchQ : undefined}
+        resultCount={
+          mounted && !showLoadingShell && !searchCardsQuery.isSearching
+            ? filteredSorted.length + searchCards.length
+            : null
+        }
+      />
 
       {showMainChrome ? (
         <MarketsFilterBar
@@ -472,6 +478,16 @@ export default function MarketsPage() {
           onSetsChange={setSets}
           onSetToggle={toggleSetFilter}
           setFacetOptions={setFacetOptions}
+          yearMin={yearMin}
+          yearMax={yearMax}
+          onYearRangeChange={(min, max) => {
+            setYearMin(min);
+            setYearMax(max);
+          }}
+          characters={characters}
+          onCharactersChange={setCharacters}
+          series={series}
+          onSeriesChange={setSeries}
         />
       ) : null}
 
@@ -510,38 +526,36 @@ export default function MarketsPage() {
           sortedForRank.length === 0 &&
           searchCards.length === 0 &&
           !searchCardsQuery.isSearching ? (
-          <div className="py-16 text-center">
-            <p className="mb-2 text-base font-semibold text-white">
+          <div className="srch-empty">
+            <p className="srch-empty__title">
               {searchQ
-                ? `No cards found for “${searchQ}”`
+                ? `No cards found for "${searchQ}"`
                 : "Type a card name, set, player, or cert #."}
             </p>
-            <p className="text-sm text-[var(--t3)]">
+            <p className="srch-empty__sub">
               Check the spelling, or try a name, set, player, or cert #.
             </p>
-            <p className="mt-5">
-              <Link href="/markets" className="text-[var(--azure)] hover:underline">
-                Browse all markets →
-              </Link>
-            </p>
+            <TkButton href="/markets" variant="primary">
+              Browse all markets →
+            </TkButton>
           </div>
         ) : sortedForRank.length === 0 && orphanAsks.length === 0 && searchCards.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="mb-2 text-base text-[var(--t2)]">No assets listed for sale yet.</p>
+            <p className="mb-2 text-base text-[var(--t2)]">No items listed for sale yet.</p>
             <p className="text-sm text-[var(--t3)]">
-              Mint and list your assets from{" "}
+              Mint and list your items from{" "}
               <GatedSellLink className="text-[var(--azure)] hover:underline">Vault</GatedSellLink>.
             </p>
           </div>
         ) : (
           <>
-            {isSearchMode ? <SearchCertMatches cards={searchCards} /> : null}
+            {isSearchMode ? <SearchCertMatches cards={searchCards} query={searchQ} /> : null}
             {filteredSorted.length === 0 ? (
               sortedForRank.length > 0 ? (
               <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
                 <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
                 <p className="mt-2 text-sm text-[var(--t3)]">
-                  Try All, a different category, price range, or grade — or clear detail filters.
+                  Try a different category, price range, grade, or year.
                 </p>
                 {detailFacetChips.length > 0 ? (
                   <button
@@ -557,7 +571,12 @@ export default function MarketsPage() {
             ) : (
               <>
                 {isSearchMode ? (
-                  <h2 className="srch-sec-title">Collections</h2>
+                  <div className="srch-results-head">
+                    <h2 className="srch-results-head__title">Collection results</h2>
+                    <span className="srch-results-head__count">
+                      <b>{filteredSorted.length.toLocaleString("en-US")}</b> for &quot;{searchQ}&quot;
+                    </span>
+                  </div>
                 ) : null}
                 <MarketsCollectionGrid
                   collections={filteredSorted}

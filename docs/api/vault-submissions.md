@@ -118,10 +118,7 @@ GMAIL_USER=tokenable.dev@gmail.com
 **Ops checklist (staging/prod):**
 
 1. Apply SQL (in order if table is new):
-   - `backend/sql/maintenance/add_vault_psa_arrival_reviews.sql`
-   - `backend/sql/maintenance/add_vault_psa_arrival_reviews_ingest_note.sql` (if table already existed without `ingest_note`)
-   - `backend/sql/maintenance/add_vault_psa_arrival_reviews_auto_confirm.sql` (`confirmed_via`, `skipped_public_ids`)
-   - `backend/sql/maintenance/add_vault_psa_vaulted_reviews.sql` (PSA → Live audit)
+   - `backend/sql/maintenance/deploy-sync.sql` (PSA arrival + vaulted review tables/columns; run via `apply-deploy-maintenance.sh`)
 2. Set `GMAIL_*` + `PSA_RECEIVED_MAIL_ENABLED=1` + **`PSA_VAULTED_MAIL_ENABLED=1`** on the **API host** (not frontend). If vaulted flag is unset, it inherits the arrival flag (startup warns).
 3. Ensure PSA Vault mail lands in `GMAIL_USER` (native or forward).
 4. Confirm startup logs: `PSA received-mail poll armed …` and `PSA vaulted-mail poll armed …`.

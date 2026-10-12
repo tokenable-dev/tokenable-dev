@@ -196,10 +196,9 @@ User-facing flow (product copy: **Redeem**, route `/portfolio/redeem`):
 
 **Refunds (admin):** allowed until a `tracking_number` is set (blocked after burn/completed). USDC refund is **once per payment batch** (stored micros; never recompute) — not once per redemption row. Return custody NFTs via custody signer (per card). UI: `/marketplace/admin/redeems` (batch header shows paid amount + refund actions).
 
-Physical PSA outbound remains ops (no PSA vault withdraw API). Apply `backend/sql/maintenance/add_vault_redemptions_fee_payment.sql`, `add_vault_redemptions_custody_refund.sql`, and `add_vault_redeem_payment_claims.sql` (UNIQUE `payment_tx_hash` claim table + atomic batch create).
+Physical PSA outbound remains ops (no PSA vault withdraw API). Redeem payment/custody/claim columns ship in `maintenance/deploy-sync.sql` (run via `apply-deploy-maintenance.sh` on deploy).
 
-Maintenance SQL for ship-to on existing DBs: `backend/sql/maintenance/add_vault_redemptions_ship_to.sql`.  
-Maintenance SQL for FedEx delivery / auto-receipt: `backend/sql/maintenance/add_vault_redemptions_carrier_delivered.sql`.
+Ship-to and FedEx auto-receipt columns are in the same `deploy-sync.sql` bundle.
 
 ---
 

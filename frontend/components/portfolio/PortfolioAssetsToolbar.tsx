@@ -1,65 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import {
-  ASSETS_SEGMENT_OPTIONS,
+  ASSETS_FILTER_OPTIONS,
   type AssetsSegment,
 } from "@/lib/portfolio/portfolioAssetsSegment";
 import { TkButton } from "@/components/ds";
-import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
 
 export type AssetsViewMode = "gallery" | "table";
-export type AssetsToolbarSort = "newest" | "value" | "pl" | "ret" | "name";
+export type AssetsToolbarSort = "newest" | "value" | "low";
 
 const SORT_OPTIONS: { value: AssetsToolbarSort; label: string }[] = [
-  { value: "newest", label: "Newest" },
-  { value: "value", label: "Value" },
-  { value: "pl", label: "Gain $" },
-  { value: "ret", label: "Return %" },
-  { value: "name", label: "Name" },
+  { value: "newest", label: "Most recent" },
+  { value: "value", label: "High price" },
+  { value: "low", label: "Low price" },
 ];
 
-const FilterIcon = () => (
-  <svg
-    width="15"
-    height="15"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden
-  >
-    <line x1="4" y1="6" x2="20" y2="6" />
-    <line x1="7" y1="12" x2="17" y2="12" />
-    <line x1="10" y1="18" x2="14" y2="18" />
-  </svg>
-);
+function FilterChevron() {
+  return (
+    <svg
+      className="cx"
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
-const SelectIcon = () => (
-  <svg
-    width="14"
-    height="14"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden
-  >
-    <polyline points="9 11 12 14 22 4" />
-    <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
-  </svg>
-);
-
-/** Portfolio.html My Assets `pf-tbar` — filter, search, sort, view, Select. */
+/** Portfolio.html My Assets `pf-tbar` — filter, Cancel/Hide, sort (gallery-only). */
 export function PortfolioAssetsToolbar({
   segment,
   onSegmentChange,
-  searchQuery,
-  onSearchQueryChange,
   sort,
   onSortChange,
   view,
@@ -67,15 +45,18 @@ export function PortfolioAssetsToolbar({
   selectMode,
   onSelectModeChange,
   selectedCount,
+  selectedListedCount,
+  selectedHideCount,
   onSelectAll,
   onClearSelection,
   onCancelSelected,
+  onHideOrUnhideSelected,
   cancellingSelected,
+  hidingSelected,
+  onClearFilters,
 }: {
   segment: AssetsSegment;
   onSegmentChange: (seg: AssetsSegment) => void;
-  searchQuery: string;
-  onSearchQueryChange: (q: string) => void;
   sort: AssetsToolbarSort;
   onSortChange: (sort: AssetsToolbarSort) => void;
   view: AssetsViewMode;
@@ -83,52 +64,78 @@ export function PortfolioAssetsToolbar({
   selectMode: boolean;
   onSelectModeChange: (on: boolean) => void;
   selectedCount: number;
+  selectedListedCount: number;
+  selectedHideCount: number;
   onSelectAll: () => void;
   onClearSelection: () => void;
   onCancelSelected: () => void;
+  onHideOrUnhideSelected: () => void;
   cancellingSelected?: boolean;
+  hidingSelected?: boolean;
+  onClearFilters: () => void;
 }) {
-  const [filterOpen, setFilterOpen] = useState(false);
-  const filterActive = segment !== "tradeable";
+  const filterActive = segment !== "all" || sort !== "newest";
 
-  useEffect(() => {
-    if (!filterOpen) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setFilterOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [filterOpen]);
+  const hideActionLabel =
+    segment === "hidden"
+      ? `Unhide${selectedHideCount > 0 ? ` (${selectedHideCount})` : ""}`
+      : `Hide${selectedHideCount > 0 ? ` (${selectedHideCount})` : ""}`;
 
   if (selectMode) {
     return (
-      <div className="pf-tbar pf-tbar--select" id="pf-assets-toolbar" role="toolbar" aria-label="Cancel listing selection">
-        <span className="pf-cl-count">
-          {selectedCount} selected
-        </span>
-        <button type="button" className="pf-cl-chip" onClick={onSelectAll}>
+      <div
+        className="pf-tbar pf-tbar--select pf-cl-bar"
+        id="pf-assets-toolbar"
+        role="toolbar"
+        aria-label="Cancel or hide items"
+      >
+        <span className="pf-cl-count">{selectedCount} selected</span>
+        <button type="button" className="pf-tbtn" onClick={onSelectAll}>
           Select all
         </button>
-        <button type="button" className="pf-cl-chip" onClick={onClearSelection}>
+        <button type="button" className="pf-tbtn pf-tbtn--ghost" onClick={onClearSelection}>
           Clear
         </button>
-        <TkButton
-          type="button"
-          variant="primary"
-          size="sm"
-          className="pf-cl-go"
-          disabled={selectedCount === 0 || cancellingSelected}
-          onClick={onCancelSelected}
-        >
-          {cancellingSelected ? "Cancelling…" : "Cancel listing"}
-        </TkButton>
+        <div className="pf-tbar__spacer" />
+        {segment !== "hidden" ? (
+          <TkButton
+            type="button"
+            variant="primary"
+            size="sm"
+            className="pf-cl-go"
+            disabled={selectedListedCount === 0 || cancellingSelected}
+            onClick={onCancelSelected}
+          >
+            {cancellingSelected
+              ? "Cancelling…"
+              : `Cancel listing${selectedListedCount > 0 ? ` (${selectedListedCount})` : ""}`}
+          </TkButton>
+        ) : null}
         <button
           type="button"
-          className="pf-cl-chip pf-cl-chip--icon"
+          className="pf-tbtn"
+          disabled={selectedHideCount === 0 || hidingSelected}
+          onClick={onHideOrUnhideSelected}
+        >
+          {hidingSelected ? "Saving…" : hideActionLabel}
+        </button>
+        <button
+          type="button"
+          className="pf-tbtn pf-tbtn--icon pf-tbtn--ghost"
           aria-label="Exit selection"
           onClick={() => onSelectModeChange(false)}
         >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.8"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
@@ -138,32 +145,45 @@ export function PortfolioAssetsToolbar({
   }
 
   return (
-    <>
-      <div className="pf-tbar" id="pf-assets-toolbar">
+    <div className="pf-tbar" id="pf-assets-toolbar">
+        <label className="pf-tdrop">
+          <span className="pf-tdrop__k">Filter:</span>
+          <select
+            aria-label="Filter items"
+            value={segment}
+            onChange={(e) => onSegmentChange(e.target.value as AssetsSegment)}
+          >
+            {ASSETS_FILTER_OPTIONS.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+          <FilterChevron />
+        </label>
+
         <button
           type="button"
-          className="pf-tbtn pf-tbtn--icon"
-          aria-label="Filter assets"
-          aria-expanded={filterOpen}
-          onClick={() => setFilterOpen(true)}
+          id="pf-hide-btn"
+          className="pf-tbtn"
+          onClick={() => onSelectModeChange(true)}
         >
-          <FilterIcon />
-          {filterActive ? <span className="pf-tbtn__dot" /> : null}
+          Cancel / Hide
         </button>
 
-        <PortfolioToolbarSearch
-          value={searchQuery}
-          onChange={onSearchQueryChange}
-          placeholder="Search name, cert #, set"
-          aria-label="Search your assets"
-        />
+        {filterActive ? (
+          <button type="button" className="pf-tbtn pf-tbtn--ghost" onClick={onClearFilters}>
+            Clear
+          </button>
+        ) : null}
 
         <div className="pf-tbar__spacer" />
 
         <div className="pf-tbar__cluster">
-          <div className="pf-tbar__sortsel">
+          <label className="pf-tdrop pf-tdrop--sort">
+            <span className="pf-tdrop__k">Sort:</span>
             <select
-              aria-label="Sort assets"
+              aria-label="Sort items"
               value={sort}
               onChange={(e) => onSortChange(e.target.value as AssetsToolbarSort)}
             >
@@ -173,36 +193,17 @@ export function PortfolioAssetsToolbar({
                 </option>
               ))}
             </select>
-            <svg
-              className="cx"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden
-            >
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
+            <FilterChevron />
+          </label>
 
-          <div className="pf-view-toggle" role="group" aria-label="View mode">
+          <div className="pf-view-toggle" role="group" aria-label="View mode" hidden>
             <button
               type="button"
               className={`pf-view${view === "gallery" ? " pf-view--sel" : ""}`}
               aria-pressed={view === "gallery"}
               onClick={() => onViewChange("gallery")}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-              </svg>
-              <span className="pf-view__lbl">Gallery</span>
+              Gallery
             </button>
             <button
               type="button"
@@ -210,64 +211,10 @@ export function PortfolioAssetsToolbar({
               aria-pressed={view === "table"}
               onClick={() => onViewChange("table")}
             >
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <line x1="3" y1="6" x2="21" y2="6" />
-                <line x1="3" y1="12" x2="21" y2="12" />
-                <line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-              <span className="pf-view__lbl">Table</span>
+              Table
             </button>
           </div>
-
-          <button
-            type="button"
-            className="pf-tbtn"
-            onClick={() => onSelectModeChange(true)}
-          >
-            <SelectIcon />
-            <span>Select</span>
-          </button>
         </div>
       </div>
-
-      {filterOpen ? (
-        <div className="pf-filter-drawer" role="presentation">
-          <button
-            type="button"
-            className="pf-filter-drawer__scrim"
-            aria-label="Close filter"
-            onClick={() => setFilterOpen(false)}
-          />
-          <div
-            className="pf-filter-drawer__sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Filter assets"
-          >
-            <div className="pf-filter-drawer__grip" />
-            <div className="pf-filter-drawer__h">Filter assets</div>
-            {ASSETS_SEGMENT_OPTIONS.map((opt) => {
-              const sel = segment === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={`pf-filter-drawer__opt${sel ? " pf-filter-drawer__opt--sel" : ""}`}
-                  onClick={() => {
-                    onSegmentChange(opt.id);
-                    setFilterOpen(false);
-                  }}
-                >
-                  {opt.label}
-                  <span className="pf-filter-drawer__ck" aria-hidden>
-                    ✓
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-    </>
   );
 }

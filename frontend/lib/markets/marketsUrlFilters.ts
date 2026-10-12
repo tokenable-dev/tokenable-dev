@@ -3,7 +3,10 @@ import {
   type CollectionCategoryFilterId,
   type CollectionCategoryId,
 } from "@/lib/market/collectionCategoryFilter";
-import type { MarketsGradeFilterId } from "@/lib/markets/marketsFilters";
+import type {
+  MarketsGradeFilterId,
+  MarketsVaultFilterId,
+} from "@/lib/markets/marketsFilters";
 import {
   MARKETS_DEFAULT_SORT_ID,
   resolveMarketsSortId,
@@ -47,6 +50,8 @@ export type MarketsUrlFilters = {
   priceMin: string;
   priceMax: string;
   grades: MarketsGradeFilterId[];
+  /** `psa` | `partner`. Empty = both. */
+  vaults: MarketsVaultFilterId[];
   /** Card.html `character` — card / character name facet */
   characters: string[];
   /** Card.html `series` — era / block (e.g. Scarlet & Violet). */
@@ -64,6 +69,7 @@ export function emptyMarketsUrlFilters(): MarketsUrlFilters {
     priceMin: "",
     priceMax: "",
     grades: [],
+    vaults: [],
     characters: [],
     series: [],
     sets: [],
@@ -196,12 +202,17 @@ export function parseMarketsUrlFilters(
     /^(PSA|BGS)\b/i.test(g),
   ) as MarketsGradeFilterId[];
 
+  const vaults = splitPipe(params.get("vault")).filter(
+    (v): v is MarketsVaultFilterId => v === "psa" || v === "partner",
+  );
+
   return {
     categories,
     sortId,
     priceMin: params.get("price_min")?.trim() ?? "",
     priceMax: params.get("price_max")?.trim() ?? "",
     grades,
+    vaults,
     characters: splitPipe(params.get("character")),
     series: splitPipe(params.get("series")),
     sets: splitPipe(params.get("set")),
@@ -225,6 +236,9 @@ export function serializeMarketsUrlFilters(
 
   const grade = joinPipe(filters.grades);
   if (grade) p.set("grade", grade);
+
+  const vault = joinPipe(filters.vaults);
+  if (vault) p.set("vault", vault);
 
   const character = joinPipe(filters.characters);
   if (character) p.set("character", character);
@@ -257,6 +271,7 @@ export function marketsHrefFromFilters(
     ...filters,
     categories: filters.categories ?? fromLegacy,
     grades: filters.grades ?? base.grades,
+    vaults: filters.vaults ?? base.vaults,
     characters: filters.characters ?? base.characters,
     series: filters.series ?? base.series,
     sets: filters.sets ?? base.sets,

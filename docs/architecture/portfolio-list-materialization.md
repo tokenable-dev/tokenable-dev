@@ -79,7 +79,7 @@ Do **not** call upstream APIs once per user request for asset lists. That fans o
 
 ## Ops
 
-1. Apply `backend/sql/maintenance/add_bulk_mint_display_name_collection_key.sql` if using partner bulk mint.
+1. Ensure `apply-deploy-maintenance.sh` has run (`deploy-sync.sql` includes bulk mint columns) if using partner bulk mint.
 2. Dry-run then run list-ready backfill:
 
 ```bash

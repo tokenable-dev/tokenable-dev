@@ -134,7 +134,7 @@ function CertSummary({ raw }: { raw: unknown }) {
 
   return (
     <div className="mt-4 overflow-hidden rounded-md border border-zinc-200">
-      <table className="w-full text-left text-sm">
+      <table className="admin-kv-table w-full text-left text-sm">
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k} className="border-b border-zinc-100 last:border-0">

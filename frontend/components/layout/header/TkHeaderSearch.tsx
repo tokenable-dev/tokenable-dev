@@ -13,26 +13,46 @@ import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { TkInput } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
-import type { MarketplaceCollectionSummary, MarketplaceSearchCardHit } from "@/lib/core";
+import type {
+  CollectionListMarketSnapshot,
+  MarketplaceCollectionSummary,
+  MarketplaceSearchCardHit,
+} from "@/lib/core";
 import { useMarketplaceCatalogSearch } from "@/hooks/marketplace";
+import { useMarketsSnapshots } from "@/hooks/markets/useMarketsPageData";
+import {
+  resolveMarketsListingMarketChangePct,
+  resolveMarketsListingMarketUsd,
+} from "@/lib/markets/marketsListingMarketPrice";
+import {
+  formatReferencePercentChange,
+  referenceChangeTone,
+} from "@/lib/market/priceChangePeriod";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import {
-  buildMarketsCollectionTitle,
-  buildMarketsCollectionSearchMeta,
+  buildGnbSearchCollectionMeta,
+  buildGnbSearchCollectionTitle,
 } from "@/lib/markets/marketsCollectionTitle";
 import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
-import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
 import {
   collectionDetailHref,
   resolveCollectionDetailHref,
 } from "@/lib/marketplace/collectionBrowseContext";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
-import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
+import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const SEARCH_PLACEHOLDER = "Search cards by name";
+
+/** Markets slim bar (≤820px) — open the same overlay as the GNB magnifier. */
+export const GNB_SEARCH_OPEN_EVENT = "tokenable:gnb-search-open";
+
+export function requestOpenGnbSearch(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(GNB_SEARCH_OPEN_EVENT));
+}
 
 function SearchIcon({ muted = false }: { muted?: boolean }) {
   return (
@@ -82,7 +102,7 @@ function SearchClearButton({
 }
 
 function formatSearchMeta(c: MarketplaceCollectionSummary): string {
-  return buildMarketsCollectionSearchMeta({
+  return buildGnbSearchCollectionMeta({
     collection: c,
     comp: c.components,
   });
@@ -92,10 +112,47 @@ type SearchHit =
   | { kind: "card"; card: MarketplaceSearchCardHit }
   | { kind: "collection"; collection: MarketplaceCollectionSummary };
 
-function formatSearchPrice(c: MarketplaceCollectionSummary): string | null {
-  const usd = c.components.psaEstimateUsd;
+function formatSearchPrice(
+  c: MarketplaceCollectionSummary,
+  snapshot: CollectionListMarketSnapshot | undefined,
+): string | null {
+  const usd = resolveMarketsListingMarketUsd(c, snapshot) ?? c.components.psaEstimateUsd;
   if (usd == null || !Number.isFinite(usd) || usd <= 0) return null;
-  return `$${Math.round(usd).toLocaleString("en-US")}`;
+  return formatUsdCompact(usd);
+}
+
+function snapshotFor(
+  snapshotByKey: Map<string, CollectionListMarketSnapshot>,
+  collectionKey: string | null | undefined,
+): CollectionListMarketSnapshot | undefined {
+  const k = collectionKey?.trim().toLowerCase();
+  return k ? snapshotByKey.get(k) : undefined;
+}
+
+function SearchItemPrice({
+  price,
+  snapshot,
+}: {
+  price: string | null;
+  snapshot: CollectionListMarketSnapshot | undefined;
+}) {
+  const pct = resolveMarketsListingMarketChangePct(snapshot);
+  if (!price && pct == null) return null;
+  return (
+    <div className="gnb-search-item__price">
+      {price ? <div className="gnb-search-item__price-val">{price}</div> : null}
+      {pct != null ? (
+        <div
+          className={cn(
+            "gnb-search-item__price-chg",
+            referenceChangeTone(pct) === "down" && "is-down",
+          )}
+        >
+          {formatReferencePercentChange(pct)}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function Thumb({ src }: { src: string | null }) {
@@ -122,17 +179,17 @@ export function SearchResultsList({
   highlightIdx,
   onHighlight,
   onSelect,
-  searchTruncated,
   isSearching,
   coverUrlMap,
+  snapshotByKey,
 }: {
   hits: SearchHit[];
   highlightIdx: number;
   onHighlight: (idx: number) => void;
   onSelect: (hit: SearchHit) => void;
-  searchTruncated: boolean;
   isSearching: boolean;
   coverUrlMap: Map<string, string>;
+  snapshotByKey: Map<string, CollectionListMarketSnapshot>;
 }) {
   if (hits.length === 0) {
     return (
@@ -145,12 +202,7 @@ export function SearchResultsList({
   const cardCount = hits.filter((h) => h.kind === "card").length;
 
   return (
-    <div role="listbox">
-      {searchTruncated ? (
-        <p className="gnb-search-truncated">
-          Showing top matches — type more to narrow.
-        </p>
-      ) : null}
+    <div role="listbox" className="gnb-search-results-scroll">
       {hits.map((hit, i) => {
         const selected = i === highlightIdx;
         if (hit.kind === "card") {
@@ -158,8 +210,7 @@ export function SearchResultsList({
           const src = card.imageUrl
             ? (coverUrlMap.get(card.imageUrl) ?? card.imageUrl)
             : null;
-          const price =
-            card.listedUsd != null ? formatUsdListing(card.listedUsd) : null;
+          const price = formatUsdListing(card.listedUsd);
           const display = formatSearchCardHitDisplay(card);
           return (
             <div key={`card-${card.tokenId}`}>
@@ -178,25 +229,23 @@ export function SearchResultsList({
                   <Thumb src={src} />
                 </div>
                 <div className="gnb-search-item__info">
-                  <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-                    {display.line1}
-                  </div>
+                  <div className="gnb-search-item__name">{display.line1}</div>
                   {display.line2 ? (
                     <div className="gnb-search-item__meta">{display.line2}</div>
                   ) : null}
                 </div>
-                {price ? (
-                  <div className="gnb-search-item__price">
-                    <div className="gnb-search-item__price-val">{price}</div>
-                  </div>
-                ) : null}
+                <SearchItemPrice
+                  price={price}
+                  snapshot={snapshotFor(snapshotByKey, card.collectionKey)}
+                />
               </button>
             </div>
           );
         }
         const c = hit.collection;
         const displayImageUrl = pickCollectionSummaryDisplayImageUrl(c);
-        const price = formatSearchPrice(c);
+        const snapshot = snapshotFor(snapshotByKey, c.collectionKey);
+        const price = formatSearchPrice(c, snapshot);
         const meta = formatSearchMeta(c);
         return (
           <div key={`col-${c.collectionKey}`}>
@@ -221,16 +270,12 @@ export function SearchResultsList({
                 />
               </div>
               <div className="gnb-search-item__info">
-                <div className={`gnb-search-item__name ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-                  {buildMarketsCollectionTitle({ collection: c, comp: c.components })}
+                <div className="gnb-search-item__name">
+                  {buildGnbSearchCollectionTitle({ collection: c, comp: c.components })}
                 </div>
                 {meta ? <div className="gnb-search-item__meta">{meta}</div> : null}
               </div>
-              {price ? (
-                <div className="gnb-search-item__price">
-                  <div className="gnb-search-item__price-val">{price}</div>
-                </div>
-              ) : null}
+              <SearchItemPrice price={price} snapshot={snapshot} />
             </button>
           </div>
         );
@@ -287,7 +332,6 @@ export function TkHeaderSearch({
     cards,
     collections: filtered,
     isSearching,
-    truncated: searchTruncated,
   } = useMarketplaceCatalogSearch(query, {
     enabled: showResultsPanel,
     cardLimit: 8,
@@ -452,6 +496,22 @@ export function TkHeaderSearch({
     enabled: (showDesktopDropdown || showMobileResults) && hits.length > 0,
   });
 
+  const snapshotKeys = useMemo(() => {
+    const u = new Set<string>();
+    for (const k of [
+      ...cards.map((c) => c.collectionKey),
+      ...filtered.map((c) => c.collectionKey),
+    ]) {
+      const key = k?.trim().toLowerCase();
+      if (key) u.add(key);
+    }
+    return [...u].sort();
+  }, [cards, filtered]);
+  const { snapshotByKey } = useMarketsSnapshots(
+    snapshotKeys,
+    showDesktopDropdown || showMobileResults,
+  );
+
   const mobileOverlay =
     mobileOverlayOpen && typeof document !== "undefined"
       ? createPortal(
@@ -512,9 +572,9 @@ export function TkHeaderSearch({
                   highlightIdx={highlightIdx}
                   onHighlight={setHighlightIdx}
                   onSelect={navigateHit}
-                  searchTruncated={searchTruncated}
                   isSearching={isSearching}
                   coverUrlMap={coverUrlMap}
+                  snapshotByKey={snapshotByKey}
                 />
                 <button
                   type="button"
@@ -577,9 +637,9 @@ export function TkHeaderSearch({
               highlightIdx={highlightIdx}
               onHighlight={setHighlightIdx}
               onSelect={navigateHit}
-              searchTruncated={searchTruncated}
               isSearching={isSearching}
               coverUrlMap={coverUrlMap}
+              snapshotByKey={snapshotByKey}
             />
             <button
               type="button"

@@ -95,6 +95,7 @@ function startUsdcApproveGasEstimate(
   );
 }
 
+/** Single fresh floor check before Seaport sign (callers must not duplicate). */
 async function assertBidDoesNotCrossLiveAsk(
   collectionKey: string,
   bidder: Address,

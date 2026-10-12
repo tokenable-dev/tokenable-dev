@@ -1,8 +1,9 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { TkButton, TkDialog } from "@/components/ds";
-import { cn } from "@/lib/ds/cn";
+import { useEffect, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { TkButton } from "@/components/ds";
+import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import "@/styles/tokenable-action-complete.css";
 
 export type ActionCompleteKind =
@@ -75,7 +76,7 @@ export function actionCompleteConfig(
     case "listed":
       return {
         tone: "pos",
-        title: "Listed successfully",
+        title: price ? `Listed at $${price}` : "Listed successfully",
         sub:
           override ??
           (price
@@ -108,7 +109,44 @@ export function actionCompleteConfig(
   }
 }
 
-/** Full-screen result modal — Feedback-States.dc.html Dialog pattern via TkDialog. */
+function ResultIcon({ tone }: { tone: Tone }) {
+  const stroke = tone === "neg" ? "#e4374a" : tone === "info" ? "#1a6fff" : "#00c864";
+  if (tone === "neg") {
+    return (
+      <svg
+        width="32"
+        height="32"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke={stroke}
+        strokeWidth="2.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <line x1="18" y1="6" x2="6" y2="18" />
+        <line x1="6" y1="6" x2="18" y2="18" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width="32"
+      height="32"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke={stroke}
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+/** Center result overlay — Portfolio.html `pfSaleResult` (portfolio-modals.js). */
 export function ActionCompleteModal({
   open,
   kind,
@@ -136,38 +174,68 @@ export function ActionCompleteModal({
   onClose: () => void;
   extra?: ReactNode;
 }) {
+  const mounted = useClientMounted();
   const cfg = actionCompleteConfig(kind, { priceUsdc, sub });
   const resolvedTitle = title ?? cfg.title;
   const resolvedSub = (sub ?? cfg.sub) || undefined;
   const hasSecondary = Boolean(secondaryLabel && (secondaryHref || onSecondary));
 
-  return (
-    <TkDialog
-      open={open}
-      onClose={onClose}
-      title={resolvedTitle}
-      description={resolvedSub}
-      className="tk-ac-dialog"
-      footer={
-        <div className={cn("tk-ac-actions", !hasSecondary && "tk-ac-actions--stack")}>
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  if (!open || !mounted) return null;
+
+  return createPortal(
+    <div
+      className="tk-sale-result-overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tk-sale-result-title"
+        className="tk-sale-result"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className={`tk-sale-result__icon tk-sale-result__icon--${cfg.tone}`}>
+          <ResultIcon tone={cfg.tone} />
+        </div>
+        <h2 className="tk-sale-result__title" id="tk-sale-result-title">
+          {resolvedTitle}
+        </h2>
+        {resolvedSub ? <p className="tk-sale-result__sub">{resolvedSub}</p> : null}
+        {extra ? <div className="tk-sale-result__extra">{extra}</div> : null}
+        {cfg.statusLabel && cfg.statusValue ? (
+          <div className="tk-sale-result__status">
+            <span className="tk-sale-result__status-label">{cfg.statusLabel}</span>
+            <span className="tk-sale-result__status-value">{cfg.statusValue}</span>
+          </div>
+        ) : null}
+        <div className="tk-sale-result__actions">
           {hasSecondary && secondaryHref ? (
             <TkButton
               variant="primary"
               size="md"
-              className="tk-ac-btn"
               href={secondaryHref}
               onClick={onSecondary}
             >
               {secondaryLabel}
             </TkButton>
           ) : hasSecondary ? (
-            <TkButton
-              type="button"
-              variant="primary"
-              size="md"
-              className="tk-ac-btn"
-              onClick={onSecondary}
-            >
+            <TkButton type="button" variant="primary" size="md" onClick={onSecondary}>
               {secondaryLabel}
             </TkButton>
           ) : null}
@@ -175,15 +243,13 @@ export function ActionCompleteModal({
             type="button"
             variant={hasSecondary ? "subtle" : "primary"}
             size="md"
-            className="tk-ac-btn"
             onClick={onPrimary ?? onClose}
           >
             {primaryLabel}
           </TkButton>
         </div>
-      }
-    >
-      {extra}
-    </TkDialog>
+      </div>
+    </div>,
+    document.body,
   );
 }

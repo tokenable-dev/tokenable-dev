@@ -63,13 +63,13 @@ CREATE INDEX IF NOT EXISTS idx_portfolio_holdings_wallet
   ON portfolio_holdings (wallet_address);
 
 COMMENT ON TABLE portfolio_holdings IS
-  'Per-wallet portfolio prefs: UI hide + cost basis (manual or auto-seeded).';
+  'Per-wallet portfolio prefs: UI hide + cost basis (auto-seeded; legacy manual rows retained).';
 COMMENT ON COLUMN portfolio_holdings.token_contract IS
   'RWA contract address (per-chain UUPS proxy) — disambiguates token_id across chains.';
 COMMENT ON COLUMN portfolio_holdings.hidden_at IS
   'When set, token is omitted from portfolio totals and default holdings list.';
 COMMENT ON COLUMN portfolio_holdings.cost_basis_source IS
-  'manual = user edit (never overwritten by auto seed); vault_delivery | marketplace_buy = system.';
+  'manual = legacy user row (auto seed skips); vault_delivery | marketplace_buy = system.';
 
 CREATE TABLE IF NOT EXISTS kbw_mystery_card_burns (
   id serial PRIMARY KEY,

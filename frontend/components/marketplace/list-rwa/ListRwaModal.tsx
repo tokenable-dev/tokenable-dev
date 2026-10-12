@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
+import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import {
   ListRwaModalFormActions,
@@ -17,6 +18,19 @@ import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
 export type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
 
 type ListRwaModalController = ReturnType<typeof useListRwaModal>;
+
+function DialogCloseIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width={18} height={18} fill="none" aria-hidden>
+      <path
+        d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor"
+        strokeWidth={2}
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 
 export function ListRwaModal(props: ListRwaModalProps) {
   const open = props.open ?? true;
@@ -87,6 +101,16 @@ function ListRwaModalBody({
   const isSetPrice = copyVariant === "set-price";
   const isSuccess = showSuccessUi;
   const requestClose = guardCloseWhileBusy(modal.isProcessing, onClose);
+
+  useEffect(() => {
+    if (shell !== "modal") return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") requestClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [shell, requestClose]);
+
   const sheetLabel = isSetPrice
     ? modal.isReplaceListing
       ? "Edit price"
@@ -190,20 +214,33 @@ function ListRwaModalBody({
 
   if (!mounted) return null;
 
+  const dialogLabel = isSetPrice ? sheetLabel : "List for sale";
+
   return createPortal(
-    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 py-5 sm:px-6 sm:py-8">
+    <div
+      className="tk-dialog__overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) requestClose();
+      }}
+    >
       <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={requestClose}
-      />
-      <div className="relative mx-auto flex w-full max-w-[min(100%,22rem)] flex-col rounded-2xl border border-zinc-700/90 bg-zinc-950 px-6 py-6 shadow-xl shadow-black/40 sm:py-8">
+        role="dialog"
+        aria-modal="true"
+        aria-label={dialogLabel}
+        className={cn(
+          "tk-dialog tk-list-rwa-dialog",
+          isSetPrice && "tk-list-rwa-dialog--set-price",
+        )}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
-          aria-label="Close"
+          className="tk-dialog__close"
           onClick={requestClose}
-          className="absolute right-3.5 top-3.5 rounded-lg p-1 text-sm text-zinc-500 transition-colors hover:bg-white/5 hover:text-zinc-200 sm:right-4 sm:top-4"
+          aria-label="Close"
+          disabled={modal.isProcessing}
         >
-          ✕
+          <DialogCloseIcon />
         </button>
         <ListRwaModalFormView {...formProps} />
       </div>

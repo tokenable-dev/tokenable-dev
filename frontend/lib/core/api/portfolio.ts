@@ -170,27 +170,6 @@ export async function postPortfolioHoldingsBatch(
   return res.json() as Promise<{ items: PortfolioHoldingBatchItem[] }>;
 }
 
-export async function putPortfolioCostBasis(
-  walletAddress: string,
-  tokenId: number,
-  costBasisUsd: number,
-): Promise<void> {
-  const res = await backendFetch(
-    `${getApiUrl()}/marketplace/portfolio/holdings/cost-basis`,
-    {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletAddress, tokenId, costBasisUsd }),
-    },
-  );
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(
-      (err as { message?: string }).message ?? 'Failed to save cost basis',
-    );
-  }
-}
-
 export async function getPortfolioDailySnapshots(
   walletAddress: string,
   limit = 32,

@@ -84,9 +84,11 @@ export class PortfolioAssetsPageService {
     const chain = chainId ?? this.chainConfig.getDefaultChainId();
     const wallet = walletAddress.trim().toLowerCase();
 
-    const ownedTokenIds = await this.resolveOwnedTokenIds(wallet, chain, {
-      skipOnChainUnion: opts.bootstrapFirstPage,
-    });
+    const ownedTokenIds = opts.bootstrapFirstPage
+      ? await this.resolveOwnedTokenIdsForBootstrap(wallet, chain)
+      : await this.resolveOwnedTokenIds(wallet, chain, {
+          skipOnChainUnion: false,
+        });
 
     if (opts.ownedIdsOnly && !opts.bootstrapFirstPage) {
       return {
@@ -185,6 +187,37 @@ export class PortfolioAssetsPageService {
    * of seconds — always run it in the background. Never block empty wallets on
    * a full-supply ownerOf scan (`getRwaTokensByOwner`).
    */
+  /**
+   * Cold My Assets bootstrap: verify newest-first head and tail in parallel
+   * (same RPC count, lower wall-clock before metadata). Skips full supply scan.
+   */
+  private async resolveOwnedTokenIdsForBootstrap(
+    wallet: string,
+    chainId: SupportedChainId,
+  ): Promise<number[]> {
+    void this.blockchain
+      .healOwnerRegistryIfIncomplete(chainId)
+      .catch(() => undefined);
+    const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
+    if (fromDb.length === 0) {
+      return [];
+    }
+    const sorted = this.sortOwnedNewestFirst(fromDb);
+    const splitAt = Math.min(
+      sorted.length,
+      PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT,
+    );
+    const head = sorted.slice(0, splitAt);
+    const tail = sorted.slice(splitAt);
+    const [verifiedHead, verifiedTail] = await Promise.all([
+      this.blockchain.filterTokenIdsOwnedByWallet(wallet, head, chainId),
+      tail.length > 0
+        ? this.blockchain.filterTokenIdsOwnedByWallet(wallet, tail, chainId)
+        : Promise.resolve([]),
+    ]);
+    return this.sortOwnedNewestFirst([...verifiedHead, ...verifiedTail]);
+  }
+
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
@@ -225,11 +258,10 @@ export class PortfolioAssetsPageService {
     chain: SupportedChainId,
     _t0: bigint,
   ): Promise<PortfolioAssetsPageResponse> {
-    const [metadataPack, holdings, registryKeys, snapshotIndex] = await Promise.all([
+    const [metadataPack, holdings, registryKeys] = await Promise.all([
       this.rwaAssetResolve.batchPortfolioMetadata(uniqueTokenIds, chain),
       this.portfolioHoldings.getHoldingsBatch(wallet, uniqueTokenIds, chain),
       this.collectionService.collectionKeysByTokenIds(uniqueTokenIds, chain),
-      this.collectionMarket.getSnapshotPriceIndex(),
     ]);
 
     const metadataItems: PortfolioAssetsPageMetadataItem[] =
@@ -262,9 +294,12 @@ export class PortfolioAssetsPageService {
       ),
     ];
 
+    const snapshotRowMap =
+      await this.collectionMarket.getSnapshotRowsForKeys(uniqueKeys);
+
     const marketItems = this.collectionMarket.portfolioMarketItemsFromIndex(
       uniqueKeys,
-      snapshotIndex,
+      snapshotRowMap,
       '365d',
     );
 
@@ -272,7 +307,7 @@ export class PortfolioAssetsPageService {
       chainId: chain,
       tokenCount: uniqueTokenIds.length,
       collectionKeys: uniqueKeys.length,
-      snapshotIndexSize: snapshotIndex.size,
+      snapshotRowsLoaded: snapshotRowMap.size,
       cache: 'miss',
       source: 'db',
     });

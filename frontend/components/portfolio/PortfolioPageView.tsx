@@ -34,7 +34,6 @@ import {
   getPortfolioActivityOrders,
   marketplaceRqPolicy,
   postRwaMetadataBatchBatched,
-  putPortfolioCostBasis,
   fetchKbwMysteryCardStatus,
   kbwMysteryCardContactScope,
   burnKbwMysteryCard,
@@ -44,7 +43,6 @@ import {
 } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import {
-  invalidateAfterCostBasisEdit,
   invalidateAfterCriteriaBid,
   invalidateAfterListing,
 } from "@/lib/core/invalidation";
@@ -149,7 +147,6 @@ export function PortfolioPageView({
     isLinkedPortfolioViewAddress(user, portfolioAddress);
   const signerAddress = wallet.canSign ? connectedAddress : undefined;
   const [portfolioMainTab, setPortfolioMainTab] = useState<PortfolioMainTab>("collectibles");
-  const [savingCostBasisTokenId, setSavingCostBasisTokenId] = useState<number | null>(null);
   const [listModal, setListModal] = useState<{
     tokenId: number;
     assetTitle: string;
@@ -159,6 +156,8 @@ export function PortfolioPageView({
     existingAskOrderHash?: string;
     marketValueUsd?: number | null;
     listedPriceUsd?: number | null;
+    /** Typed gallery price, when the seller filled the tile input. */
+    draftPriceUsdc?: string | null;
   } | null>(null);
   const [cancelListingConfirm, setCancelListingConfirm] = useState<{
     items: {
@@ -279,7 +278,6 @@ export function PortfolioPageView({
     costBasisByTokenId,
     acquiredAtByTokenId,
     hiddenSet,
-    applyCostBasis,
   } = assetsPage;
 
   const metadataByTokenId = useMemo(() => {
@@ -388,23 +386,6 @@ export function PortfolioPageView({
     kbwMysteryBurned,
   ]);
 
-  const saveCostBasis = async (tokenId: number, costBasisUsd: number) => {
-    if (isKbwMysteryCardTokenId(tokenId)) return;
-    const wallet = portfolioAddress ?? signerAddress;
-    if (!wallet) return;
-    setSavingCostBasisTokenId(tokenId);
-    try {
-      await putPortfolioCostBasis(wallet, tokenId, costBasisUsd);
-      applyCostBasis(tokenId, costBasisUsd);
-      await invalidateAfterCostBasisEdit(queryClient);
-    } catch (err) {
-      window.alert(err instanceof Error ? err.message : "Failed to save cost basis");
-      throw err;
-    } finally {
-      setSavingCostBasisTokenId(null);
-    }
-  };
-
   const holdingActions = usePortfolioHoldingActions({
     address: signerAddress,
     tokenIds,
@@ -412,9 +393,31 @@ export function PortfolioPageView({
     refetchActiveOrders,
   });
 
+  const bulkHidePending =
+    holdingActions.hidingTokenId != null || holdingActions.unhidingTokenId != null;
+
+  const bulkHideHoldings = useCallback(
+    async (ids: number[]) => {
+      for (const tokenId of ids) {
+        await holdingActions.executeHideHolding(tokenId);
+      }
+    },
+    [holdingActions],
+  );
+
+  const bulkUnhideHoldings = useCallback(
+    async (ids: number[]) => {
+      for (const tokenId of ids) {
+        await holdingActions.unhideHolding(tokenId);
+      }
+    },
+    [holdingActions],
+  );
+
   const myBids = usePortfolioMyBids(
     portfolioAddress,
-    portfolioDataEnabled && bidsTabActiveEarly,
+    portfolioDataEnabled,
+    portfolioDataEnabled && (bidsTabActiveEarly || listModal != null),
   );
   const bidActions = usePortfolioBidActions({
     address: signerAddress,
@@ -657,10 +660,10 @@ export function PortfolioPageView({
   ]);
 
   const holdingsDisplayRows = useMemo(() => {
-    if (redeemPhantomAssetRows.length === 0) return visibleAssetRows;
+    if (redeemPhantomAssetRows.length === 0) return assetRows;
     /* Redeeming (custody) cards first so Preparing status stays visible. */
-    return [...redeemPhantomAssetRows, ...visibleAssetRows];
-  }, [redeemPhantomAssetRows, visibleAssetRows]);
+    return [...redeemPhantomAssetRows, ...assetRows];
+  }, [redeemPhantomAssetRows, assetRows]);
 
   const holdingsMetadataByTokenId = useMemo(() => {
     const m = new Map(metadataByTokenId);
@@ -731,7 +734,7 @@ export function PortfolioPageView({
   );
 
   const openPortfolioSetPriceModal = useCallback(
-    (tokenId: number) => {
+    (tokenId: number, draftPriceUsdc?: string | null) => {
       if (isKbwMysteryCardTokenId(tokenId)) return;
       if (isRedeemInFlight(redeemStatusByTokenId.get(tokenId))) {
         window.alert("This card has a redemption in progress and cannot be listed.");
@@ -739,7 +742,12 @@ export function PortfolioPageView({
       }
       runSellAccessGate(() => {
         const next = buildListModalState(tokenId);
-        if (next) setListModal(next);
+        if (next) {
+          setListModal({
+            ...next,
+            draftPriceUsdc: draftPriceUsdc?.trim() || null,
+          });
+        }
       });
     },
     [runSellAccessGate, redeemStatusByTokenId, buildListModalState],
@@ -767,7 +775,7 @@ export function PortfolioPageView({
       ) {
         return prev;
       }
-      return next;
+      return { ...next, draftPriceUsdc: prev.draftPriceUsdc };
     });
   }, [listModal?.tokenId, buildListModalState]);
 
@@ -883,9 +891,11 @@ export function PortfolioPageView({
         }
         existingAskOrderHash={listModal.existingAskOrderHash}
         initialPriceUsdc={
-          listModal.listedPriceUsd != null
-            ? String(listModal.listedPriceUsd)
-            : null
+          listModal.draftPriceUsdc?.trim()
+            ? listModal.draftPriceUsdc
+            : listModal.listedPriceUsd != null
+              ? String(listModal.listedPriceUsd)
+              : null
         }
         marketValueUsd={listModal.marketValueUsd}
         listedPriceUsd={listModal.listedPriceUsd}
@@ -999,7 +1009,7 @@ export function PortfolioPageView({
           counts={{
             assets: holdingsDisplayCount,
             redeem: redeemInProgressCount,
-            bids: myBids.activeBids.length,
+            bids: myBids.bidsListFetched ? myBids.activeBids.length : undefined,
             history: txRows.length,
           }}
           onTabChange={(tab) => {
@@ -1022,9 +1032,6 @@ export function PortfolioPageView({
               costBasisByTokenId={costBasisByTokenId}
               acquiredAtByTokenId={acquiredAtByTokenId}
               valuesPending={valuesPending}
-              canEditCostBasis={Boolean(signerAddress)}
-              onSaveCostBasis={saveCostBasis}
-              savingCostBasisTokenId={savingCostBasisTokenId}
               onSetPrice={openPortfolioSetPriceModal}
               onOpenKbwMysteryCard={() => setKbwBurnModalOpen(true)}
               onRequestCancelListings={(items) => {
@@ -1040,6 +1047,10 @@ export function PortfolioPageView({
               onLoadMoreAssets={loadMoreAssets}
               loadedAssetCount={holdingsDisplayRows.length}
               totalAssetCount={holdingsDisplayCount}
+              hiddenTokenIds={hiddenSet}
+              onBulkHide={bulkHideHoldings}
+              onBulkUnhide={bulkUnhideHoldings}
+              bulkHidePending={bulkHidePending}
             />
           }
           redeemPanel={

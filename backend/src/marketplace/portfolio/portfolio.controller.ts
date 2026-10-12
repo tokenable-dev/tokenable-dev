@@ -6,7 +6,6 @@ import {
   Headers,
   Param,
   Post,
-  Put,
   Query,
   Req,
   UseGuards,
@@ -24,7 +23,6 @@ import {
 } from '../../blockchain/chain-config.service';
 import { PortfolioHideHoldingDto } from './dto/portfolio-hide-holding.dto';
 import { PortfolioHoldingsBatchDto } from './dto/portfolio-holdings-batch.dto';
-import { PortfolioSetCostBasisDto } from './dto/portfolio-set-cost-basis.dto';
 import { PortfolioAssetsPageDto } from './dto/portfolio-assets-page.dto';
 import { PortfolioAssetsPageService } from './portfolio-assets-page.service';
 import { PortfolioDailySnapshotService } from './portfolio-daily-snapshot.service';
@@ -200,30 +198,6 @@ export class PortfolioController {
       ownedIdsOnly: Boolean(body.ownedIdsOnly),
       bootstrapFirstPage: Boolean(body.bootstrapFirstPage),
     });
-  }
-
-  /** User manual cost basis edit — never overwritten by auto seed */
-  @ApiOperation({ summary: 'Cost basis 수동 설정' })
-  @ApiChainIdHeader()
-  @ApiBody(
-    apiBodyDefault(
-      PortfolioSetCostBasisDto,
-      SWAGGER_BODY_EXAMPLES.portfolioSetCostBasis,
-    ),
-  )
-  @Put('portfolio/holdings/cost-basis')
-  async setPortfolioCostBasis(
-    @Body() body: PortfolioSetCostBasisDto,
-    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
-  ) {
-    const chainId = this.chainConfig.resolveChainId(chainHeader);
-    await this.portfolioHoldings.setManualCostBasis(
-      body.walletAddress,
-      body.tokenId,
-      body.costBasisUsd,
-      chainId,
-    );
-    return { ok: true };
   }
 
   @ApiOperation({

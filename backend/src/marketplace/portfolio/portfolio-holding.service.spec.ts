@@ -1,4 +1,3 @@
-import { BadRequestException } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ChainConfigService } from '../../blockchain/chain-config.service';
@@ -11,6 +10,24 @@ import { PortfolioHoldingService } from './portfolio-holding.service';
 
 const WALLET = '0x1111111111111111111111111111111111111111';
 const CONTRACT = '0x2222222222222222222222222222222222222222';
+
+function seedLegacyManualCostBasis(
+  rows: Map<number, PortfolioHolding>,
+  nextIdRef: { value: number },
+  tokenId: number,
+  costBasisUsd: number,
+) {
+  rows.set(tokenId, {
+    id: nextIdRef.value++,
+    walletAddress: WALLET.toLowerCase(),
+    tokenContract: CONTRACT,
+    tokenId,
+    costBasisUsd,
+    costBasisSource: PortfolioCostBasisSource.MANUAL,
+    acquiredAt: new Date(),
+    hiddenAt: null,
+  } as PortfolioHolding);
+}
 
 describe('PortfolioHoldingService', () => {
   let service: PortfolioHoldingService;
@@ -121,7 +138,7 @@ describe('PortfolioHoldingService', () => {
   });
 
   it('does not overwrite manual cost basis with vault seed', async () => {
-    await service.setManualCostBasis(WALLET, 7, 900);
+    seedLegacyManualCostBasis(rows, { value: nextId }, 7, 900);
     await service.seedVaultDeliveryCostBasis(WALLET, 7, 1500);
 
     const row = rows.get(7);
@@ -136,12 +153,6 @@ describe('PortfolioHoldingService', () => {
     const row = rows.get(3);
     expect(row?.costBasisUsd).toBe(1200);
     expect(row?.costBasisSource).toBe(PortfolioCostBasisSource.VAULT_DELIVERY);
-  });
-
-  it('rejects invalid manual cost basis', async () => {
-    await expect(service.setManualCostBasis(WALLET, 1, -5)).rejects.toBeInstanceOf(
-      BadRequestException,
-    );
   });
 
   it('unhide deletes row when only hidden flag was set', async () => {
@@ -162,7 +173,7 @@ describe('PortfolioHoldingService', () => {
   });
 
   it('does not overwrite manual cost basis with marketplace buy seed', async () => {
-    await service.setManualCostBasis(WALLET, 12, 80);
+    seedLegacyManualCostBasis(rows, { value: nextId }, 12, 80);
     await service.seedMarketplaceBuyCostBasis(WALLET, 12, 145);
 
     const row = rows.get(12);

@@ -160,6 +160,14 @@ export class CardhedgerService {
   }
 
   /**
+   * Whether {@link forwardJson} would reject without calling upstream.
+   * Advances OPEN → HALF_OPEN after the reset window (same as real requests).
+   */
+  wouldRejectDueToCircuit(): boolean {
+    return this.isCircuitOpen();
+  }
+
+  /**
    * Low-level fetch with retry.
    *
    * Retries up to MAX_RETRIES times on:

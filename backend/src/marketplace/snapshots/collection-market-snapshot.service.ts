@@ -1,4 +1,11 @@
-import { Inject, Injectable, Logger, forwardRef } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  Optional,
+  forwardRef,
+} from '@nestjs/common';
+import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -51,6 +58,7 @@ export class CollectionMarketSnapshotService {
     @Inject(forwardRef(() => CollectionMarketSnapshotSchedulerService))
     private readonly snapshotScheduler: CollectionMarketSnapshotSchedulerService,
     @Inject(TTL_CACHE_PROVIDER) private readonly ttlCache: TtlCacheProvider,
+    @Optional() private readonly cardhedger?: CardhedgerService,
   ) {}
 
   staleAfterSec(): number {
@@ -213,6 +221,9 @@ export class CollectionMarketSnapshotService {
     key: string,
     reason: SnapshotRefreshReason,
   ): Promise<CollectionMarketSnapshot | null> {
+    if (this.cardhedger?.wouldRejectDueToCircuit()) {
+      return this.findByKey(key);
+    }
     const started = Date.now();
     try {
       // Mint-only PSA policy: never call PSA Public API during snapshot refresh.

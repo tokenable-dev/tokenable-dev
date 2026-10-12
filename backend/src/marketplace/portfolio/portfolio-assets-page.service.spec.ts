@@ -14,6 +14,7 @@ describe('PortfolioAssetsPageService', () => {
   const collectionMarket = {
     batchPortfolioMarketData: jest.fn(),
     getSnapshotPriceIndex: jest.fn(),
+    getSnapshotRowsForKeys: jest.fn(async () => new Map()),
     portfolioMarketItemsFromIndex: jest.fn(),
   };
   const portfolioHoldings = {
@@ -89,7 +90,8 @@ describe('PortfolioAssetsPageService', () => {
     collectionService.collectionKeysByTokenIds.mockResolvedValue({
       42: 'abc123',
     });
-    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    const rowMap = new Map();
+    collectionMarket.getSnapshotRowsForKeys.mockResolvedValue(rowMap);
     collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     const result = await service.loadPage(
@@ -101,11 +103,14 @@ describe('PortfolioAssetsPageService', () => {
     expect(result.collectionKeys[42]).toBe('abc123');
     expect(result.ownedTokenIds).toEqual([42, 41]);
     expect(result.mintPreviews).toEqual({});
-    expect(collectionMarket.getSnapshotPriceIndex).toHaveBeenCalled();
+    expect(collectionMarket.getSnapshotRowsForKeys).toHaveBeenCalledWith([
+      'abc123',
+    ]);
+    expect(collectionMarket.getSnapshotPriceIndex).not.toHaveBeenCalled();
     expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
     expect(collectionMarket.portfolioMarketItemsFromIndex).toHaveBeenCalledWith(
       ['abc123'],
-      expect.any(Map),
+      rowMap,
       '365d',
     );
   });
@@ -136,8 +141,8 @@ describe('PortfolioAssetsPageService', () => {
     });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
-    const index = new Map();
-    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(index);
+    const rowMap = new Map();
+    collectionMarket.getSnapshotRowsForKeys.mockResolvedValue(rowMap);
     collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     await service.loadPage(
@@ -147,7 +152,7 @@ describe('PortfolioAssetsPageService', () => {
 
     expect(collectionMarket.portfolioMarketItemsFromIndex).toHaveBeenCalledWith(
       [expect.stringMatching(/^[a-f0-9]{64}$/)],
-      index,
+      rowMap,
       '365d',
     );
     expect(collectionMarket.batchPortfolioMarketData).not.toHaveBeenCalled();
@@ -197,7 +202,7 @@ describe('PortfolioAssetsPageService', () => {
     });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
-    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    collectionMarket.getSnapshotRowsForKeys.mockResolvedValue(new Map());
     collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     const result = await service.loadPage(
@@ -216,6 +221,44 @@ describe('PortfolioAssetsPageService', () => {
     );
   });
 
+  it('bootstrapFirstPage verifies newest head and tail ownerOf in parallel', async () => {
+    const many = Array.from({ length: 30 }, (_, i) => 30 - i);
+    ownerIndex.getTokenIdsByOwner.mockResolvedValue(many);
+    blockchain.filterTokenIdsOwnedByWallet.mockImplementation(
+      async (_w: string, ids: number[]) => ids,
+    );
+    rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
+      items: [],
+      metaSource: { db: 0, ipfs: 0, onChain: 0, empty: 0 },
+      needsHeal: [],
+    });
+    portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
+    collectionService.collectionKeysByTokenIds.mockResolvedValue({});
+    collectionMarket.getSnapshotRowsForKeys.mockResolvedValue(new Map());
+    collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
+
+    await service.loadPage(
+      '0x0000000000000000000000000000000000000001',
+      undefined,
+      undefined,
+      { bootstrapFirstPage: true },
+    );
+
+    expect(blockchain.filterTokenIdsOwnedByWallet).toHaveBeenCalledTimes(2);
+    expect(blockchain.filterTokenIdsOwnedByWallet).toHaveBeenNthCalledWith(
+      1,
+      expect.any(String),
+      many.slice(0, 24),
+      11155111,
+    );
+    expect(blockchain.filterTokenIdsOwnedByWallet).toHaveBeenNthCalledWith(
+      2,
+      expect.any(String),
+      many.slice(24),
+      11155111,
+    );
+  });
+
   it('loads first page from DB when tokenIds omitted', async () => {
     rwaAssetResolve.batchPortfolioMetadata.mockResolvedValue({
       items: [],
@@ -224,7 +267,7 @@ describe('PortfolioAssetsPageService', () => {
     });
     portfolioHoldings.getHoldingsBatch.mockResolvedValue([]);
     collectionService.collectionKeysByTokenIds.mockResolvedValue({});
-    collectionMarket.getSnapshotPriceIndex.mockResolvedValue(new Map());
+    collectionMarket.getSnapshotRowsForKeys.mockResolvedValue(new Map());
     collectionMarket.portfolioMarketItemsFromIndex.mockReturnValue([]);
 
     const result = await service.loadPage(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import type {
   AdminUserAccountStatusFilter,
@@ -20,6 +20,7 @@ import {
   useMarketplaceAdminUsers,
 } from "@/hooks/marketplace-admin/useMarketplaceAdminUsers";
 import {
+  ADMIN_ARTICLE,
   ADMIN_BTN_LOAD_MORE,
   ADMIN_BTN_PRIMARY,
   ADMIN_COUNT,
@@ -27,8 +28,8 @@ import {
   ADMIN_SEGMENT,
   ADMIN_SEGMENT_BTN,
   ADMIN_SEGMENT_BTN_ACTIVE,
-  ADMIN_TABLE,
   ADMIN_TABLE_HEAD,
+  ADMIN_TABLE_WIDE,
   ADMIN_TABLE_TD,
   ADMIN_TABLE_TH,
   ADMIN_TABLE_WRAP,
@@ -36,6 +37,7 @@ import {
   ADMIN_TEXT_META,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
+import { AdminUserListMobileCard } from "./AdminUserListMobileCard";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 type ListTab = "all" | "flagged";
@@ -74,7 +76,46 @@ function kycDotClass(status: AdminUserSummary["kycStatus"]): string {
   return "bg-zinc-400";
 }
 
-function StrikeDots({ count }: { count: number }) {
+function FilterChip({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`shrink-0 ${active ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN}`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function FilterRow({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="min-w-0">
+      <p className={`mb-1.5 text-xs font-medium ${ADMIN_TEXT_META}`}>{label}</p>
+      <div className="-mx-1 overflow-x-auto px-1 pb-0.5 [-webkit-overflow-scrolling:touch]">
+        <div className={`${ADMIN_SEGMENT} inline-flex w-max max-w-none flex-nowrap`}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function StrikeDotsDesktop({ count }: { count: number }) {
   return (
     <span className="inline-flex items-center gap-1" aria-label={`${count}/3`}>
       {[0, 1, 2].map((i) => (
@@ -91,26 +132,6 @@ function StrikeDots({ count }: { count: number }) {
       ))}
       <span className={`ml-1.5 text-xs ${ADMIN_TEXT_META}`}>{count}/3</span>
     </span>
-  );
-}
-
-function FilterChip({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={active ? ADMIN_SEGMENT_BTN_ACTIVE : ADMIN_SEGMENT_BTN}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -144,13 +165,10 @@ export function MarketplaceAdminUsersPage() {
 
   return (
     <div>
-      <MarketplaceAdminPageHeader
-        title="유저"
-        subtitle="Sumsub 셀러 인증 상태와 정책 위반 셀러"
-      />
+      <MarketplaceAdminPageHeader title="유저" />
 
       <div
-        className="mb-5 flex gap-1 border-b border-zinc-200 sm:mb-6"
+        className="-mx-1 mb-5 flex gap-1 overflow-x-auto border-b border-zinc-200 px-1 sm:mb-6 [-webkit-overflow-scrolling:touch]"
         role="tablist"
         aria-label="유저 탭"
       >
@@ -197,50 +215,9 @@ export function MarketplaceAdminUsersPage() {
         </div>
       ) : (
         <>
-          <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center lg:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <div className={ADMIN_SEGMENT} role="group" aria-label="KYC">
-                {KYC_FILTERS.map((f) => (
-                  <FilterChip
-                    key={f.value}
-                    active={kycFilter === f.value}
-                    label={f.label}
-                    onClick={() => {
-                      setKycFilter(f.value);
-                      setPage(1);
-                    }}
-                  />
-                ))}
-              </div>
-              <div className={ADMIN_SEGMENT} role="group" aria-label="상태">
-                {STATUS_FILTERS.map((f) => (
-                  <FilterChip
-                    key={f.value}
-                    active={accountStatus === f.value}
-                    label={f.label}
-                    onClick={() => {
-                      setAccountStatus(f.value);
-                      setPage(1);
-                    }}
-                  />
-                ))}
-              </div>
-              <div className={ADMIN_SEGMENT} role="group" aria-label="역할">
-                {ROLE_FILTERS.map((f) => (
-                  <FilterChip
-                    key={f.label}
-                    active={role === f.value}
-                    label={f.label}
-                    onClick={() => {
-                      setRole(f.value);
-                      setPage(1);
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className={`${ADMIN_ARTICLE} mb-4 space-y-4`}>
             <form
-              className="flex min-w-0 flex-1 gap-2 lg:max-w-sm lg:justify-end"
+              className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center"
               onSubmit={(e) => {
                 e.preventDefault();
                 setSearch(q.trim());
@@ -248,16 +225,58 @@ export function MarketplaceAdminUsersPage() {
               }}
             >
               <input
-                className={ADMIN_INPUT}
+                className={`${ADMIN_INPUT} min-w-0 flex-1`}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="이름·이메일·유저 ID"
                 aria-label="유저 검색"
               />
-              <button type="submit" className={ADMIN_BTN_PRIMARY}>
+              <button
+                type="submit"
+                className={`${ADMIN_BTN_PRIMARY} w-full sm:w-auto sm:shrink-0`}
+              >
                 검색
               </button>
             </form>
+            <FilterRow label="KYC">
+              {KYC_FILTERS.map((f) => (
+                <FilterChip
+                  key={f.value}
+                  active={kycFilter === f.value}
+                  label={f.label}
+                  onClick={() => {
+                    setKycFilter(f.value);
+                    setPage(1);
+                  }}
+                />
+              ))}
+            </FilterRow>
+            <FilterRow label="계정 상태">
+              {STATUS_FILTERS.map((f) => (
+                <FilterChip
+                  key={f.value}
+                  active={accountStatus === f.value}
+                  label={f.label}
+                  onClick={() => {
+                    setAccountStatus(f.value);
+                    setPage(1);
+                  }}
+                />
+              ))}
+            </FilterRow>
+            <FilterRow label="역할">
+              {ROLE_FILTERS.map((f) => (
+                <FilterChip
+                  key={f.label}
+                  active={role === f.value}
+                  label={f.label}
+                  onClick={() => {
+                    setRole(f.value);
+                    setPage(1);
+                  }}
+                />
+              ))}
+            </FilterRow>
           </div>
 
           {tabHrefNote ? (
@@ -276,8 +295,29 @@ export function MarketplaceAdminUsersPage() {
             </p>
           ) : null}
 
-          <div className={ADMIN_TABLE_WRAP}>
-            <table className={ADMIN_TABLE}>
+          {items.length === 0 && !listQuery.isLoading ? (
+            <p
+              className={`rounded-lg border border-dashed border-zinc-300 bg-white py-12 text-center text-sm ${ADMIN_TEXT_EMPTY}`}
+            >
+              유저가 없습니다
+            </p>
+          ) : null}
+
+          <ul className="space-y-2 md:hidden">
+            {items.map((row) => (
+              <li key={row.id}>
+                <AdminUserListMobileCard
+                  row={row}
+                  onOpen={() =>
+                    router.push(`/marketplace/admin/users/${row.id}`)
+                  }
+                />
+              </li>
+            ))}
+          </ul>
+
+          <div className={`${ADMIN_TABLE_WRAP} hidden md:block`}>
+            <table className={ADMIN_TABLE_WIDE}>
               <thead className={ADMIN_TABLE_HEAD}>
                 <tr>
                   <th className={ADMIN_TABLE_TH}>유저</th>
@@ -290,16 +330,6 @@ export function MarketplaceAdminUsersPage() {
                 </tr>
               </thead>
               <tbody>
-                {items.length === 0 && !listQuery.isLoading ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className={`${ADMIN_TABLE_TD} py-10 text-center ${ADMIN_TEXT_EMPTY}`}
-                    >
-                      유저가 없습니다
-                    </td>
-                  </tr>
-                ) : null}
                 {items.map((row) => {
                   const shortId = formatAdminUserShortId(row.id);
                   const displayName =
@@ -365,7 +395,7 @@ export function MarketplaceAdminUsersPage() {
                         {row.custodyCardCount}
                       </td>
                       <td className={ADMIN_TABLE_TD}>
-                        <StrikeDots count={row.strikeCount ?? 0} />
+                        <StrikeDotsDesktop count={row.strikeCount ?? 0} />
                       </td>
                       <td className={ADMIN_TABLE_TD}>
                         <span className="inline-flex items-center gap-1.5 text-sm text-zinc-800">
@@ -380,9 +410,9 @@ export function MarketplaceAdminUsersPage() {
             </table>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-            <p className={`text-sm ${ADMIN_TEXT_SECONDARY}`}>
-              Page {page}
+          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <p className={`text-center text-sm sm:text-left ${ADMIN_TEXT_SECONDARY}`}>
+              {page}페이지
               {total > 0
                 ? ` · ${(
                     (page - 1) * ADMIN_USERS_PAGE_SIZE +
@@ -390,14 +420,13 @@ export function MarketplaceAdminUsersPage() {
                   ).toLocaleString()}–${Math.min(
                     page * ADMIN_USERS_PAGE_SIZE,
                     total,
-                  ).toLocaleString()}`
+                  ).toLocaleString()} / ${total.toLocaleString()}명`
                 : null}
             </p>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:gap-2">
               <button
                 type="button"
-                className={ADMIN_BTN_LOAD_MORE}
-                style={{ width: "auto", paddingInline: "1rem" }}
+                className={`${ADMIN_BTN_LOAD_MORE} col-span-1 sm:!w-auto`}
                 disabled={page <= 1 || listQuery.isFetching}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
               >
@@ -405,8 +434,7 @@ export function MarketplaceAdminUsersPage() {
               </button>
               <button
                 type="button"
-                className={ADMIN_BTN_LOAD_MORE}
-                style={{ width: "auto", paddingInline: "1rem" }}
+                className={`${ADMIN_BTN_LOAD_MORE} col-span-1 sm:!w-auto`}
                 disabled={!hasMore || listQuery.isFetching}
                 onClick={() => setPage((p) => p + 1)}
               >

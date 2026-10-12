@@ -7,7 +7,8 @@ export type AssetsSegment =
   | "notlisted"
   | "listed"
   | "shipping"
-  | "verifying";
+  | "verifying"
+  | "hidden";
 
 export type HoldingsLifecycleSeg =
   | "notlisted"
@@ -16,14 +17,29 @@ export type HoldingsLifecycleSeg =
   | "verifying"
   | "possession";
 
-export const ASSETS_SEGMENT_OPTIONS: { id: AssetsSegment; label: string }[] = [
+/** Desktop filter dropdown + mobile drawer (Portfolio.html v36). */
+export const ASSETS_FILTER_OPTIONS: { id: AssetsSegment; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "listed", label: "Listed" },
+  { id: "notlisted", label: "Unlisted" },
+  { id: "shipping", label: "Redeeming" },
+  { id: "verifying", label: "Vaulting" },
+  { id: "hidden", label: "Hidden" },
+];
+
+/** Mobile filter drawer (Portfolio.html `pf-fd-sheet`; hidden only on desktop select in prototype). */
+export const ASSETS_SEGMENT_DRAWER_OPTIONS: { id: AssetsSegment; label: string }[] = [
   { id: "tradeable", label: "Tradeable" },
   { id: "all", label: "All" },
   { id: "notlisted", label: "Not listed" },
   { id: "listed", label: "Listed" },
   { id: "shipping", label: "Shipping out" },
   { id: "verifying", label: "Verifying" },
+  { id: "hidden", label: "Hidden" },
 ];
+
+/** @deprecated use ASSETS_FILTER_OPTIONS — kept for tests importing the old name */
+export const ASSETS_SEGMENT_OPTIONS = ASSETS_FILTER_OPTIONS;
 
 export function holdingsLifecycleSeg(
   isListed: boolean,
@@ -44,7 +60,11 @@ export function holdingsLifecycleSeg(
 export function matchesAssetsSegment(
   seg: HoldingsLifecycleSeg,
   filter: AssetsSegment,
+  opts?: { hidden?: boolean },
 ): boolean {
+  const isHidden = opts?.hidden === true;
+  if (filter === "hidden") return isHidden;
+  if (isHidden) return false;
   if (seg === "possession") return false;
   if (filter === "all") return true;
   if (filter === "tradeable") return seg === "listed" || seg === "notlisted";

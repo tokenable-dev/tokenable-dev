@@ -202,7 +202,6 @@ export function MarketplaceAdminNav({
                   key={item.href}
                   href={item.href}
                   onClick={onNavigate}
-                  title={item.description}
                   className={cn("admin-nav__link", active && "admin-nav__link--active")}
                 >
                   <AdminNavIcon name={item.icon} />

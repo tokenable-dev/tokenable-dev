@@ -9,13 +9,12 @@ import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
-  formatPortfolioUsd,
   portfolioPriceChangeArrow,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
-import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
+import { holdingsSaleKind } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
 
@@ -26,13 +25,10 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   href,
   cost,
   valuesPending,
-  canEditCostBasis,
-  savingCostBasis,
   isListed,
   redeemStatus = null,
   actionsDisabled = false,
   actionsDisabledTitle,
-  onSaveCostBasis,
   onSetPrice,
   selectMode = false,
   selected = false,
@@ -44,14 +40,11 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   href?: string;
   cost: number | undefined;
   valuesPending: boolean;
-  canEditCostBasis: boolean;
-  savingCostBasis?: boolean;
   isListed: boolean;
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
-  onSetPrice: (tokenId: number) => void;
+  onSetPrice: (tokenId: number, draftPriceUsdc?: string | null) => void;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -59,7 +52,6 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
-  const costEditable = canEditCostBasis && !redeemStatus;
   const titleHover = headline?.hover ?? row.name;
   const titleLabel = headline?.line1 ?? row.name;
   const dimClass =
@@ -70,9 +62,8 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
         : "";
   const selectClass = selectMode
     ? [
-        isListed && selected ? " pf-mobile-asset-card--cl-on" : "",
-        !isListed ? " pf-mobile-asset-card--cl-dim" : "",
-        isListed ? " pf-mobile-asset-card--cl-pick" : "",
+        selected ? " pf-mobile-asset-card--cl-on" : "",
+        " pf-mobile-asset-card--cl-pick",
       ].join("")
     : "";
   const activateClass =
@@ -84,7 +75,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
       className={`pf-mobile-asset-card${dimClass}${selectClass}${activateClass}`}
       role="listitem"
       onClick={
-        selectMode && isListed
+        selectMode
           ? (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -99,7 +90,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
       }
     >
       <div className="pf-mobile-asset-card__img">
-        {href && !(selectMode && isListed) ? (
+        {href && !selectMode ? (
           <Link href={href} aria-label={titleLabel}>
             {kbwVirtual ? (
               <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
@@ -114,7 +105,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
           // eslint-disable-next-line @next/next/no-img-element
           <img src={row.imageUrl} alt="" loading="lazy" decoding="async" />
         ) : null}
-        {selectMode && isListed ? (
+        {selectMode ? (
           <div className={`pf-selchk${selected ? " pf-selchk--on" : ""}`} aria-hidden>
             {selected ? (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -128,7 +119,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
         <div className="pf-mobile-asset-card__head">
           <div className="pf-mobile-asset-card__title" title={titleHover}>
             {headline ? (
-              href && !(selectMode && isListed) ? (
+              href && !selectMode ? (
                 <Link href={href} className="pf-mobile-asset-card__title-link">
                   <span className={CARD_DISPLAY_LINE1_CLAMP_CLASS}>
                     {headline?.line1 ?? titleLabel}
@@ -139,7 +130,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
                   {headline?.line1 ?? titleLabel}
                 </span>
               )
-            ) : href && !(selectMode && isListed) ? (
+            ) : href && !selectMode ? (
               <Link href={href}>{titleLabel}</Link>
             ) : (
               titleLabel
@@ -154,54 +145,32 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
 
         {redeemStatus?.kind !== "transit" && redeemStatus?.kind !== "possession" ? (
           <>
-            {costEditable && onSaveCostBasis ? (
-              <PortfolioCostBasisInlineEdit
-                layout="mobile"
-                assetName={titleLabel}
-                valueUsd={cost}
-                editable
-                saving={savingCostBasis}
-                onSave={(usd) => onSaveCostBasis(row.tokenId, usd)}
-              />
-            ) : (
-              <div className="pf-mobile-asset-card__row">
-                <span className="pf-mobile-asset-card__label">Cost</span>
-                <span className="pf-mobile-asset-card__val tkl-mono">
-                  {formatPortfolioUsd(cost)}
-                </span>
-              </div>
-            )}
-            <div className="pf-mobile-asset-card__row">
+            <div className="pf-mobile-asset-card__row pf-mobile-asset-card__row--mkt">
               <span className="pf-mobile-asset-card__label">Mkt Price</span>
               <span className="pf-mobile-asset-card__val pf-mobile-asset-card__val--mkt tkl-mono">
-                <span>
-                  {valuesPending && row.currentPrice == null
-                    ? "…"
-                    : formatUsdCompact(row.currentPrice)}
-                  {pnl ? (
-                    <span
-                      className={`pf-mkt-dir${
-                        pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
-                      }`}
-                      aria-hidden
-                    >
-                      {portfolioPriceChangeArrow(pnl.positive)}
-                    </span>
-                  ) : null}
-                </span>
+                {valuesPending && row.currentPrice == null
+                  ? "…"
+                  : formatUsdCompact(row.currentPrice)}
                 {pnl ? (
-                  <span className={`pf-mobile-asset-card__return pf-table-pl ${plClass}`}>
-                    {pnl.returnPct}
+                  <span
+                    className={`pf-mkt-dir${
+                      pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
+                    }`}
+                    aria-hidden
+                  >
+                    {portfolioPriceChangeArrow(pnl.positive)}
                   </span>
                 ) : null}
               </span>
             </div>
-            <div className="pf-mobile-asset-card__row">
-              <span className="pf-mobile-asset-card__label">$ Chg.</span>
-              <span className={`pf-mobile-asset-card__val tkl-mono pf-table-pl ${plClass}`}>
-                {pnl ? pnl.profit : "—"}
-              </span>
-            </div>
+            {pnl ? (
+              <div className="pf-mobile-asset-card__row pf-mobile-asset-card__row--pct">
+                <span className="pf-mobile-asset-card__label">% Chg.</span>
+                <span className={`pf-mobile-asset-card__return pf-table-pl ${plClass}`}>
+                  {pnl.returnPct}
+                </span>
+              </div>
+            ) : null}
           </>
         ) : null}
 
@@ -210,20 +179,31 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
             className="pf-mobile-asset-card__actions"
             onClick={onActivate ? (e) => e.stopPropagation() : undefined}
           >
-            <PortfolioHoldingsRowActions
-              isListed={isListed}
-              fullWidth
-              disabled={actionsDisabled}
-              disabledTitle={actionsDisabledTitle}
-              redeemStatus={redeemStatus}
-              onSetPrice={() => {
-                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                  card_id: String(row.tokenId),
-                  current_price: row.currentPrice ?? undefined,
-                });
-                onSetPrice(row.tokenId);
-              }}
-            />
+            {holdingsSaleKind(isListed, redeemStatus) === "redeeming" ? (
+              <PortfolioHoldingsRowActions
+                isListed={isListed}
+                fullWidth
+                disabled={actionsDisabled}
+                disabledTitle={actionsDisabledTitle}
+                redeemStatus={redeemStatus}
+                onSetPrice={() => onSetPrice(row.tokenId)}
+              />
+            ) : (
+              <PortfolioHoldingsRowActions
+                isListed={isListed}
+                fullWidth
+                disabled={actionsDisabled}
+                disabledTitle={actionsDisabledTitle}
+                redeemStatus={redeemStatus}
+                onSetPrice={() => {
+                  trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                    card_id: String(row.tokenId),
+                    current_price: row.currentPrice ?? undefined,
+                  });
+                  onSetPrice(row.tokenId);
+                }}
+              />
+            )}
           </div>
         ) : null}
       </div>

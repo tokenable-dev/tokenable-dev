@@ -17,11 +17,9 @@ import {
 } from "@/lib/portfolio/buildPortfolioTxRows";
 import { TkButton, TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
-import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
-import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
-import { PortfolioSortableTh } from "./PortfolioSortableTh";
 import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
 import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
+import { useAppChain } from "@/providers/AppChainProvider";
 
 type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
 type HistoryStatusFilter = "" | TxLifecycle;
@@ -29,12 +27,6 @@ type HistoryRangeFilter = "all" | "30" | "90" | "ytd" | "custom";
 
 const ALL_KINDS: TxKind[] = ["BUY", "SELL", "MINT", "REDEEM", "TRANSFER"];
 const DAY_MS = 86_400_000;
-
-const HISTORY_TOOLBAR_SORT: { value: HistorySortKey; label: string }[] = [
-  { value: "date", label: "Date" },
-  { value: "amount", label: "Amount" },
-];
-
 
 function csvCell(value: string): string {
   return `"${value.replace(/"/g, '""')}"`;
@@ -50,6 +42,28 @@ function endOfLocalDay(isoDate: string): number {
   const start = startOfLocalDay(isoDate);
   if (!Number.isFinite(start)) return NaN;
   return start + DAY_MS - 1;
+}
+
+function shortHex(value: string): string {
+  const s = value.trim();
+  if (s.length < 12) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function txActionTone(type: TxKind): string {
+  if (type === "BUY") return "pf-ux-pos";
+  if (type === "SELL") return "pf-ux-neg";
+  if (type === "MINT") return "pf-ux-purple";
+  if (type === "REDEEM") return "pf-ux-blue";
+  if (type === "TRANSFER") return "";
+  return "";
+}
+
+function txStatusTone(status: TxLifecycle): string {
+  if (status === "in_progress") return "pf-ux-warn";
+  if (status === "failed") return "pf-ux-neg";
+  if (status === "canceled") return "pf-ux-mute";
+  return "pf-ux-pos";
 }
 
 function inDateRange(
@@ -81,19 +95,18 @@ export function PortfolioActivitySection({
   loading: boolean;
   txRows: TxRow[];
 }) {
+  const { chain } = useAppChain();
   const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<"" | TxKind>("");
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
   const [rangeFilter, setRangeFilter] = useState<HistoryRangeFilter>("90");
   const [draftType, setDraftType] = useState<"" | TxKind>("");
-  const [draftStatus, setDraftStatus] = useState<HistoryStatusFilter>("");
   const [draftRange, setDraftRange] = useState<HistoryRangeFilter>("90");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [filterOpen, setFilterOpen] = useState(false);
-  const { sortKey, sortDir, toggleSort, setSort } =
-    usePortfolioTableSort<HistorySortKey>("date", "desc");
+  const { sortKey, sortDir } = usePortfolioTableSort<HistorySortKey>("date", "desc");
 
   useEffect(() => {
     if (!filterOpen) return;
@@ -106,20 +119,17 @@ export function PortfolioActivitySection({
 
   function openFilters() {
     setDraftType(typeFilter);
-    setDraftStatus(statusFilter);
     setDraftRange(rangeFilter);
     setFilterOpen(true);
   }
 
   function applyFilters() {
     setTypeFilter(draftType);
-    setStatusFilter(draftStatus);
     setRangeFilter(draftRange);
     setFilterOpen(false);
   }
 
-  const filterCount =
-    (typeFilter ? 1 : 0) + (statusFilter ? 1 : 0) + (rangeFilter !== "all" ? 1 : 0);
+  const filterCount = (typeFilter ? 1 : 0) + (rangeFilter !== "90" ? 1 : 0);
 
   const sortedRows = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -230,6 +240,22 @@ export function PortfolioActivitySection({
   return (
     <>
       <div className="pf-tbar" id="hx-toolbar">
+        <label className="pf-tdrop">
+          <span className="pf-tdrop__k">Filter:</span>
+          <select
+            aria-label="Filter transactions by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as HistoryStatusFilter)}
+          >
+            <option value="">All</option>
+            <option value="completed">Completed</option>
+            <option value="in_progress">In progress</option>
+            <option value="failed">Failed</option>
+          </select>
+          <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </label>
         <button
           type="button"
           className="pf-tbtn pf-tbtn--icon"
@@ -254,25 +280,6 @@ export function PortfolioActivitySection({
         />
         <div className="pf-tbar__spacer" />
         <div className="pf-tbar__cluster">
-          <div className="pf-tbar__sortsel">
-            <select
-              aria-label="Sort history"
-              value={sortKey === "amount" ? "amount" : "date"}
-              onChange={(e) => {
-                const next = e.target.value as HistorySortKey;
-                setSort(next, "desc");
-              }}
-            >
-              {HISTORY_TOOLBAR_SORT.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {o.label}
-                </option>
-              ))}
-            </select>
-            <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <polyline points="6 9 12 15 18 9" />
-            </svg>
-          </div>
           <button
             type="button"
             className="pf-tbtn pf-tbtn--icon"
@@ -318,22 +325,6 @@ export function PortfolioActivitySection({
                       {TX_KIND_LABEL[kind]}
                     </option>
                   ))}
-                </select>
-              </label>
-              <label className="pf-filter-drawer__label">
-                <span>Status</span>
-                <select
-                  className="pf-filter-drawer__select"
-                  value={draftStatus}
-                  onChange={(e) =>
-                    setDraftStatus(e.target.value as HistoryStatusFilter)
-                  }
-                >
-                  <option value="">All statuses</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="completed">Completed</option>
-                  <option value="failed">Failed</option>
-                  <option value="canceled">Canceled</option>
                 </select>
               </label>
               <label className="pf-filter-drawer__label">
@@ -387,64 +378,32 @@ export function PortfolioActivitySection({
       {sortedRows.length === 0 ? (
         <p className="pf-empty pf-empty--panel">No transactions match your search.</p>
       ) : (
-        <TkTable wrapClassName="pf-table-wrap" className="pf-table--history">
-          <colgroup>
-            <col className="pf-col-date" />
-            <col className="pf-col-type" />
-            <col className="pf-col-card" />
-            <col className="pf-col-status" />
-            <col className="pf-col-amount" />
-          </colgroup>
+        <TkTable wrapClassName="pf-table-wrap" className="pf-table--history pf-ux">
           <thead>
             <tr>
-              <PortfolioSortableTh
-                label="Date"
-                sortKey="date"
-                activeKey={sortKey}
-                sortDir={sortDir}
-                onSort={(k) => toggleSort(k as HistorySortKey)}
-              />
-              <PortfolioSortableTh
-                label="Type"
-                sortKey="type"
-                activeKey={sortKey}
-                sortDir={sortDir}
-                onSort={(k) => toggleSort(k as HistorySortKey)}
-              />
-              <PortfolioSortableTh
-                label="Card"
-                sortKey="card"
-                activeKey={sortKey}
-                sortDir={sortDir}
-                onSort={(k) => toggleSort(k as HistorySortKey)}
-              />
-              <PortfolioSortableTh
-                label="Status"
-                sortKey="status"
-                activeKey={sortKey}
-                sortDir={sortDir}
-                align="right"
-                onSort={(k) => toggleSort(k as HistorySortKey)}
-              />
-              <PortfolioSortableTh
-                label="Amount"
-                sortKey="amount"
-                activeKey={sortKey}
-                sortDir={sortDir}
-                align="right"
-                onSort={(k) => toggleSort(k as HistorySortKey)}
-              />
+              <th>Item</th>
+              <th>Action</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th className="pf-ux-r">Amount</th>
             </tr>
           </thead>
           <tbody>
-            {sortedRows.map((tx, index) => {
+            {sortedRows.map((tx) => {
               const dash = txAmountIsNonTrade(tx);
-              const zebra = index % 2 === 1 ? " pf-table-row--zebra" : "";
               const fullName = tx.assetHover || tx.asset;
+              const amount = dash ? "—" : formatPortfolioUsd(tx.price);
+              const when = tx.dateTimeLabel ?? tx.date;
+              const hash = tx.chainTxs?.[0]?.hash;
+              const scan = chain.explorerBaseUrl.replace(/\/$/, "");
+              const actionTone = txActionTone(tx.type);
+              const statusTone = txStatusTone(tx.status);
+              const statusLabel = txLifecycleLabel(tx.status);
+              const kind = txKindLabel(tx);
               return (
                 <tr
                   key={tx.orderHash}
-                  className={`pf-history-row${zebra}`}
+                  className="pf-history-row pf-ux-row"
                   onClick={() => setSelectedTx(tx)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" || e.key === " ") {
@@ -455,33 +414,92 @@ export function PortfolioActivitySection({
                   tabIndex={0}
                   role="button"
                 >
+                  <td data-label="Item">
+                    <div className="pf-ux-item">
+                      <span className="pf-ux-thumb">
+                        {tx.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tx.imageUrl} alt="" />
+                        ) : null}
+                      </span>
+                      <span className="pf-ux-txt">
+                        <span className="pf-ux-name" title={fullName}>
+                          {tx.asset}
+                        </span>
+                        <span className="pf-ux-sub">
+                          {hash ? (
+                            <a
+                              className="pf-ux-hash"
+                              href={`${scan}/tx/${hash}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {shortHex(hash)} ↗
+                            </a>
+                          ) : (
+                            <span className="pf-ux-mono pf-ux-mute">pending</span>
+                          )}
+                        </span>
+                      </span>
+                    </div>
+                  </td>
+                  <td data-label="Action">
+                    <span className={`pf-ux-v ${actionTone}`}>{kind}</span>
+                  </td>
                   <td data-label="Date">
-                    <span className="tkl-mono pf-table-date">{tx.date}</span>
+                    <span className="pf-ux-d">{when}</span>
                   </td>
-                  <td data-label="Type">
-                    <span className={`tkl-mono pf-table-type ${txKindClass(tx)}`}>
-                      {txKindLabel(tx)}
-                    </span>
+                  <td data-label="Status">
+                    <span className={`pf-ux-v ${statusTone}`}>{statusLabel}</span>
                   </td>
-                  <td data-label="Card">
-                    <span
-                      className={`pf-table-card-name pf-table-card-name--history ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                      title={fullName}
-                    >
-                      {tx.asset}
-                    </span>
+                  <td data-label="Amount" className="pf-ux-r">
+                    <span className={`pf-ux-amt${dash ? " pf-ux-mute" : ""}`}>{amount}</span>
                   </td>
-                  <td data-label="Status" style={{ textAlign: "right" }}>
-                    <PortfolioHistoryStatusBadge status={tx.status} />
-                  </td>
-                  <td data-label="Amount" style={{ textAlign: "right" }}>
-                    <span
-                      className={`tkl-mono pf-table-amount${
-                        dash ? " pf-table-amount--dash" : ""
-                      }`}
-                    >
-                      {dash ? "—" : formatPortfolioUsd(tx.price)}
-                    </span>
+                  <td className="pf-ux-mc" data-label="Mobile">
+                    <div className="pf-ux-mc__card">
+                      <span className="pf-ux-mc__thumb">
+                        {tx.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tx.imageUrl} alt="" />
+                        ) : null}
+                      </span>
+                      <div className="pf-ux-mc__body">
+                        <div className="pf-ux-mc__row">
+                          <span className="pf-ux-mc__name" title={fullName}>
+                            {tx.asset}
+                          </span>
+                          <span className={`pf-ux-chip ${statusTone}`}>{statusLabel}</span>
+                        </div>
+                        <div className="pf-ux-mc__money">
+                          <span className={`pf-ux-v ${actionTone}`}>{kind}</span>
+                          {"\u00a0\u00a0"}
+                          <span className={`pf-ux-amt${dash ? " pf-ux-mute" : ""}`}>{amount}</span>
+                        </div>
+                        <div className="pf-ux-mc__meta">
+                          <span className="pf-ux-d">{when}</span>
+                          {hash ? (
+                            <>
+                              {" · "}
+                              <a
+                                className="pf-ux-hash"
+                                href={`${scan}/tx/${hash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                {shortHex(hash)} ↗
+                              </a>
+                            </>
+                          ) : (
+                            <>
+                              {" · "}
+                              <span className="pf-ux-mono pf-ux-mute">pending</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </td>
                 </tr>
               );

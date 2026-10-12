@@ -7,14 +7,12 @@ import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
-  formatPortfolioUsd,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
 import { TkTable } from "@/components/ds";
 import { portfolioAssetHref } from "@/lib/portfolio/portfolioPaths";
 import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
-import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import { PortfolioHoldingsSaleStatus } from "./PortfolioHoldingsSaleStatus";
 import { PortfolioStaticTh } from "./PortfolioSortableTh";
@@ -28,9 +26,6 @@ export function PortfolioHoldingsTableView({
   vaultByTokenId,
   costBasisByTokenId,
   valuesPending,
-  canEditCostBasis,
-  savingCostBasisTokenId,
-  onSaveCostBasis,
   onSetPrice,
   getBadge,
   isTradeBlocked,
@@ -38,6 +33,7 @@ export function PortfolioHoldingsTableView({
   selectMode = false,
   selectedTokenIds,
   onToggleSelect,
+  isRowSelectable,
   onOpenKbwMysteryCard,
 }: {
   rows: AssetRow[];
@@ -45,9 +41,6 @@ export function PortfolioHoldingsTableView({
   vaultByTokenId?: Map<number, HoldingsVaultChip>;
   costBasisByTokenId: Map<number, number>;
   valuesPending: boolean;
-  canEditCostBasis: boolean;
-  savingCostBasisTokenId?: number | null;
-  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
   onSetPrice: (tokenId: number) => void;
   getBadge: (tokenId: number) => RedeemSurfaceBadge | null;
   isTradeBlocked: (tokenId: number) => boolean;
@@ -55,6 +48,7 @@ export function PortfolioHoldingsTableView({
   selectMode?: boolean;
   selectedTokenIds?: Set<number>;
   onToggleSelect?: (tokenId: number) => void;
+  isRowSelectable?: (row: AssetRow) => boolean;
   onOpenKbwMysteryCard?: () => void;
 }) {
   return (
@@ -62,9 +56,7 @@ export function PortfolioHoldingsTableView({
       <colgroup>
         <col className="pf-col-card" />
         <col className="pf-col-grade" />
-        <col className="pf-col-cost" />
         <col className="pf-col-value" />
-        <col className="pf-col-profit" />
         <col className="pf-col-return" />
         <col className="pf-col-status" />
         <col className="pf-col-action" />
@@ -73,9 +65,7 @@ export function PortfolioHoldingsTableView({
         <tr>
           <PortfolioStaticTh label="Card" sortHint />
           <PortfolioStaticTh label="Vault" sortHint />
-          <PortfolioStaticTh label="Cost basis" sortHint align="right" />
           <PortfolioStaticTh label="Mkt Price" sortHint align="right" />
-          <PortfolioStaticTh label="$ Chg." sortHint align="right" />
           <PortfolioStaticTh label="% Chg." sortHint align="right" />
           <PortfolioStaticTh label="Status" muted />
           <PortfolioStaticTh label="Action" align="center" muted />
@@ -100,12 +90,15 @@ export function PortfolioHoldingsTableView({
           const selected = selectedTokenIds?.has(row.tokenId) ?? false;
           const virtual = isKbwMysteryCardTokenId(row.tokenId);
           const kbwUsed = Boolean(row.kbwMysteryUsed);
+          const canSelect =
+            selectMode &&
+            (isRowSelectable?.(row) ?? !tradeBlocked);
           const rowMods = [
             zebra,
             dim,
-            selectMode && isListed && selected ? " pf-holdings-row--cl-on" : "",
-            selectMode && !isListed ? " pf-holdings-row--cl-dim" : "",
-            selectMode && isListed ? " pf-holdings-row--cl-pick" : "",
+            canSelect && selected ? " pf-holdings-row--cl-on" : "",
+            canSelect ? " pf-holdings-row--cl-pick" : "",
+            selectMode && !canSelect ? " pf-holdings-row--cl-dim" : "",
           ].join("");
 
           const cardMedia = (
@@ -139,7 +132,7 @@ export function PortfolioHoldingsTableView({
               key={row.tokenId}
               className={`asset-row pf-holdings-row${rowMods}`}
               onClick={
-                selectMode && isListed
+                canSelect
                   ? (e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -149,7 +142,7 @@ export function PortfolioHoldingsTableView({
               }
             >
               <td data-label="Card">
-                {selectMode && isListed ? (
+                {canSelect ? (
                   <div className="pf-table-card-cell pf-table-card-cell--holdings pf-table-card-cell--cl">
                     <span className="pf-rowchk" aria-hidden />
                     {cardMedia}
@@ -189,40 +182,11 @@ export function PortfolioHoldingsTableView({
                   <span className="pf-table-muted">—</span>
                 )}
               </td>
-              <td data-label="Cost basis" className="pf-col-num-cell">
-                {canEditCostBasis && onSaveCostBasis && !badge ? (
-                  <PortfolioCostBasisInlineEdit
-                    layout="desktop"
-                    assetName={titleLabel}
-                    valueUsd={cost}
-                    editable
-                    saving={savingCostBasisTokenId === row.tokenId}
-                    onSave={(usd) => onSaveCostBasis(row.tokenId, usd)}
-                  />
-                ) : (
-                  <span className="tkl-mono pf-table-cost">
-                    {formatPortfolioUsd(cost)}
-                  </span>
-                )}
-              </td>
               <td data-label="Mkt Price" className="pf-col-num-cell">
                 <span className="tkl-mono pf-table-mkt">
                   {valuesPending && row.currentPrice == null
                     ? "…"
                     : formatUsdCompact(row.currentPrice)}
-                </span>
-              </td>
-              <td data-label="$ Chg." className="pf-col-num-cell">
-                <span
-                  className={`tkl-mono pf-table-pl${
-                    pnl
-                      ? pnl.positive
-                        ? " pf-table-pl--pos"
-                        : " pf-table-pl--neg"
-                      : ""
-                  }`}
-                >
-                  {pnl?.profit ?? "—"}
                 </span>
               </td>
               <td data-label="% Chg." className="pf-col-return-cell">

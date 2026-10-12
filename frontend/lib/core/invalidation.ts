@@ -413,13 +413,6 @@ export async function invalidateAfterListing(
   await clearPortfolioOwnedCaches(qc, opts.portfolioWallets);
 }
 
-/** After the owner edits My Assets cost basis. */
-export async function invalidateAfterCostBasisEdit(
-  qc: QueryClient,
-): Promise<void> {
-  await qc.invalidateQueries({ queryKey: ["portfolio-holdings"] });
-}
-
 /**
  * Marketplace notifications inbox (`rq.marketplaceNotifications`).
  * Pass `userId` when known; otherwise invalidate the whole prefix.

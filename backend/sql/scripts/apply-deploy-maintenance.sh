@@ -15,20 +15,9 @@ PGDATABASE="${PGDATABASE:-tokenable}"
 PG_WAIT_SECS="${MAINTENANCE_PG_WAIT_SECS:-120}"
 PG_ATTEMPTS="${MAINTENANCE_PG_ATTEMPTS:-8}"
 
-# Add new idempotent maintenance/*.sql here when the API entity layer depends on them.
+# Single idempotent bundle — add new DDL to maintenance/deploy-sync.sql (append a section).
 FILES=(
-  maintenance/add_vault_submission_item_display_fields.sql
-  maintenance/add_vault_cycles_mint_attempt.sql
-  maintenance/add_marketplace_collections_token_contract.sql
-  maintenance/add_vault_submissions_token_contract.sql
-  maintenance/add_portfolio_daily_snapshots_token_contract.sql
-  maintenance/nullable_rwa_tokens_settlement_policy.sql
-  maintenance/user_buyer_listing_alert_token_contract.sql
-  maintenance/drop_legacy_unused_tables.sql
-  maintenance/add_kbw_mystery_card_burns.sql
-  maintenance/drop_users_email_unique.sql
-  maintenance/add_users_welcome_email_sent_at.sql
-  maintenance/add_partner_vault_mint_jobs.sql
+  maintenance/deploy-sync.sql
 )
 
 postgres_via_docker() {
@@ -94,6 +83,7 @@ for rel in "${FILES[@]}"; do
     exit 1
   fi
   echo "apply-deploy-maintenance: $(basename "$f")"
+  # stdin so the same path works for docker exec (no host bind-mount of sql/).
   run_psql < "$f"
 done
 

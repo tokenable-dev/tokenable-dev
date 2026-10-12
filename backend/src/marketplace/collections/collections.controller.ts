@@ -294,6 +294,24 @@ export class CollectionsController {
     );
   }
 
+  /** Markets grid first page — summaries + materialized list snapshots (one round-trip). */
+  @ApiOperation({ summary: 'Markets browse bootstrap (page 1 summaries + snapshots)' })
+  @Get('collections/markets-bootstrap')
+  getMarketsBootstrap(
+    @Query('limit') limitRaw?: string,
+    @Query('cursor') cursor?: string,
+    @Query('priceHistoryDuration') priceHistoryDuration?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    const limit = Number(limitRaw);
+    return this.collectionMarketService.getMarketsBootstrapPage({
+      limit: Number.isFinite(limit) ? limit : undefined,
+      cursor: cursor?.trim() || null,
+      chainId: this.chainConfig.resolveChainId(chainHeader),
+      priceHistoryDurationRaw: priceHistoryDuration,
+    });
+  }
+
   /** Admin: counts by review_status for Collections filter chips */
   @ApiOperation({ summary: '[Admin] 컬렉션 review_status 카운트' })
   @Get('collections/admin/review-counts')
@@ -349,7 +367,7 @@ export class CollectionsController {
     }
   }
 
-  /** 목록용 시장 스냅샷 배치 (등급·스파크라인 등) */
+  /** 목록용 시장 스냅샷 배치 (materialized rows only; stale keys enqueue SWR) */
   @ApiOperation({ summary: '컬렉션 목록 시장 스냅샷 배치' })
   @ApiBody(apiBodyDefault(BatchMarketSnapshotsDto, SWAGGER_BODY_EXAMPLES.batchMarketSnapshots))
   @Post('collections/market-snapshots')

@@ -14,7 +14,7 @@
 | POST | `/auth/login` | Login with username/password |
 | POST | `/auth/logout` | Clear admin session |
 
-Admin credentials are stored in `marketplace_admins` table. Set via `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD` env vars (dev defaults: `skyand` / `071725`).
+Admin credentials are stored in `marketplace_admins` table. Set via `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD` env vars (dev defaults: `tokenable_admin` / `071725`).
 
 ---
 
@@ -476,7 +476,7 @@ Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only 
 
 | Variable | Purpose |
 |----------|---------|
-| `MARKETPLACE_ADMIN_USERNAME` | Admin console login (default: `skyand`) |
+| `MARKETPLACE_ADMIN_USERNAME` | Admin console login (default: `tokenable_admin`) |
 | `MARKETPLACE_ADMIN_PASSWORD` | Admin console password (default: `071725`) |
 | `MARKETPLACE_ADMIN_SESSION_SECRET` | HMAC secret for admin session cookie |
 | `MARKETPLACE_ADMIN_SESSION_SECONDS` | Admin session TTL (default: 86400) |

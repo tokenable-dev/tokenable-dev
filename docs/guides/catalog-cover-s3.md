@@ -73,9 +73,8 @@ Example: `dev/covers/rwa-slabs/84532/84089328/slab` (front) and `…/slab-back` 
 **Maintenance migration** (existing DBs):
 
 ```bash
-psql "$DATABASE_URL" -f backend/sql/maintenance/add_bulk_mint_slab_display_image_url.sql
-psql "$DATABASE_URL" -f backend/sql/maintenance/add_rwa_tokens_display_image_back_url.sql
-psql "$DATABASE_URL" -f backend/sql/maintenance/add_bulk_mint_slab_display_image_back_url.sql
+bash backend/sql/scripts/apply-deploy-maintenance.sh
+# (deploy-sync.sql includes slab display + rwa_tokens back image columns)
 ```
 
 **Backfill** existing tokens without `display_image_url`:

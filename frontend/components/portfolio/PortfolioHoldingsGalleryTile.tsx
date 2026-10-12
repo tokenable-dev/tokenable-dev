@@ -1,6 +1,6 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
@@ -9,11 +9,9 @@ import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
-  formatPortfolioUsd,
   portfolioPriceChangeArrow,
   type PortfolioHoldingsHeadline,
 } from "@/lib/portfolio/portfolioTableHelpers";
-import { PortfolioCostBasisInlineEdit } from "./PortfolioCostBasisInlineEdit";
 import { PortfolioHoldingsRowActions } from "./PortfolioHoldingsRowActions";
 import {
   holdingsSaleKind,
@@ -21,7 +19,6 @@ import {
 } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { KbwMysteryPortfolioImage } from "./KbwMysteryPortfolioImage";
-
 type GalleryStatusSeg = "notlisted" | "listed" | "redeeming";
 
 const GALLERY_STATUS: Record<GalleryStatusSeg, { className: string }> = {
@@ -29,6 +26,75 @@ const GALLERY_STATUS: Record<GalleryStatusSeg, { className: string }> = {
   listed: { className: "pf-gbadge--listed" },
   redeeming: { className: "pf-gbadge--redeeming" },
 };
+
+function listedPriceInput(price: number | null | undefined): string {
+  if (price == null || !Number.isFinite(price)) return "";
+  return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+}
+
+/** Digits the Set/Edit sheet should open with. Empty or junk stays unset. */
+function draftPriceUsdc(raw: string): string | null {
+  const v = raw.replace(/,/g, "").trim();
+  if (!/^\d+(\.\d+)?$/.test(v)) return null;
+  return v;
+}
+
+/** Portfolio.html gallery `pf-gfield` — $ input + Set / Update. Opens the price sheet. */
+export function PortfolioGalleryPriceField({
+  listed,
+  listPriceUsd,
+  disabled,
+  disabledTitle,
+  onSubmit,
+}: {
+  listed: boolean;
+  listPriceUsd: number | null;
+  disabled?: boolean;
+  disabledTitle?: string;
+  onSubmit: (draftPriceUsdc: string | null) => void;
+}) {
+  const [value, setValue] = useState(() =>
+    listed ? listedPriceInput(listPriceUsd) : "",
+  );
+
+  const submit = () => {
+    if (disabled) return;
+    onSubmit(draftPriceUsdc(value));
+  };
+
+  return (
+    <div className="pf-gact pf-gfield">
+      <span className="pf-gfield__dollar" aria-hidden>
+        $
+      </span>
+      <input
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="Input price"
+        aria-label="Listing price"
+        value={value}
+        disabled={disabled}
+        title={disabled ? disabledTitle : undefined}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          submit();
+        }}
+      />
+      <button
+        type="button"
+        className="pf-gact-btn"
+        disabled={disabled}
+        title={disabled ? disabledTitle : undefined}
+        onClick={submit}
+      >
+        {listed ? "Update" : "Set"}
+      </button>
+    </div>
+  );
+}
 
 function galleryStatusSeg(
   isListed: boolean,
@@ -47,13 +113,10 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   href,
   cost,
   valuesPending,
-  canEditCostBasis,
-  savingCostBasis,
   isListed,
   redeemStatus = null,
   actionsDisabled = false,
   actionsDisabledTitle,
-  onSaveCostBasis,
   onSetPrice,
   selectMode = false,
   selected = false,
@@ -65,14 +128,11 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   href?: string;
   cost: number | undefined;
   valuesPending: boolean;
-  canEditCostBasis: boolean;
-  savingCostBasis?: boolean;
   isListed: boolean;
   redeemStatus?: RedeemSurfaceBadge | null;
   actionsDisabled?: boolean;
   actionsDisabledTitle?: string;
-  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
-  onSetPrice: (tokenId: number) => void;
+  onSetPrice: (tokenId: number, draftPriceUsdc?: string | null) => void;
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
@@ -80,13 +140,12 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
   const hasVal = row.currentPrice != null && Number.isFinite(row.currentPrice);
+  const retLabel = pnl?.returnPct ?? null;
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const badge = GALLERY_STATUS[seg];
   const badgeLabel = holdingsSaleStatusLabel(
     holdingsSaleKind(isListed, redeemStatus),
   );
-  const costEditable = canEditCostBasis && !redeemStatus;
-  const retLabel = pnl?.returnPct ?? null;
   const titleHover = headline?.hover ?? row.name;
   const titleLabel = headline?.line1 ?? row.name;
   const kbwVirtual = isKbwMysteryCardTokenId(row.tokenId);
@@ -95,8 +154,8 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
     "pf-gtile",
     redeemStatus?.kind === "transit" ? "pf-gtile--transit" : null,
     redeemStatus?.kind === "possession" ? "pf-gtile--possession" : null,
-    selectMode && isListed && selected ? "pf-gtile--sel-on" : null,
-    selectMode && !isListed ? "pf-gtile--sel-dim" : null,
+    selectMode && selected ? "pf-gtile--sel-on" : null,
+    selectMode ? "pf-gtile--sel-pick" : null,
     onActivate && !selectMode ? "pf-gtile--activate" : null,
   ]
     .filter(Boolean)
@@ -124,7 +183,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
           : undefined
       }
       onClick={
-        selectMode && isListed
+        selectMode
           ? (e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -139,7 +198,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
       }
     >
       <div className="pf-gtile__media">
-        {href && !(selectMode && isListed) ? (
+        {href && !selectMode ? (
           <Link href={href} className="pf-gtile__media-link" aria-label={titleLabel}>
             {kbwVirtual ? (
               <KbwMysteryPortfolioImage used={Boolean(row.kbwMysteryUsed)} />
@@ -170,7 +229,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
         ) : (
           <span className="pf-gtile__media-empty tkl-mono">#{row.tokenId}</span>
         )}
-        {selectMode && isListed ? (
+        {selectMode ? (
           <div className={`pf-selchk${selected ? " pf-selchk--on" : ""}`} aria-hidden>
             {selected ? (
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -179,7 +238,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             ) : null}
           </div>
         ) : null}
-        {selectMode && !isListed ? <div className="pf-selreason">Not listed</div> : null}
         <div className="pf-gtile__badge-wrap">
           <span className={`pf-gbadge tkl-mono ${badge.className}`}>{badgeLabel}</span>
         </div>
@@ -187,7 +245,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 
       <div className="pf-gtile__body">
         <div className="pf-gtile__title" title={titleHover}>
-          {href && !(selectMode && isListed) ? (
+          {href && !selectMode ? (
             <Link href={href} className="pf-gtile__title-link">
               {titleNode}
             </Link>
@@ -195,6 +253,39 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             titleNode
           )}
         </div>
+
+        {!selectMode ? (
+          <div
+            className="pf-gtile__act"
+            onClick={onActivate ? (e) => e.stopPropagation() : undefined}
+          >
+            {seg === "redeeming" ? (
+              <PortfolioHoldingsRowActions
+                isListed={isListed}
+                fullWidth
+                disabled={actionsDisabled}
+                disabledTitle={actionsDisabledTitle}
+                redeemStatus={redeemStatus}
+                onSetPrice={() => onSetPrice(row.tokenId)}
+              />
+            ) : (
+              <PortfolioGalleryPriceField
+                key={`${row.tokenId}-${row.listPriceUsd ?? "open"}`}
+                listed={isListed}
+                listPriceUsd={row.listPriceUsd}
+                disabled={actionsDisabled}
+                disabledTitle={actionsDisabledTitle}
+                onSubmit={(draft) => {
+                  trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
+                    card_id: String(row.tokenId),
+                    current_price: row.currentPrice ?? undefined,
+                  });
+                  onSetPrice(row.tokenId, draft);
+                }}
+              />
+            )}
+          </div>
+        ) : null}
 
         <div className="pf-gtile__price-row">
           <div className="pf-gtile__price-main card__price-row">
@@ -228,62 +319,6 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             </span>
           </div>
         </div>
-
-        <div className="pf-cost-hover">
-          {costEditable && onSaveCostBasis ? (
-            <PortfolioCostBasisInlineEdit
-              layout="gallery"
-              assetName={titleLabel}
-              valueUsd={cost}
-              currentPriceUsd={row.currentPrice}
-              editable
-              saving={savingCostBasis}
-              onSave={(usd) => onSaveCostBasis(row.tokenId, usd)}
-            />
-          ) : cost != null ? (
-            <span className="pf-cost-hover-line tkl-mono">
-              <span className="pf-cost-hover-line__cost">
-                {formatPortfolioUsd(cost)}
-              </span>
-              {hasVal ? (
-                <>
-                  <span className="pf-cost-hover-line__arrow" aria-hidden>
-                    →
-                  </span>
-                  <span className="pf-cost-hover-line__mkt">
-                    {formatUsdCompact(row.currentPrice)}
-                  </span>
-                </>
-              ) : null}
-            </span>
-          ) : (
-            <span className="pf-cost-hover-line pf-cost-hover-line--empty tkl-mono" aria-hidden>
-              &nbsp;
-            </span>
-          )}
-        </div>
-
-        {!selectMode ? (
-          <div
-            className="pf-gtile__act"
-            onClick={onActivate ? (e) => e.stopPropagation() : undefined}
-          >
-            <PortfolioHoldingsRowActions
-              isListed={isListed}
-              fullWidth
-              disabled={actionsDisabled}
-              disabledTitle={actionsDisabledTitle}
-              redeemStatus={redeemStatus}
-              onSetPrice={() => {
-                trackEvent(isListed ? "edit_price_clicked" : "set_price_clicked", {
-                  card_id: String(row.tokenId),
-                  current_price: row.currentPrice ?? undefined,
-                });
-                onSetPrice(row.tokenId);
-              }}
-            />
-          </div>
-        ) : null}
       </div>
     </div>
   );

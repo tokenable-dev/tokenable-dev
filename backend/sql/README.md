@@ -14,46 +14,26 @@ sql/
 │   ├── 020_vault.sql             # vault_assets/cycles/redemptions + sell-flow submissions
 │   ├── 030_rwa_tokens.sql        # on-chain mint registry
 │   ├── 040_marketplace.sql       # collections, market snapshots, orders
-│   ├── 045_p2p.sql               # LEGACY — not in bootstrap; historical DBs only
-│   ├── 050_portfolio.sql         # portfolio snapshots, hidden holdings, watchlist
+│   ├── 050_portfolio.sql         # portfolio snapshots, holdings, watchlist
 │   ├── 060_admin.sql             # marketplace_admins
 │   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
 │   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
 │   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
+│   ├── 067_partner_vault_mint.sql  # sell-flow partner vault mint jobs
 │   ├── 070_cardhedger.sql        # Cardhedger pricing infra
 │   └── 900_triggers.sql          # updated_at triggers
 ├── seed/
 │   ├── marketplace-admin.sql     # default admin credentials (dev/staging)
 │   └── dev-platform-chart-fills.sql
 ├── maintenance/
-│   ├── reset_marketplace_data.sql       # wipe marketplace + vault rows (keep users)
-│   ├── add_vault_submissions.sql        # existing DBs: sell-flow submission tables
-│   ├── add_marketplace_partners.sql     # existing DBs: partners table
-│   ├── add_marketplace_partner_addresses.sql  # existing DBs: partner Origin address
-│   ├── add_bulk_mint_tables.sql         # existing DBs: bulk mint tables
-│   ├── migrate_bulk_mint_to_partner_list.sql  # upgrade old custody bulk mint
-│   ├── add_collection_review_status.sql
-│   ├── add_marketplace_collections_token_contract.sql  # existing DBs: catalog RWA address
-│   ├── add_portfolio_daily_snapshot_chain_id.sql
-│   ├── add_vault_cycles_chain_id.sql
-│   ├── add_vault_cycles_mint_attempt.sql       # minting status + mint_attempt JSON (crash recovery)
-│   ├── add_marketplace_notifications_chain_id.sql
-│   ├── cancel_legacy_vault_submission_drafts.sql  # cancel orphan status=draft packages
-│   ├── add_self_vault_settlements.sql
-│   ├── add_rwa_tokens_settlement_policy.sql
-│   ├── nullable_rwa_tokens_settlement_policy.sql  # NULL = custody unknown until mint registry
-│   ├── alter_marketplace_partners_optional_pk.sql
-│   ├── add_rwa_tokens_vault_partner_id.sql
-│   ├── add_vault_submission_item_display_fields.sql  # SSOT card fields on vault_submission_items
-│   ├── add_user_settings_prefs_and_addresses.sql
-   │   ├── add_vault_redemptions_custody_refund.sql  # redeem payment micros, custody, refunds, memo, tracking
-   │   ├── add_vault_redeem_payment_claims.sql      # UNIQUE payment_tx_hash → one batch
-   │   ├── harden_vault_redemptions_integrity.sql # refund CHECK, payment FK, comments
-   │   ├── drop_legacy_unused_tables.sql
-   │   ├── audit_stale_public_tables.sql
-   │   └── ensure_marketplace_chain_indexes.sql
+│   ├── deploy-sync.sql                  # idempotent upgrades — CI runs this every deploy
+│   ├── reset_marketplace_data.sql       # destructive wipe (manual / ops)
+│   ├── audit_stale_public_tables.sql    # read-only inventory
+│   ├── cancel_legacy_vault_submission_drafts.sql  # one-off ops
+│   └── drop_kbw_mystery_card_burns.sql  # manual only (not in deploy)
 └── scripts/
-    └── bootstrap-db.sh
+    ├── bootstrap-db.sh
+    └── apply-deploy-maintenance.sh
 ```
 
 ## When to use what
@@ -62,7 +42,7 @@ sql/
 |-------------|----------|
 | **Local dev** | `NODE_ENV !== production` → TypeORM `synchronize: true` on backend boot |
 | **Fresh prod / empty DB** | Run bootstrap once, then `TYPEORM_SYNC=false` |
-| **Existing prod after code pull** | Run `backend/sql/scripts/apply-deploy-maintenance.sh` (also in CI deploy), or apply pending `maintenance/*.sql`, then restart. Boot **schema assert** exits if critical columns/tables are missing (`SchemaAssertService` — add a row there when you add a maintenance file the API hard-depends on). |
+| **Existing prod after code pull** | CI runs `apply-deploy-maintenance.sh` → `maintenance/deploy-sync.sql`. After schema changes, append an idempotent section to `deploy-sync.sql` and register the requirement in `SchemaAssertService`. |
 | **Site relaunch (keep users)** | Admin **Data inventory → 이 컨트랙트만 초기화** (one RWA address; other networks stay). `maintenance/reset_marketplace_data.sql` still wipes every network. Run `node scripts/burn-all-rwa-tokens.mjs` first only if re-minting same PSA certs on a contract that still has live tokens |
 | **Review / audit** | Read `schema/*.sql` — one file per domain |
 
@@ -85,45 +65,13 @@ DATABASE_URL=postgres://tokenable:tokenable@127.0.0.1:5433/tokenable \
 
 (`bootstrap-empty-prod-db.sql` uses `\ir schema/…` — must run from `backend/sql/`.)
 
-### Existing DB: portfolio chain_id + marketplace indexes
-
-If `portfolio_daily_snapshots` still has UNIQUE `(wallet_address, snapshot_date_kst)` (no `chain_id`), apply:
+### Existing DB (upgrade)
 
 ```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql
+bash backend/sql/scripts/apply-deploy-maintenance.sh
 ```
 
-Optional (safe to re-run) — restores/adds order indexes used by chain-scoped reads:
-
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f backend/sql/maintenance/ensure_marketplace_chain_indexes.sql
-```
-
-**Do not rely on TypeORM `synchronize` for the portfolio unique-key change** — the old unique constraint must be dropped explicitly.
-
-### Existing DB: marketplace notifications chain_id
-
-If `marketplace_notifications` has no `chain_id` (inbox mixed Sepolia + Polygon alerts), apply:
-
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f backend/sql/maintenance/add_marketplace_notifications_chain_id.sql
-```
-
-Legacy rows backfill as Sepolia (`11155111`). New bid alerts store the RWA contract’s chain.
-
-### Existing DB: vault cycles chain_id
-
-If `vault_cycles` has no `chain_id` (open-cycle rule was global across chains — a Sepolia mint blocked the same cert on Polygon), apply:
-
-```bash
-psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
-  -f backend/sql/maintenance/add_vault_cycles_chain_id.sql
-```
-
-Backfills legacy cycles (optional join to legacy `p2p_listings.chain_id` if present, else Sepolia) and replaces the partial unique index `uq_vault_cycles_one_open_per_asset` with `(vault_asset_id, chain_id)`. **`synchronize` alone will not replace the partial index.**
+`deploy-sync.sql` is idempotent (portfolio `chain_id`, collection composite PK, vault redeem columns, legacy table drops, etc.). **Do not rely on TypeORM `synchronize` in production** for constraint/index changes.
 
 ### Reset marketplace data only
 
@@ -181,6 +129,8 @@ Full ER diagram: **[../docs/architecture/database.md](../docs/architecture/datab
 | `MARKET_SNAPSHOT_STALE_AFTER_SEC` | SWR freshness window (default **900**) |
 | `MARKET_SNAPSHOT_CRON_ENABLED` | Background refresh (default **on**) |
 | `MARKET_SNAPSHOT_REFRESH_CONCURRENCY` | Worker concurrency (default **4**) |
+| `MARKET_SNAPSHOT_BULK_COLD_START_CAP` | Max `cold_start` / `stale_swr` enqueues per Markets/portfolio batch read (default **12**, **0** = unlimited) |
+| `MARKET_SNAPSHOT_CIRCUIT_PAUSE_MS` | Pause snapshot queue drain while Cardhedger circuit is OPEN (default **30000**) |
 | `MARKET_SNAPSHOT_CRON_MAX_KEYS` | Max keys per cron tick (default **120**) |
 | `MARKET_SNAPSHOT_PRICE_INDEX_TTL_MS` | In-process cache for the full `collection_market_snapshots` price index used by portfolio (default **30000**, max 300000) |
 | `PSA_PUBLIC_API_REFRESH_ON_SNAPSHOT` | When `always`, snapshot refresh may call PSA for cert mirror |

@@ -158,7 +158,7 @@ CARDHEDGER_API_KEY=your_cardhedger_key
 # CARDHEDGER_POKEMON_NORMALIZED_SHADOW=0
 
 # Admin console
-MARKETPLACE_ADMIN_USERNAME=skyand
+MARKETPLACE_ADMIN_USERNAME=tokenable_admin
 MARKETPLACE_ADMIN_PASSWORD=071725
 MARKETPLACE_ADMIN_SESSION_SECRET=dev_secret_change_in_prod
 MARKETPLACE_ADMIN_DB_RESET_PASSWORD=3009
@@ -263,7 +263,7 @@ cd frontend && pnpm dev
 Open [http://localhost:3000](http://localhost:3000).  
 Swagger: [http://localhost:4100/api/docs](http://localhost:4100/api/docs).
 
-**Admin console:** [http://localhost:3000/marketplace/admin](http://localhost:3000/marketplace/admin) — default dev login `skyand` / `071725`.
+**Admin console:** [http://localhost:3000/marketplace/admin](http://localhost:3000/marketplace/admin) — default dev login `tokenable_admin` / `071725`.
 
 ---
 

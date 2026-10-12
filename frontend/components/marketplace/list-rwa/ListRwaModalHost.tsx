@@ -43,7 +43,7 @@ export function ListRwaModalHost({
   return (
     <ListRwaModal
       open={open}
-      shell="sheet"
+      shell="modal"
       tokenId={tokenId}
       assetTitle={assetTitle}
       headlineParts={headlineParts}

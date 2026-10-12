@@ -69,8 +69,8 @@ CHAIN_11155111_RPC_URL=https://ethereum-sepolia-rpc.publicnode.com
 CHAIN_11155111_RWA_ADDRESS=0x0000000000000000000000000000000000000001
 CHAIN_11155111_USDC_ADDRESS=0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238
 
-# Marketplace admin console (dev defaults; login skyand / 071725).
-MARKETPLACE_ADMIN_USERNAME=skyand
+# Marketplace admin console (dev defaults; login tokenable_admin / 071725).
+MARKETPLACE_ADMIN_USERNAME=tokenable_admin
 MARKETPLACE_ADMIN_PASSWORD=071725
 MARKETPLACE_ADMIN_SESSION_SECRET=dev_marketplace_admin_secret_0123456789
 

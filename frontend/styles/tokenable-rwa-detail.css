@@ -700,3 +700,22 @@
   color: rgba(255, 255, 255, 0.45);
 }
 
+/* Portfolio Set / Edit price — Portfolio.html pfSetPriceModal (centered tk-dialog) */
+.tk-dialog.tk-list-rwa-dialog {
+  max-width: min(100%, 480px);
+  gap: 20px;
+  text-align: left;
+}
+
+.tk-list-rwa-dialog--set-price .tk-price {
+  margin-top: 2px;
+}
+
+.tk-list-rwa-dialog .tk-btn {
+  width: 100%;
+  justify-content: center;
+}
+
+.tk-list-rwa-dialog .tk-btn + .tk-btn {
+  margin-top: 10px;
+}

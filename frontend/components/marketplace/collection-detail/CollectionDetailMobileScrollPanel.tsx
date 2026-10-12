@@ -21,7 +21,7 @@ export function CollectionDetailMobileScrollPanel({
   statBlock?: ReactNode;
 }) {
   return (
-    <div className="cd-mobile-scroll cd-hero-sticky-scope flex w-full min-w-0 flex-col overflow-visible lg:hidden">
+    <div className="cd-mobile-scroll cd-hero-sticky-scope flex w-full min-w-0 flex-col overflow-visible min-[1141px]:hidden">
       {statBlock != null ? (
         <section className="cd-mobile-scroll__stat w-full min-w-0" aria-label="Market summary">
           {statBlock}

@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **34 entities** registered in `app.module.ts` 
+**ORM:** TypeORM (NestJS) — **36 entities** registered in `app.module.ts` 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -77,6 +77,8 @@
 | `marketplace_partner_addresses` | Partner Self-vault Origin address (FedEx Rate ship-from; 1:1) | `marketplace/entities/marketplace-partner-address.entity.ts` |
 | `bulk_mint_jobs` | Partner mint+list job runs | `rwa/entities/bulk-mint-job.entity.ts` |
 | `bulk_mint_job_items` | Per-cert price + order status rows | `rwa/entities/bulk-mint-job-item.entity.ts` |
+| `partner_vault_mint_jobs` | Sell-flow server mint jobs (user → partner vault) | `rwa/entities/partner-vault-mint-job.entity.ts` |
+| `partner_vault_mint_job_items` | Per-cert rows for partner vault mint jobs | `rwa/entities/partner-vault-mint-job-item.entity.ts` |
 | `cardhedger_price_subscriptions` | Price push registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
 | `cardhedger_price_delta_checkpoints` | Singleton checkpoint for delta polling | `cardhedger/entities/cardhedger-price-delta-checkpoint.entity.ts` |
 | `cardhedger_daily_price_export_runs` | Nightly CSV export audit | `cardhedger/entities/cardhedger-daily-price-export-run.entity.ts` |
@@ -240,7 +242,7 @@ Inventory isolation for holdings/orders uses `token_contract` (= per-chain RWA a
 
 **Shared across chain switch (intentional):** `users` / KYC / partners / watchlist keys are global — inventory is per RWA, but the user profile must stay shared when the network picker changes.
 
-**Existing DBs:** run `backend/sql/maintenance/add_portfolio_daily_snapshot_chain_id.sql` — do not rely on TypeORM synchronize to drop the old `(wallet, date)` unique.
+**Existing DBs:** run `backend/sql/scripts/apply-deploy-maintenance.sh` (`deploy-sync.sql`) — do not rely on TypeORM synchronize to drop the old `(wallet, date)` unique.
 
 ---
 
@@ -254,50 +256,25 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 020 | `020_vault.sql` | `vault_assets`, `vault_cycles`, `vault_redemptions`, `vault_redeem_payment_claims`, `vault_submissions`, `vault_submission_items` |
 | 030 | `030_rwa_tokens.sql` | `rwa_tokens` (vault FK, burn-aware cert unique) |
 | 040 | `040_marketplace.sql` | `marketplace_collections`, `collection_market_snapshots`, `orders`, `marketplace_notifications` + perf indexes |
-| 045 | `045_p2p.sql` | LEGACY — not in bootstrap; historical DBs only |
 | 046 | `046_self_vault_settlements.sql` | Self-vault hold settlement ledger |
 | 050 | `050_portfolio.sql` | `portfolio_daily_snapshots`, `portfolio_holdings`, `kbw_mystery_card_burns`, `user_watchlist`, `user_buyer_listing_alert` |
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
 | 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
 | 065 | `065_bulk_mint.sql` | `bulk_mint_jobs`, `bulk_mint_job_items` (partner mint+list) |
+| 067 | `067_partner_vault_mint.sql` | `partner_vault_mint_jobs`, `partner_vault_mint_job_items` (sell-flow mint) |
 | 070 | `070_cardhedger.sql` | Cardhedger pricing infra |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
-**Maintenance (not in bootstrap):**
+**Maintenance (existing DBs — not in bootstrap):**
 
 | File | Purpose |
 |------|---------|
+| `maintenance/deploy-sync.sql` | **Every deploy** (via `apply-deploy-maintenance.sh`): idempotent column/table/index upgrades + legacy table drops. Append new sections when the API gains schema dependencies. |
 | `maintenance/reset_marketplace_data.sql` | Full wipe of marketplace + vault data (keeps users/admins). Admin UI reset is per RWA address, not this script |
-| `maintenance/add_marketplace_partners.sql` | Existing DBs: create `marketplace_partners` |
-| `maintenance/add_marketplace_partner_addresses.sql` | Existing DBs: partner company Origin addresses |
-| `maintenance/add_bulk_mint_tables.sql` | Existing DBs: create partner bulk mint+list tables |
-| `maintenance/add_partner_vault_mint_jobs.sql` | Existing DBs: partner sell-flow server mint jobs (`partner_vault_mint_jobs`, `partner_vault_mint_job_items`) |
-| `maintenance/migrate_bulk_mint_to_partner_list.sql` | Upgrade old custody bulk mint schema → partner mint+list |
-| `maintenance/add_bulk_mint_slab_display_image_url.sql` | Add `bulk_mint_job_items.slab_display_image_url` (S3 cache from prepare) |
-| `maintenance/add_rwa_tokens_display_image_back_url.sql` | Existing DBs: `rwa_tokens.display_image_back_url` |
-| `maintenance/add_bulk_mint_slab_display_image_back_url.sql` | Existing DBs: `bulk_mint_job_items.slab_display_image_back_url` |
-| `maintenance/add_collection_review_status.sql` | Existing DBs: collection review_status column |
-| `maintenance/add_marketplace_collections_token_contract.sql` | Existing DBs: `marketplace_collections.token_contract` + backfill from orders/tokens |
-| `maintenance/marketplace_collections_per_chain_pk.sql` | Existing DBs: drop single-col PK, stamp remaining NULL rows from activity, clone catalog rows per RWA, enforce `NOT NULL`, add composite PK `(collection_key, token_contract)` |
-| `maintenance/add_portfolio_daily_snapshot_chain_id.sql` | Existing DBs: `portfolio_daily_snapshots.chain_id` + unique `(wallet, date, chain)` |
-| `maintenance/add_portfolio_daily_snapshots_token_contract.sql` | Existing DBs: `portfolio_daily_snapshots.token_contract`; unique includes the RWA address. Unstamped rows are not read |
-| `maintenance/add_vault_submissions_token_contract.sql` | Existing DBs: `vault_submissions.token_contract` + backfill from linked mints. Unstamped packages stay hidden |
-| `maintenance/ensure_marketplace_chain_indexes.sql` | Existing DBs: order indexes for chain-scoped reads |
-| `maintenance/drop_card_top100_daily_snapshots.sql` | Existing DBs: drop legacy Top 100 snapshot table |
-| `maintenance/add_rwa_tokens_settlement_policy.sql` | Existing DBs: `rwa_tokens.settlement_policy` |
-| `maintenance/nullable_rwa_tokens_settlement_policy.sql` | Existing DBs: allow `NULL` settlement until mint registry; clear stub defaults |
-| `maintenance/add_vault_cycles_mint_attempt.sql` | Existing DBs: `minting` status + `mint_attempt` JSON for redeploy-safe mint |
-| `maintenance/alter_marketplace_partners_optional_pk.sql` | Existing DBs: nullable partner private key |
-| `maintenance/add_rwa_tokens_vault_partner_id.sql` | Existing DBs: `rwa_tokens.vault_partner_id` |
-| `maintenance/add_self_vault_settlements.sql` | Existing DBs: `self_vault_settlements` table |
-| `maintenance/add_vault_submission_item_display_fields.sql` | Existing DBs: SSOT card number/year/set on `vault_submission_items` |
-| `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
-| `maintenance/add_user_settings_prefs_and_addresses.sql` | Existing DBs: users prefs columns + `user_shipping_addresses` |
-| `maintenance/add_user_buyer_listing_alert.sql` | Existing DBs: `user_buyer_listing_alert` (BUYER_LISTING_ALERT) |
-| `maintenance/user_buyer_listing_alert_token_contract.sql` | Existing DBs: add `token_contract`, unique `(user_id, collection_key, token_contract)` |
-| `maintenance/drop_legacy_unused_tables.sql` | Drop unused leftovers: `psa_cert_snapshots`, `portfolio_hidden_holdings`, `verification_tokens` |
 | `maintenance/audit_stale_public_tables.sql` | Read-only: empty / quiet public tables (no DROP) |
+| `maintenance/cancel_legacy_vault_submission_drafts.sql` | Cancel orphan `status=draft` packages (add-cards is local-only) |
+| `maintenance/drop_kbw_mystery_card_burns.sql` | **Manual only** — not run on deploy while KBW event is active |
 
 **Seeds (dev only):**
 

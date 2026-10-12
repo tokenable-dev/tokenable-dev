@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, IsNull, Not, Repository } from 'typeorm';
 import { RwaToken } from '../entities/rwa-token.entity';
@@ -217,45 +217,8 @@ export class PortfolioHoldingService {
     );
   }
 
-  async setManualCostBasis(
-    walletAddress: string,
-    tokenId: number,
-    costBasisUsd: number,
-    chainId?: SupportedChainId,
-  ): Promise<void> {
-    const wallet = this.normalizeWallet(walletAddress);
-    if (!wallet) return;
-    const tid = this.normalizeTokenId(tokenId);
-    const usd = Number(costBasisUsd);
-    if (!Number.isFinite(usd) || usd < 0) {
-      throw new BadRequestException('Invalid cost basis');
-    }
-    const contract = this.rwaContractAddress(chainId);
-    const now = new Date();
-    const existing = await this.holdingRepo.findOne({
-      where: { walletAddress: wallet, tokenContract: contract, tokenId: tid },
-    });
-    if (existing) {
-      existing.costBasisUsd = usd;
-      existing.costBasisSource = PortfolioCostBasisSource.MANUAL;
-      existing.acquiredAt = existing.acquiredAt ?? now;
-      await this.holdingRepo.save(existing);
-      return;
-    }
-    await this.holdingRepo.save(
-      this.holdingRepo.create({
-        walletAddress: wallet,
-        tokenContract: contract,
-        tokenId: tid,
-        costBasisUsd: usd,
-        costBasisSource: PortfolioCostBasisSource.MANUAL,
-        acquiredAt: now,
-      }),
-    );
-  }
-
   /**
-   * Seeds cost basis from an auto source. Never overwrites manual edits.
+   * Seeds cost basis from an auto source. Never overwrites legacy manual rows.
    */
   private async seedAutoCostBasis(
     walletAddress: string,

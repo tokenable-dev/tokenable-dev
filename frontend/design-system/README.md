@@ -283,7 +283,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 | Price ticker | `.ticker-row` | `HomeTicker` | `components/home/HomeTicker.tsx` — landing only |
 | Top movers | `.grid4`, `.card` | `HomeTopMovers` + `CollectibleCard` | wrap grid, 10 desktop / 8 mobile (ds-23) |
 | Just vaulted | `.grid4`, `.card` | `HomeJustVaulted` | wrap grid, 10 desktop / 8 mobile (ds-23) |
-| Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` — ds-5: Instant settlement; Three guarantees, every token. |
+| Features | `.feat` | `HomeFeatures` | `components/home/HomeFeatures.tsx` — Instant settlement; Three guarantees for every card. |
 | Every payment | `.pay-sec` | `HomePaySection` | `components/home/HomePaySection.tsx` — ds-23 conveyor + checkout phone |
 | Partners + CTA | partners row | `HomePartners` | `components/home/HomePartners.tsx` — PSA, Beckett, eBay, Card Ladder, GemRate, PriceCharting (grayscale) |
 | Page compose | — | `HomePageContent` | `components/home/HomePageContent.tsx` |
@@ -311,8 +311,8 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 | Section | React target | File |
 |---------|--------------|------|
-| Route `/search?q=` | Cert-match rows + Markets grid | `app/search/page.tsx` → `MarketsPage` + `SearchCertMatches` |
-| Result group headings | **Cards** (under the Cert match line) and **Collections** (above the grid), DS Heading 24/600 via `.srch-sec-title` | `SearchCertMatches`, `MarketsPage`, `styles/tokenable-markets.css` |
+| Route `/search?q=` | Header `{N} results · for "q"` + Markets grid | `app/search/page.tsx` → `MarketsPage` + `MarketsPageHeader` |
+| States | **Collection results** (text query) · **Cert match** (7+ digit query, card grid with green `✓ Exact` outline; individual cards only for cert queries) · **Exact + Collection** (cert card above "Collection results") · **No results** (title + primary "Browse all markets →") | `SearchCertMatches`, `MarketsPage`, `styles/tokenable-markets.css` (`.srch-*`) |
 | Hero search | 62×560 field → `/search` | `components/home/HomeHero.tsx` |
 | Header search | Typeahead cards then collections; Enter / View all → `/search` | `TkHeaderSearch` + `GET /marketplace/search` |
 
@@ -361,7 +361,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 **CSS:** `frontend/styles/tokenable-portfolio.css`, `frontend/styles/tokenable-portfolio-redeem.css`
 
-**Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** only (bid meta lives in the Set price drawer, not on the row). Drawer uses `ListRwaModal` `copyVariant="set-price"`. Cancel listing via confirm dialog (not row Cancel).
+**Phase 3 (ds-v2):** Row CTA is ghost **Set price** / **Edit price** only (bid meta lives in the Set price modal, not on the row). Portfolio uses `ListRwaModal` `copyVariant="set-price"` in a centered dialog. Cancel listing via confirm dialog (not row Cancel).
 
 **ds-5 holdings note:** Card cell = thumb + name only (no redeem chip under/beside title). **In transit** / **Redeeming — preparing** chips live only in the Action column (`PortfolioHoldingsRowActions`). Transit CTA is **Track →** (Portfolio.html). Possession is Action text only. Gallery tile badge for any in-flight redeem is **Shipping out** (not Verifying).
 
@@ -392,7 +392,7 @@ Canonical prototype: `Tokenable-with design system-26/Ship-From-Vault.html` → 
 
 | Modal function | Purpose | React modal |
 |----------------|---------|-------------|
-| `pfSetPriceModal` | Set / Edit list price | `ListRwaModal` (`copyVariant="set-price"`) → sheet form |
+| `pfSetPriceModal` | Set / Edit list price | `ListRwaModal` (`copyVariant="set-price"`) → centered `tk-dialog` modal (`ListRwaModalHost`) |
 | `pfSaleResult` | Listed / price updated / sold / fill-failed | `ActionCompleteModal` via `ListRwaModalSuccessView` (sheet closes first) |
 | `pfAcceptOffersModal` | Accept highest bid | `PortfolioAcceptOfferModal` (wired later) |
 | `pfCancelListingModal` | Cancel ask | `PortfolioCancelListingConfirmModal` |

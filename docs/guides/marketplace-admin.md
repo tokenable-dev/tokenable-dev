@@ -55,7 +55,7 @@ Protected handlers call `MarketplaceAdminService.assertAdminSession(req)`. There
 
 | Variable | Default (dev) | Description |
 |----------|---------------|-------------|
-| `MARKETPLACE_ADMIN_USERNAME` | `skyand` | Admin login ID |
+| `MARKETPLACE_ADMIN_USERNAME` | `tokenable_admin` | Admin login ID |
 | `MARKETPLACE_ADMIN_PASSWORD` | `071725` | Admin login password |
 | `MARKETPLACE_ADMIN_SESSION_SECRET` | falls back to `SITE_ACCESS_SECRET` | HMAC secret for session token |
 | `MARKETPLACE_ADMIN_SESSION_SECONDS` | `28800` (8h) | Cookie max-age |
@@ -266,7 +266,7 @@ Period selector: **7 / 30 / 90 days** — refetches `GET /marketplace/admin/anal
 
 1. Start **backend** (`pnpm start:dev` in `backend/`, port **4100**) and **frontend** (`pnpm dev`, port **3000**).
 2. Open `http://localhost:3000/marketplace/admin`.
-3. Sign in with dev defaults (`skyand` / `071725`) unless env overrides are set.
+3. Sign in with dev defaults (`tokenable_admin` / `071725`) unless env overrides are set.
 
 If login returns **502 / API proxy failed**, the Nest process is usually down or crashed — see [troubleshooting.md](troubleshooting.md).
 

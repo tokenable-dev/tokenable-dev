@@ -86,7 +86,7 @@ export function useCollectionOverviewLayout(input: {
 
   const gridBodyClass = useMemo(() => {
     if (marketsTriple && useMobileTabbedMarket) {
-      return "gap-3 sm:gap-4 lg:grid-cols-1 lg:gap-y-0 lg:items-start";
+      return "gap-3 sm:gap-4 min-[1141px]:grid-cols-1 min-[1141px]:gap-y-0 min-[1141px]:items-start";
     }
     if (marketsTriple) {
       return "gap-3 sm:gap-4 lg:gap-x-10 lg:gap-y-0 lg:items-start lg:grid-cols-[307px_minmax(0,1fr)]";

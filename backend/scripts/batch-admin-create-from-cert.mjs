@@ -79,7 +79,7 @@ const apiBase = (process.env.API_BASE ?? 'http://127.0.0.1:4100/api').replace(
 );
 const chainId = process.env.CHAIN_ID ?? '11155111';
 const username =
-  process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'skyand';
+  process.env.MARKETPLACE_ADMIN_USERNAME?.trim() || 'tokenable_admin';
 const password =
   process.env.MARKETPLACE_ADMIN_PASSWORD?.trim() || '071725';
 const siteAccessPassword =

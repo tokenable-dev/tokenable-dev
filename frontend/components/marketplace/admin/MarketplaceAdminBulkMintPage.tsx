@@ -28,6 +28,9 @@ import {
   ADMIN_LABEL,
   ADMIN_PAGE_SUBTITLE,
   ADMIN_PANEL,
+  ADMIN_TABLE,
+  ADMIN_TABLE_WIDE,
+  ADMIN_TABLE_WRAP,
   ADMIN_TEXT_ERROR,
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
@@ -95,8 +98,8 @@ function ItemTable({
     return <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>No items yet.</p>;
   }
   return (
-    <div className="max-h-[420px] overflow-auto rounded-md border border-zinc-200">
-      <table className="min-w-full text-left text-sm">
+    <div className={`${ADMIN_TABLE_WRAP} max-h-[420px] overflow-y-auto`}>
+      <table className={ADMIN_TABLE_WIDE}>
         <thead className="sticky top-0 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-600">
           <tr>
             <th className="px-3 py-2 font-medium">#</th>
@@ -216,8 +219,8 @@ function JobsHistoryTable({
     return <p className={`text-sm ${ADMIN_TEXT_MUTED}`}>No jobs yet.</p>;
   }
   return (
-    <div className="max-h-[240px] overflow-auto rounded-md border border-zinc-200">
-      <table className="min-w-full text-left text-sm">
+    <div className={`${ADMIN_TABLE_WRAP} max-h-[240px] overflow-y-auto`}>
+      <table className={ADMIN_TABLE}>
         <thead className="sticky top-0 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-600">
           <tr>
             <th className="px-3 py-2 font-medium">Created</th>
@@ -277,8 +280,8 @@ function InventoryTable({ rows }: { rows: AdminPartnerInventoryItem[] }) {
       <p className={`text-xs ${ADMIN_TEXT_MUTED}`}>
         {rows.length} tokens · {listed} listed · {sold} sold
       </p>
-      <div className="max-h-[280px] overflow-auto rounded-md border border-zinc-200">
-        <table className="min-w-full text-left text-sm">
+      <div className={`${ADMIN_TABLE_WRAP} max-h-[280px] overflow-y-auto`}>
+        <table className={ADMIN_TABLE}>
           <thead className="sticky top-0 bg-zinc-50 text-xs uppercase tracking-wide text-zinc-600">
             <tr>
               <th className="px-3 py-2 font-medium">Cert</th>

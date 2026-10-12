@@ -47,7 +47,7 @@ export function CollectionMobileTradeBar({
 
   return createPortal(
     <div
-      className="cd-mobile-trade-bar lg:hidden"
+      className="cd-mobile-trade-bar min-[1141px]:hidden"
       id="ob-bottom-bar"
       role="region"
       aria-label="Trade actions"

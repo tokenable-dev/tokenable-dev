@@ -136,7 +136,7 @@ Marketplace admin has a **separate** auth system (not Privy):
 | `POST /api/marketplace/admin/auth/login` | Login with username/password |
 | `POST /api/marketplace/admin/auth/logout` | Logout |
 
-Admin credentials are stored in `marketplace_admins` table. Default dev: `skyand` / `071725` (override with `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD`).
+Admin credentials are stored in `marketplace_admins` table. Default dev: `tokenable_admin` / `071725` (override with `MARKETPLACE_ADMIN_USERNAME` / `MARKETPLACE_ADMIN_PASSWORD`).
 
 ---
 

@@ -28,7 +28,6 @@ import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runColle
 import {
   askPriceMicros,
   BidCrossesLiveAskError,
-  fetchCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { readRwaSeaportApprovedForAll } from "@/lib/seaport/listing/listingChainPreflight";
 import { runListingAskInWalletPhases } from "@/lib/seaport/listing/runListingAskInWalletPhases";
@@ -227,12 +226,6 @@ export function useCollectionTradeDirectActions(input: {
       const bidUnits = parseUnits(String(bidWhole), 6);
       setBusy("bid");
       try {
-        const floorAsk = await fetchCrossingAskForBid({
-          collectionKey,
-          bidder: address,
-          bidUnits,
-        });
-
         const finishInstantBuy = async (ask: Order) => {
           const signerAddress = await ensureAccountWalletReady();
           const paid = await runCollectionInstantAskPurchase({
@@ -277,20 +270,6 @@ export function useCollectionTradeDirectActions(input: {
             durationMs: 5000,
           });
         };
-
-        if (floorAsk) {
-          setBusy("buy");
-          try {
-            await finishInstantBuy(floorAsk);
-          } catch (e: unknown) {
-            pushToast({
-              tone: "danger",
-              title: "Purchase failed",
-              message: mapWalletError(e).message,
-            });
-          }
-          return;
-        }
 
         await ensureAccountWalletReady();
         const [counter, usdcAllowanceRaw, usdcBalRaw] = await Promise.all([

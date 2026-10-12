@@ -258,7 +258,7 @@ Or one file only:
 
 ```bash
 docker exec -i tokenable-postgres psql -U tokenable -d tokenable -v ON_ERROR_STOP=1 \
-  < backend/sql/maintenance/add_vault_submission_item_display_fields.sql
+  < backend/sql/maintenance/deploy-sync.sql
 ```
 
 ### `/api/...` returns 502 Bad Gateway

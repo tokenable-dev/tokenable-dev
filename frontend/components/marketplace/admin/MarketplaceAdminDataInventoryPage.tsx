@@ -20,12 +20,13 @@ import {
   ADMIN_BTN_SECONDARY,
   ADMIN_LINK,
   ADMIN_PANEL,
+  ADMIN_TABLE,
+  ADMIN_TABLE_WRAP,
   ADMIN_TEXT_META,
   ADMIN_TEXT_MUTED,
   ADMIN_TEXT_SECONDARY,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
-import { AdminDataInventorySchemaMap } from "./AdminDataInventorySchemaMap";
 
 type GlanceKey = "stores" | "total" | "catalog" | "markets" | "other";
 
@@ -76,20 +77,6 @@ function formatHighlightKey(key: string): string {
 }
 
 const STALE_AFTER_MS = 90 * 24 * 60 * 60 * 1000;
-
-/** Wired product tables — empty does not mean drop. */
-const KEEP_IF_EMPTY = new Set([
-  "self_vault_settlements",
-  "cardhedger_price_subscriptions",
-  "cardhedger_daily_price_export_runs",
-  "cardhedger_price_delta_checkpoints",
-  "cardhedger_price_delta_import_runs",
-  "vault_psa_arrival_reviews",
-  "vault_psa_vaulted_reviews",
-  "user_buyer_listing_alert",
-  "marketplace_notifications",
-  "rwa_owner_index_cursors",
-]);
 
 function storeStaleReason(store: DataStoreInventoryRow): string | null {
   if (store.rowCount === 0) return "empty";
@@ -172,8 +159,10 @@ function TableRowsBrowser({ table }: { table: string }) {
       ) : null}
 
       {data && data.rows.length > 0 ? (
-        <div className="max-h-[28rem] overflow-auto rounded border border-zinc-200">
-          <table className="min-w-full border-collapse text-left text-xs">
+        <div
+          className={`${ADMIN_TABLE_WRAP} max-h-[28rem] overflow-y-auto border-zinc-200`}
+        >
+          <table className={`${ADMIN_TABLE} border-collapse`}>
             <thead className="sticky top-0 bg-zinc-100">
               <tr>
                 <th className="whitespace-nowrap border-b border-zinc-200 px-2 py-1.5 font-medium text-zinc-500">
@@ -324,15 +313,6 @@ function DataStoreCard({
             </p>
           </div>
 
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-              어떻게 쌓이나요
-            </p>
-            <p className={`mt-1.5 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-              {store.howAccumulated}
-            </p>
-          </div>
-
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="rounded-md bg-zinc-50 px-3 py-2">
               <dt className={`text-xs ${ADMIN_TEXT_META}`}>가장 오래된 기록</dt>
@@ -398,82 +378,11 @@ function DataStoreCard({
                 ? "행 데이터 닫기"
                 : `행 전부 보기 (${store.rowCount.toLocaleString("ko-KR")}행)`}
             </button>
-            <span className={`text-xs ${ADMIN_TEXT_META}`}>
-              페이지 단위로 전체 행을 조회합니다 (최대 페이지당 200행).
-            </span>
           </div>
 
           {browseRows ? <TableRowsBrowser table={store.table} /> : null}
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function StaleStoresPanel({ stores }: { stores: DataStoreInventoryRow[] }) {
-  const rows = stores
-    .map((store) => ({ store, reason: storeStaleReason(store) }))
-    .filter((r): r is { store: DataStoreInventoryRow; reason: string } =>
-      Boolean(r.reason),
-    )
-    .sort((a, b) => a.store.table.localeCompare(b.store.table));
-
-  if (rows.length === 0) {
-    return (
-      <div className={`${ADMIN_ARTICLE} mb-6`}>
-        <AdminSectionTitle
-          title="90일 무적재 후보"
-          subtitle="비어 있거나 최근 활동이 90일을 넘긴 테이블이 지금은 없습니다."
-        />
-      </div>
-    );
-  }
-
-  return (
-    <div className={`${ADMIN_ARTICLE} mb-6`}>
-      <AdminSectionTitle
-        title="90일 무적재 후보"
-        subtitle="비어 있거나 lastActivity가 90일 이전인 테이블입니다. 코드가 살아있는 기능 테이블은 비어 있어도 삭제하지 않습니다."
-      />
-      <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
-          <thead>
-            <tr className={`border-b border-zinc-200 text-xs ${ADMIN_TEXT_META}`}>
-              <th className="py-2 pr-3 font-medium">테이블</th>
-              <th className="py-2 pr-3 font-medium">상태</th>
-              <th className="py-2 pr-3 font-medium">권장</th>
-              <th className="py-2 font-medium text-right">행 수</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(({ store, reason }) => {
-              const keep = KEEP_IF_EMPTY.has(store.table);
-              return (
-                <tr key={store.table} className="border-b border-zinc-100">
-                  <td className="py-2 pr-3">
-                    <a href={`#store-${store.id}`} className={ADMIN_LINK}>
-                      {store.table}
-                    </a>
-                  </td>
-                  <td className="py-2 pr-3 text-zinc-700">
-                    {reason === "empty" ? "비어 있음" : "90일+ 무활동"}
-                  </td>
-                  <td className={`py-2 pr-3 ${ADMIN_TEXT_SECONDARY}`}>
-                    {keep
-                      ? "기능 테이블 — 유지 (시세·PSA 메일 등)"
-                      : store.domain === "other"
-                        ? "카탈로그 없음 — 레거시 후보"
-                        : "확인 후 결정 (코어일 수 있음)"}
-                  </td>
-                  <td className="py-2 text-right font-mono">
-                    {store.rowCount.toLocaleString("ko-KR")}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
     </div>
   );
 }
@@ -647,20 +556,14 @@ export function MarketplaceAdminDataInventoryPage() {
 
   return (
     <>
-      <MarketplaceAdminPageHeader
-        title="데이터 인벤토리"
-        subtitle="상단 스키마 맵에서 테이블·키·연결을 보고, 아래에서 행 수와 실제 데이터를 조회합니다. 마켓 데이터는 컨트랙트 주소별로 갈라집니다."
-      />
+      <MarketplaceAdminPageHeader title="데이터 인벤토리" />
 
       <div className={`${ADMIN_ARTICLE} mb-5`}>
         <p className="text-sm font-semibold text-zinc-900">
           컨트랙트별 DB 초기화 (dev)
         </p>
-        <p className={`mt-1 text-xs leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-          네트워크를 고른 뒤 그 RWA 주소의 마켓만 지웁니다. 다른 네트워크,
-          사용자, 어드민, 파트너는 유지됩니다. 지금 env에 있는 주소를 지운 다음
-          새 CA를 넣으면 그 주소는 빈 마켓으로 시작합니다. 온체인 NFT는 번되지
-          않습니다.
+        <p className={`mt-1 text-xs ${ADMIN_TEXT_SECONDARY}`}>
+          선택한 RWA 주소의 마켓 데이터만 삭제합니다 (dev).
         </p>
         <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
           <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-zinc-700">
@@ -873,10 +776,6 @@ export function MarketplaceAdminDataInventoryPage() {
         ) : null}
       </div>
 
-      <div className="mb-5">
-        <AdminDataInventorySchemaMap />
-      </div>
-
       <div className={`${ADMIN_ARTICLE} mb-5 flex flex-wrap items-center gap-3`}>
         <button
           type="button"
@@ -929,10 +828,7 @@ export function MarketplaceAdminDataInventoryPage() {
       {data ? (
         <>
           <div className={`${ADMIN_ARTICLE} mb-6`}>
-            <AdminSectionTitle
-              title="한눈에 보기"
-              subtitle="숫자만 보지 말고 타일을 눌러 어떤 테이블이 합쳐진 값인지 확인하세요. (비즈니스 엔티티 기준 중복 제거 없음)"
-            />
+            <AdminSectionTitle title="요약" />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 sm:gap-4">
               <GlanceTile
                 label="추적 중인 저장소"
@@ -980,11 +876,8 @@ export function MarketplaceAdminDataInventoryPage() {
                 <h3 className="text-sm font-semibold text-zinc-900">
                   {glanceMeta[glanceKey].title}
                 </h3>
-                <p className={`mt-1.5 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-                  {glanceMeta[glanceKey].meaning}
-                </p>
-                <div className="mt-4 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
+                <div className={`${ADMIN_TABLE_WRAP} mt-3 border-0`}>
+                  <table className={ADMIN_TABLE}>
                     <thead>
                       <tr className={`border-b border-zinc-200 text-xs ${ADMIN_TEXT_META}`}>
                         <th className="py-2 pr-3 font-medium">이름</th>
@@ -1041,21 +934,12 @@ export function MarketplaceAdminDataInventoryPage() {
                     </tbody>
                   </table>
                 </div>
-                <p className={`mt-3 text-xs ${ADMIN_TEXT_META}`}>
-                  이름 링크를 누르면 아래 목록의 해당 카드로 이동합니다. 카드를
-                  펼친 뒤 「행 전부 보기」로 실제 DB 행을 조회할 수 있습니다.
-                </p>
               </div>
             ) : null}
           </div>
 
-          <StaleStoresPanel stores={data.stores} />
-
           <div className={`${ADMIN_ARTICLE} mb-6`}>
-            <AdminSectionTitle
-              title="도메인 필터"
-              subtitle="어드민 콘솔의 업무 영역과 맞춰 둔 묶음입니다"
-            />
+            <AdminSectionTitle title="도메인" />
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -1095,11 +979,6 @@ export function MarketplaceAdminDataInventoryPage() {
                     <h2 className="text-lg font-semibold text-zinc-900">
                       {domain.label}
                     </h2>
-                    <p
-                      className={`mt-1 max-w-3xl text-sm ${ADMIN_TEXT_SECONDARY}`}
-                    >
-                      {domain.summary}
-                    </p>
                     <p className={`mt-1 text-xs ${ADMIN_TEXT_META}`}>
                       저장소 {stores.length}개 ·{" "}
                       {domainRows.toLocaleString("ko-KR")}행
@@ -1115,53 +994,6 @@ export function MarketplaceAdminDataInventoryPage() {
             })}
           </div>
 
-          <div
-            className={`${ADMIN_ARTICLE} mt-8 ${ADMIN_TEXT_SECONDARY} text-sm`}
-          >
-            <AdminSectionTitle title="이 페이지 읽는 법" />
-            <ul className="mt-3 list-disc space-y-2 pl-5">
-              <li>
-                각 카드를 펼친 뒤{" "}
-                <strong>행 전부 보기</strong>를 누르면 해당 테이블의 실제 DB
-                행을 페이지 단위(최대 200행)로 전부 확인할 수 있습니다. 비밀번호·시크릿
-                컬럼은 마스킹됩니다.
-              </li>
-              <li>
-                <strong>추가만 하는(append-only)</strong> 테이블(시세 감사
-                스냅샷, 델타 임포트 로그, KYC 이벤트)은 날짜·이벤트마다 행이
-                늘어나고 히스토리가 남습니다.
-              </li>
-              <li>
-                <strong>덮어쓰는(upsert)</strong> 테이블(컬렉션 시세 스냅샷)은
-                키당 1행을 유지하며 가격·JSON을 갱신합니다.
-              </li>
-              <li>
-                PSA cert 메타는{" "}
-                <code className="font-mono text-xs">
-                  marketplace_collections.components
-                </code>{" "}
-                안에 들어 있습니다 — 민트 시 조회하며 별도 스냅샷 테이블이
-                아닙니다.
-              </li>
-              <li>
-                Cardhedger 동기화 이력은{" "}
-                <Link
-                  href="/marketplace/admin/price-webhooks"
-                  className={ADMIN_LINK}
-                >
-                  Price sync
-                </Link>
-                , 포트폴리오 크론은{" "}
-                <Link
-                  href="/marketplace/admin/portfolio"
-                  className={ADMIN_LINK}
-                >
-                  Portfolio ops
-                </Link>
-                를 보세요.
-              </li>
-            </ul>
-          </div>
         </>
       ) : null}
     </>

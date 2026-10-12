@@ -29,10 +29,7 @@ export function MarketplaceAdminOverviewPage() {
 
   return (
     <>
-      <MarketplaceAdminPageHeader
-        title="Overview"
-        subtitle="Operational health — platform KPIs, marketplace activity, and traffic via Google Analytics."
-      />
+      <MarketplaceAdminPageHeader title="Overview" />
 
       <AdminPeriodSelector
         days={days}

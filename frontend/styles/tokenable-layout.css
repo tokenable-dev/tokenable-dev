@@ -468,16 +468,32 @@
   background: var(--ink-2);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 0 0 12px 12px;
-  padding: 8px 16px 16px;
+  padding: 8px 16px 12px;
   z-index: 140;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  max-height: min(400px, calc(100vh - 88px));
-  overflow-y: auto;
+  max-height: min(420px, calc(100vh - 88px));
+  overflow: hidden;
   margin-top: 4px;
+  flex-direction: column;
 }
 
 .gnb-search-dropdown.open {
-  display: block;
+  display: flex;
+}
+
+.gnb-search-results-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+  /* Price column sits flush right — a visible scrollbar would cover it. */
+  scrollbar-width: none;
+}
+
+.gnb-search-results-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .gnb-search-view-all {
@@ -486,6 +502,7 @@
   text-align: left;
   margin-top: 8px;
   padding: 8px 0 4px;
+  flex-shrink: 0;
   border: 0;
   background: transparent;
   color: var(--brand-400, #5b9aff);
@@ -565,7 +582,10 @@
   font-size: 13px;
   font-weight: 600;
   color: #fff;
-  --cd-line1-lh: 1.3;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gnb-search-item__meta {
@@ -573,6 +593,9 @@
   font-size: 11px;
   color: var(--t2);
   margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .gnb-search-item__price {
@@ -1286,11 +1309,22 @@
 }
 
 .gnb-search-overlay__dropdown {
-  padding: 8px 16px 24px;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px 16px;
   max-height: calc(100vh - 64px);
-  overflow-y: auto;
+  overflow: hidden;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+
+.gnb-search-overlay__dropdown .gnb-search-results-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.gnb-search-overlay__dropdown .gnb-search-view-all {
+  flex-shrink: 0;
 }
 
 .gnb-search-overlay__dropdown h4 {

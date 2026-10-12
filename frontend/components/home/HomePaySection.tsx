@@ -144,18 +144,19 @@ export function HomePaySection() {
               Pay and get paid, however you like. Bank, card, or crypto.
             </h2>
             <p className="tkl-sec-sub home-pay__sub">
-              Card, bank, Apple and Google Pay, or crypto. It all pays into your Tokenable
+              Card, bank, Apple & Google Pay, or crypto. It all pays into your Tokenable
               balance in USD.
             </p>
             <div className="home-pay__chips">
               <span className="home-pay__chip">Card</span>
               <span className="home-pay__chip">Apple / Google Pay</span>
+              <span className="home-pay__chip-break" aria-hidden />
               <span className="home-pay__chip">Bank</span>
               <span className="home-pay__chip">Crypto</span>
               <span className="home-pay__chip home-pay__chip--pos">USD balance</span>
             </div>
             <Link href="/markets" className="tk-btn tk-btn--primary home-pay__cta">
-              Start trading <span className="tkl-mono">→</span>
+              Start trading
             </Link>
           </div>
 

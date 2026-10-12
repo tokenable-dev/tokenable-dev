@@ -104,7 +104,7 @@ function portfolioBaseForPath(pathname: string | null | undefined): string {
 
 const PRIMARY_ICONS = {
   Markets: MobileDrawerMarketsIcon,
-  Portfolio: MobileDrawerPortfolioIcon,
+  Collection: MobileDrawerPortfolioIcon,
   Sell: MobileDrawerVaultIcon,
 } as const;
 
@@ -176,15 +176,11 @@ export function HeaderMobileDrawer({
       setPortfolioMenuOpen(false);
       return;
     }
-    if (!showProfile) {
-      setPortfolioMenuOpen(false);
-      return;
-    }
     const onPortfolio = isPortfolioRoute(pathname);
     const onBids = isPortfolioSubActive(pathname, searchParams, "bids");
     const onHistory = isPortfolioSubActive(pathname, searchParams, "history");
     if (onPortfolio || onBids || onHistory) setPortfolioMenuOpen(true);
-  }, [open, showProfile, pathname, searchParams]);
+  }, [open, pathname, searchParams]);
 
   const go = useCallback(
     (href: string, minLevel: 0 | 1 | 2 = 0) => {
@@ -299,13 +295,13 @@ export function HeaderMobileDrawer({
         <nav className="tkm-nav" aria-label="Main">
           {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
             const Icon = PRIMARY_ICONS[label];
-            const isPortfolio = label === "Portfolio";
+            const isPortfolio = label === "Collection";
             const itemHref = isPortfolio ? portfolioHref : href;
             const itemActive = isPortfolio
               ? isPortfolioMainActive(pathname, searchParams)
               : navItemActive(pathname, itemHref);
 
-            if (isPortfolio && showProfile) {
+            if (isPortfolio) {
               return (
                 <div key={label} className="tkm-portfolio">
                   <button
@@ -333,7 +329,7 @@ export function HeaderMobileDrawer({
                     </span>
                   </button>
                   {portfolioMenuOpen ? (
-                    <div className="tkm-portfolio__subs" role="group" aria-label="Portfolio">
+                    <div className="tkm-portfolio__subs" role="group" aria-label="Collection">
                       <button
                         type="button"
                         className={cn(
@@ -343,7 +339,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(itemHref, minLevel)}
                       >
                         <MobileDrawerPortfolioIcon width={16} height={16} aria-hidden />
-                        My Assets
+                        Items
                       </button>
                       <button
                         type="button"
@@ -354,7 +350,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
                       >
                         <WalletBidsIcon width={16} height={16} aria-hidden />
-                        My Bids
+                        Bids
                       </button>
                       <button
                         type="button"
@@ -365,7 +361,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
                       >
                         <WalletHistoryIcon width={16} height={16} aria-hidden />
-                        Tx History
+                        Transactions
                       </button>
                     </div>
                   ) : null}

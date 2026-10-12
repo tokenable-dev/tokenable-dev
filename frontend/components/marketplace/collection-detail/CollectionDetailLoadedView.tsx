@@ -585,9 +585,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   });
 
   return (
-    <div className="collection-detail-page min-h-screen min-w-0 text-white max-lg:min-h-0">
+    <div className="collection-detail-page min-h-screen min-w-0 text-white max-[1140px]:min-h-0">
       <div
-        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-lg:overflow-visible lg:overflow-visible`}
+        className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-[1140px]:overflow-visible min-[1141px]:overflow-visible`}
       >
         <CollectionDetailBreadcrumb
           categoryLabel={headline.collectionCategoryBadge}

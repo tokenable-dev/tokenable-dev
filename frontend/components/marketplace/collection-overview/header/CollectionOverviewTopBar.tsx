@@ -65,7 +65,7 @@ export function CollectionOverviewTopBar({
   return (
     <div
       className={`relative px-3.5 pt-3 pb-0 sm:px-6 sm:pt-4 sm:pb-0 lg:px-8 ${COLLECTION_DETAILS_BORDER_B} ${
-        hideTopHeadlineBarOnMobile ? "max-lg:hidden" : ""
+        hideTopHeadlineBarOnMobile ? "max-[1140px]:hidden" : ""
       } ${desktopHeadlineHidden && stats.length === 0 ? "lg:hidden" : ""}`}
     >
       <div className="flex flex-col gap-3 sm:gap-3 lg:flex-row lg:items-stretch lg:gap-0">

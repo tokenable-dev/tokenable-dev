@@ -53,7 +53,7 @@ describe('Cardhedger price infra tables', () => {
 
   it('legacy drop script does not name price-infra tables', () => {
     const sql = readFileSync(
-      join(sqlRoot, 'maintenance/drop_legacy_unused_tables.sql'),
+      join(sqlRoot, 'maintenance/deploy-sync.sql'),
       'utf8',
     );
     for (const table of CARDHEDGER_PRICE_INFRA_TABLES) {

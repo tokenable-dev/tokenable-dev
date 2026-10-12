@@ -64,9 +64,11 @@ export function ListRwaModalSuccessView({
         ? priceUsdc != null
           ? `Listed at $${priceUsdc.toLocaleString("en-US")}.`
           : undefined
-        : priceUsdc != null
-          ? `You get $${priceUsdc.toLocaleString("en-US")} when it sells.`
-          : `Asset #${tokenId} is now listed for ${price} USDC.`
+        : net != null
+          ? `You get $${Number(net).toLocaleString("en-US")} when it sells.`
+          : priceUsdc != null
+            ? `You get $${priceUsdc.toLocaleString("en-US")} when it sells.`
+            : `Asset #${tokenId} is now listed for ${price} USDC.`
       : undefined;
 
   const fillFailedSub = fillFailed ? "Your price is unchanged." : undefined;
@@ -86,18 +88,6 @@ export function ListRwaModalSuccessView({
             ? saleSub
             : listedSub;
 
-  const feeHint =
-    !successMeta?.matched &&
-    !fillFailed &&
-    !instantOnlyFailed &&
-    !softMatchNote &&
-    net != null &&
-    fee > 0 ? (
-      <p className="text-xs text-zinc-500 leading-relaxed">
-        {`You receive ~$${Number(net).toLocaleString("en-US")} after ${fee}% platform fee`}
-      </p>
-    ) : null;
-
   const titleOverride = instantOnlyFailed
     ? "Instant sale didn't complete"
     : undefined;
@@ -109,7 +99,6 @@ export function ListRwaModalSuccessView({
       title={titleOverride}
       priceUsdc={priceUsdc}
       sub={sub}
-      extra={feeHint}
       primaryLabel="Done"
       onClose={onClose}
     />

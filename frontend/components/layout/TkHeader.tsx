@@ -13,6 +13,7 @@ import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControl
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
 import { HeaderMobileDrawer } from "@/components/layout/header/HeaderMobileDrawer";
 import {
+  GNB_SEARCH_OPEN_EVENT,
   TkHeaderSearch,
   TkHeaderSearchMobileButton,
 } from "@/components/layout/header/TkHeaderSearch";
@@ -67,6 +68,16 @@ export function TkHeader() {
     setMobileSearchOpen(false);
     setNotificationsOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const onOpenSearch = () => {
+      setDrawerOpen(false);
+      setNotificationsOpen(false);
+      setMobileSearchOpen(true);
+    };
+    window.addEventListener(GNB_SEARCH_OPEN_EVENT, onOpenSearch);
+    return () => window.removeEventListener(GNB_SEARCH_OPEN_EVENT, onOpenSearch);
+  }, []);
 
   useEffect(() => {
     if (!drawerOpen) return;

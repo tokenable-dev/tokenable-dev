@@ -40,7 +40,7 @@ export function CollectionOverviewLeftColumn({
 }) {
   if (useMobileTabbedMarket) {
     return (
-      <div className="w-full min-w-0 lg:hidden" id="collection-listings">
+      <div className="w-full min-w-0 min-[1141px]:hidden" id="collection-listings">
         {mobileMarketTabs}
       </div>
     );

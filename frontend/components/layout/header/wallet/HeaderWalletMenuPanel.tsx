@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
 import { useActivePartner } from "@/hooks/partner/useActivePartner";
@@ -16,7 +17,11 @@ import { useAuthUiStore } from "@/store/authUiStore";
 import { NotificationUnreadBadge } from "@/components/layout/notifications/NotificationUnreadBadge";
 import { useMarketplaceNotifications } from "@/hooks/notifications/useMarketplaceNotifications";
 import { usePortfolioNavHref } from "@/hooks/portfolio/usePortfolioNavHref";
-import { portfolioUrl, stripPathQueryHash } from "@/lib/portfolio/portfolioPaths";
+import {
+  isPortfolioRoute,
+  portfolioUrl,
+  stripPathQueryHash,
+} from "@/lib/portfolio/portfolioPaths";
 import {
   WalletAddFundsIcon,
   WalletBidsIcon,
@@ -25,6 +30,7 @@ import {
   WalletPortfolioIcon,
   WalletRedeemRequestsIcon,
   WalletSettingsIcon,
+  WalletChevronIcon,
   WalletSignOutIcon,
   WalletUserIcon,
   WalletVerifyIcon,
@@ -64,8 +70,22 @@ export function HeaderWalletMenuPanel({
     isLoadingConfig: fundingConfigLoading,
   } = usePrivyFiatOnramp({ onComplete: () => void refetchBalance() });
   const [signingOut, setSigningOut] = useState(false);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const portfolioHref = usePortfolioNavHref();
   const portfolioBase = stripPathQueryHash(portfolioHref);
+  const portfolioTab = searchParams.get("tab");
+  const onPortfolio = isPortfolioRoute(pathname);
+  const onBids = onPortfolio && portfolioTab === "bids";
+  const onHistory =
+    onPortfolio &&
+    (portfolioTab === "history" || portfolioTab === "transaction-history");
+  const onAssets = onPortfolio && !onBids && !onHistory;
+  const [collectionOpen, setCollectionOpen] = useState(false);
+
+  useEffect(() => {
+    if (onPortfolio) setCollectionOpen(true);
+  }, [onPortfolio]);
   const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
   const showVerifyIdentity = !isKycComplete(user);
   const { isActivePartner } = useActivePartner();
@@ -145,28 +165,47 @@ export function HeaderWalletMenuPanel({
       ) : null}
       <button
         type="button"
-        className={itemClass(variant)}
-        onClick={() => go(portfolioHref, 1)}
+        className={`${itemClass(variant)} tk-wd-item--parent${
+          onPortfolio ? " is-active" : ""
+        }`}
+        aria-expanded={collectionOpen}
+        onClick={() => setCollectionOpen((open) => !open)}
       >
         <WalletPortfolioIcon />
-        Portfolio
+        Collection
+        <WalletChevronIcon
+          className={`tk-wd-item__chevron${collectionOpen ? " tk-wd-item__chevron--open" : ""}`}
+          aria-hidden
+        />
       </button>
-      <button
-        type="button"
-        className={itemClass(variant, true)}
-        onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
-      >
-        <WalletBidsIcon />
-        My Bids
-      </button>
-      <button
-        type="button"
-        className={itemClass(variant, true)}
-        onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
-      >
-        <WalletHistoryIcon />
-        Tx History
-      </button>
+      {collectionOpen ? (
+        <>
+          <button
+            type="button"
+            className={`${itemClass(variant, true)}${onAssets ? " is-active" : ""}`}
+            onClick={() => go(portfolioHref, 1)}
+          >
+            <WalletPortfolioIcon />
+            Items
+          </button>
+          <button
+            type="button"
+            className={`${itemClass(variant, true)}${onBids ? " is-active" : ""}`}
+            onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
+          >
+            <WalletBidsIcon />
+            Bids
+          </button>
+          <button
+            type="button"
+            className={`${itemClass(variant, true)}${onHistory ? " is-active" : ""}`}
+            onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
+          >
+            <WalletHistoryIcon />
+            Transactions
+          </button>
+        </>
+      ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/watchlist")}>
         <WalletWatchlistIcon />
         Watchlist

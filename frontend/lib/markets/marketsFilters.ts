@@ -17,6 +17,8 @@ import {
 import { bucketCardNameForDisplay, bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
 import { extractLeadingTcgSeriesFromSetDisplay } from "@/lib/marketplace/cardDisplayName";
 import { resolveCollectionSlabSetLine } from "@/lib/marketplace/slabDisplayTitle";
+import { parseFiniteGradeScore } from "@/lib/market/psaGradePolicy";
+import { formatDetailExpansionSetName } from "@/lib/marketplace/cardDisplayName";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
 
@@ -180,9 +182,9 @@ export function collectionMatchesPriceFilter(
     case "under_1k":
       return usd < 1_000;
     case "1k_10k":
-      return usd >= 1_000 && usd < 10_000;
+      return usd >= 1_000 && usd <= 10_000;
     case "10k_50k":
-      return usd >= 10_000 && usd < 50_000;
+      return usd >= 10_000 && usd <= 50_000;
     case "50k_plus":
       return usd >= 50_000;
     default:
@@ -190,29 +192,100 @@ export function collectionMatchesPriceFilter(
   }
 }
 
-/** Preset chips keep existing bucket logic; typed min/max use inclusive bounds. */
+function finiteNonNegative(raw: string): number | null {
+  const t = raw.trim();
+  if (!t) return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0) return null;
+  return n;
+}
+
+/** Drop junk, and swap when min is above max so a reversed range still matches. */
+export function normalizeMarketsPriceInputs(
+  minStr: string,
+  maxStr: string,
+): { min: string; max: string } {
+  let min = finiteNonNegative(minStr);
+  let max = finiteNonNegative(maxStr);
+  if (min != null && max != null && min > max) {
+    const swap = min;
+    min = max;
+    max = swap;
+  }
+  return {
+    min: min == null ? "" : String(min),
+    max: max == null ? "" : String(max),
+  };
+}
+
+/**
+ * Preset chips use the labeled buckets (`Under $1,000` is strictly below).
+ * Typed min/max are inclusive. A reversed pair is swapped, not treated as empty.
+ */
 export function collectionMatchesPriceRange(
   collection: MarketplaceCollectionSummary,
   snapshot: CollectionListMarketSnapshot | undefined,
   minStr: string,
   maxStr: string,
 ): boolean {
-  const a = minStr.trim();
-  const b = maxStr.trim();
+  const { min: a, max: b } = normalizeMarketsPriceInputs(minStr, maxStr);
   if (!a && !b) return true;
   const preset = MARKETS_PRICE_PRESET_CHIPS.find((p) => p.min === a && p.max === b);
   if (preset) return collectionMatchesPriceFilter(collection, snapshot, preset.id);
   const usd = resolveMarketsListingMarketUsd(collection, snapshot);
   if (usd == null || !Number.isFinite(usd)) return false;
-  if (a) {
-    const min = Number(a);
-    if (Number.isFinite(min) && usd < min) return false;
-  }
-  if (b) {
-    const max = Number(b);
-    if (Number.isFinite(max) && usd > max) return false;
-  }
+  if (a && usd < Number(a)) return false;
+  if (b && usd > Number(b)) return false;
   return true;
+}
+
+function gradeScoreNumber(comp: CollectionComponents): number | null {
+  const direct = parseFiniteGradeScore(comp.gradeScore);
+  if (direct != null) return direct;
+  const text = [comp.psaGradeLabel, comp.psaGradeDescription]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .join(" ");
+  const m = text.match(/(\d{1,2}(?:\.\d+)?)/);
+  if (!m) return null;
+  const n = parseFloat(m[1] ?? "");
+  return Number.isFinite(n) ? n : null;
+}
+
+function sameGradeScore(score: number, target: number): boolean {
+  return Math.abs(score - target) < 0.001;
+}
+
+/**
+ * Map a slab onto a filter checkbox.
+ * "GEM MT 10" is PSA 10. BGS Pristine / Black Label is not BGS 10.
+ */
+export function collectionGradeFilterId(
+  collection: MarketplaceCollectionSummary,
+): MarketsGradeFilterId | null {
+  const comp = parseCollectionComponents(collection.components);
+  const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany ?? "").trim();
+  const kind = /bgs|beckett/i.test(company)
+    ? "bgs"
+    : /psa/i.test(company) || !company
+      ? "psa"
+      : "other";
+  const text = [comp.psaGradeLabel, comp.psaGradeDescription, comp.gradeScore]
+    .filter((s): s is string => typeof s === "string" && s.trim().length > 0)
+    .join(" ");
+  const pristine = /pristine|black\s*label/i.test(text);
+  const score = gradeScoreNumber(comp);
+
+  if (kind === "bgs" && pristine) return "BGS Pristine";
+  if (kind === "bgs" && score != null && sameGradeScore(score, 10)) return "BGS 10";
+  if (kind === "bgs" && score != null && sameGradeScore(score, 9.5)) return "BGS 9.5";
+  if (kind === "psa" && score != null && sameGradeScore(score, 10)) return "PSA 10";
+  if (kind === "psa" && score != null && sameGradeScore(score, 9)) return "PSA 9";
+
+  const label = formatCollectionGradeLabel(collection);
+  if (label && MARKETS_GRADE_FILTER_OPTIONS.includes(label as MarketsGradeFilterId)) {
+    return label as MarketsGradeFilterId;
+  }
+  return null;
 }
 
 export function collectionMatchesGradeFilters(
@@ -220,9 +293,9 @@ export function collectionMatchesGradeFilters(
   selectedGrades: ReadonlySet<MarketsGradeFilterId>,
 ): boolean {
   if (selectedGrades.size === 0) return true;
-  const grade = formatCollectionGradeLabel(collection);
+  const grade = collectionGradeFilterId(collection);
   if (!grade) return false;
-  return selectedGrades.has(grade as MarketsGradeFilterId);
+  return selectedGrades.has(grade);
 }
 
 function normalizeFacetToken(raw: string): string {
@@ -243,19 +316,28 @@ function setFacetNeedles(raw: string): string[] {
 }
 
 /**
- * Canonical set label for Details KV + Markets `set=` facet — year stripped (Year is its own row).
+ * Set checkbox / `set=` label — expansion name (`151`, `Carrying On His Will`),
+ * not the raw PSA brand line. Year, franchise, language, and set code are dropped.
  */
 export function resolveCollectionSetFacetLabel(
   comp: CollectionComponents,
   opts?: { setLineHint?: string | null; marketSetName?: string | null },
 ): string {
+  const catalogName = comp.normalizedPokemon?.setName?.trim() || "";
   const raw =
+    catalogName ||
     opts?.setLineHint?.trim() ||
     resolveCollectionSlabSetLine(comp)?.trim() ||
     bucketCardSetForDisplay(comp).trim() ||
     opts?.marketSetName?.trim() ||
     "";
-  return resolveCollectionSetFacetLabelFromLine(raw);
+  const expansion = formatDetailExpansionSetName({
+    setName: catalogName || opts?.marketSetName,
+    setLine: raw,
+    language: comp.normalizedPokemon?.language || comp.language,
+  });
+  const label = expansion || resolveCollectionSetFacetLabelFromLine(raw);
+  return toCardDisplayCase(label);
 }
 
 /** Unique set facet labels from loaded collections (same strings Details links use). */
@@ -289,24 +371,40 @@ function collectionYear(
   return setLine ? leadingYearFromSetLine(setLine) : null;
 }
 
+function cleanYearBound(raw: string): string {
+  const t = raw.trim();
+  if (!/^\d{4}$/.test(t)) return "";
+  const y = Number(t);
+  if (y < 1880 || y > 2100) return "";
+  return t;
+}
+
+/** Ignore partial years. Swap when the lower year is after the upper year. */
+export function normalizeMarketsYearInputs(
+  minStr: string,
+  maxStr: string,
+): { min: string; max: string } {
+  let min = cleanYearBound(minStr);
+  let max = cleanYearBound(maxStr);
+  if (min && max && Number(min) > Number(max)) {
+    const swap = min;
+    min = max;
+    max = swap;
+  }
+  return { min, max };
+}
+
 export function collectionMatchesYearRange(
   collection: MarketplaceCollectionSummary,
   yearMinStr: string,
   yearMaxStr: string,
 ): boolean {
-  const a = yearMinStr.trim();
-  const b = yearMaxStr.trim();
+  const { min: a, max: b } = normalizeMarketsYearInputs(yearMinStr, yearMaxStr);
   if (!a && !b) return true;
   const year = collectionYear(collection);
   if (year == null) return false;
-  if (a) {
-    const min = Number(a);
-    if (Number.isFinite(min) && year < min) return false;
-  }
-  if (b) {
-    const max = Number(b);
-    if (Number.isFinite(max) && year > max) return false;
-  }
+  if (a && year < Number(a)) return false;
+  if (b && year > Number(b)) return false;
   return true;
 }
 
@@ -334,31 +432,46 @@ export function collectionMatchesCharacterFilters(
   });
 }
 
+function collectionSetIdentityTokens(
+  collection: MarketplaceCollectionSummary,
+): string[] {
+  const comp = parseCollectionComponents(collection.components);
+  const parts = [
+    resolveCollectionSetFacetLabel(comp),
+    comp.normalizedPokemon?.setName,
+    resolveCollectionSlabSetLine(comp),
+    bucketCardSetForDisplay(comp),
+    comp.cardSetDisplay,
+    comp.cardSet,
+    comp.psaBrand,
+  ];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of parts) {
+    if (typeof part !== "string" || !part.trim()) continue;
+    const token = normalizeFacetToken(part);
+    if (!token || seen.has(token)) continue;
+    seen.add(token);
+    out.push(token);
+  }
+  return out;
+}
+
 export function collectionMatchesSetFilters(
   collection: MarketplaceCollectionSummary,
   selected: readonly string[],
 ): boolean {
   if (selected.length === 0) return true;
-  const comp = parseCollectionComponents(collection.components);
-  const facetLabel = resolveCollectionSetFacetLabel(comp);
-  const hay = normalizeFacetToken(
-    [
-      facetLabel,
-      stripLeadingYearFromSetLine(bucketCardSetForDisplay(comp)),
-      resolveCollectionSlabSetLine(comp),
-      bucketCardSetForDisplay(comp),
-      comp.cardSetDisplay,
-      comp.cardSet,
-      comp.psaBrand,
-      collection.displayLabel,
-      collection.queryUsed,
-    ]
-      .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
-      .join(" "),
-  );
-  if (!hay) return false;
+  const identities = collectionSetIdentityTokens(collection);
+  if (identities.length === 0) return false;
   return selected.some((needle) =>
-    setFacetNeedles(needle).some((n) => n.length > 0 && hay.includes(n)),
+    setFacetNeedles(needle).some((n) => {
+      if (!n) return false;
+      if (identities.some((id) => id === n)) return true;
+      // Short fragments ("ex") must match a whole set name, not every title.
+      if (n.length < 3) return false;
+      return identities.some((id) => id.includes(n));
+    }),
   );
 }
 

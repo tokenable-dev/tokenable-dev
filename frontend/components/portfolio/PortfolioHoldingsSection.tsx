@@ -7,11 +7,7 @@ import { postRwaVaultInfoBatch, rq } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
-import {
-  certNumberFromMetadata,
-  isRedeemInFlight,
-  redeemSurfaceBadge,
-} from "@/lib/portfolio/redeemDraft";
+import { isRedeemInFlight, redeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import {
   holdingsLifecycleSeg,
   matchesAssetsSegment,
@@ -19,7 +15,6 @@ import {
 } from "@/lib/portfolio/portfolioAssetsSegment";
 import {
   compareSortNum,
-  compareSortText,
   formatPortfolioGradeLabel,
   resolvePortfolioHoldingsHeadlines,
 } from "@/lib/portfolio/portfolioTableHelpers";
@@ -40,7 +35,6 @@ import {
 import { isKbwMysteryCardTokenId } from "@/lib/portfolio/kbwMysteryCard";
 import { PortfolioHoldingsGalleryTile } from "./PortfolioHoldingsGalleryTile";
 import { PortfolioHoldingsTableView } from "./PortfolioHoldingsTableView";
-import { PortfolioMobileAssetCard } from "./PortfolioMobileAssetCard";
 export function PortfolioHoldingsSection({
   assetsSectionLoading,
   assetRows,
@@ -48,9 +42,6 @@ export function PortfolioHoldingsSection({
   costBasisByTokenId,
   acquiredAtByTokenId,
   valuesPending,
-  canEditCostBasis,
-  onSaveCostBasis,
-  savingCostBasisTokenId,
   onSetPrice,
   onRequestCancelListings,
   onOpenKbwMysteryCard,
@@ -64,6 +55,10 @@ export function PortfolioHoldingsSection({
   onLoadMoreAssets,
   loadedAssetCount,
   totalAssetCount,
+  hiddenTokenIds,
+  onBulkHide,
+  onBulkUnhide,
+  bulkHidePending = false,
 }: {
   assetsSectionLoading: boolean;
   assetRows: AssetRow[];
@@ -71,10 +66,7 @@ export function PortfolioHoldingsSection({
   costBasisByTokenId: Map<number, number>;
   acquiredAtByTokenId?: Map<number, string>;
   valuesPending: boolean;
-  canEditCostBasis?: boolean;
-  onSaveCostBasis?: (tokenId: number, costBasisUsd: number) => void | Promise<void>;
-  savingCostBasisTokenId?: number | null;
-  onSetPrice: (tokenId: number) => void;
+  onSetPrice: (tokenId: number, draftPriceUsdc?: string | null) => void;
   onRequestCancelListings?: (
     items: {
       tokenId: number;
@@ -95,15 +87,22 @@ export function PortfolioHoldingsSection({
   onLoadMoreAssets?: () => void;
   loadedAssetCount?: number;
   totalAssetCount?: number;
+  hiddenTokenIds?: Set<number>;
+  onBulkHide?: (tokenIds: number[]) => void | Promise<void>;
+  onBulkUnhide?: (tokenIds: number[]) => void | Promise<void>;
+  bulkHidePending?: boolean;
 }) {
-  const [segment, setSegment] = useState<AssetsSegment>("tradeable");
-  const [searchQuery, setSearchQuery] = useState("");
+  const hiddenSet = hiddenTokenIds ?? new Set<number>();
+  const [segment, setSegment] = useState<AssetsSegment>("all");
   const [sort, setSort] = useState<AssetsToolbarSort>("newest");
   /** Default: gallery tiles on mobile and desktop (table is opt-in). */
   const [view, setView] = useState<AssetsViewMode>("gallery");
   const [selectMode, setSelectMode] = useState(false);
   const [selectedTokenIds, setSelectedTokenIds] = useState<Set<number>>(() => new Set());
   const isMobile = useIsMobileViewport(768);
+  const isPadOrPhone = useIsMobileViewport(1024);
+  /** Gallery through pad/phone; table is desktop-only (Portfolio.html). */
+  const showGalleryGrid = view === "gallery" || isPadOrPhone;
   const pathname = usePathname();
   const assetsBase = portfolioBasePath(pathname);
 
@@ -150,21 +149,14 @@ export function PortfolioHoldingsSection({
   }, [vaultInfoQuery.data]);
 
   const filteredSortedRows = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
     const rows = assetRows.filter((row) => {
       const isListed =
         row.listPriceUsd != null && row.activeListingOrderHash != null;
       const badge = getBadge(row.tokenId);
       const seg = holdingsLifecycleSeg(isListed, badge);
-      if (!matchesAssetsSegment(seg, segment)) return false;
-      if (!q) return true;
-      const meta = metadataByTokenId.get(row.tokenId) ?? null;
-      const cert = certNumberFromMetadata(meta)?.toLowerCase() ?? "";
-      const grade = formatPortfolioGradeLabel(meta)?.toLowerCase() ?? "";
-      const set = (row.setName ?? "").toLowerCase();
-      const headline = headlineByTokenId.get(row.tokenId);
-      const hay = `${headline?.line1 ?? row.name} ${cert} ${grade} ${set}`.toLowerCase();
-      return hay.includes(q);
+      return matchesAssetsSegment(seg, segment, {
+        hidden: hiddenSet.has(row.tokenId),
+      });
     });
 
     rows.sort((a, b) => {
@@ -172,8 +164,6 @@ export function PortfolioHoldingsSection({
       const bKbw = isKbwMysteryCardTokenId(b.tokenId);
       if (aKbw !== bKbw) return aKbw ? -1 : 1;
 
-      const costA = costBasisByTokenId.get(a.tokenId);
-      const costB = costBasisByTokenId.get(b.tokenId);
       switch (sort) {
         case "newest": {
           const isoA = acquiredAtByTokenId?.get(a.tokenId);
@@ -187,27 +177,10 @@ export function PortfolioHoldingsSection({
           );
           return cmp !== 0 ? cmp : b.tokenId - a.tokenId;
         }
-        case "name":
-          return compareSortText(a.name, b.name, "asc");
-        case "pl": {
-          const dA =
-            costA != null && a.currentPrice != null ? a.currentPrice - costA : null;
-          const dB =
-            costB != null && b.currentPrice != null ? b.currentPrice - costB : null;
-          return compareSortNum(dA, dB, "desc");
-        }
-        case "ret": {
-          const rA =
-            costA != null && costA > 0 && a.currentPrice != null
-              ? (a.currentPrice - costA) / costA
-              : null;
-          const rB =
-            costB != null && costB > 0 && b.currentPrice != null
-              ? (b.currentPrice - costB) / costB
-              : null;
-          return compareSortNum(rA, rB, "desc");
-        }
         case "value":
+          return compareSortNum(a.currentPrice, b.currentPrice, "desc");
+        case "low":
+          return compareSortNum(a.currentPrice, b.currentPrice, "asc");
         default:
           return compareSortNum(a.currentPrice, b.currentPrice, "desc");
       }
@@ -218,20 +191,36 @@ export function PortfolioHoldingsSection({
   }, [
     assetRows,
     segment,
-    searchQuery,
     sort,
     metadataByTokenId,
-    costBasisByTokenId,
     acquiredAtByTokenId,
     redeemStatusByTokenId,
     redeemTrackingByTokenId,
     redeemCarrierDeliveredByTokenId,
     redeemPaymentBatchByTokenId,
     headlineByTokenId,
+    hiddenSet,
   ]);
 
+  const isSelectionEligible = useCallback(
+    (row: AssetRow) => {
+      if (isKbwMysteryCardTokenId(row.tokenId)) return false;
+      const isHidden = hiddenSet.has(row.tokenId);
+      if (segment === "hidden") return isHidden;
+      if (isHidden) return false;
+      const isListed =
+        row.listPriceUsd != null && row.activeListingOrderHash != null;
+      const badge = getBadge(row.tokenId);
+      const seg = holdingsLifecycleSeg(isListed, badge);
+      if (seg !== "listed" && seg !== "notlisted") return false;
+      const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
+      return !isRedeemInFlight(redeemStatus);
+    },
+    [hiddenSet, segment, redeemStatusByTokenId],
+  );
+
   const handleSetPrice = useCallback(
-    (tokenId: number) => {
+    (tokenId: number, draftPriceUsdc?: string | null) => {
       const row = assetRows.find((r) => r.tokenId === tokenId);
       const isListed =
         row != null &&
@@ -241,7 +230,7 @@ export function PortfolioHoldingsSection({
         card_id: String(tokenId),
         current_price: row?.currentPrice ?? undefined,
       });
-      onSetPrice(tokenId);
+      onSetPrice(tokenId, draftPriceUsdc);
     },
     [assetRows, onSetPrice],
   );
@@ -253,20 +242,6 @@ export function PortfolioHoldingsSection({
       ),
     [filteredSortedRows],
   );
-
-  useEffect(() => {
-    if (!selectMode) return;
-    const listed = new Set(listedRows.map((r) => r.tokenId));
-    setSelectedTokenIds((prev) => {
-      let changed = false;
-      const next = new Set<number>();
-      for (const id of prev) {
-        if (listed.has(id)) next.add(id);
-        else changed = true;
-      }
-      return changed ? next : prev;
-    });
-  }, [selectMode, listedRows]);
 
   const setSelectModeSafe = useCallback((on: boolean) => {
     setSelectMode(on);
@@ -282,9 +257,42 @@ export function PortfolioHoldingsSection({
     });
   }, []);
 
-  const selectAllListed = useCallback(() => {
-    setSelectedTokenIds(new Set(listedRows.map((r) => r.tokenId)));
-  }, [listedRows]);
+  const selectAllEligible = useCallback(() => {
+    setSelectedTokenIds(
+      new Set(
+        filteredSortedRows.filter((r) => isSelectionEligible(r)).map((r) => r.tokenId),
+      ),
+    );
+  }, [filteredSortedRows, isSelectionEligible]);
+
+  const selectedListedCount = useMemo(() => {
+    let n = 0;
+    for (const id of selectedTokenIds) {
+      const row = assetRows.find((r) => r.tokenId === id);
+      if (
+        row &&
+        row.listPriceUsd != null &&
+        row.activeListingOrderHash != null
+      ) {
+        n++;
+      }
+    }
+    return n;
+  }, [selectedTokenIds, assetRows]);
+
+  const selectedHideCount = useMemo(() => {
+    if (segment === "hidden") return selectedTokenIds.size;
+    let n = 0;
+    for (const id of selectedTokenIds) {
+      const row = assetRows.find((r) => r.tokenId === id);
+      const isListed =
+        row != null &&
+        row.listPriceUsd != null &&
+        row.activeListingOrderHash != null;
+      if (row && !isListed && !hiddenSet.has(id)) n++;
+    }
+    return n;
+  }, [selectedTokenIds, assetRows, segment, hiddenSet]);
 
   const clearSelection = useCallback(() => {
     setSelectedTokenIds(new Set());
@@ -315,8 +323,41 @@ export function PortfolioHoldingsSection({
     headlineByTokenId,
   ]);
 
+  const requestHideOrUnhideSelected = useCallback(async () => {
+    const ids = [...selectedTokenIds];
+    if (ids.length === 0) return;
+    if (segment === "hidden") {
+      await onBulkUnhide?.(ids);
+    } else {
+      const toHide = ids.filter((id) => {
+        const row = assetRows.find((r) => r.tokenId === id);
+        const isListed =
+          row != null &&
+          row.listPriceUsd != null &&
+          row.activeListingOrderHash != null;
+        return row && !isListed && !hiddenSet.has(id);
+      });
+      if (toHide.length === 0) return;
+      await onBulkHide?.(toHide);
+    }
+    setSelectModeSafe(false);
+  }, [
+    selectedTokenIds,
+    segment,
+    onBulkHide,
+    onBulkUnhide,
+    assetRows,
+    hiddenSet,
+    setSelectModeSafe,
+  ]);
+
+  const clearToolbarFilters = useCallback(() => {
+    setSort("newest");
+    setSegment("all");
+  }, []);
+
   if (assetsSectionLoading) {
-    if (view === "gallery" && !isMobile) {
+    if (showGalleryGrid) {
       return (
         <div className="pf-gallery pf-gallery--skeleton" aria-hidden>
           {[...Array(8)].map((_, i) => (
@@ -335,14 +376,15 @@ export function PortfolioHoldingsSection({
       );
     }
     return (
-      <div className="pf-mobile-asset-cards" aria-hidden>
+      <div className="pf-gallery pf-gallery--skeleton" aria-hidden>
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="pf-mobile-asset-card pf-mobile-asset-card--skeleton">
-            <div className="pf-mobile-asset-card__img animate-pulse" />
-            <div className="pf-mobile-asset-card__info">
-              <div className="h-4 w-[85%] animate-pulse rounded bg-white/8" />
-              <div className="h-3 w-1/3 animate-pulse rounded bg-white/5" />
-              <div className="h-3 w-2/3 animate-pulse rounded bg-white/5" />
+          <div key={i} className="pf-gallery__item">
+            <div className="pf-gtile pf-gtile--skeleton">
+              <div className="pf-gtile__media animate-pulse" />
+              <div className="pf-gtile__body">
+                <div className="h-3 w-[80%] animate-pulse rounded bg-white/5" />
+                <div className="h-8 w-full animate-pulse rounded bg-white/5" />
+              </div>
             </div>
           </div>
         ))}
@@ -366,8 +408,6 @@ export function PortfolioHoldingsSection({
       <PortfolioAssetsToolbar
         segment={segment}
         onSegmentChange={setSegment}
-        searchQuery={searchQuery}
-        onSearchQueryChange={setSearchQuery}
         sort={sort}
         onSortChange={setSort}
         view={view}
@@ -375,9 +415,14 @@ export function PortfolioHoldingsSection({
         selectMode={selectMode}
         onSelectModeChange={setSelectModeSafe}
         selectedCount={selectedTokenIds.size}
-        onSelectAll={selectAllListed}
+        selectedListedCount={selectedListedCount}
+        selectedHideCount={selectedHideCount}
+        onSelectAll={selectAllEligible}
         onClearSelection={clearSelection}
         onCancelSelected={requestCancelSelected}
+        onHideOrUnhideSelected={() => void requestHideOrUnhideSelected()}
+        onClearFilters={clearToolbarFilters}
+        hidingSelected={bulkHidePending}
         cancellingSelected={
           cancellingListingTokenId != null &&
           selectedTokenIds.has(cancellingListingTokenId)
@@ -386,9 +431,9 @@ export function PortfolioHoldingsSection({
 
       {emptyFiltered ? (
         <p className="pf-empty pf-empty--panel">
-          {selectMode ? "No active listings." : "Nothing in this segment."}
+          {selectMode ? "Nothing to select in this view." : "Nothing in this segment."}
         </p>
-      ) : view === "gallery" ? (
+      ) : showGalleryGrid ? (
         <div className="pf-gallery" role="list">
           {filteredSortedRows.map((row) => {
             const cost = costBasisByTokenId.get(row.tokenId);
@@ -411,10 +456,6 @@ export function PortfolioHoldingsSection({
                   }
                   cost={cost}
                   valuesPending={valuesPending}
-                  canEditCostBasis={
-                    !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
-                  }
-                  savingCostBasis={savingCostBasisTokenId === row.tokenId}
                   isListed={isListed}
                   redeemStatus={badge}
                   actionsDisabled={virtual || tradeBlocked}
@@ -427,11 +468,13 @@ export function PortfolioHoldingsSection({
                         ? "Redemption in progress"
                         : undefined
                   }
-                  onSaveCostBasis={onSaveCostBasis}
                   onSetPrice={handleSetPrice}
-                  selectMode={selectMode && !virtual}
+                  selectMode={selectMode && isSelectionEligible(row)}
                   selected={selectedTokenIds.has(row.tokenId)}
-                  onToggleSelect={() => toggleSelect(row.tokenId)}
+                  onToggleSelect={() => {
+                    if (!isSelectionEligible(row)) return;
+                    toggleSelect(row.tokenId);
+                  }}
                   onActivate={
                     virtual && !kbwUsed && onOpenKbwMysteryCard
                       ? onOpenKbwMysteryCard
@@ -442,67 +485,11 @@ export function PortfolioHoldingsSection({
             );
           })}
         </div>
-      ) : isMobile ? (
-        <div className="pf-mobile-asset-cards" role="list">
-          {filteredSortedRows.map((row) => {
-            const cost = costBasisByTokenId.get(row.tokenId);
-            const headline = headlineByTokenId.get(row.tokenId);
-            const isListed =
-              row.listPriceUsd != null && row.activeListingOrderHash != null;
-            const redeemStatus = redeemStatusByTokenId?.get(row.tokenId) ?? null;
-            const badge = getBadge(row.tokenId);
-            const tradeBlocked = isRedeemInFlight(redeemStatus);
-            const virtual = isKbwMysteryCardTokenId(row.tokenId);
-            const kbwUsed = Boolean(row.kbwMysteryUsed);
-
-            return (
-              <PortfolioMobileAssetCard
-                key={row.tokenId}
-                row={row}
-                headline={headline ?? null}
-                href={
-                  virtual ? undefined : portfolioAssetHref(assetsBase, row.tokenId)
-                }
-                cost={cost}
-                valuesPending={valuesPending}
-                canEditCostBasis={
-                  !virtual && Boolean(canEditCostBasis && onSaveCostBasis)
-                }
-                savingCostBasis={savingCostBasisTokenId === row.tokenId}
-                isListed={isListed}
-                redeemStatus={badge}
-                actionsDisabled={virtual || tradeBlocked}
-                actionsDisabledTitle={
-                  virtual
-                    ? kbwUsed
-                      ? "Event collectible — already used"
-                      : "Event collectible — not listable"
-                    : tradeBlocked
-                      ? "Redemption in progress — listing unavailable"
-                      : undefined
-                }
-                onSaveCostBasis={onSaveCostBasis}
-                onSetPrice={handleSetPrice}
-                selectMode={selectMode && !virtual}
-                selected={selectedTokenIds.has(row.tokenId)}
-                onToggleSelect={() => toggleSelect(row.tokenId)}
-                onActivate={
-                  virtual && !kbwUsed && onOpenKbwMysteryCard
-                    ? onOpenKbwMysteryCard
-                    : undefined
-                }
-              />
-            );
-          })}
-        </div>
       ) : (
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
           costBasisByTokenId={costBasisByTokenId}
           valuesPending={valuesPending}
-          canEditCostBasis={Boolean(canEditCostBasis && onSaveCostBasis)}
-          savingCostBasisTokenId={savingCostBasisTokenId}
-          onSaveCostBasis={onSaveCostBasis}
           onSetPrice={handleSetPrice}
           getBadge={getBadge}
           isTradeBlocked={(tokenId) =>
@@ -513,6 +500,7 @@ export function PortfolioHoldingsSection({
           selectMode={selectMode}
           selectedTokenIds={selectedTokenIds}
           onToggleSelect={toggleSelect}
+          isRowSelectable={isSelectionEligible}
           headlineByTokenId={headlineByTokenId}
           assetHrefBase={assetsBase}
           onOpenKbwMysteryCard={onOpenKbwMysteryCard}

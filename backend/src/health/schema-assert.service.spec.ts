@@ -49,6 +49,14 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes partner_vault_mint_jobs (sell-flow mint)', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) => r.kind === 'table' && r.name === 'partner_vault_mint_jobs',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes vault_cycles.mint_attempt (mint crash recovery)', () => {
     expect(
       REQUIRED_SCHEMA.some(
@@ -66,11 +74,11 @@ describe('SchemaAssertService checklist', () => {
         kind: 'column',
         table: 'rwa_tokens',
         column: 'vault_partner_id',
-        fix: 'maintenance/add_rwa_tokens_vault_partner_id.sql',
+        fix: 'maintenance/deploy-sync.sql (or run apply-deploy-maintenance.sh)',
       },
     ]);
     expect(msg).toContain('rwa_tokens.vault_partner_id');
-    expect(msg).toContain('add_rwa_tokens_vault_partner_id.sql');
+    expect(msg).toContain('deploy-sync.sql');
   });
 
   it('findMissing returns absent columns', async () => {
@@ -90,13 +98,13 @@ describe('SchemaAssertService checklist', () => {
         kind: 'column',
         table: 'rwa_tokens',
         column: 'settlement_policy',
-        fix: 'maintenance/add_rwa_tokens_settlement_policy.sql',
+        fix: 'maintenance/deploy-sync.sql (or run apply-deploy-maintenance.sh)',
       },
       {
         kind: 'column',
         table: 'rwa_tokens',
         column: 'vault_partner_id',
-        fix: 'maintenance/add_rwa_tokens_vault_partner_id.sql',
+        fix: 'maintenance/deploy-sync.sql (or run apply-deploy-maintenance.sh)',
       },
     ]);
     expect(missing).toHaveLength(1);

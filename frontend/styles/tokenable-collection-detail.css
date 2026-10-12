@@ -84,7 +84,7 @@
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 500;
-  letter-spacing: 0.02em;
+  letter-spacing: 0.08em;
   line-height: 1.4;
   color: #ffffffb3;
 }
@@ -114,7 +114,7 @@
 
 .cd-breadcrumb__sep {
   margin: 0;
-  color: #ffffffb3;
+  color: var(--t3);
   font-weight: 400;
   user-select: none;
 }
@@ -135,9 +135,9 @@
   border-radius: 16px;
 }
 
-/* ── Mobile layout (Card.html @max-width 768px / 1023px) ─────────────────── */
+/* ── Mobile + pad layout (Card.html @max-width 1140px) ─────────────────── */
 
-@media (max-width: 1023px) {
+@media (max-width: 1140px) {
   .collection-detail-page .collection-detail-page__shell {
     padding-top: 16px;
     /* Clear fixed trade bar (Buy / Bid row ~72px + safe area). */
@@ -644,9 +644,9 @@
   flex: 1 1 300px;
   min-width: 0;
   min-height: 0;
-  gap: 0;
-  align-self: stretch;
-  justify-content: space-between;
+  gap: 16px;
+  align-self: flex-start;
+  justify-content: flex-start;
 }
 .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
 .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
@@ -693,10 +693,10 @@
 /* Card.html `#hero-title` */
 .cd-hero-bar--embed .cd-hero-bar__title,
 .cd-hero-bar--embed #hero-title {
-  margin: 0 0 6px;
+  margin: 0 0 8px;
   font-family: var(--font-sans);
   font-size: clamp(17px, 1.8vw, 24px);
-  line-height: 1.1;
+  line-height: 1.2;
   letter-spacing: -0.02em;
   font-weight: 700;
   color: #fff;
@@ -743,7 +743,7 @@
 }
 
 .cd-hero-bar--embed .cd-hero-bar__price-row {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .cd-hero-bar--embed .cd-hero-bar__price {
@@ -1294,7 +1294,7 @@
 
 /* Shared condensed-hero chrome (desktop + mobile).
    Desktop locks left/width inline; mobile uses left+right gutters in the
-   ≤1023 block — do NOT set `right: auto` here or the phone bar clips. */
+   ≤1140 block — do NOT set `right: auto` here or the phone bar clips. */
 .cd-hero-bar.is-stuck {
   position: fixed !important;
   top: 64px !important;
@@ -1310,7 +1310,7 @@
   overflow-anchor: none;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   /* Desktop: JS sets left/width to the content box; keep right free. */
   .cd-hero-bar.is-stuck {
     right: auto !important;
@@ -1460,9 +1460,8 @@
   padding: 0 12px !important;
 }
 
-/* Mobile hero — Card.html grid placement (title beside image).
-   Breakpoint stays ≤1023 to match our detail-grid collapse (Card.html uses 1140). */
-@media (max-width: 1023px) {
+/* Mobile + pad hero — Card.html grid placement (title beside image) ≤1140px */
+@media (max-width: 1140px) {
   .cd-hero-stats,
   #hero-stats {
     display: none !important;
@@ -1802,6 +1801,27 @@
     font-weight: 700 !important;
     margin-top: 0 !important;
     color: #fff !important;
+  }
+}
+
+/* Card.html pad — 601px–1140px hero + similar row */
+@media (min-width: 601px) and (max-width: 1140px) {
+  .collection-detail-page .cd-hero-bar:not(.is-stuck) {
+    grid-template-columns: auto minmax(0, 1fr) !important;
+    column-gap: 28px !important;
+  }
+
+  .collection-detail-page .cd-hero-bar:not(.is-stuck) .cd-hero-bar__thumb-btn,
+  .collection-detail-page .cd-hero-bar:not(.is-stuck) .cd-hero-bar__thumb--empty {
+    justify-self: start !important;
+    height: 230px !important;
+    width: calc(230px * 0.72) !important;
+    max-width: none !important;
+  }
+
+  .collection-detail-page .cd-hero-bar:not(.is-stuck) #hero-img.cd-hero-bar__thumb,
+  .collection-detail-page .cd-hero-bar:not(.is-stuck) .cd-hero-bar__thumb {
+    object-fit: fill !important;
   }
 }
 
@@ -2319,7 +2339,7 @@
   min-width: 0;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   .collection-detail-page .cd-metrics-strip .grid > div {
     background: transparent !important;
     padding: 0 !important;
@@ -2735,7 +2755,7 @@
 }
 
 /* Card.html `#chart-card` desktop fixed height — match `.cd-detail-grid` row 1 */
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   .collection-detail-page .cd-trade-panel {
     /* Bid no longer shows Lowest ask; keep this row taller than the slab
        so the hero stays vertically centered in the shared track. */
@@ -2899,7 +2919,7 @@
 }
 
 /* Mobile stack still needs breathing room above Similar. */
-@media (max-width: 1023px) {
+@media (max-width: 1140px) {
   .cd-similar-items {
     margin-top: 20px;
   }
@@ -2929,10 +2949,18 @@
   gap: 20px;
 }
 
-@media (max-width: 1140px) {
+@media (max-width: 600px) {
   .collection-detail-page .cd-similar-items__grid,
   .cd-similar-items__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 601px) and (max-width: 1140px) {
+  .collection-detail-page .cd-similar-items__grid,
+  .cd-similar-items__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 14px;
   }
 }
 
@@ -3079,7 +3107,7 @@
   grid-template-columns: 110px 1fr;
   align-items: center;
   gap: 14px;
-  min-height: 32px;
+  min-height: 28px;
   padding: 0 16px;
   font-variant-numeric: tabular-nums;
 }
@@ -3094,14 +3122,14 @@
   font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 400;
-  color: rgba(255, 255, 255, 0.66);
+  color: var(--t2);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cd-details-kv__value {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 400;
   color: #fff;
@@ -3126,6 +3154,7 @@
 }
 
 .cd-details-kv__attr-link {
+  font-family: var(--font-sans);
   color: #fff;
   text-decoration: underline dotted var(--brand-400);
   text-underline-offset: 3px;
@@ -3630,8 +3659,8 @@
   transform: none !important;
 }
 
-/* Card.html #ob-bottom-bar — hide on desktop cluster (≥1024) */
-@media (min-width: 1024px) {
+/* Card.html #ob-bottom-bar — hide on desktop cluster (≥1141) */
+@media (min-width: 1141px) {
   .cd-mobile-trade-bar {
     display: none !important;
   }
@@ -3682,7 +3711,7 @@
   box-shadow: none;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   .cd-mobile-trade-sheet {
     display: none !important;
   }
@@ -3714,7 +3743,7 @@
   margin-top: 18px;
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   .collection-detail-page .cd-listing-grid,
   .cd-listing-grid--desktop {
     display: grid;
@@ -4811,7 +4840,7 @@
   overflow: hidden !important;
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 1140px) {
   .collection-detail-page .cd-ob-empty {
     padding: 10px 14px;
     gap: 9px;
@@ -4846,7 +4875,7 @@
   }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 1141px) {
   .collection-detail-page .cd-sidebar-orderbook {
     background: #191919;
     border-radius: 16px;

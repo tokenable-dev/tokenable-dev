@@ -209,11 +209,11 @@ export class UserService {
       }
       if (!isUsersEmailUniqueViolation(err)) throw err;
       // Constraint still present on an older deploy DB. Shared-email policy
-      // requires maintenance/drop_users_email_unique.sql — until then, do not
+      // requires maintenance/deploy-sync.sql (email unique drop) — until then, do not
       // 500 the whole Privy social login; surface a clear 400.
       throw new BadRequestException(
         'This email is already on another Tokenable account. ' +
-          'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+          'Run backend/sql/scripts/apply-deploy-maintenance.sh (deploy-sync.sql), then retry.',
       );
     }
     await this.syncPrivyIdentity(saved.id, params.authProviders ?? [], wallets);
@@ -271,7 +271,7 @@ export class UserService {
       if (isUsersEmailUniqueViolation(err)) {
         throw new BadRequestException(
           'This email is already on another Tokenable account. ' +
-            'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+            'Run backend/sql/scripts/apply-deploy-maintenance.sh (deploy-sync.sql), then retry.',
         );
       }
       throw err;
@@ -718,7 +718,7 @@ export class UserService {
       if (!isUsersEmailUniqueViolation(err)) throw err;
       throw new BadRequestException(
         'This email is already on another Tokenable account. ' +
-          'Apply backend/sql/maintenance/drop_users_email_unique.sql on the database, then retry.',
+          'Run backend/sql/scripts/apply-deploy-maintenance.sh (deploy-sync.sql), then retry.',
       );
     }
   }

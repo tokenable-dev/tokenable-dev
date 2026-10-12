@@ -11,23 +11,6 @@ import {
   resolvePortfolioValueChangeState,
 } from "@/lib/portfolio/portfolioValueChange";
 
-function RedeemRequestsIcon() {
-  return (
-    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path
-        d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-      <polyline
-        points="3.3 7 12 12 20.7 7"
-        stroke="currentColor"
-        strokeWidth="2"
-      />
-    </svg>
-  );
-}
-
 /**
  * Portfolio value hero — Portfolio.html + portfolio_value_states.html.
  */
@@ -70,7 +53,7 @@ export function PortfolioValuePanel({
   return (
     <header className="pf-value-hero" aria-label="Portfolio value">
       <div className="pf-value-hero__main">
-        <div className="pf-value-hero__eyebrow">Portfolio value</div>
+        <div className="pf-value-hero__eyebrow">Collection value</div>
         <div className="pf-value-hero__row">
           {totalsPending ? (
             <span className="pf-value-hero__skeleton" aria-hidden />
@@ -107,21 +90,14 @@ export function PortfolioValuePanel({
       </div>
       {redeemHref ? (
         <Link
+          id="pf-redeem-link"
           href={redeemHref}
           className="tk-btn tk-btn--primary pf-value-hero__redeem"
         >
-          <span className="pf-value-hero__redeem-icon" aria-hidden>
-            <RedeemRequestsIcon />
-          </span>
-          <span className="pf-value-hero__redeem-text">
-            <span className="pf-value-hero__redeem-title">Redeem requests</span>
-          </span>
+          <span className="pf-value-hero__redeem-label">Redeem requests</span>
           {toShipCount > 0 ? (
-            <span
-              className="tkl-mono pf-value-hero__redeem-badge"
-              aria-label={`${toShipCount} to ship`}
-            >
-              {toShipCount}
+            <span id="pf-redeem-n" className="tkl-mono pf-value-hero__redeem-count">
+              ({toShipCount})
             </span>
           ) : null}
         </Link>

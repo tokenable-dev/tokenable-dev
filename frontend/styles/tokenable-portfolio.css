@@ -108,56 +108,28 @@
   color: var(--t3);
 }
 
-.pf-value-hero__redeem {
+/* Partner — Portfolio.html `#pf-redeem-link` (DS `tk-btn--primary` only). */
+.pf-value-hero__redeem.tk-btn.tk-btn--primary {
   flex-shrink: 0;
-  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  height: 56px;
-  padding: 0 22px;
+  gap: 9px;
+  height: 44px;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1;
   text-decoration: none;
   white-space: nowrap;
-  box-shadow:
-    inset 0 0 0 3px rgba(0, 0, 20, 0.5),
-    inset 0 0 0 1px rgba(80, 160, 255, 0.6),
-    inset 0 3px 0 0 rgba(80, 170, 255, 0.7),
-    inset 0 -3px 0 0 rgba(0, 0, 50, 0.4);
-  filter: drop-shadow(4px 4px 0 rgba(26, 111, 255, 0.55));
 }
 
-.pf-value-hero__redeem:hover {
-  filter: drop-shadow(5px 5px 0 rgba(26, 111, 255, 0.62));
+.pf-value-hero__redeem-label {
+  line-height: 1;
 }
 
-.pf-value-hero__redeem-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-}
-
-.pf-value-hero__redeem-text {
-  text-align: left;
-}
-
-.pf-value-hero__redeem-title {
-  display: block;
-  font-size: 15px;
+.pf-value-hero__redeem-count {
+  font-size: 14px;
   font-weight: 700;
-  line-height: 1.2;
-}
-
-.pf-value-hero__redeem-badge {
-  min-width: 26px;
-  height: 26px;
-  padding: 0 7px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  clip-path: var(--pixel-notch-sm);
-  background: #fff;
-  color: #1a6fff;
-  font-size: 13px;
-  font-weight: 700;
-  flex-shrink: 0;
+  line-height: 1;
 }
 
 .pf-value-hero__skeleton {
@@ -246,65 +218,84 @@
 
 /* ── Tabs ───────────────────────────────────────────────────────────────── */
 
-.pf-main-section {
+/* Portfolio.html — tab strip is its own rounded bar; panel content sits on page ink below. */
+.portfolio-page .pf-main-section {
   margin-bottom: 6px;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
 }
 
+/* Items / Bids / Transactions — floating bar; pixel frame only (DS `.tk-tabs` shell). */
 .portfolio-page .portfolio-page__tabs.tk-tabs {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   width: 100%;
   gap: 0;
-  clip-path: none;
+  height: 52px;
   background: #191919;
-  border-radius: 16px 16px 0 0;
+  border-radius: 0;
+  clip-path: var(--pixel-notch-lg);
   padding: 0 8px;
   border: none;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
-  margin-bottom: 0;
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.portfolio-page .portfolio-page__tabs .tk-tab {
+/* Beat DS `.tk-tab--active` chunky fill (Portfolio.html `.pf-tab` uses !important). */
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab {
+  display: inline-flex;
+  align-items: center;
   flex: 0 0 auto;
   justify-content: center;
   gap: 6px;
-  padding: 16px 16px;
+  box-sizing: border-box !important;
+  height: 52px !important;
+  padding: 0 16px;
   border: none;
   border-radius: 0;
+  border-bottom: none !important;
   clip-path: none;
   font-family: var(--font-sans);
   font-size: 15px;
-  font-weight: 600;
-  background: transparent;
-  color: var(--t3);
-  box-shadow: none;
+  font-weight: 600 !important;
+  background: transparent !important;
+  color: var(--t3) !important;
+  box-shadow: none !important;
   filter: none;
-  height: auto;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
-  transition: color 0.15s, border-color 0.15s;
+  margin: 0 !important;
+  cursor: pointer;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
 }
 
-.portfolio-page .portfolio-page__tabs .tk-tab:hover {
-  color: #fff;
-  background: transparent;
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:hover {
+  color: #fff !important;
+  background: transparent !important;
 }
 
-.portfolio-page .portfolio-page__tabs .tk-tab.tk-tab--active,
-.portfolio-page .portfolio-page__tabs .tk-tab.tk-tab--active:hover {
-  background: transparent;
-  color: var(--azure);
-  font-weight: 700;
-  border-bottom-color: var(--azure);
-  box-shadow: none;
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active,
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active:hover {
+  background: transparent !important;
+  color: var(--azure) !important;
+  font-weight: 600 !important;
+  box-shadow: inset 0 -2px 0 0 var(--azure) !important;
   filter: none;
 }
 
-.portfolio-page__tabs .pf-tab-label {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:focus,
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 -2px 0 0 var(--azure) !important;
+}
+
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:not(.tk-tab--active):focus,
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:not(.tk-tab--active):focus-visible {
+  box-shadow: none !important;
 }
 
 .portfolio-page__tabs .pf-tab-n {
@@ -318,6 +309,17 @@
   margin-left: 2px;
   line-height: 1.2;
   flex-shrink: 0;
+}
+
+/* Portfolio.html tab-count paint(): active tab badge vs inactive */
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active .pf-tab-n {
+  color: #fff;
+  background: rgba(26, 111, 255, 0.28);
+}
+
+.portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:not(.tk-tab--active) .pf-tab-n {
+  color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .portfolio-page__tabs .pf-redeem-toolbar-btn {
@@ -343,14 +345,26 @@
   transform: none;
 }
 
-.portfolio-page__tab-panel {
+.portfolio-page .portfolio-page__tab-panel {
   min-width: 0;
   padding-top: 0;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
 }
 
-.portfolio-page__tab-panel .pf-table-wrap,
-.portfolio-page__tab-panel .pf-holdings-table-wrap {
+.portfolio-page .portfolio-page__tab-panel .pf-table-wrap,
+.portfolio-page .portfolio-page__tab-panel .pf-holdings-table-wrap,
+.portfolio-page .portfolio-page__tab-panel .tk-table-wrap.pf-table-wrap {
   border-radius: 0 0 16px 16px;
+  background: #191919;
+}
+
+#portfolio-panel-bids .pf-table-wrap,
+#portfolio-panel-history .pf-table-wrap {
+  background: transparent;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 /* ── Shared portfolio toolbar (Portfolio.html `.pf-tbar`) ───────────────── */
@@ -360,7 +374,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: nowrap;
-  padding: 14px 4px;
+  padding: 0 4px 14px;
   margin: 0;
   width: 100%;
   box-sizing: border-box;
@@ -507,37 +521,70 @@
   flex: none;
 }
 
-.pf-tbtn {
-  height: 40px;
-  min-width: 40px;
-  padding: 0 13px;
+/* Portfolio.html `#pf-unified` — one control system for toolbar buttons + dropdowns */
+.pf-tbtn,
+.pf-tdrop,
+.pf-cl-bar .pf-tbtn {
+  height: 38px;
+  min-width: 38px;
+  padding: 0 14px;
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
-  background: #141414;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #161922;
+  border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 9px;
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.86);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: 13.5px;
   font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.12s, color 0.12s;
+  flex: none;
 }
 
-.pf-tbtn:hover {
+.pf-tbtn:hover,
+.pf-tdrop:hover {
   color: #fff;
-  background: #1b1b1b;
+  background: #1d212c;
 }
 
 .pf-tbtn--icon {
   padding: 0;
-  width: 40px;
+  width: 38px;
   flex: none;
   position: relative;
+}
+
+.pf-tbtn--ghost {
+  background: transparent;
+  border-color: transparent;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.pf-tbtn--ghost:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.pf-tbtn--primary {
+  background: #1a6fff;
+  border-color: #1a6fff;
+  color: #fff;
+}
+
+.pf-tbtn--primary:hover {
+  background: #2e80ff;
+}
+
+.pf-tbtn[disabled] {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .pf-tbtn--on {
@@ -600,6 +647,100 @@
   transform: translateY(-50%);
   pointer-events: none;
   color: rgba(255, 255, 255, 0.5);
+}
+
+#pf-assets-toolbar .pf-view-toggle {
+  display: none !important;
+}
+
+.pf-tdrop {
+  position: relative;
+  padding: 0 34px 0 14px;
+  gap: 5px;
+  justify-content: flex-start;
+}
+
+.pf-tdrop__k {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.62);
+  white-space: nowrap;
+}
+
+.pf-tdrop select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  color: #fff;
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  min-width: 0;
+  width: auto;
+  max-width: 100%;
+}
+
+.pf-tdrop select option {
+  background: #161922;
+  color: #fff;
+}
+
+.pf-tdrop .cx {
+  display: none;
+}
+
+.pf-tdrop::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid rgba(255, 255, 255, 0.6);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.6);
+  transform: translateY(-70%) rotate(45deg);
+  pointer-events: none;
+}
+
+@media (max-width: 1024px) {
+  #pf-assets-toolbar {
+    flex-wrap: nowrap;
+    gap: 8px;
+  }
+
+  #pf-assets-toolbar .pf-tbar__spacer {
+    display: none;
+  }
+
+  #pf-assets-toolbar .pf-tdrop {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 0 30px 0 12px;
+    justify-content: flex-start;
+  }
+
+  #pf-assets-toolbar .pf-tdrop__k {
+    display: none;
+  }
+
+  #pf-assets-toolbar .pf-tdrop select,
+  #pf-assets-toolbar .pf-tdrop--sort select {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  #pf-assets-toolbar > .pf-tbtn,
+  #pf-assets-toolbar #pf-hide-btn {
+    flex: none;
+    padding: 0 12px;
+  }
 }
 
 .pf-view-toggle {
@@ -1031,7 +1172,7 @@ button.pf-table-card-cell--activate {
   .pf-tbar {
     position: relative;
     flex-wrap: nowrap;
-    padding: 14px 4px;
+    padding: 6px 4px 10px;
     margin: 0;
     overflow-x: auto;
   }
@@ -1041,7 +1182,7 @@ button.pf-table-card-cell--activate {
     position: absolute;
     left: 0;
     right: 0;
-    top: 14px;
+    top: 6px;
     width: auto;
     max-width: none;
     z-index: 20;
@@ -2600,6 +2741,10 @@ button.pf-table-card-cell--activate {
   cursor: pointer;
 }
 
+.pf-gtile--sel-pick {
+  cursor: pointer;
+}
+
 .pf-gtile--activate {
   cursor: pointer;
 }
@@ -2931,7 +3076,140 @@ button.pf-table-card-cell--activate {
 }
 
 .pf-gtile__act {
-  margin-top: 4px;
+  margin-top: 0;
+}
+
+.pf-gact.pf-gfield {
+  height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.02);
+  box-sizing: border-box;
+}
+
+.pf-gfield__dollar {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.45);
+  flex: none;
+}
+
+.pf-gfield input {
+  flex: 1;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.pf-gfield input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: 500;
+}
+
+.pf-gfield input:disabled {
+  opacity: 0.45;
+}
+
+.pf-gact-btn {
+  flex: none;
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 7px;
+  background: #1a6fff;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pf-gact-btn:hover:not(:disabled) {
+  background: #2e80ff;
+}
+
+.pf-gact-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* Gallery price field — same control on desktop + mobile (Portfolio.html #pf-gallery). */
+.pf-gtile__act .pf-gact.pf-gfield {
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .portfolio-page .pf-gallery {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .portfolio-page .pf-gtile > .pf-gtile__body {
+    padding: 10px 4px 4px;
+    gap: 8px;
+  }
+
+  .portfolio-page .pf-gtile__title {
+    font-size: 12.5px;
+  }
+
+  .portfolio-page .pf-gval span:first-child {
+    font-size: 14px;
+  }
+
+  .portfolio-page .pf-gval .pf-gtile__ret {
+    font-size: 11px;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gfield {
+    padding: 0 3px 0 8px;
+    gap: 4px;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gfield input {
+    font-size: 12px;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gfield input::placeholder {
+    font-size: 11.5px;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gact-btn {
+    padding: 0 7px;
+    font-size: 11.5px;
+  }
+}
+
+@media (max-width: 400px) {
+  .portfolio-page .pf-gtile__act .pf-gfield {
+    height: auto;
+    min-height: 72px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 4px 4px 4px 8px;
+    row-gap: 4px;
+    box-sizing: border-box;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gfield input {
+    flex: 1 1 calc(100% - 16px);
+    height: 30px;
+  }
+
+  .portfolio-page .pf-gtile__act .pf-gact-btn {
+    flex: 1 1 100%;
+    height: 28px;
+  }
 }
 
 .pf-gtile__act .pf-table-actions--full {
@@ -3231,15 +3509,6 @@ button.pf-table-card-cell--activate {
     /* Match fixed header height (tokenable-layout.css ≤1024). */
     top: 64px;
     z-index: 40;
-    width: auto;
-    margin-left: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px)));
-    margin-right: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px)));
-    background: var(--ink, #0e0e0e);
-    padding: 0 max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px))
-      0 max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
-    box-shadow: none;
-    border-radius: 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
     overflow-x: auto;
     overflow-y: hidden;
     overscroll-behavior-x: contain;
@@ -3251,20 +3520,6 @@ button.pf-table-card-cell--activate {
 
   .portfolio-page__tabs.tk-tabs::-webkit-scrollbar {
     display: none;
-  }
-
-  .portfolio-page__tabs .tk-tab {
-    white-space: nowrap;
-    font-size: 13px;
-    padding: 12px 10px;
-    gap: 5px;
-    flex: 0 0 auto;
-    border-bottom-width: 2px;
-  }
-
-  .portfolio-page__tabs .pf-tab-n {
-    font-size: 10.5px;
-    padding: 2px 5px;
   }
 
   .portfolio-page__tabs .pf-redeem-toolbar-btn {
@@ -3307,308 +3562,6 @@ button.pf-table-card-cell--activate {
     display: none !important;
   }
 
-  /* My Bids / Tx History — Portfolio.html compact 3-zone rows */
-  #portfolio-panel-bids .pf-table-wrap,
-  #portfolio-panel-history .pf-table-wrap {
-    overflow: hidden;
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
-    border-radius: 0 0 16px 16px;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids,
-  #portfolio-panel-history .pf-table--history,
-  #portfolio-panel-bids .pf-table-wrap .tk-table,
-  #portfolio-panel-history .pf-table-wrap .tk-table,
-  #portfolio-panel-bids .pf-table-wrap .tk-table tbody,
-  #portfolio-panel-history .pf-table-wrap .tk-table tbody {
-    display: block;
-    width: 100%;
-    min-width: 0;
-    table-layout: auto;
-  }
-
-  #portfolio-panel-bids .pf-table-wrap .tk-table colgroup,
-  #portfolio-panel-bids .pf-table-wrap .tk-table col,
-  #portfolio-panel-history .pf-table-wrap .tk-table colgroup,
-  #portfolio-panel-history .pf-table-wrap .tk-table col,
-  #portfolio-panel-bids .pf-table-wrap thead,
-  #portfolio-panel-history .pf-table-wrap thead {
-    display: none;
-  }
-
-  /* Tx History · compact list rows */
-  #portfolio-panel-history .pf-table--history tbody tr,
-  #portfolio-panel-history .pf-table--history tbody tr.pf-table-row--zebra,
-  #portfolio-panel-history .pf-history-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-auto-rows: auto;
-    column-gap: 10px;
-    row-gap: 3px;
-    align-items: center;
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    padding: 11px 4px;
-    margin-bottom: 0;
-    background: transparent;
-    border-radius: 0;
-    border: none;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.07);
-  }
-
-  #portfolio-panel-history .pf-table--history tbody tr:last-child {
-    border-bottom: none;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td {
-    display: inline-flex;
-    width: auto;
-    max-width: none;
-    padding: 0;
-    border: none;
-    margin: 0;
-    font-size: inherit;
-    line-height: 1.35;
-    min-width: 0;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td::before {
-    display: none;
-    content: none;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Card"] {
-    grid-column: 1;
-    grid-row: 1;
-    display: block;
-    font-size: 14px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    min-width: 0;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Card"] .pf-table-card-name {
-    display: block;
-    font-size: 14px;
-    font-weight: 700;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-    white-space: nowrap;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] .pf-table-amount {
-    font-size: 13px;
-    font-weight: 600;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Amount"] .pf-table-amount--dash {
-    font-size: 13px;
-    font-weight: 500;
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Type"] {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: start;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Status"] {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: end;
-    text-align: right;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Date"] {
-    grid-column: 1;
-    grid-row: 3;
-    justify-self: start;
-  }
-
-  #portfolio-panel-history .pf-table--history tbody td[data-label="Date"] .pf-table-date {
-    font-size: 11px;
-    color: rgba(255, 255, 255, 0.4);
-  }
-
-  #portfolio-panel-history .pf-hbadge {
-    width: auto;
-    min-width: 0;
-    height: 22px;
-    padding: 0 8px;
-    font-size: 10px;
-  }
-
-  /* My Bids · compact 3-zone cards */
-  #portfolio-panel-bids .pf-table--bids tbody tr,
-  #portfolio-panel-bids .pf-table--bids tbody tr.pf-table-row--zebra {
-    display: grid;
-    grid-template-columns: 64px 1fr auto;
-    grid-auto-rows: auto;
-    column-gap: 12px;
-    row-gap: 7px;
-    align-items: center;
-    box-sizing: border-box;
-    width: 100%;
-    max-width: 100%;
-    padding: 12px;
-    margin-bottom: 10px;
-    background: #191919;
-    border-radius: 12px;
-    border: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody tr:last-child {
-    margin-bottom: 0;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td {
-    display: inline-flex;
-    width: auto;
-    max-width: none;
-    padding: 0;
-    border: none;
-    margin: 0;
-    font-size: inherit;
-    line-height: 1.35;
-    min-width: 0;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td::before {
-    display: none;
-    content: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"],
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-cell,
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-copy {
-    display: contents;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-thumb {
-    grid-column: 1;
-    grid-row: 1 / span 3;
-    align-self: center;
-    width: 64px;
-    height: 90px;
-    padding: 4px;
-    border-radius: 0;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-thumb img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Card"] .pf-table-card-name {
-    grid-column: 2;
-    grid-row: 1;
-    display: block;
-    min-width: 0;
-    font-size: 13px;
-    font-weight: 600;
-    color: #fff;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Your bid"] {
-    grid-column: 3;
-    grid-row: 2;
-    justify-self: end;
-    align-items: center;
-    white-space: nowrap;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Your bid"]::before {
-    display: inline;
-    content: "You ";
-    color: rgba(255, 255, 255, 0.4);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-    margin-right: 2px;
-    max-width: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Top bid"] {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-    align-items: center;
-    white-space: nowrap;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Top bid"]::before {
-    display: inline;
-    content: "Top ";
-    color: rgba(255, 255, 255, 0.4);
-    font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-    margin-right: 2px;
-    max-width: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Ask price"] {
-    display: none;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Status"] {
-    grid-column: 2;
-    grid-row: 3;
-    justify-self: start;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Expires"] {
-    grid-column: 3;
-    grid-row: 3;
-    justify-self: end;
-    align-items: center;
-    white-space: nowrap;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] {
-    grid-column: 3;
-    grid-row: 1;
-    justify-self: end;
-    align-self: center;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-actions {
-    width: auto;
-    margin: 0;
-    flex-direction: row;
-    align-items: center;
-  }
-
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-btn,
-  #portfolio-panel-bids .pf-table--bids tbody td[data-label="Action"] .pf-table-btn--bid-action {
-    width: 78px;
-    min-width: 78px;
-    max-width: 78px;
-    height: 38px;
-    padding: 0;
-    font-size: 14px;
-  }
-
   .portfolio-page .portfolio-page__shell.tkl-wrap {
     padding-left: max(12px, env(safe-area-inset-left, 0px));
     padding-right: max(12px, env(safe-area-inset-right, 0px));
@@ -3623,28 +3576,21 @@ button.pf-table-card-cell--activate {
     padding: 0 10px;
   }
 
-  /*
-   * Phone: keep the bar sticky vertically, but allow horizontal pan to reach Redeem.
-   */
-  .portfolio-page__tabs.tk-tabs {
-    padding: 8px 8px;
-    margin-left: calc(-1 * max(12px, env(safe-area-inset-left, 0px)));
-    margin-right: calc(-1 * max(12px, env(safe-area-inset-right, 0px)));
-    box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
-    border-bottom: none;
-    overflow-x: auto;
-    overflow-y: hidden;
-    overscroll-behavior-x: contain;
-    overscroll-behavior-y: none;
-    touch-action: pan-x pan-y;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    gap: 0;
-    flex-wrap: nowrap;
+  .portfolio-page .portfolio-page__tab-panel {
+    padding-top: 0;
   }
 
-  .portfolio-page__tabs.tk-tabs::-webkit-scrollbar {
-    display: none;
+  /* ≤768 — same floating tab bar; sticky scroll inside shell (no full-bleed strip). */
+  .portfolio-page .portfolio-page__tabs.tk-tabs {
+    width: 100%;
+    margin-left: 0;
+    margin-right: 0;
+    margin-bottom: 4px;
+    padding: 0 8px;
+    border-radius: 0;
+    clip-path: var(--pixel-notch-lg);
+    box-shadow: none;
+    flex-wrap: nowrap;
   }
 
   .portfolio-page__tabs #portfolio-tab-redeem {
@@ -3655,26 +3601,24 @@ button.pf-table-card-cell--activate {
     display: inline-flex;
   }
 
-  .portfolio-page__tabs .tk-tab {
-    flex: 0 0 auto;
-    min-width: 0;
-    justify-content: center;
-    font-size: 12px;
-    padding: 10px 8px;
-    gap: 4px;
+  .portfolio-page__tabs .tk-tab.pf-tab {
+    height: 48px !important;
     white-space: nowrap;
+    font-size: 13px;
+    padding: 0 14px;
+    gap: 6px;
+    flex: 0 0 auto;
+    justify-content: flex-start;
   }
 
-  .portfolio-page__tabs .tk-tab svg {
-    width: 14px;
-    height: 14px;
+  .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active {
+    font-size: 13px !important;
+  }
+
+  .portfolio-page__tabs .tk-tab.pf-tab svg {
+    width: 15px;
+    height: 15px;
     flex-shrink: 0;
-  }
-
-  .portfolio-page__tabs .pf-tab-n {
-    font-size: 10px;
-    padding: 1px 5px;
-    margin-left: 0;
   }
 
   .portfolio-page__tabs .pf-redeem-toolbar-btn {
@@ -3692,9 +3636,9 @@ button.pf-table-card-cell--activate {
     height: 13px;
   }
 
-  .portfolio-page--partner .portfolio-page__tabs .tk-tab {
+  .portfolio-page--partner .portfolio-page__tabs .tk-tab.pf-tab {
     flex: 0 0 auto;
-    padding: 10px 8px;
+    padding: 0 14px;
   }
 
   .pf-value-hero {
@@ -3715,10 +3659,10 @@ button.pf-table-card-cell--activate {
     font-size: 17px;
   }
 
-  .pf-value-hero__redeem {
-    height: 52px;
-    padding: 0 16px;
-    gap: 10px;
+  .pf-value-hero__redeem.tk-btn.tk-btn--primary {
+    height: 44px;
+    padding: 0 18px;
+    gap: 9px;
   }
 
   .partner-portfolio-header__row {
@@ -3823,5 +3767,454 @@ button.pf-table-card-cell--activate {
   .portfolio-page__tabs .tk-tab,
   .portfolio-page .pf-table-wrap tbody tr {
     transition: none !important;
+  }
+}
+
+/* Bids + Transactions — Portfolio.html `#pf-unified` · `ux-t` table */
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-table-wrap.tk-table-wrap,
+:is(#portfolio-panel-bids, #portfolio-panel-history) .tk-table-wrap.pf-table-wrap {
+  background: transparent !important;
+  overflow-x: auto !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) table.pf-ux {
+  display: table !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+  min-width: 720px;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead {
+  display: table-header-group !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody {
+  display: table-row-group !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tr {
+  display: table-row !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux th,
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux td {
+  display: table-cell !important;
+  position: static !important;
+  grid-column: auto !important;
+  grid-row: auto !important;
+  justify-self: auto !important;
+  width: auto;
+  max-width: none !important;
+  white-space: normal !important;
+  overflow: visible !important;
+  vertical-align: middle !important;
+  text-align: left !important;
+  border: 0 !important;
+  background: transparent !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux td::before {
+  content: none !important;
+  display: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux td.pf-ux-mc {
+  display: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th {
+  padding: 10px 14px !important;
+  font-family: var(--font-sans) !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em !important;
+  text-transform: none !important;
+  color: rgba(255, 255, 255, 0.5) !important;
+  text-align: left !important;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08) !important;
+  border-bottom: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(1) {
+  width: 36%;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(n + 2) {
+  width: 16%;
+}
+
+#portfolio-panel-bids .pf-ux thead th:nth-child(1) {
+  width: 32%;
+}
+
+#portfolio-panel-bids .pf-ux thead th:nth-child(5) {
+  width: 20%;
+  min-width: 160px;
+}
+
+#portfolio-panel-history .pf-ux thead th.pf-ux-r,
+#portfolio-panel-history .pf-ux tbody td.pf-ux-r {
+  text-align: left !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody td {
+  padding: 12px 14px !important;
+  height: 76px;
+  border-bottom: none !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux .pf-ux-r {
+  text-align: right !important;
+}
+
+#portfolio-panel-history .pf-ux .pf-ux-r {
+  text-align: left !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.022) !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody tr:hover {
+  background: rgba(77, 139, 255, 0.06) !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-table-wrap .tk-table tbody tr:hover {
+  background: rgba(77, 139, 255, 0.06) !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody tr.pf-ux-dim,
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux tbody tr.is-dim {
+  opacity: 0.55;
+}
+
+.portfolio-page .pf-ux-r {
+  text-align: right;
+}
+
+.portfolio-page .pf-ux-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.portfolio-page .pf-ux-thumb,
+.portfolio-page .pf-ux-mc__thumb {
+  flex: none;
+  border-radius: 6px;
+  background: #0e0e10;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.portfolio-page .pf-ux-thumb {
+  width: 38px;
+  height: 52px;
+}
+
+.portfolio-page .pf-ux-thumb img,
+.portfolio-page .pf-ux-mc__thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.portfolio-page .pf-ux-thumb__ph {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.portfolio-page .pf-ux-txt {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.portfolio-page .pf-ux-name,
+.portfolio-page a.pf-ux-name,
+.portfolio-page .pf-ux-mc__name {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portfolio-page .pf-ux-sub {
+  display: block;
+  min-width: 0;
+}
+
+.portfolio-page .pf-ux-mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.portfolio-page .pf-ux-sub .pf-ux-mono b,
+.portfolio-page .pf-ux-mono b {
+  font-weight: 600;
+}
+
+.portfolio-page .pf-ux-d {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.8);
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-ux-dm {
+  display: none;
+}
+
+.portfolio-page .pf-ux-hash {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #5b9aff;
+  opacity: 0.85;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-ux-hash:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.portfolio-page .pf-ux-v {
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-ux-amt {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-ux-blue {
+  color: #5b9aff !important;
+  font-weight: 600;
+}
+
+.portfolio-page .pf-ux-pos {
+  color: #00c350 !important;
+}
+
+.portfolio-page .pf-ux-warn {
+  color: #f3701e !important;
+}
+
+.portfolio-page .pf-ux-neg {
+  color: #ff5d5d !important;
+}
+
+.portfolio-page .pf-ux-mute {
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.portfolio-page .pf-ux-purple {
+  color: #a78bff;
+}
+
+.portfolio-page .pf-ux-acts {
+  display: inline-flex;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.portfolio-page .pf-ux-btn {
+  height: 28px;
+  padding: 0 11px;
+  border-radius: 7px;
+  border: 1px solid rgba(91, 154, 255, 0.55);
+  background: transparent;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.portfolio-page .pf-ux-btn:hover:not(:disabled) {
+  background: rgba(26, 111, 255, 0.16);
+  border-color: #1a6fff;
+}
+
+.portfolio-page .pf-ux-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.portfolio-page .pf-ux td.pf-ux-mc {
+  display: none;
+}
+
+.portfolio-page .pf-ux-chip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
+
+@media (max-width: 768px) {
+  #portfolio-panel-bids .pf-table--bids.pf-ux,
+  #portfolio-panel-history .pf-table--history.pf-ux,
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody {
+    display: block;
+    width: 100%;
+    min-width: 0;
+  }
+
+  #portfolio-panel-bids .pf-table--bids.pf-ux thead,
+  #portfolio-panel-history .pf-table--history.pf-ux thead {
+    display: none !important;
+  }
+
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody tr,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody tr,
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody tr.pf-table-row--zebra,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody tr.pf-table-row--zebra {
+    display: block !important;
+    grid-template-columns: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 0 10px !important;
+    background: transparent !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody td,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody td {
+    display: none !important;
+  }
+
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody td.pf-ux-mc,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody td.pf-ux-mc {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    padding: 0 !important;
+  }
+
+  .portfolio-page .pf-ux-mc__card {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 12px;
+    background: #0d0f16;
+    border-radius: 12px;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    text-align: left;
+  }
+
+  .portfolio-page .pf-ux-mc__thumb {
+    width: 66px;
+    height: 92px;
+    border-radius: 8px;
+  }
+
+  .portfolio-page .pf-ux-mc__body {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .portfolio-page .pf-ux-mc__row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .portfolio-page .pf-ux-mc__name {
+    flex: 1;
+    min-width: 0;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+
+  .portfolio-page .pf-ux-mc__money,
+  .portfolio-page .pf-ux-mc__meta {
+    display: block;
+    margin-bottom: 5px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: rgba(255, 255, 255, 0.6);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .portfolio-page .pf-ux-mc__money .pf-ux-v {
+    font-size: 13px;
+  }
+
+  .portfolio-page .pf-ux-mc__money .pf-ux-amt {
+    margin-left: 8px;
+    font-size: 13.5px;
+  }
+
+  .portfolio-page .pf-ux-mc__meta .pf-ux-d {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+  }
+
+  .portfolio-page .pf-ux-mc .pf-ux-acts {
+    margin-top: 10px;
+    justify-content: flex-start;
+  }
+
+  :is(#portfolio-panel-bids, #portfolio-panel-history) td.pf-ux-mc,
+  :is(#portfolio-panel-bids, #portfolio-panel-history) td.pf-ux-mc * {
+    text-align: left !important;
+  }
+
+  :is(#portfolio-panel-bids, #portfolio-panel-history) td.pf-ux-mc .pf-ux-mc__row {
+    justify-content: flex-start !important;
+  }
+
+  :is(#portfolio-panel-bids, #portfolio-panel-history) td.pf-ux-mc .pf-ux-acts {
+    justify-content: flex-start !important;
   }
 }

@@ -78,7 +78,7 @@ export function ListRwaModalFormView({
     step === "signing" ||
     step === "submitting" ||
     step === "matching";
-  const showFlowProgress = isSetPrice ? inFlight : !isEmbedded || inFlight;
+  const showFlowProgress = !isSetPrice && (!isEmbedded || inFlight);
 
   const eyebrow = isSetPrice
     ? isReplaceListing

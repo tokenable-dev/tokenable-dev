@@ -91,7 +91,7 @@ Detail: [vault-lifecycle.md](./vault-lifecycle.md).
 | **Seaport** | `orders`, `marketplace_collections` | Wallet-signed on-chain `fulfillOrder` / `matchAdvancedOrders` | `marketplace/orders/*` API + `frontend/lib/seaport/*` |
 | **Market pricing (read)** | `collection_market_snapshots` | N/A — materialized + stale-while-revalidate | `marketplace/collections/*` + `POST …/market-snapshots` |
 | **Portfolio history** | `portfolio_daily_snapshots` | 09:00 KST cron (on-chain holders); recapture today's slot on mint / fill / deliver / hide / burn | `GET …/portfolio/daily/:wallet` |
-| **Portfolio UI prefs** | `portfolio_holdings` | N/A — off-chain hide + cost basis | `GET/POST/DELETE …/portfolio/hidden*`, `POST …/holdings/batch`, `PUT …/holdings/cost-basis` |
+| **Portfolio UI prefs** | `portfolio_holdings` | N/A — off-chain hide + auto cost basis | `GET/POST/DELETE …/portfolio/hidden*`, `POST …/holdings/batch` |
 | **Watchlist** | `user_watchlist` | N/A — saved collections per user | `GET/POST/DELETE …/watchlist` |
 
 Relational matching (`bids`/`asks` tables, settlement workers) has been **removed**. See [database.md](./database.md) and [materialized-market-snapshots.md](./materialized-market-snapshots.md).

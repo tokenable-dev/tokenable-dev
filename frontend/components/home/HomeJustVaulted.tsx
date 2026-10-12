@@ -14,7 +14,7 @@ export function HomeJustVaulted() {
         <div>
           <h2 className="tkl-sec-title">New items</h2>
           <p className="tkl-sec-sub">
-            Vaulted and freshly minted tokens
+            Vaulted and freshly minted tokens.
           </p>
         </div>
         <Link href="/markets?sort=newest" className="tkl-view-all">

@@ -2,8 +2,11 @@
 
 export function MarketsPageHeader({
   searchQuery,
+  resultCount,
 }: {
   searchQuery?: string;
+  /** Search.html `#srchCount` — omitted while results are still loading. */
+  resultCount?: number | null;
 }) {
   if (searchQuery != null) {
     const q = searchQuery.trim();
@@ -13,7 +16,14 @@ export function MarketsPageHeader({
         <p className="markets-page__search-sub">
           {q ? (
             <>
-              <span className="markets-page__search-dot">Results for </span>
+              {resultCount != null ? (
+                <>
+                  <b>{resultCount.toLocaleString("en-US")}</b> results{" "}
+                  <span className="markets-page__search-dot">· for</span>{" "}
+                </>
+              ) : (
+                <span className="markets-page__search-dot">Results for </span>
+              )}
               <span className="markets-page__search-q">&quot;{q}&quot;</span>
             </>
           ) : (

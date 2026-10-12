@@ -19,7 +19,6 @@ import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import {
   askPriceMicros,
   BidCrossesLiveAskError,
-  fetchCrossingAskForBid,
   pickCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
@@ -388,32 +387,6 @@ export function useTokenOffer(input: {
       onPurchaseFilled?.();
     };
 
-    try {
-      const liveCrossing = await fetchCrossingAskForBid({
-        collectionKey,
-        bidder: address,
-        bidUnits: priceInUnits,
-      });
-      if (liveCrossing) {
-        const askUnits = askPriceMicros(liveCrossing);
-        if (usdcBalRaw != null && (usdcBalRaw as bigint) < askUnits) {
-          await handleAddFunds();
-          return;
-        }
-        try {
-          await buyAsk(liveCrossing);
-        } catch (e: unknown) {
-          setErrorMsg(mapWalletError(e).message);
-          setStep("error");
-        }
-        return;
-      }
-    } catch (e: unknown) {
-      setErrorMsg(mapWalletError(e).message);
-      setStep("error");
-      return;
-    }
-
     if (!signSeaportOrder) {
       setErrorMsg("Wallet not ready to sign. Reconnect your wallet and try again.");
       return;
@@ -477,6 +450,11 @@ export function useTokenOffer(input: {
       onPlaced?.(result.order);
     } catch (e: unknown) {
       if (e instanceof BidCrossesLiveAskError) {
+        const askUnits = askPriceMicros(e.ask);
+        if (usdcBalRaw != null && (usdcBalRaw as bigint) < askUnits) {
+          await handleAddFunds();
+          return;
+        }
         try {
           await buyAsk(e.ask);
         } catch (buyErr: unknown) {

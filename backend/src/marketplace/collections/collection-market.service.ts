@@ -250,7 +250,8 @@ export class CollectionMarketService {
 
   /**
    * Materialized snapshot read — platform trades always from orders DB.
-   * Collection detail / Markets list overlays live Cardhedger when the row is thin.
+   * Collection detail overlays live Cardhedger when the row is thin.
+   * Markets list batches use {@link batchListSnapshots} (snapshot-only).
    * Portfolio holdings use {@link batchPortfolioMarketData} (snapshot-only, no overlay).
    */
   async getCollectionMarketBundle(
@@ -1167,37 +1168,58 @@ export class CollectionMarketService {
   async batchListSnapshots(
     collectionKeys: string[],
     priceHistoryDuration: PriceHistoryDuration = '365d',
-    chainId?: SupportedChainId,
+    _chainId?: SupportedChainId,
   ): Promise<{ items: CollectionListSnapshot[] }> {
+    const window = this.normalizePriceHistoryDuration(priceHistoryDuration);
     const keys = [...new Set(collectionKeys.map((k) => k.toLowerCase()))].slice(
       0,
       60,
     );
-    const window = priceHistoryDuration;
+    return {
+      items: await this.materializedListSnapshotsForKeys(keys, window),
+    };
+  }
 
-    /** Same bundle path as `GET …/market-series` (collection detail chart). */
-    const LIST_SNAPSHOT_BATCH_CONCURRENCY = 8;
-    const items: CollectionListSnapshot[] = [];
+  /**
+   * Markets first page — collection summaries + list snapshots in one DB round-trip
+   * (no Cardhedger / per-key order scans on the request path).
+   */
+  async getMarketsBootstrapPage(input: {
+    limit?: number;
+    cursor?: string | null;
+    chainId?: SupportedChainId;
+    priceHistoryDurationRaw?: string;
+  }): Promise<{
+    items: CollectionSummary[];
+    nextCursor: string | null;
+    snapshots: { items: CollectionListSnapshot[] };
+  }> {
+    const resolved = input.chainId ?? this.chainConfig.getDefaultChainId();
+    const window = this.normalizePriceHistoryDuration(
+      input.priceHistoryDurationRaw ?? 'max',
+    );
+    const limitRaw = Number(input.limit ?? 50);
+    const limit = Number.isFinite(limitRaw)
+      ? Math.min(Math.max(Math.floor(limitRaw), 1), 60)
+      : 50;
 
-    for (let i = 0; i < keys.length; i += LIST_SNAPSHOT_BATCH_CONCURRENCY) {
-      const chunk = keys.slice(i, i + LIST_SNAPSHOT_BATCH_CONCURRENCY);
-      const chunkResults = await Promise.all(
-        chunk.map(async (key) => {
-          try {
-            const [stats, bundle] = await Promise.all([
-              this.getCollectionMarketStats(key, chainId).catch(() => null),
-              this.getCollectionMarketBundle(key, window, chainId),
-            ]);
-            return bundleToListSnapshot(bundle, stats);
-          } catch (e) {
-            this.logger.warn(`batch snapshot failed for ${key}: ${String(e)}`);
-            return emptyListSnapshot(key, window);
-          }
-        }),
-      );
-      items.push(...chunkResults);
-    }
-    return { items };
+    const page = await this.collectionService.listSummariesPaged({
+      limit,
+      cursor: input.cursor?.trim() || null,
+      chainId: resolved,
+      reviewStatus: 'active',
+      q: null,
+    });
+    const keys = page.items.map((c) => c.collectionKey.toLowerCase());
+    const snapshotItems = await this.materializedListSnapshotsForKeys(
+      keys,
+      window,
+    );
+    return {
+      items: page.items,
+      nextCursor: page.nextCursor,
+      snapshots: { items: snapshotItems },
+    };
   }
 
   /**
@@ -1301,8 +1323,65 @@ export class CollectionMarketService {
     return out;
   }
 
+  /** List-row snapshots from `collection_market_snapshots` only (Markets / home ranks). */
+  private async materializedListSnapshotsForKeys(
+    collectionKeys: string[],
+    window: PriceHistoryDuration,
+  ): Promise<CollectionListSnapshot[]> {
+    const keys = [
+      ...new Set(
+        collectionKeys
+          .map((k) => String(k ?? '').trim().toLowerCase())
+          .filter((k) => k.length > 0),
+      ),
+    ];
+    if (keys.length === 0) return [];
+
+    const rowMap = await this.snapshotService.findByKeys(keys);
+    const onDemand = this.snapshotService.onDemandEnabled();
+    const missingForColdStart: string[] = [];
+    const staleForSwr: string[] = [];
+
+    const items = keys.map((key) => {
+      const row = rowMap.get(key);
+      if (!row || !rowHasMaterializedListPrices(row)) {
+        if (onDemand) missingForColdStart.push(key);
+        return emptyListSnapshot(key, window);
+      }
+      const stale = this.snapshotService.isRowStale(row);
+      void this.snapshotService.touchLastViewed(key);
+      if (onDemand && stale) staleForSwr.push(key);
+      const bundle = this.snapshotRead.buildBundleFromRow(row, window, [])
+        .bundle;
+      return bundleToListSnapshot(bundle, null);
+    });
+
+    if (onDemand && missingForColdStart.length > 0) {
+      this.snapshotScheduler.enqueueColdStartBulk(missingForColdStart);
+    }
+    if (onDemand && staleForSwr.length > 0) {
+      this.snapshotScheduler.enqueueStaleSwrBulk(staleForSwr);
+    }
+    return items;
+  }
+
   getSnapshotPriceIndex(): Promise<Map<string, CollectionMarketSnapshot>> {
     return this.snapshotService.getPriceIndex();
+  }
+
+  /** Keyed snapshot rows for portfolio / list joins (avoids full-table price index). */
+  async getSnapshotRowsForKeys(
+    collectionKeys: string[],
+  ): Promise<Map<string, CollectionMarketSnapshot>> {
+    const keys = [
+      ...new Set(
+        collectionKeys
+          .map((k) => String(k ?? '').trim().toLowerCase())
+          .filter((k) => k.length > 0),
+      ),
+    ];
+    if (keys.length === 0) return new Map();
+    return this.snapshotService.findByKeys(keys);
   }
 
   /**
@@ -1330,13 +1409,13 @@ export class CollectionMarketService {
       ),
     ];
     const onDemand = this.snapshotService.onDemandEnabled();
+    const missingForColdStart: string[] = [];
+    const staleForSwr: string[] = [];
 
-    return keys.map((key) => {
+    const items = keys.map((key) => {
       const row = rowMap.get(key);
       if (!row || !rowHasMaterializedListPrices(row)) {
-        if (onDemand) {
-          this.snapshotScheduler.enqueue(key, 'cold_start');
-        }
+        if (onDemand) missingForColdStart.push(key);
         return {
           collectionKey: key,
           stats: null,
@@ -1344,13 +1423,22 @@ export class CollectionMarketService {
         };
       }
       const stale = this.snapshotService.isRowStale(row);
-      this.touchAndMaybeRefreshStale(key, stale);
+      void this.snapshotService.touchLastViewed(key);
+      if (onDemand && stale) staleForSwr.push(key);
       return {
         collectionKey: key,
         stats: null,
         series: this.snapshotRead.buildBundleFromRow(row, d, []).bundle,
       };
     });
+
+    if (onDemand && missingForColdStart.length > 0) {
+      this.snapshotScheduler.enqueueColdStartBulk(missingForColdStart);
+    }
+    if (onDemand && staleForSwr.length > 0) {
+      this.snapshotScheduler.enqueueStaleSwrBulk(staleForSwr);
+    }
+    return items;
   }
 
   /**

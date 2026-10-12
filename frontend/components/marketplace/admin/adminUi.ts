@@ -21,10 +21,10 @@ export const ADMIN_LIST = "space-y-4 sm:space-y-5";
 export const ADMIN_COUNT = `text-sm font-medium ${ADMIN_TEXT_SECONDARY}`;
 
 export const ADMIN_ARTICLE =
-  "rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5";
+  "min-w-0 max-w-full rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:p-5";
 
 export const ADMIN_PANEL =
-  "rounded-lg border border-zinc-200 bg-white shadow-sm";
+  "min-w-0 max-w-full rounded-lg border border-zinc-200 bg-white shadow-sm";
 
 export const ADMIN_STAT_CARD =
   "rounded-lg border border-zinc-200 bg-zinc-50/80 px-4 py-3";
@@ -100,25 +100,39 @@ export const ADMIN_COVER_BOX =
 export const ADMIN_COVER_BOX_CARD =
   "flex h-36 w-full shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:h-40 sm:w-40";
 
+/** Horizontal scroll container — use on mobile for wide tables. */
 export const ADMIN_TABLE_WRAP =
-  "overflow-x-auto rounded-lg border border-zinc-200 bg-white";
+  "admin-table-scroll w-full max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-lg border border-zinc-200 bg-white";
 
 export const ADMIN_TABLE =
-  "w-full min-w-[32rem] text-left text-sm";
+  "w-full min-w-[28rem] text-left text-xs sm:min-w-[32rem] sm:text-sm";
+
+/** Users, bulk mint job items, etc. */
+export const ADMIN_TABLE_WIDE =
+  "w-full min-w-[40rem] text-left text-xs sm:min-w-[48rem] sm:text-sm";
 
 export const ADMIN_TABLE_HEAD =
   `border-b border-zinc-200 bg-zinc-50 text-xs font-semibold uppercase tracking-wide ${ADMIN_TEXT_MUTED}`;
 
-export const ADMIN_TABLE_TH = "px-3 py-2.5 font-medium first:pl-4 last:pr-4 sm:px-4";
+export const ADMIN_TABLE_TH =
+  "px-2 py-2 font-medium first:pl-3 last:pr-3 sm:px-4 sm:py-2.5 sm:first:pl-4 sm:last:pr-4";
 
 export const ADMIN_TABLE_TD =
-  `border-b border-zinc-100 px-3 py-2.5 ${ADMIN_TEXT_BODY} first:pl-4 last:pr-4 sm:px-4`;
+  `border-b border-zinc-100 px-2 py-2 ${ADMIN_TEXT_BODY} first:pl-3 last:pr-3 sm:px-4 sm:py-2.5 sm:first:pl-4 sm:last:pr-4`;
+
+/** Hide on narrow screens (keep in DOM for colspan tables). */
+export const ADMIN_TABLE_TH_HIDE_SM = `${ADMIN_TABLE_TH} hidden sm:table-cell`;
+export const ADMIN_TABLE_TD_HIDE_SM = `${ADMIN_TABLE_TD} hidden sm:table-cell`;
+export const ADMIN_TABLE_TH_HIDE_MD = `${ADMIN_TABLE_TH} hidden md:table-cell`;
+export const ADMIN_TABLE_TD_HIDE_MD = `${ADMIN_TABLE_TD} hidden md:table-cell`;
+export const ADMIN_TABLE_TH_HIDE_LG = `${ADMIN_TABLE_TH} hidden lg:table-cell`;
+export const ADMIN_TABLE_TD_HIDE_LG = `${ADMIN_TABLE_TD} hidden lg:table-cell`;
 
 export const ADMIN_BADGE =
   "inline-flex rounded-md px-2 py-0.5 text-xs font-medium";
 
 export const ADMIN_TOOLBAR =
-  "mb-4 flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:p-4";
+  "mb-4 flex min-w-0 max-w-full flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-3 shadow-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-2 sm:p-4";
 
 export const ADMIN_SEGMENT =
   "inline-flex flex-wrap gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-1";

@@ -1,32 +1,14 @@
 "use client";
 
-import Link from "next/link";
 import { useMarketplaceAdminAnalytics } from "@/hooks/marketplace-admin/useMarketplaceAdminAnalytics";
 import { AdminSectionTitle, AdminStatTile } from "../AdminAnalyticsWidgets";
-import {
-  ADMIN_ARTICLE,
-  ADMIN_LINK,
-  ADMIN_STAT_CARD,
-  ADMIN_TEXT_SECONDARY,
-} from "../adminUi";
+import { ADMIN_ARTICLE, ADMIN_STAT_CARD } from "../adminUi";
 import { MarketplaceAdminPageHeader } from "../MarketplaceAdminPageHeader";
 
 const COST_BASIS_ROWS = [
-  {
-    source: "vault_delivery",
-    label: "Vault delivery",
-    detail: "Seeded when admin delivers custody RWA — mark USD at deliver time.",
-  },
-  {
-    source: "marketplace_buy",
-    label: "Marketplace buy",
-    detail: "Seeded on order fulfill for the buyer wallet.",
-  },
-  {
-    source: "manual",
-    label: "Manual edit",
-    detail: "User Edit in Portfolio — never overwritten by auto seed.",
-  },
+  { source: "vault_delivery", label: "Vault delivery" },
+  { source: "marketplace_buy", label: "Marketplace buy" },
+  { source: "manual", label: "Manual edit" },
 ] as const;
 
 export function MarketplaceAdminPortfolioPage() {
@@ -35,10 +17,7 @@ export function MarketplaceAdminPortfolioPage() {
 
   return (
     <>
-      <MarketplaceAdminPageHeader
-        title="Portfolio ops"
-        subtitle="Daily snapshots, cost basis seeding, and home portfolio value rules."
-      />
+      <MarketplaceAdminPageHeader title="Portfolio ops" />
 
       {isError ? (
         <div className={`${ADMIN_ARTICLE} mb-5 text-sm text-red-600`}>
@@ -47,10 +26,7 @@ export function MarketplaceAdminPortfolioPage() {
       ) : null}
 
       <div className={`${ADMIN_ARTICLE} mb-6`}>
-        <AdminSectionTitle
-          title="Daily snapshots (09:00 KST)"
-          subtitle="Portfolio value + 24h change on the hero/chart"
-        />
+        <AdminSectionTitle title="Daily snapshots (09:00 KST)" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
           <AdminStatTile
             label="Tracked wallets"
@@ -65,19 +41,10 @@ export function MarketplaceAdminPortfolioPage() {
             value={isLoading ? "…" : (p?.latestSnapshotDate ?? "—")}
           />
         </div>
-        <p className={`mt-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-          Cron captures all holders daily. First portfolio view triggers baseline
-          backfill. Hero <strong>Portfolio value</strong> sums live market marks on
-          visible holdings; <strong>24h P/L chip</strong> uses daily snapshots — not
-          live mark sums.
-        </p>
       </div>
 
       <div className={`${ADMIN_ARTICLE} mb-6`}>
-        <AdminSectionTitle
-          title="Cost basis (`portfolio_holdings`)"
-          subtitle="Per-row P/L in My Assets"
-        />
+        <AdminSectionTitle title="Cost basis" />
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <AdminStatTile
             label="Holding rows"
@@ -100,9 +67,6 @@ export function MarketplaceAdminPortfolioPage() {
           {COST_BASIS_ROWS.map((row) => (
             <div key={row.source} className={ADMIN_STAT_CARD}>
               <p className="text-sm font-semibold text-zinc-900">{row.label}</p>
-              <p className={`mt-1 text-xs leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
-                {row.detail}
-              </p>
               <p className="mt-2 font-mono text-lg font-semibold text-zinc-800">
                 {isLoading
                   ? "…"
@@ -111,33 +75,6 @@ export function MarketplaceAdminPortfolioPage() {
             </div>
           ))}
         </div>
-      </div>
-
-      <div className={`${ADMIN_ARTICLE} ${ADMIN_TEXT_SECONDARY} text-sm`}>
-        <AdminSectionTitle title="Operator checklist" />
-        <ul className="mt-3 list-disc space-y-2 pl-5">
-          <li>
-            Deliver custody RWAs from{" "}
-            <Link href="/marketplace/admin/custody-nfts" className={ADMIN_LINK}>
-              Custody RWAs
-            </Link>{" "}
-            — seeds <code className="font-mono text-xs">vault_delivery</code> cost basis.
-          </li>
-          <li>
-            Marketplace buys seed on order fulfill (
-            <code className="font-mono text-xs">marketplace_buy</code>).
-          </li>
-          <li>
-            Preview home rankings under{" "}
-            <Link href="/marketplace/admin/markets?tab=home" className={ADMIN_LINK}>
-              Markets preview → Home landing
-            </Link>.
-          </li>
-          <li>
-            My Assets P/L = cost basis vs live mark; Portfolio value = daily snapshot
-            (see user Portfolio page).
-          </li>
-        </ul>
       </div>
     </>
   );

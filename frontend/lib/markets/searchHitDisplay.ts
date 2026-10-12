@@ -12,10 +12,11 @@ import {
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { toCardDisplayCase } from "@/lib/marketplace/collectionFullDetailsTitle";
 import {
+  buildGnbSearchCollectionMeta,
+  buildGnbSearchCollectionTitle,
   buildMarketsCollectionHeadlineParts,
-  buildMarketsCollectionSearchMeta,
-  buildMarketsCollectionTitle,
   gradeLabelFromComp,
+  stripGnbSearchDisplayMiddots,
 } from "@/lib/markets/marketsCollectionTitle";
 
 function summaryFromSearchCard(
@@ -54,11 +55,11 @@ export function formatSearchCardHitDisplay(card: MarketplaceSearchCardHit): {
       comp: summary.components,
     });
     const grade = gradeLabelFromComp(summary.components);
-    const line1 = buildMarketsCollectionTitle({
+    const line1 = buildGnbSearchCollectionTitle({
       collection: summary,
       comp: summary.components,
     });
-    const line2 = buildMarketsCollectionSearchMeta({
+    const line2 = buildGnbSearchCollectionMeta({
       collection: summary,
       comp: summary.components,
     });
@@ -76,9 +77,12 @@ export function formatSearchCardHitDisplay(card: MarketplaceSearchCardHit): {
     language: null,
   });
   const grade = card.gradeLabel;
-  const line1 =
+  const line1 = stripGnbSearchDisplayMiddots(
     formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
-    toCardDisplayCase(card.title);
-  const line2 = formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
+      toCardDisplayCase(card.title),
+  );
+  const line2 = stripGnbSearchDisplayMiddots(
+    formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts)),
+  );
   return { line1, line2, parts, grade };
 }

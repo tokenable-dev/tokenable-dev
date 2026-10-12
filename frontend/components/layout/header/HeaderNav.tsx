@@ -46,7 +46,7 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 
 export const HEADER_NAV_ITEMS = [
   { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
-  { href: "/portfolio?tab=assets", label: "Portfolio", minLevel: 1 as HeaderNavMinLevel },
+  { href: "/portfolio?tab=assets", label: "Collection", minLevel: 1 as HeaderNavMinLevel },
   { href: "/vault", label: "Sell", minLevel: 0 as HeaderNavMinLevel },
 ] as const;
 
@@ -94,7 +94,7 @@ function resolveNavHref(
   href: string,
   portfolioHref: string,
 ): string {
-  return label === "Portfolio" ? portfolioHref : href;
+  return label === "Collection" ? portfolioHref : href;
 }
 
 /** Desktop primary nav — visible above GNB mobile breakpoint. */
@@ -122,7 +122,7 @@ export function HeaderDesktopNav() {
   );
 }
 
-/** Mobile drawer primary nav — Markets / Portfolio / Sell (v2 gnb-drawer). */
+/** Mobile drawer primary nav — Markets / Collection / Sell. */
 export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
   const mounted = useClientMounted();
   const initialized = useAuthStore((s) => s.initialized);

@@ -12,6 +12,7 @@ import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
+import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
 import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
@@ -46,6 +47,7 @@ export class CollectionMarketSnapshotSchedulerService
   private readonly lockRetryTimers = new Map<string, NodeJS.Timeout>();
   private processing = false;
   private drainTimer: NodeJS.Timeout | null = null;
+  private circuitDrainTimer: NodeJS.Timeout | null = null;
   /** Jobs rejected by the queue depth cap since boot (spike indicator). */
   private droppedJobCount = 0;
   /** Last observed null-cardhedgerCardId ratio from the batch-reduction check. */
@@ -64,6 +66,7 @@ export class CollectionMarketSnapshotSchedulerService
     private readonly rwaTokenRepo: Repository<RwaToken>,
     @InjectDataSource()
     private readonly dataSource: DataSource,
+    @Optional() private readonly cardhedger?: CardhedgerService,
     @Optional() private readonly metrics?: CardhedgerMetricsService,
   ) {}
 
@@ -87,6 +90,7 @@ export class CollectionMarketSnapshotSchedulerService
 
   onModuleDestroy(): void {
     if (this.drainTimer) clearTimeout(this.drainTimer);
+    if (this.circuitDrainTimer) clearTimeout(this.circuitDrainTimer);
     for (const timer of this.lockRetryTimers.values()) {
       clearTimeout(timer);
     }
@@ -141,10 +145,108 @@ export class CollectionMarketSnapshotSchedulerService
     return Math.min(Math.floor(raw), 2000);
   }
 
+  /**
+   * Max `cold_start` jobs enqueued from a single list/portfolio batch read.
+   * Detail / single-key paths still call {@link enqueue} directly (uncapped).
+   * 0 = unlimited (legacy behavior).
+   */
+  bulkColdStartEnqueueCap(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_BULK_COLD_START_CAP') ?? '12',
+    );
+    if (!Number.isFinite(raw) || raw < 0) return 12;
+    if (raw === 0) return 0;
+    return Math.min(Math.floor(raw), 60);
+  }
+
+  circuitOpenDrainPauseMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_CIRCUIT_PAUSE_MS') ?? '30000',
+    );
+    if (!Number.isFinite(raw) || raw < 5_000) return 30_000;
+    return Math.min(Math.floor(raw), 120_000);
+  }
+
+  /**
+   * Enqueue at most {@link bulkColdStartEnqueueCap} missing snapshot refreshes
+   * after a multi-key read (Markets list, portfolio batch). Skips keys already queued.
+   */
+  enqueueColdStartBulk(collectionKeys: readonly string[]): void {
+    this.enqueueBulkCapped(collectionKeys, 'cold_start');
+  }
+
+  /**
+   * Cap stale-SWR enqueues from multi-key list reads (same cap as cold_start).
+   */
+  enqueueStaleSwrBulk(collectionKeys: readonly string[]): void {
+    this.enqueueBulkCapped(collectionKeys, 'stale_swr');
+  }
+
+  private enqueueBulkCapped(
+    collectionKeys: readonly string[],
+    reason: SnapshotRefreshReason,
+  ): void {
+    const cap = this.bulkColdStartEnqueueCap();
+    if (cap === 0) {
+      for (const raw of collectionKeys) {
+        const key = String(raw ?? '').trim().toLowerCase();
+        if (key) this.enqueue(key, reason);
+      }
+      return;
+    }
+    let enqueued = 0;
+    for (const raw of collectionKeys) {
+      if (enqueued >= cap) break;
+      const key = String(raw ?? '').trim().toLowerCase();
+      if (!key) continue;
+      if (this.queuedKeys.has(key) || this.pendingLockRetries.has(key)) {
+        continue;
+      }
+      this.enqueue(key, reason);
+      enqueued++;
+    }
+  }
+
+  private isCardhedgerCircuitOpen(): boolean {
+    if (!this.cardhedger) return false;
+    return this.cardhedger.wouldRejectDueToCircuit();
+  }
+
+  private isDeferrableBackgroundReason(reason: SnapshotRefreshReason): boolean {
+    return (
+      reason === 'cold_start' ||
+      reason === 'stale_swr' ||
+      reason === 'cron'
+    );
+  }
+
+  private scheduleDrainAfterCircuitPause(): void {
+    if (this.circuitDrainTimer) return;
+    const pauseMs = this.circuitOpenDrainPauseMs();
+    this.logger.log(
+      JSON.stringify({
+        msg: 'market_snapshot_drain_paused',
+        reason: 'cardhedger_circuit_open',
+        pauseMs,
+        queueDepth: this.queue.length,
+      }),
+    );
+    this.circuitDrainTimer = setTimeout(() => {
+      this.circuitDrainTimer = null;
+      void this.drainQueue();
+    }, pauseMs);
+  }
+
   /** Public enqueue API — used by scheduler and stale-while-revalidate hooks. */
   enqueue(collectionKey: string, reason: SnapshotRefreshReason): void {
     const key = collectionKey.toLowerCase();
     if (!key || this.queuedKeys.has(key) || this.pendingLockRetries.has(key)) {
+      return;
+    }
+    if (
+      this.isCardhedgerCircuitOpen() &&
+      this.isDeferrableBackgroundReason(reason)
+    ) {
       return;
     }
     const priority = this.priorityForReason(reason);
@@ -224,8 +326,14 @@ export class CollectionMarketSnapshotSchedulerService
     if (this.processing) return;
     this.processing = true;
     const concurrency = this.refreshConcurrency();
+    let pausedForCircuit = false;
     try {
       while (this.queue.length > 0) {
+        if (this.isCardhedgerCircuitOpen()) {
+          pausedForCircuit = true;
+          this.scheduleDrainAfterCircuitPause();
+          break;
+        }
         const batch: SnapshotRefreshJob[] = [];
         while (batch.length < concurrency && this.queue.length > 0) {
           const job = this.queue.shift();
@@ -284,7 +392,9 @@ export class CollectionMarketSnapshotSchedulerService
       }
     } finally {
       this.processing = false;
-      if (this.queue.length > 0) this.scheduleDrain();
+      if (this.queue.length > 0 && !pausedForCircuit) {
+        this.scheduleDrain();
+      }
     }
   }
 

@@ -511,26 +511,6 @@ export function usePortfolioAssetsPage(input: {
     !hadPaintCacheRef.current &&
     (ownedIdsFetching || !ownedIdsFetched);
 
-  const applyCostBasis = useCallback(
-    (tokenId: number, costBasisUsd: number) => {
-      const usd = Number(costBasisUsd);
-      if (!Number.isFinite(usd) || usd < 0) return;
-      setAccumulated((prev) => {
-        const holdingsByToken = new Map(prev.holdingsByToken);
-        const prevRow = holdingsByToken.get(tokenId);
-        holdingsByToken.set(tokenId, {
-          tokenId,
-          hidden: prevRow?.hidden ?? false,
-          costBasisUsd: usd,
-          costBasisSource: "manual",
-          acquiredAt: prevRow?.acquiredAt ?? new Date().toISOString(),
-        });
-        return { ...prev, holdingsByToken };
-      });
-    },
-    [],
-  );
-
   const loadMoreAssets = useCallback(() => {
     if (loadedTokenIds.length >= ownedTokenIds.length) return;
     setBffLoadedCount((n) =>
@@ -560,7 +540,6 @@ export function usePortfolioAssetsPage(input: {
     hasMoreAssets: loadedTokenIds.length < ownedTokenIds.length,
     loadMoreAssets,
     isLoadingMoreAssets,
-    applyCostBasis,
     mintPreviewsPending,
   };
 }

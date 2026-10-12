@@ -13,6 +13,8 @@ import {
   MARKETS_PRICE_PRESET_CHIPS,
   MARKETS_VAULT_FILTER_OPTIONS,
   marketsPriceChipLabel,
+  normalizeMarketsPriceInputs,
+  normalizeMarketsYearInputs,
   type MarketsGradeFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
@@ -23,15 +25,11 @@ import {
 } from "@/lib/market";
 import { TkButton } from "@/components/ds";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
+import { requestOpenGnbSearch } from "@/components/layout/header/TkHeaderSearch";
 
 const SORT_LABELS: Record<MarketsSortId, string> = Object.fromEntries(
   MARKETS_SORT_OPTIONS.map((o) => [o.id, o.label]),
 ) as Record<MarketsSortId, string>;
-
-const SORT_DRAWER_LABELS: Partial<Record<MarketsSortId, string>> = {
-  recent_listed: "Newest",
-  population_low: "Population",
-};
 
 type PopId = "sort" | null;
 
@@ -39,6 +37,23 @@ const EMPTY_STRINGS: string[] = [];
 
 function categoryOptionLabel(f: CategorySelectOption): string {
   return f.label;
+}
+
+function SearchIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      aria-hidden
+    >
+      <circle cx={11} cy={11} r={7} />
+      <line x1={16.5} y1={16.5} x2={21} y2={21} />
+    </svg>
+  );
 }
 
 function FilterIcon({ size = 14 }: { size?: number }) {
@@ -239,6 +254,13 @@ export function MarketsFilterBar({
   sets = EMPTY_STRINGS,
   onSetsChange,
   setFacetOptions = EMPTY_STRINGS,
+  yearMin = "",
+  yearMax = "",
+  onYearRangeChange,
+  characters = EMPTY_STRINGS,
+  onCharactersChange,
+  series = EMPTY_STRINGS,
+  onSeriesChange,
   filters = MARKETS_CATEGORY_SELECT_OPTIONS,
 }: {
   categoryFilters: ReadonlySet<CollectionCategoryId>;
@@ -259,6 +281,13 @@ export function MarketsFilterBar({
   onSetsChange?: (sets: string[]) => void;
   onSetToggle?: (setName: string) => void;
   setFacetOptions?: readonly string[];
+  yearMin?: string;
+  yearMax?: string;
+  onYearRangeChange?: (min: string, max: string) => void;
+  characters?: readonly string[];
+  onCharactersChange?: (characters: string[]) => void;
+  series?: readonly string[];
+  onSeriesChange?: (series: string[]) => void;
   filters?: readonly CategorySelectOption[];
 }) {
   const [openPop, setOpenPop] = useState<PopId>(null);
@@ -278,6 +307,10 @@ export function MarketsFilterBar({
     () => new Set(vaultFilters ?? []),
   );
   const [draftSets, setDraftSets] = useState<string[]>(() => [...sets]);
+  const [draftYearMin, setDraftYearMin] = useState(yearMin);
+  const [draftYearMax, setDraftYearMax] = useState(yearMax);
+  const [draftCharacters, setDraftCharacters] = useState<string[]>(() => [...characters]);
+  const [draftSeries, setDraftSeries] = useState<string[]>(() => [...series]);
 
   const sortRef = useRef<HTMLDivElement>(null);
 
@@ -287,26 +320,29 @@ export function MarketsFilterBar({
   const priceLabel = marketsPriceChipLabel(priceMin, priceMax);
   const priceActive = Boolean(priceMin.trim() || priceMax.trim());
 
-  const gradeActive = gradeFilters.size > 0;
-
-  const setActive = sets.length > 0;
-
-  const vaultActive = (vaultFilters?.size ?? 0) > 0;
-
   const filteredDraftSetOptions = useMemo(() => {
     const q = draftSetQuery.trim().toLowerCase();
     if (!q) return setFacetOptions;
     return setFacetOptions.filter((name) => name.toLowerCase().includes(q));
   }, [setFacetOptions, draftSetQuery]);
 
+  const yearActive = Boolean(yearMin.trim() || yearMax.trim());
+
   const moreCount = useMemo(() => {
-    let n = 0;
-    if (setActive) n += 1;
+    let n = sets.length + gradeFilters.size + (vaultFilters?.size ?? 0);
+    n += characters.length + series.length;
     if (priceActive) n += 1;
-    if (gradeActive) n += 1;
-    if (vaultActive) n += 1;
+    if (yearActive) n += 1;
     return n;
-  }, [setActive, priceActive, gradeActive, vaultActive]);
+  }, [
+    sets.length,
+    gradeFilters.size,
+    vaultFilters,
+    characters.length,
+    series.length,
+    priceActive,
+    yearActive,
+  ]);
 
   useEffect(() => {
     setDrawerMounted(true);
@@ -323,6 +359,10 @@ export function MarketsFilterBar({
     setDraftGrades(new Set(gradeFilters));
     setDraftVaults(new Set(vaultFilters ?? []));
     setDraftSets([...sets]);
+    setDraftYearMin(yearMin);
+    setDraftYearMax(yearMax);
+    setDraftCharacters([...characters]);
+    setDraftSeries([...series]);
     setDraftSetQuery("");
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -371,12 +411,17 @@ export function MarketsFilterBar({
         filter_value: [...draftGrades].join(",") || "none",
       });
     }
+    const price = normalizeMarketsPriceInputs(draftPriceMin, draftPriceMax);
+    const year = normalizeMarketsYearInputs(draftYearMin, draftYearMax);
     onCategoryFiltersChange(new Set(draftCategories));
     onSortChange(draftSort);
-    onPriceRangeChange(draftPriceMin, draftPriceMax);
+    onPriceRangeChange(price.min, price.max);
     onGradeFiltersChange(new Set(draftGrades));
     onVaultFiltersChange?.(new Set(draftVaults));
     onSetsChange?.([...draftSets]);
+    onYearRangeChange?.(year.min, year.max);
+    onCharactersChange?.([...draftCharacters]);
+    onSeriesChange?.([...draftSeries]);
     setDrawerOpen(false);
   }
 
@@ -386,12 +431,19 @@ export function MarketsFilterBar({
     onGradeFiltersChange(new Set());
     onVaultFiltersChange?.(new Set());
     onSetsChange?.([]);
+    onYearRangeChange?.("", "");
+    onCharactersChange?.([]);
+    onSeriesChange?.([]);
     setDraftCategories(new Set());
     setDraftPriceMin("");
     setDraftPriceMax("");
     setDraftGrades(new Set());
     setDraftVaults(new Set());
     setDraftSets([]);
+    setDraftYearMin("");
+    setDraftYearMax("");
+    setDraftCharacters([]);
+    setDraftSeries([]);
     setDraftSetQuery("");
   }
 
@@ -511,6 +563,15 @@ export function MarketsFilterBar({
           {moreCount > 0 ? (
             <i className="markets-ddchip__count">{moreCount}</i>
           ) : null}
+        </button>
+
+        <button
+          type="button"
+          className="markets-ddchip markets-search-icon-btn"
+          aria-label="Search"
+          onClick={() => requestOpenGnbSearch()}
+        >
+          <SearchIcon />
         </button>
 
         <div className="markets-slim-bar__sp" aria-hidden />
@@ -641,10 +702,24 @@ export function MarketsFilterBar({
                   value={draftSetQuery}
                   onChange={(e) => setDraftSetQuery(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      const trimmed = draftSetQuery.trim();
-                      if (trimmed) toggleDraftSet(trimmed);
+                    if (e.key !== "Enter") return;
+                    e.preventDefault();
+                    const trimmed = draftSetQuery.trim();
+                    if (!trimmed) return;
+                    const q = trimmed.toLowerCase();
+                    const exact = setFacetOptions.find((name) => name.toLowerCase() === q);
+                    if (exact) {
+                      toggleDraftSet(exact);
+                      setDraftSetQuery("");
+                      return;
+                    }
+                    if (filteredDraftSetOptions.length === 1) {
+                      toggleDraftSet(filteredDraftSetOptions[0] ?? trimmed);
+                      setDraftSetQuery("");
+                      return;
+                    }
+                    if (filteredDraftSetOptions.length === 0 && trimmed.length >= 3) {
+                      toggleDraftSet(trimmed);
                       setDraftSetQuery("");
                     }
                   }}
@@ -731,6 +806,67 @@ export function MarketsFilterBar({
             </div>
           </div>
 
+          {onYearRangeChange ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Year</span>
+              <div className="markets-frange">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="From"
+                  value={draftYearMin}
+                  onChange={(e) => setDraftYearMin(e.target.value)}
+                />
+                <span>–</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  placeholder="To"
+                  value={draftYearMax}
+                  onChange={(e) => setDraftYearMax(e.target.value)}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {onCharactersChange && draftCharacters.length > 0 ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Character</span>
+              <div className="markets-fd-chips markets-fd-chips--stack">
+                {draftCharacters.map((name) => (
+                  <FilterCheckRow
+                    key={name}
+                    selected
+                    onClick={() =>
+                      setDraftCharacters((prev) => prev.filter((n) => n !== name))
+                    }
+                  >
+                    {name}
+                  </FilterCheckRow>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
+          {onSeriesChange && draftSeries.length > 0 ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Series</span>
+              <div className="markets-fd-chips markets-fd-chips--stack">
+                {draftSeries.map((name) => (
+                  <FilterCheckRow
+                    key={name}
+                    selected
+                    onClick={() =>
+                      setDraftSeries((prev) => prev.filter((n) => n !== name))
+                    }
+                  >
+                    {name}
+                  </FilterCheckRow>
+                ))}
+              </div>
+            </div>
+          ) : null}
+
           {onVaultFiltersChange ? (
             <div className="markets-fd-section">
               <span className="markets-fd-label">Vault</span>
@@ -761,7 +897,7 @@ export function MarketsFilterBar({
                   )}
                   onClick={() => setDraftSort(id)}
                 >
-                  {SORT_DRAWER_LABELS[id] ?? SORT_LABELS[id]}
+                  {SORT_LABELS[id]}
                 </button>
               ))}
             </div>

@@ -134,6 +134,28 @@ export function buildMarketsCollectionSearchMeta(params: {
   return formatCardDisplayLine2(cardDisplayPartsFromAssetDetail(parts));
 }
 
+/** Header search dropdown — no ` · ` separators (single-line ellipsis in CSS). */
+export function stripGnbSearchDisplayMiddots(text: string): string {
+  return text
+    .replace(/\s*·\s*/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export function buildGnbSearchCollectionTitle(params: {
+  collection: MarketsCollectionTitleCollection;
+  comp: CollectionComponents;
+}): string {
+  return stripGnbSearchDisplayMiddots(buildMarketsCollectionTitle(params));
+}
+
+export function buildGnbSearchCollectionMeta(params: {
+  collection: MarketsCollectionTitleCollection;
+  comp: CollectionComponents;
+}): string {
+  return stripGnbSearchDisplayMiddots(buildMarketsCollectionSearchMeta(params));
+}
+
 /** Meta under tile titles — `{Year} · {Set} {Language} · {Variant}`. */
 export function buildMarketsCollectionMeta(params: {
   collection: MarketsCollectionTitleCollection;

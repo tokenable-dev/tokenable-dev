@@ -63,13 +63,19 @@ function buildPortfolioBidRows(orders: OrderListItem[]): PortfolioBidRow[] {
 
 export function usePortfolioMyBids(
   address: string | undefined,
-  queryEnabled = true,
+  bidsListEnabled = true,
+  collectionMetaEnabled?: boolean,
 ) {
   const chainId = activeRqChainId();
+  const metaEnabled =
+    collectionMetaEnabled !== undefined
+      ? collectionMetaEnabled
+      : bidsListEnabled;
+
   const bidsQuery = useQuery({
     queryKey: rq.portfolioBids(address ?? "", chainId),
     queryFn: () => getCollectionBidsByOfferer(address!),
-    enabled: Boolean(address?.trim()) && queryEnabled,
+    enabled: Boolean(address?.trim()) && bidsListEnabled,
     staleTime: 30_000,
     refetchInterval: 60_000,
     refetchIntervalInBackground: false,
@@ -145,7 +151,7 @@ export function usePortfolioMyBids(
       );
       return map;
     },
-    enabled: collectionKeysSig.length > 0,
+    enabled: metaEnabled && collectionKeysSig.length > 0,
     staleTime: 60_000,
   });
 
@@ -157,6 +163,8 @@ export function usePortfolioMyBids(
     collectionMetaLoading:
       collectionMetaQuery.isLoading && collectionKeysSig.length > 0,
     loading: bidsQuery.isLoading,
+    /** False until the first bids list fetch settles — avoids tab badge `0` before load. */
+    bidsListFetched: bidsQuery.isFetched,
     refetchBids: () => bidsQuery.refetch(),
   };
 }
