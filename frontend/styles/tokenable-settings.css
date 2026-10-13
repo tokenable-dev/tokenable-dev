@@ -49,7 +49,7 @@
   border-radius: 10px;
   cursor: pointer;
   color: var(--t2);
-  font-size: 14.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 500;
   transition: all 0.12s;
   background: transparent;
@@ -86,7 +86,7 @@
 }
 
 .tk-settings__sec-h {
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 0 0 6px;
@@ -94,7 +94,7 @@
 }
 
 .tk-settings__sec-sub {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.55;
   margin: 0 0 24px;
@@ -132,13 +132,13 @@
 }
 
 .tk-settings__row-t {
-  font-size: 14.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
 
 .tk-settings__row-d {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
   margin-top: 3px;
   line-height: 1.5;
@@ -151,7 +151,7 @@
 
 .tk-settings__lbl {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--t2);
@@ -169,7 +169,7 @@
   border-radius: 11px;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.1);
   color: #fff;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   outline: none;
   font-family: var(--font-sans);
   box-sizing: border-box;
@@ -232,13 +232,13 @@
 .tk-settings__btn--sm {
   height: 38px;
   padding: 0 16px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .tk-settings__btn--md {
   height: 46px;
   padding: 0 22px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 
 .tk-settings__sw {
@@ -276,7 +276,7 @@
 
 .tk-settings__nlock {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -293,7 +293,7 @@
   align-items: center;
   gap: 7px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 700;
   letter-spacing: 0.04em;
   padding: 5px 11px;
@@ -319,7 +319,7 @@
 .tk-settings__banner {
   border-radius: 12px;
   padding: 13px 16px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.55;
   display: flex;
   gap: 10px;
@@ -342,7 +342,7 @@
 .tk-settings__matrix td {
   padding: 12px 8px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .tk-settings__matrix th:first-child,
@@ -354,7 +354,7 @@
 
 .tk-settings__matrix th {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--t2);
@@ -403,7 +403,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   color: #fff;
   flex-shrink: 0;
@@ -427,19 +427,19 @@
 
 .tk-settings__balance-unit {
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   color: var(--t2);
   font-weight: 600;
 }
 
 .tk-settings__hint {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
 }
 
 .tk-settings__wallet-addr {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #fff;
   word-break: break-all;
 }
@@ -488,7 +488,7 @@
   pointer-events: none;
   height: 38px;
   padding: 0 16px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   white-space: nowrap;
 }
@@ -554,7 +554,7 @@
     width: auto;
     flex-shrink: 0;
     padding: 10px 12px;
-    font-size: 13.5px;
+    font-size: var(--tk-ui-fs-body-lg);
     gap: 0;
   }
 
@@ -564,11 +564,11 @@
   }
 
   .tk-settings__sec-h {
-    font-size: 22px;
+    font-size: var(--tk-ui-fs-title);
   }
 
   .tk-settings__sec-sub {
-    font-size: 13.5px;
+    font-size: var(--tk-ui-fs-body-lg);
     margin-bottom: 18px;
   }
 
@@ -648,17 +648,17 @@
   .tk-settings__matrix th,
   .tk-settings__matrix td {
     padding: 10px 6px;
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
   }
 
   .tk-settings__matrix th {
-    font-size: 10px;
+    font-size: var(--tk-ui-fs-label);
   }
 
   .tk-settings__avatar {
     width: 56px;
     height: 56px;
-    font-size: 18px;
+    font-size: var(--tk-ui-fs-heading);
   }
 
   .tk-settings__btn--sm {
@@ -680,7 +680,7 @@
 @media (max-width: 400px) {
   .tk-settings__snav-item {
     padding: 9px 10px;
-    font-size: 13px;
+    font-size: var(--tk-ui-fs-body);
   }
 
   .tk-settings__card {

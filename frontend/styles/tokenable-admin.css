@@ -90,7 +90,7 @@
 
 .admin-sidebar__kicker {
   margin-top: 8px;
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   line-height: 1.5;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -112,7 +112,7 @@
 
 .admin-nav__section-label {
   margin: 0 8px 4px;
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -132,7 +132,7 @@
   min-height: 0;
   padding: 8px;
   border-radius: var(--admin-radius);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 400;
   line-height: 1.43;
   color: var(--admin-charcoal);
@@ -204,7 +204,7 @@
   height: 28px;
   border-radius: 9999px;
   background: var(--admin-ash);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   color: var(--admin-steel);
 }
@@ -218,14 +218,14 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 500;
   line-height: 1.2;
   color: var(--admin-charcoal);
 }
 
 .admin-sidebar__user-role {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--admin-fog);
   text-transform: capitalize;
 }
@@ -235,7 +235,7 @@
   border: 0;
   background: none;
   font: inherit;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--admin-steel);
   text-align: left;
   cursor: pointer;
@@ -269,7 +269,7 @@
 
 .admin-main__mobile-title {
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 500;
   color: var(--admin-charcoal);
 }
@@ -358,7 +358,7 @@
 .admin-page-header__subtitle {
   margin: 6px 0 0;
   max-width: 40rem;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.5;
   color: var(--admin-steel);
 }

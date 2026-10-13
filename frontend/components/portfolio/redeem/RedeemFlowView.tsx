@@ -24,15 +24,15 @@ export function RedeemFlowView() {
     return (
       <div className="pf-redeem-page">
         <nav className="pf-redeem-crumb" aria-label="Breadcrumb">
-          <Link href="/portfolio">Portfolio</Link>
+          <Link href="/portfolio">Collection</Link>
           <span className="pf-redeem-crumb__sep" aria-hidden>
             ›
           </span>
-          <span className="pf-redeem-crumb__current">Redeem</span>
+          <span className="pf-redeem-crumb__current">Redemption</span>
         </nav>
         <p className="sell-flow-sub">
           No open request to finish.{" "}
-          <Link href="/portfolio">Back to portfolio</Link>
+          <Link href="/portfolio">Back to collection</Link>
         </p>
       </div>
     );
@@ -41,12 +41,12 @@ export function RedeemFlowView() {
   return (
     <div className="pf-redeem-page">
       <nav className="pf-redeem-crumb" aria-label="Breadcrumb">
-        <Link href="/portfolio">Portfolio</Link>
+        <Link href="/portfolio">Collection</Link>
         <span className="pf-redeem-crumb__sep" aria-hidden>
           ›
         </span>
-          <span className="pf-redeem-crumb__current">Redeem</span>
-        </nav>
+        <span className="pf-redeem-crumb__current">Redemption</span>
+      </nav>
 
       {flow.step === "request" ? (
         <RedeemRequestPanel

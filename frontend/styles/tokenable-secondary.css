@@ -153,7 +153,7 @@
 
 .secondary-auth-card__title {
   margin: 0 0 6px;
-  font-size: 24px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #fff;
@@ -161,7 +161,7 @@
 
 .secondary-auth-card__text {
   margin: 0 0 28px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.5;
   color: var(--t2);
 }
@@ -213,13 +213,13 @@
   justify-content: center;
   background: #141420;
   color: var(--azure);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
 }
 
 .secondary-profile-header__name {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
   overflow: hidden;
@@ -229,7 +229,7 @@
 
 .secondary-profile-header__email {
   margin: 4px 0 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -245,14 +245,14 @@
 
 .secondary-panel__title {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
 
 .secondary-panel__text {
   margin: 6px 0 0;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.55;
   color: var(--t2);
 }
@@ -269,7 +269,7 @@
 
 .secondary-wallet-row__address {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.5;
   color: #fff;
   word-break: break-all;
@@ -304,7 +304,7 @@
 .secondary-gate-card__title {
   margin: 0;
   text-align: center;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
@@ -312,7 +312,7 @@
 .secondary-gate-card__text {
   margin: 8px 0 0;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.55;
   color: var(--t2);
 }
@@ -326,7 +326,7 @@
 
 .secondary-gate-error {
   text-align: center;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--neg);
 }
 
@@ -347,7 +347,7 @@
 
 .secondary-dialog-wallet__label {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--t3);
@@ -360,7 +360,7 @@
 .secondary-dialog-wallet__value {
   margin-top: 6px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.45;
   color: #fff;
   word-break: break-all;
@@ -411,7 +411,7 @@
 
 .kyc-page__title {
   margin: 0 0 8px;
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #fff;
@@ -491,7 +491,7 @@
   }
 
   .kyc-page__title {
-    font-size: 22px;
+    font-size: var(--tk-ui-fs-title);
   }
 
   .kyc-sdk {

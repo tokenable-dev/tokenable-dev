@@ -3,7 +3,12 @@ import { activeRqChainId } from "@/lib/chains";
 import { getCachedRwaImageUrl } from "@/lib/marketplace";
 import type { PartnerShipmentGroup } from "@/lib/partner/partnerRedeemGroups";
 import { partnerRedeemDeadlineMs } from "@/lib/partner/partnerRedeemStats";
-import { formatRedeemCardLine1FromMetadata } from "@/lib/portfolio/portfolioTableHelpers";
+import {
+  buildRwaAssetDetailHeadlineParts,
+  formatAssetDetailLine1,
+  resolveRwaHeadlineGrade,
+} from "@/lib/marketplace/assetDetailHeadline";
+import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioTableHelpers";
 import { buildCarrierTrackingUrl } from "@/lib/shipping/carrierTracking";
 
 export type PartnerShipmentStatusKey =
@@ -90,14 +95,44 @@ export function partnerShipToAddressLines(
   ].filter((line): line is string => Boolean(line?.trim()));
 }
 
-export function partnerCardCertLine(item: PartnerRedeemRow): string | null {
-  if (!item.certNumber?.trim()) return null;
-  return item.certNumber.trim();
+function partnerRedeemGrade(
+  item: PartnerRedeemRow,
+  metadataByTokenId?: ReadonlyMap<string, RwaMetadata>,
+): string | null {
+  const tid = item.tokenId?.trim();
+  const meta = tid ? metadataByTokenId?.get(tid) : undefined;
+  const grade =
+    formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
+  return grade?.trim() || null;
+}
+
+/** Partner-Shipments.html `.cid` — `{Grade} · {cert}` (grade left of cert number). */
+export function partnerCardCertLine(
+  item: PartnerRedeemRow,
+  metadataByTokenId?: ReadonlyMap<string, RwaMetadata>,
+): string | null {
+  const grade = partnerRedeemGrade(item, metadataByTokenId);
+  const cert = item.certNumber?.trim();
+  if (grade && cert) return `${grade} · ${cert}`;
+  if (grade) return grade;
+  if (cert) return cert;
+  return null;
+}
+
+function stripTrailingGradeFromTitle(title: string, grade: string | null): string {
+  const g = grade?.trim();
+  if (!g || !title.trim()) return title;
+  const suffix = ` · ${g}`;
+  if (title.endsWith(suffix)) return title.slice(0, -suffix.length).trim();
+  if (title.endsWith(g)) {
+    const trimmed = title.slice(0, -g.length).replace(/\s*·\s*$/, "").trim();
+    if (trimmed) return trimmed;
+  }
+  return title;
 }
 
 /**
- * Redeem requests card title — same Line 1 as portfolio redeem:
- * `{Name} · {Number} · {Grade}`.
+ * Redeem requests card title — Partner-Shipments.html `.cname` (no grade on the title line).
  */
 export function partnerRedeemCardTitle(
   item: PartnerRedeemRow,
@@ -108,7 +143,11 @@ export function partnerRedeemCardTitle(
     (item.tokenId?.trim() ? `Token #${item.tokenId}` : "Card");
   const tid = item.tokenId?.trim();
   const meta = tid ? metadataByTokenId?.get(tid) : undefined;
-  return formatRedeemCardLine1FromMetadata(meta ?? null, fallback);
+  const grade = partnerRedeemGrade(item, metadataByTokenId);
+  const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
+  const line1 = formatAssetDetailLine1(parts, { grade, omitGrade: true });
+  if (line1?.trim()) return line1.trim();
+  return stripTrailingGradeFromTitle(fallback, grade);
 }
 
 

@@ -42,7 +42,7 @@
   height: 46px;
   padding: 0 24px;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   cursor: pointer;
   border: 0;
@@ -61,7 +61,7 @@
 .pa-page .btn--sm {
   height: 38px;
   padding: 0 18px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 .pa-page .btn--primary {
   color: #fff;
@@ -117,7 +117,7 @@
   align-items: center;
   gap: 7px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -152,7 +152,7 @@
 }
 .pa-page .cert-title {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   letter-spacing: 0.08em;
   color: #fff;
@@ -163,7 +163,7 @@
 }
 .pa-page .cert-id {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--brand-400);
@@ -256,7 +256,7 @@
 }
 .pa-page .sback--empty span {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   line-height: 1.6;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -339,7 +339,7 @@
 }
 .pa-page .subj-name {
   font-family: var(--font-sans);
-  font-size: 17px;
+  font-size: var(--tk-ui-fs-subheading);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #fff;
@@ -347,7 +347,7 @@
 }
 .pa-page .subj-meta {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.02em;
   color: var(--t2);
   margin-top: 7px;
@@ -361,7 +361,7 @@
 }
 .pa-page .subj-grade .g {
   font-family: "Doto", var(--font-mono);
-  font-size: 30px;
+  font-size: var(--tk-ui-fs-num-xl);
   font-weight: 800;
   color: #fff;
   line-height: 0.85;
@@ -369,7 +369,7 @@
 }
 .pa-page .subj-grade .c {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--t2);
   padding-bottom: 2px;
 }
@@ -386,7 +386,7 @@
   gap: 9px;
   margin-top: 20px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
 }
 .pa-page .redeem-note svg {
@@ -399,14 +399,14 @@
 }
 .pa-page .stub-k {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--t3);
 }
 .pa-page .stub-v {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #fff;
   white-space: nowrap;
 }
@@ -429,7 +429,7 @@
   flex: 1;
   padding: 13px 0;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.11em;
   text-transform: uppercase;
@@ -454,7 +454,7 @@
 }
 .pa-page .proof-h {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--brand-400);
@@ -496,20 +496,20 @@
 .pa-page .prow-k {
   display: block;
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
 .pa-page .prow-s {
   display: block;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--t3);
   margin-top: 3px;
 }
 .pa-page .prow-a {
   font-family: var(--font-mono);
-  font-size: 11.5px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.03em;
   color: var(--brand-400);
@@ -522,7 +522,7 @@
 .pa-page .prow-chk {
   color: var(--pos);
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   white-space: nowrap;
   display: inline-flex;
@@ -531,7 +531,7 @@
 }
 .pa-page .slab-cap {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--t3);
@@ -590,7 +590,7 @@
   border: 0;
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   cursor: pointer;
   clip-path: var(--pixel-notch-sm);
   display: flex;
@@ -613,7 +613,7 @@
 .paz-tb {
   padding: 11px 22px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -688,7 +688,7 @@
 }
 .pa-page .hist-l {
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: var(--t2);
 }
@@ -698,7 +698,7 @@
 }
 .pa-page .hist-amt {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
 }
 .pa-page .hist-node.hl .hist-amt {
@@ -706,7 +706,7 @@
 }
 .pa-page .hist-d {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--t3);
   margin-top: 3px;
 }
@@ -723,7 +723,7 @@
   vertical-align: middle;
 }
 .pa-page .note {
-  font-size: 11.5px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--t3);
   line-height: 1.55;
   margin: 14px 0 2px;
@@ -739,21 +739,21 @@
 }
 .pa-page .mval-k {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.09em;
   text-transform: uppercase;
   color: var(--t3);
 }
 .pa-page .mval-v {
   font-family: var(--font-sans);
-  font-size: 17px;
+  font-size: var(--tk-ui-fs-subheading);
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.01em;
 }
 .pa-page .mval-chg {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--pos);
 }
@@ -790,7 +790,7 @@
   padding: 80px 24px;
   text-align: center;
   color: var(--t3);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 @media (max-width: 720px) {
   .pa-page .subject {

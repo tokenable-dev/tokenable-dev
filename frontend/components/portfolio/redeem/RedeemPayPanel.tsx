@@ -13,7 +13,6 @@ import type {
 import type { RedeemPayPhase } from "@/hooks/portfolio/useRedeemFlow";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { useAppStore } from "@/store";
-import { RedeemCardSummary } from "./RedeemCardSummary";
 import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
 
 function busyLabel(phase: RedeemPayPhase): string {
@@ -108,16 +107,17 @@ export function RedeemPayPanel({
   return (
     <div className="pf-redeem-panel">
       <div className="pf-redeem-eyebrow">Redeem · Step 2 of 2</div>
-      <h1 className="pf-redeem-h1">
-        {custodyPending ? "Finish RWA transfer" : "Review and pay"}
+      <h1
+        className={`pf-redeem-h1${custodyPending ? "" : " pf-redeem-h1--review"}`}
+      >
+        {custodyPending ? "Finish RWA transfer" : "Review"}
       </h1>
-      <p className="pf-redeem-sub">
-        {custodyPending
-          ? "Your USDC payment is already recorded. Confirm each RWA transfer into Tokenable custody to continue — do not pay again."
-          : "Final amount, charged now."}
-      </p>
-
-      <RedeemCardSummary cards={cards} compact />
+      {custodyPending ? (
+        <p className="pf-redeem-sub">
+          Your USDC payment is already recorded. Confirm each RWA transfer into
+          Tokenable custody to continue — do not pay again.
+        </p>
+      ) : null}
 
       {!custodyPending ? (
         <div className="pf-redeem-cost">
@@ -126,9 +126,8 @@ export function RedeemPayPanel({
             loading={estimateQuery.isLoading}
             cardCount={cards.length}
             embed
-            title="Total charged now"
+            title={null}
           />
-          <p className="pf-redeem-cost__copy">Final price.</p>
         </div>
       ) : (
         <div className="pf-redeem-cost">
@@ -172,21 +171,6 @@ export function RedeemPayPanel({
         ) : null}
       </div>
 
-      {!custodyPending ? (
-        <div className="pf-redeem-paybox">
-          <div className="pf-redeem-cost__title">Payment</div>
-          <p className="pf-redeem-paybox__copy">
-            Account balance{" "}
-            <span className="tkl-mono pf-redeem-paybox__bal">
-              {usdcBalanceFormatted || "—"} USDC
-            </span>
-          </p>
-          <p className="pf-redeem-paybox__note">
-            Charged as a USDC transfer to the Tokenable fee wallet.
-          </p>
-        </div>
-      ) : null}
-
       {error ? (
         <p className="pf-redeem-error" role="alert">
           {error}
@@ -223,7 +207,11 @@ export function RedeemPayPanel({
             {busy ? busyLabel(payPhase) : "Pay"}
           </TkButton>
           <p className="pf-redeem-hint-below">
-            Tokenable holds ownership until delivery.
+            Account balance{" "}
+            <span className="tkl-mono pf-redeem-paybox__bal">
+              {usdcBalanceFormatted || "—"} USDC
+            </span>
+            · charged as a USDC transfer to the Tokenable fee wallet.
           </p>
         </>
       )}

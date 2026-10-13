@@ -1,5 +1,6 @@
 import {
   cardhedgerCatalogVariantSpecificity,
+  cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerCertRowUsableForPsaVariety,
   cardhedgerRowIsPrintFinishOnly,
   cardhedgerRowMatchesPsaVariety,
@@ -466,7 +467,35 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
     ).toBe(false);
   });
 
-  it('accepts Cardhedger Chrome shorthand that omits Refractor (Green Wave / Prism)', () => {
+  it('rejects color-only Chrome row when PSA names color + Refractor (Pink vs Pink Refractor)', () => {
+    const pinkOnly = {
+      variant: 'Pink',
+      description: 'Shohei Ohtani 2023 Topps Chrome Baseball Pink #17',
+      name: 'Shohei Ohtani',
+      number: '17',
+    };
+    const pinkRefractor = {
+      variant: 'Pink Refractor',
+      description:
+        'Shohei Ohtani 2023 Topps Chrome Baseball Pink Refractor #17',
+      name: 'Shohei Ohtani',
+      number: '17',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(pinkOnly, 'PINK REFRACTOR')).toBe(
+      false,
+    );
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(pinkOnly, 'PINK REFRACTOR'),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(pinkRefractor, 'PINK REFRACTOR'),
+    ).toBe(true);
+    expect(
+      cardhedgerCertRowRelaxedGemRateLink(pinkOnly, 'PINK REFRACTOR'),
+    ).toBe(false);
+  });
+
+  it('requires PSA parallel tokens on the Cardhedger row (no Refractor omission)', () => {
     expect(
       cardhedgerRowMatchesPsaVariety(
         {
@@ -475,12 +504,23 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         },
         'GREEN WAVE REFRACTOR',
       ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Pitching Green Wave',
+          description:
+            'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Green Wave Refractor',
+        },
+        'GREEN WAVE REFRACTOR',
+      ),
     ).toBe(true);
     expect(
       cardhedgerCertRowUsableForPsaVariety(
         {
           variant: 'Pitching Prism',
-          description: 'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Prism',
+          description:
+            'Shohei Ohtani 2018 Topps Chrome Baseball Pitching Prism Refractor',
         },
         'PRISM REFRACTOR',
       ),

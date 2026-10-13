@@ -40,7 +40,8 @@ import { TkButton, TkDialog } from "@/components/ds";
 |------|---------|
 | `styles.css` | Single entry — imports tokens + components |
 | `tokens/fig-tokens.css` | Figma color/spacing variables |
-| `tokens/base.css` | Typography scale, elevation, pixel notches |
+| `tokens/base.css` | Marketing typography scale, elevation, pixel notches |
+| `tokens/typography-ui.css` | Product UI type scale (`--tk-ui-fs-*`, `.tk-ui-*`) |
 | `components/components.css` | `tk-btn`, `tk-dialog`, `tk-table`, … |
 
 This README is the **only** design-system doc under `frontend/`. Sections below: brand/a11y, prototypes, screen inventory.
@@ -369,7 +370,7 @@ Maps designer HTML sections to existing React modules. Use when implementing Pha
 
 ## Portfolio Redeem — `Ship-From-Vault.html` (pay-first; product name Redeem)
 
-Canonical prototype: `Tokenable-with design system-26/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged). Eyebrow copy is **Redeem**, not Ship from vault. Card titles use Line 1 `{Name} · {Number} · {Grade}` (grade is not a separate chip).
+Canonical prototype: `Tokenable-with design system-38/Ship-From-Vault.html` → `/portfolio/redeem` (route + `pf-redeem-*` unchanged). Eyebrow copy is **Redeem**, not Ship from vault. Card titles use Line 1 `{Name} · {Number} · {Grade}` (grade is not a separate chip).
 
 | Screen | Prototype | React | File |
 |--------|-----------|-------|------|

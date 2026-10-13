@@ -10,11 +10,17 @@ describe('CollectionService.adminDeleteCollectionCompletely', () => {
     em: Record<string, jest.Mock>,
     rowCount: number,
   ) {
+    const catalogRow = {
+      collectionKey: 'ohtani-key',
+      tokenContract: '0xrwa1',
+    };
     const collectionRepo = {
-      findOne: jest.fn().mockResolvedValue({
-        collectionKey: 'ohtani-key',
-        tokenContract: '0xrwa1',
-      }),
+      findOne: jest.fn().mockResolvedValue(catalogRow),
+      createQueryBuilder: jest.fn(() => ({
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        getOne: jest.fn().mockResolvedValue(catalogRow),
+      })),
       count: jest.fn().mockResolvedValue(rowCount),
       manager: {
         transaction: async (fn: (m: typeof em) => Promise<unknown>) => fn(em),
@@ -54,6 +60,9 @@ describe('CollectionService.adminDeleteCollectionCompletely', () => {
   }
 
   it('unlinks rwa_tokens.collection_key instead of deleting mint registry rows', async () => {
+    const cancelExecute = jest.fn().mockResolvedValue({ affected: 3 });
+    const unlinkExecute = jest.fn().mockResolvedValue({ affected: 4 });
+    let qbCall = 0;
     const em = {
       delete: jest.fn(async (entity: unknown) => {
         if (entity === CollectionMarketSnapshot) return { affected: 1 };
@@ -64,13 +73,35 @@ describe('CollectionService.adminDeleteCollectionCompletely', () => {
         }
         return { affected: 0 };
       }),
-      createQueryBuilder: jest.fn(() => ({
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 4 }),
-      })),
+      createQueryBuilder: jest.fn((entity?: unknown) => {
+        if (entity === RwaToken) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            getRawMany: jest
+              .fn()
+              .mockResolvedValue([{ tokenId: '42' }, { tokenId: '99' }]),
+          };
+        }
+        qbCall += 1;
+        if (qbCall === 1) {
+          return {
+            update: jest.fn().mockReturnThis(),
+            set: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            execute: cancelExecute,
+          };
+        }
+        return {
+          update: jest.fn().mockReturnThis(),
+          set: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          execute: unlinkExecute,
+        };
+      }),
     };
 
     const { service, merkleSet } = buildService(em, 1);
@@ -79,6 +110,8 @@ describe('CollectionService.adminDeleteCollectionCompletely', () => {
     expect(em.delete).not.toHaveBeenCalledWith(RwaToken, expect.anything());
     expect(em.createQueryBuilder).toHaveBeenCalled();
     expect(result.unlinkedRwaTokens).toBe(4);
+    expect(result.cancelledActiveAsks).toBe(3);
+    expect(cancelExecute).toHaveBeenCalled();
     expect(result.deletedCollection).toBe(true);
     expect(merkleSet.invalidateForCollection).toHaveBeenCalledWith('ohtani-key');
     // Chain-scoped: snapshot deleted because this is the last chain row
@@ -97,13 +130,23 @@ describe('CollectionService.adminDeleteCollectionCompletely', () => {
         if (entity === Order) return { affected: 0 };
         return { affected: 0 };
       }),
-      createQueryBuilder: jest.fn(() => ({
-        update: jest.fn().mockReturnThis(),
-        set: jest.fn().mockReturnThis(),
-        where: jest.fn().mockReturnThis(),
-        andWhere: jest.fn().mockReturnThis(),
-        execute: jest.fn().mockResolvedValue({ affected: 0 }),
-      })),
+      createQueryBuilder: jest.fn((entity?: unknown) => {
+        if (entity === RwaToken) {
+          return {
+            select: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            getRawMany: jest.fn().mockResolvedValue([]),
+          };
+        }
+        return {
+          update: jest.fn().mockReturnThis(),
+          set: jest.fn().mockReturnThis(),
+          where: jest.fn().mockReturnThis(),
+          andWhere: jest.fn().mockReturnThis(),
+          execute: jest.fn().mockResolvedValue({ affected: 0 }),
+        };
+      }),
     };
 
     const { service } = buildService(em, 2);

@@ -41,7 +41,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -56,12 +56,12 @@
 
 .vault-page--submit .vault-form-label--sm {
   margin-bottom: 6px;
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 .vault-page--submit .vault-form-helper {
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -79,7 +79,7 @@
   background: #141414;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: normal;
   outline: none;
   appearance: none;
@@ -104,12 +104,12 @@
 
 .vault-page--submit .vault-form-input--md {
   height: 48px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
 }
 
 .vault-page--submit .vault-form-input--sm {
   height: 38px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-page--submit .vault-form-input[type="number"] {
@@ -125,7 +125,7 @@
 .vault-page--submit .vault-form-error {
   display: block;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--neg);
 }
 
@@ -148,7 +148,7 @@
   background: var(--background-neutral-default, rgba(255, 255, 255, 0.08));
   color: var(--text-default-default, rgba(255, 255, 255, 0.75));
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 700;
   letter-spacing: 0.02em;
   line-height: 1;
@@ -167,27 +167,27 @@
 .vault-page--submit .vault-cert-lookup-btn.tk-btn {
   height: 52px;
   padding: 0 24px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   white-space: nowrap;
 }
 
 .vault-page--submit .vault-add-another-btn.tk-btn {
   height: 38px;
   padding: 0 18px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-page--submit .vault-tg-connect-btn.tk-btn {
   height: 32px;
   padding: 0 14px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-page--submit .vault-submit-cta.tk-btn {
   height: 54px;
   width: 100%;
   justify-content: center;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   gap: 8px;
 }
 
@@ -200,13 +200,13 @@
   height: 48px;
   width: 100%;
   justify-content: center;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
 }
 
 .vault-page--submit .vault-submit-cta--mobile.tk-btn {
   height: 52px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
 }
 
 .vault-page--submit .vault-submit-cta--mobile.tk-btn:disabled {
@@ -240,7 +240,7 @@
   display: grid;
   place-items: center;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums lining-nums;
@@ -312,7 +312,7 @@
 }
 
 .vault-stepper:not(.vault-stepper--rich) .vault-stepper__label {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   letter-spacing: 0.02em;
 }
 
@@ -333,7 +333,7 @@
 .vault-stepper__dot--halted {
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.5);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
 }
 
 .vault-stepper__line--gradient {
@@ -366,7 +366,7 @@
 
 .vault-stepper__label {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   text-align: center;
   color: rgba(255, 255, 255, 0.4);
@@ -390,7 +390,7 @@
 
 .vault-submit-header__eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -411,7 +411,7 @@
 .vault-submit-header__subtitle {
   margin: 10px auto 0;
   max-width: 520px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.6;
   color: var(--t2);
 }
@@ -472,8 +472,9 @@
 .vault-badge {
   display: inline-flex;
   align-items: center;
-  font-family: var(--font-mono);
-  font-size: 12px;
+  gap: 4px;
+  font-family: var(--font-sans);
+  font-size: 11px;
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
@@ -513,7 +514,7 @@
   background: transparent;
   color: rgba(255, 255, 255, 0.4);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.15s;
@@ -537,7 +538,7 @@
   gap: 8px;
   margin-bottom: 16px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-breadcrumb a {
@@ -663,7 +664,7 @@
   background: transparent;
   color: var(--azure);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -813,7 +814,7 @@
 
 .vault-landing__connect-hint {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   letter-spacing: 0.04em;
   color: var(--t3);
   margin-top: 12px;
@@ -842,14 +843,14 @@
 
 .vault-empty h2 {
   margin: 0 0 10px;
-  font-size: 24px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-empty p {
   margin: 0 0 32px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.4);
 }
@@ -867,7 +868,7 @@
 
 .vault-dash-header h1 {
   margin: 0 0 4px;
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.2;
@@ -876,7 +877,7 @@
 
 .vault-dash-header p {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -896,7 +897,7 @@
 
 .vault-stat-card__label {
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -918,7 +919,7 @@
 
 .vault-stat-card__sub {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -933,14 +934,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-sec-count {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 10px;
@@ -949,7 +950,7 @@
 }
 
 .vault-sec-sub {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -1003,7 +1004,7 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
 }
@@ -1018,12 +1019,12 @@
 
 .vault-ip-meta .mono {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
 }
 
 .vault-ip-hint {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: #f3701e;
 }
 
@@ -1056,7 +1057,7 @@
   border-radius: 10px;
   color: #fff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   outline: none;
 }
 
@@ -1076,7 +1077,7 @@
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.5);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   cursor: pointer;
 }
 
@@ -1095,7 +1096,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1107,7 +1108,7 @@
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-table tr:hover td {
@@ -1141,13 +1142,13 @@
 }
 
 .vault-table-card__sub {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.3);
 }
 
 .vault-nft-link {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--azure);
   text-decoration: none;
@@ -1167,7 +1168,7 @@
 }
 
 .vault-rej-toggle span {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -1241,7 +1242,7 @@
   margin: 0 0 8px;
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   color: #fff;
 }
 
@@ -1274,7 +1275,7 @@
 .vault-cert-lookup-btn {
   height: 52px !important;
   padding: 0 24px !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
   white-space: nowrap;
   flex-shrink: 0;
   gap: 6px;
@@ -1288,7 +1289,7 @@
 .vault-form-error {
   display: block;
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--neg);
 }
 
@@ -1330,7 +1331,7 @@
 
 .vault-lookup-card__name {
   margin-bottom: 4px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
   line-height: 1.35;
@@ -1344,17 +1345,17 @@
 }
 
 .vault-lookup-card__grade {
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 .vault-lookup-card__cert {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-lookup-card__status {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
 }
 
@@ -1371,7 +1372,7 @@
   background: none;
   padding: 8px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.3);
   cursor: pointer;
   flex-shrink: 0;
@@ -1388,7 +1389,7 @@
 .vault-add-another-btn {
   height: 38px !important;
   padding: 0 18px !important;
-  font-size: 13px !important;
+  font-size: var(--tk-ui-fs-body) !important;
 }
 
 .vault-submit-details-stack {
@@ -1399,17 +1400,17 @@
 
 .vault-form-label--sm {
   margin-bottom: 6px;
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 .vault-form-input--md {
   height: 48px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
 }
 
 .vault-form-input--sm {
   height: 38px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-est-value-wrap {
@@ -1422,7 +1423,7 @@
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: rgba(255, 255, 255, 0.3);
 }
@@ -1450,7 +1451,7 @@
 }
 
 .vault-wallet-connected__addr {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
@@ -1460,7 +1461,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--pos);
 }
@@ -1496,7 +1497,7 @@
 }
 
 .vault-notify-check__title {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 500;
   color: #fff;
 }
@@ -1506,14 +1507,14 @@
 }
 
 .vault-notify-check__hint {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 400;
   color: rgba(255, 255, 255, 0.25);
 }
 
 .vault-notify-check__sub {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -1524,7 +1525,7 @@
 .vault-tg-connect-btn {
   height: 32px !important;
   padding: 0 14px !important;
-  font-size: 12px !important;
+  font-size: var(--tk-ui-fs-body-sm) !important;
   flex-shrink: 0;
 }
 
@@ -1541,7 +1542,7 @@
   background: rgba(243, 112, 30, 0.08);
   border: 1px solid rgba(243, 112, 30, 0.2);
   border-radius: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.7;
   color: rgba(243, 112, 30, 0.9);
 }
@@ -1556,7 +1557,7 @@
   height: 54px !important;
   width: 100% !important;
   justify-content: center;
-  font-size: 16px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   gap: 8px;
 }
 
@@ -1573,14 +1574,14 @@
 
 .vault-submit-cta--mobile {
   height: 52px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
 }
 
 .vault-draft-cta {
   height: 48px !important;
   width: 100% !important;
   justify-content: center;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
   color: var(--t2) !important;
 }
 
@@ -1590,7 +1591,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1599,7 +1600,7 @@
 
 .vault-form-helper {
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -1620,7 +1621,7 @@
   border-radius: 12px;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -1631,7 +1632,7 @@
 }
 
 .vault-form-input--price {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
 }
 
@@ -1646,13 +1647,13 @@
 }
 
 .vault-list-market-bar__label {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-list-market-bar__value {
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: var(--t2);
 }
@@ -1739,7 +1740,7 @@
 
 .vault-faq-toggle span {
   padding-right: 16px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: #fff;
 }
@@ -1756,7 +1757,7 @@
 
 .vault-faq-body p {
   margin: 0 0 16px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -1796,7 +1797,7 @@
 }
 
 .vault-shipping-status-banner__title {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: #fff;
 }
@@ -1811,7 +1812,7 @@
 
 .vault-shipping-status-banner__badge {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 6px;
@@ -1820,7 +1821,7 @@
 }
 
 .vault-shipping-status-banner__meta {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -1836,7 +1837,7 @@
 
 .vault-shipping-header__eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -1854,7 +1855,7 @@
 
 .vault-shipping-header__sub {
   margin: 8px 0 0;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -1875,14 +1876,14 @@
 
 .vault-ship-addr__name {
   margin-bottom: 4px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-ship-addr__lines {
   margin-bottom: 12px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.8;
   color: var(--t2);
 }
@@ -1890,7 +1891,7 @@
 .vault-ship-addr__id {
   margin-bottom: 12px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--azure);
 }
@@ -1903,7 +1904,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   background: rgba(245, 158, 11, 0.06);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.5;
   color: var(--amber);
 }
@@ -1930,7 +1931,7 @@
   border-radius: 10px;
   color: #fff;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   text-decoration: none;
   cursor: pointer;
@@ -1962,7 +1963,7 @@
   border: 1px solid var(--amber-border, rgba(245, 158, 11, 0.25));
   border-radius: 12px;
   background: var(--amber-bg, rgba(245, 158, 11, 0.08));
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.6;
   color: var(--amber);
 }
@@ -1974,12 +1975,12 @@
 
 .vault-ship-kyc {
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-ship-kyc__flag {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 
 .vault-ship-carrier-row {
@@ -1999,7 +2000,7 @@
 }
 
 .vault-ship-carrier-row__name {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
@@ -2011,14 +2012,14 @@
 
 .vault-ship-carrier-row__tag {
   margin-left: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 500;
   color: var(--azure);
 }
 
 .vault-ship-carrier-row__detail {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
 }
 
@@ -2035,7 +2036,7 @@
   border: 1px solid var(--amber-border, rgba(245, 158, 11, 0.25));
   border-radius: 8px;
   background: var(--amber-bg, rgba(245, 158, 11, 0.08));
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.6;
   color: var(--amber);
 }
@@ -2048,7 +2049,7 @@
 
 .vault-ship-checklist-intro {
   margin: 0 0 14px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2085,7 +2086,7 @@
 }
 
 .vault-ship-check-text {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -2121,7 +2122,7 @@
 
 .vault-ship-progress__text {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   white-space: nowrap;
   color: rgba(255, 255, 255, 0.35);
@@ -2153,7 +2154,7 @@
 }
 
 .vault-ship-tracking__title {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -2164,7 +2165,7 @@
 
 .vault-ship-tracking__lock {
   margin-left: auto;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -2182,7 +2183,7 @@
 .vault-ship-field-label {
   display: block;
   margin-bottom: 4px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2195,7 +2196,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   color: #fff;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -2206,13 +2207,13 @@
 
 .vault-ship-input--date {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color-scheme: dark;
 }
 
 .vault-ship-select {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -2233,7 +2234,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 
 .vault-ship-register-btn--disabled {
@@ -2268,7 +2269,7 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 8px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: var(--pos);
 }
@@ -2276,7 +2277,7 @@
 .vault-ship-success__body {
   margin: 0 0 12px;
   padding-left: 30px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -2292,7 +2293,7 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
 }
 
 .vault-ship-primary-btn--disabled {
@@ -2312,7 +2313,7 @@
   height: 46px;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   text-decoration: none;
   color: #fff;
   background: #191919;
@@ -2344,7 +2345,7 @@
   max-width: 1200px;
   margin: 0 auto;
   padding: 14px clamp(16px, 4vw, 40px);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.55);
 }
 
@@ -2377,7 +2378,7 @@
   background: rgba(245, 158, 11, 0.08);
   border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.7;
   color: rgba(245, 158, 11, 0.9);
 }
@@ -2421,7 +2422,7 @@
 }
 
 .vault-check-text {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.65);
 }
@@ -2450,7 +2451,7 @@
 }
 
 .vault-progress-text {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2463,7 +2464,7 @@
   border-radius: 12px;
   color: #fff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   outline: none;
 }
 
@@ -2513,7 +2514,7 @@
 }
 
 .vault-detail-summary__name {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   line-height: 1.35;
   color: #fff;
@@ -2529,7 +2530,7 @@
 
 .vault-detail-summary__cert {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -2573,7 +2574,7 @@
 
 .vault-detail-status-hero__title {
   margin-bottom: 8px;
-  font-size: 24px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   color: #fff;
 }
@@ -2581,7 +2582,7 @@
 .vault-detail-status-hero__desc {
   margin: 0;
   padding-left: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -2606,7 +2607,7 @@
   display: block;
   margin-bottom: 16px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2642,7 +2643,7 @@
 }
 
 .vault-detail-live__hint {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.2);
 }
 
@@ -2655,12 +2656,13 @@
   background: rgba(26, 111, 255, 0.06);
   border: 1px solid rgba(26, 111, 255, 0.15);
   border-radius: 12px;
+  font-family: var(--font-sans);
   font-size: 13px;
   color: rgba(255, 255, 255, 0.55);
 }
 
 .vault-detail-notif__icon {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   flex-shrink: 0;
 }
 
@@ -2692,7 +2694,7 @@
 .vault-detail-receipt__pending {
   padding: 20px 0;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -2706,7 +2708,7 @@
 .vault-detail-receipt__scan {
   width: 100%;
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-detail-main-actions,
@@ -2737,7 +2739,7 @@
 
 .vault-detail-what-happened {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.5);
 }
@@ -2748,7 +2750,7 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.06);
   border-radius: 12px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.7;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -2759,7 +2761,7 @@
 
 .vault-detail-v--link {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--azure);
   text-decoration: none;
   font-weight: 600;
@@ -2771,7 +2773,7 @@
 
 .vault-tl-phase {
   margin-bottom: 4px;
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -2793,7 +2795,7 @@
 }
 
 .vault-tl-status {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
 }
 
@@ -2832,7 +2834,7 @@
   background: rgba(26, 111, 255, 0.06);
   border: 1px solid rgba(26, 111, 255, 0.15);
   border-radius: 12px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.65);
 }
 
@@ -2950,6 +2952,7 @@
 
 .vault-tl-title {
   margin-bottom: 2px;
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 700;
   color: #fff;
@@ -2973,11 +2976,12 @@
 
 .vault-tl-time {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   color: rgba(255, 255, 255, 0.3);
 }
 
 .vault-tl-desc {
+  font-family: var(--font-sans);
   font-size: 13px;
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.45);
@@ -2994,7 +2998,7 @@
   background: #0e0e18;
   border-radius: 12px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 2;
 }
 
@@ -3033,17 +3037,18 @@
 }
 
 .vault-detail-k {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 400;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.52);
   flex: 0 0 auto;
   max-width: 40%;
 }
 
 .vault-detail-v {
+  font-family: var(--font-sans);
   font-size: 13px;
   font-weight: 600;
   text-align: right;
@@ -3061,7 +3066,7 @@
   background: rgba(245, 51, 44, 0.08);
   border: 1px solid rgba(245, 51, 44, 0.25);
   border-radius: 12px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.65);
 }
@@ -3088,7 +3093,7 @@
   display: block;
   margin-bottom: 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -3106,7 +3111,7 @@
 
 .vault-card-summary__name {
   margin-bottom: 6px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   line-height: 1.3;
   color: #fff;
@@ -3124,7 +3129,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -3187,13 +3192,13 @@
 
 .vault-method-card__title {
   margin-bottom: 6px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-method-card__desc {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.4);
 }
@@ -3207,7 +3212,7 @@
 
 .vault-ref-prices__title {
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -3217,7 +3222,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 8px 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-ref-row__source {
@@ -3232,7 +3237,7 @@
 }
 
 .vault-ref-row__date {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.3);
 }
 
@@ -3249,7 +3254,7 @@
   background: #141414;
   color: rgba(255, 255, 255, 0.55);
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3272,7 +3277,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 10px 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
 }
 
 .vault-fee-row--total {
@@ -3319,7 +3324,7 @@
 }
 
 .vault-terms-check__text {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -3348,7 +3353,7 @@
 
 .vault-success-banner__title {
   margin-bottom: 6px;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
@@ -3416,7 +3421,7 @@
 .vault-hub-header__shipments {
   height: 48px;
   padding: 0 18px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   text-decoration: none;
 }
@@ -3426,7 +3431,7 @@
   align-items: center;
   height: 46px;
   padding: 0 20px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
@@ -3449,7 +3454,7 @@
 
 .vault-hub-stat-card__label {
   margin-bottom: 8px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.35);
 }
@@ -3476,7 +3481,7 @@
 
 .vault-hub-stat-card__sub {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
 }
 
@@ -3563,7 +3568,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   line-height: 1.3;
   text-decoration: none;
@@ -3615,7 +3620,7 @@
 
 .vault-hiw__title {
   margin-bottom: 36px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -3679,7 +3684,7 @@
 .vault-hiw__num {
   margin-bottom: 12px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--azure);
@@ -3687,13 +3692,13 @@
 
 .vault-hiw__step-title {
   margin-bottom: 8px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-hiw__step-desc {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.4);
 }
@@ -3717,14 +3722,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-hub-sec-count {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   padding: 2px 8px;
   border-radius: 10px;
@@ -3761,7 +3766,7 @@
   border-radius: 10px;
   color: #fff;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   outline: none;
 }
 
@@ -3785,7 +3790,7 @@
   border-radius: 10px;
   color: rgba(255, 255, 255, 0.5);
   font-family: inherit;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   cursor: pointer;
 }
 
@@ -3796,7 +3801,7 @@
 
 .vault-hub-grade-tag {
   margin-left: 4px;
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 /* Vault-Dashboard-Active.html `.badge--grade` */
@@ -3807,7 +3812,7 @@
   padding: 3px 10px;
   border-radius: 6px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   white-space: nowrap;
   background: rgba(0, 200, 100, 0.12);
@@ -3830,6 +3835,7 @@
   background: #16161d;
   border-radius: 12px;
   box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.07);
+  font-family: var(--font-sans);
   font-size: 13.5px;
   color: var(--t2);
   line-height: 1.65;
@@ -3866,7 +3872,7 @@
   border-radius: 10px;
   background: #16161d;
   color: var(--t2);
-  font-family: inherit;
+  font-family: var(--font-sans);
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -3984,6 +3990,7 @@
 }
 
 .vault-v-name {
+  font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 700;
   color: #fff;
@@ -4011,7 +4018,7 @@
 
 .vault-v-cert {
   font-family: var(--font-mono);
-  font-size: 12.5px;
+  font-size: 12px;
   color: var(--t3);
   margin-top: 5px;
   line-height: 1.4;
@@ -4082,7 +4089,7 @@
   flex: none;
   display: grid;
   place-items: center;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
@@ -4098,19 +4105,21 @@
 }
 
 .vault-v-step--done .vault-v-step__dot {
-  background: var(--progress-done);
-  color: #fff;
-  box-shadow: none;
+  background: #124e2e;
+  color: #4cde4c;
+  box-shadow: inset 0 0 0 1.5px rgba(76, 222, 76, 0.55);
 }
 
 .vault-v-step--current .vault-v-step__dot {
-  background: var(--progress-current);
-  color: #0e0e0e;
-  box-shadow: 0 0 0 4px rgba(76, 222, 76, 0.15);
+  background: #4cde4c;
+  color: #0b2e1a;
+  box-shadow:
+    0 0 0 5px rgba(76, 222, 76, 0.22),
+    0 0 14px rgba(76, 222, 76, 0.5);
 }
 
 .vault-v-step__lbl {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: 0.04em;
@@ -4120,21 +4129,28 @@
   color: var(--t3);
 }
 
-.vault-v-step--done .vault-v-step__lbl,
+.vault-v-step--done .vault-v-step__lbl {
+  color: rgba(255, 255, 255, 0.7);
+}
+
 .vault-v-step--current .vault-v-step__lbl {
   color: #fff;
 }
 
 .vault-v-step__bar {
   flex: 1;
-  height: 2px;
+  height: 3px;
   margin: 0 12px;
   background: #2a2a33;
   border-radius: 2px;
 }
 
 .vault-v-step--done .vault-v-step__bar {
-  background: var(--progress-done);
+  background: #1e7a46;
+}
+
+.vault-v-step--current .vault-v-step__bar {
+  background: linear-gradient(90deg, #4cde4c, #2a2a33);
 }
 
 .vault-v-eta {
@@ -4156,6 +4172,7 @@
   padding: 12px 14px;
   border-radius: 10px;
   background: rgba(0, 175, 90, 0.08);
+  font-family: var(--font-sans);
   font-size: 13px;
   color: #4cde4c;
   line-height: 1.5;
@@ -4210,7 +4227,7 @@
 .vault-v-actions .tk-btn {
   height: 42px;
   padding: 0 18px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   text-decoration: none;
 }
@@ -4265,18 +4282,18 @@
 }
 
 .vault-hub-cta-link--table {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-hub-cta-link--block {
   display: flex;
   width: 100%;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-hub-mono {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .vault-hub-mono--cert {
@@ -4302,7 +4319,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -4314,7 +4331,7 @@
   padding: 14px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   vertical-align: middle;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .vault-hub-table tr:hover td {
@@ -4431,7 +4448,7 @@
   background: var(--azure);
   color: #fff;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 700;
   line-height: 20px;
   text-align: center;
@@ -4453,7 +4470,7 @@
 
 .vault-ip-card__name {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
   min-width: 0;
@@ -4466,7 +4483,7 @@
 .vault-ip-card__more {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.45);
@@ -4482,7 +4499,7 @@
 }
 
 .vault-ip-card__status-label {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
 }
 
@@ -4505,25 +4522,25 @@
 .vault-ip-card__detail {
   margin-left: 6px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.3);
 }
 
 .vault-ip-card__detail-text {
   margin-left: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-ip-card__hint {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
 }
 
 .vault-ip-card__hint--amber {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--amber);
 }
 
@@ -4618,13 +4635,13 @@
 }
 
 .vault-hub-mcard__name {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: #fff;
 }
 
 .vault-hub-mcard__badge {
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 .vault-hub-mcard__row {
@@ -4636,7 +4653,7 @@
 
 .vault-hub-mcard__label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.3);
@@ -4664,7 +4681,7 @@
   background: transparent;
   border: 0;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.03em;
   color: rgba(255, 255, 255, 0.4);
@@ -4732,7 +4749,7 @@
 
   .vault-vtab {
     white-space: nowrap;
-    padding: 10px 12px;
+    padding: 0 15px;
     font-size: 13.5px;
   }
 
@@ -4754,7 +4771,7 @@
   }
 
   .vault-ip-card__name {
-    font-size: 13.5px;
+    font-size: var(--tk-ui-fs-body-lg);
     line-height: 1.35;
     white-space: normal;
   }
@@ -4784,8 +4801,12 @@
     gap: 24px;
   }
 
-  .vault-breadcrumb {
+  .vault-breadcrumb:not(.vault-breadcrumb--flow) {
     display: none !important;
+  }
+
+  .vault-page--detail .vault-breadcrumb--flow {
+    display: flex !important;
   }
 
   .vault-ship-grid {
@@ -4828,18 +4849,18 @@
   }
 
   .vault-hub-stat-card__label {
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
     margin-bottom: 6px;
     line-height: 1.25;
     overflow-wrap: anywhere;
   }
 
   .vault-hub-stat-card__num {
-    font-size: 22px;
+    font-size: var(--tk-ui-fs-title);
   }
 
   .vault-hub-stat-card__sub {
-    font-size: 10px;
+    font-size: var(--tk-ui-fs-label);
   }
 
   .vault-hub-table-wrap .vault-hub-table {
@@ -4906,15 +4927,15 @@
   }
 
   .vault-hub-stat-card__label {
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
   }
 
   .vault-hub-stat-card__num {
-    font-size: 24px;
+    font-size: var(--tk-ui-fs-title);
   }
 
   .vault-hub-stat-card__sub {
-    font-size: 11px;
+    font-size: var(--tk-ui-fs-caption);
   }
 }
 
@@ -4936,33 +4957,33 @@
   .vault-stepper:not(.vault-stepper--rich) .vault-stepper__dot {
     width: 30px;
     height: 30px;
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
   }
 
   .vault-stepper:not(.vault-stepper--rich) .vault-stepper__label {
-    font-size: 11px;
+    font-size: var(--tk-ui-fs-caption);
   }
 
   /* Detail rich bar keeps Vault-Detail.html sizes on mobile */
   .vault-stepper--rich .vault-stepper__dot {
     width: 36px;
     height: 36px;
-    font-size: 14px;
+    font-size: var(--tk-ui-fs-body-lg);
   }
 
   .vault-stepper--rich .vault-stepper__label {
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
   }
 
   /* Shipping simple stepper keeps HTML sizes on mobile */
   .vault-page--shipping .vault-stepper:not(.vault-stepper--rich) .vault-stepper__dot {
     width: 32px;
     height: 32px;
-    font-size: 14px;
+    font-size: var(--tk-ui-fs-body-lg);
   }
 
   .vault-page--shipping .vault-stepper:not(.vault-stepper--rich) .vault-stepper__label {
-    font-size: 12px;
+    font-size: var(--tk-ui-fs-body-sm);
   }
 
   .vault-page--shipping .vault-stepper {
@@ -5056,7 +5077,7 @@
 
 .vault-ip-card__tracking-link {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: #4d8eff;
   margin-left: 6px;
   text-decoration: none;
@@ -5114,7 +5135,7 @@
 }
 
 .vault-stepper--rich .vault-stepper__label {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   text-align: center;
 }
@@ -5142,7 +5163,7 @@
 .vault-stepper--rich .vault-stepper__dot {
   width: 28px;
   height: 28px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 500;
 }
 
@@ -5157,7 +5178,7 @@
 
 .vault-stepper__sub {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   margin-top: 4px;
@@ -5168,7 +5189,7 @@
 
 .vault-stepper__detail {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   margin-top: 6px;
   color: rgba(255, 255, 255, 0.35);
   line-height: 1.5;
@@ -5182,7 +5203,7 @@
 }
 
 .vault-stepper__cta {
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   color: var(--azure);
   margin-top: 4px;
   display: inline-block;
@@ -5191,7 +5212,7 @@
 
 .vault-stepper__cta--action {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--amber);
   background: transparent;
@@ -5279,14 +5300,14 @@
 }
 
 .vault-add-method__title {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
   margin-top: 10px;
 }
 
 .vault-add-method__desc {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
   margin-top: 4px;
   line-height: 1.5;
@@ -5313,7 +5334,7 @@
 .vault-card-list-head__label,
 .vault-card-list-head__count {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
   letter-spacing: 0.06em;
 }
@@ -5330,7 +5351,7 @@
 .vault-card-list-empty {
   padding: 32px 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.35);
   line-height: 1.6;
 }
@@ -5380,7 +5401,7 @@
 }
 
 .vault-card-row__name {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   color: #fff;
   line-height: 1.35;
@@ -5400,7 +5421,7 @@
 
 .vault-card-row__grade {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 6px;
@@ -5409,12 +5430,12 @@
 }
 
 .vault-card-row__cert {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-card-row__reject-msg {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--neg);
   font-weight: 600;
 }
@@ -5443,7 +5464,7 @@
 }
 
 .vault-card-row__confirm-label {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   white-space: nowrap;
   color: rgba(255, 255, 255, 0.35);
@@ -5461,7 +5482,7 @@
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   flex-shrink: 0;
   display: flex;
@@ -5489,7 +5510,7 @@
 }
 
 .vault-disclaimer-amber--compact {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   margin-top: 12px;
 }
 
@@ -5498,7 +5519,7 @@
   align-items: flex-start;
   gap: 12px;
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.6;
 }
@@ -5540,7 +5561,7 @@
   background: rgba(255, 255, 255, 0.1);
   border: 0;
   color: #fff;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   cursor: pointer;
   z-index: 2;
 }
@@ -5609,7 +5630,7 @@
 
 .vault-scan-modal__frame-label {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.35);
 }
@@ -5644,13 +5665,13 @@
 
 .vault-scan-modal__status {
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: #fff;
 }
 
 .vault-scan-modal__hint {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.4);
   max-width: 280px;
   margin: 0;
@@ -5691,7 +5712,7 @@
 }
 
 .vault-ship-gate__lock {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
   margin-left: auto;
 }
@@ -5704,13 +5725,13 @@
 }
 
 .vault-ship-slip__title {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
 
 .vault-ship-slip__desc {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.45);
   margin: 0 0 14px;
   line-height: 1.5;
@@ -5724,7 +5745,7 @@
   width: 100%;
   height: 44px;
   padding: 0 20px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   font-family: var(--font-sans);
   border: 0;
@@ -5753,7 +5774,7 @@
 }
 
 .vault-ship-slip__warn {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--amber);
   margin-top: 10px;
   text-align: center;
@@ -5811,6 +5832,7 @@
 }
 
 .vault-detail-hero__title {
+  font-family: var(--font-sans);
   font-size: 22px;
   font-weight: 700;
   color: #fff;
@@ -5823,6 +5845,7 @@
 }
 
 .vault-detail-hero__sub {
+  font-family: var(--font-sans);
   font-size: 13.5px;
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.6;
@@ -5894,14 +5917,18 @@
 .vault-detail-cta--primary {
   height: 48px;
   padding: 0 24px;
+  font-family: var(--font-sans);
   font-size: 15px;
+  font-weight: 600;
 }
 
 .vault-detail-cta--subtle {
   height: 42px;
   padding: 0 24px;
+  font-family: var(--font-sans);
   font-size: 13px;
-  color: var(--t2);
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .vault-detail-package {
@@ -5935,7 +5962,7 @@
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.45);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: 10.5px;
   font-weight: 600;
   padding: 6px 9px;
@@ -5964,23 +5991,24 @@
 
 .vault-detail-package__meta {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.4);
+  color: rgba(255, 255, 255, 0.52);
   font-weight: 600;
 }
 
 .vault-detail-package__date {
+  font-family: var(--font-sans);
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.52);
 }
 
 .vault-detail-package__row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 12px 0;
+  gap: 16px;
+  padding: 14px 0;
 }
 
 .vault-detail-package__row--border {
@@ -5988,11 +6016,11 @@
 }
 
 .vault-detail-package__thumb {
-  width: 40px;
-  height: 56px;
+  width: 56px;
+  height: 78px;
   background: #0e0e0e;
-  border-radius: 6px;
-  padding: 3px;
+  border-radius: 8px;
+  padding: 2px;
   flex-shrink: 0;
 }
 
@@ -6002,33 +6030,37 @@
 }
 
 .vault-detail-package__name {
-  font-size: 13px;
+  font-family: var(--font-sans);
+  font-size: 14.5px;
   font-weight: 600;
   line-height: 1.35;
 }
 
 .vault-detail-package__line2 {
-  margin-top: 5px;
-  font-size: 12px;
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 400;
   line-height: 1.4;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(255, 255, 255, 0.6);
 }
 
 .vault-detail-package__cert {
-  font-size: 11px;
+  font-family: var(--font-mono);
+  font-size: 12px;
   color: rgba(255, 255, 255, 0.52);
   flex-shrink: 0;
   white-space: nowrap;
 }
 
 .vault-detail-package__grade {
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   flex-shrink: 0;
 }
 
 .vault-detail-ship-to__addr {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.9;
   color: #fff;
 }
@@ -6037,19 +6069,19 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
 }
 
 .vault-detail-ship-to__id-val {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--azure);
   font-weight: 700;
 }
 
 .vault-detail-ship-to__warn {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--amber);
   line-height: 1.6;
 }
@@ -6063,7 +6095,7 @@
 .vault-detail-ship-to__btn {
   flex: 1;
   height: 40px !important;
-  font-size: 13px !important;
+  font-size: var(--tk-ui-fs-body) !important;
 }
 
 .vault-detail-tracking-form {
@@ -6093,7 +6125,7 @@
   width: 100%;
   margin-top: 12px;
   text-decoration: none;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   box-sizing: border-box;
 }
 
@@ -6102,14 +6134,14 @@
   align-items: center;
   gap: 10px;
   margin-bottom: 10px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-detail-tracking-link {
   display: inline-block;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--azure);
   text-decoration: none;
   font-weight: 600;
@@ -6125,7 +6157,7 @@
 
 .vault-detail-tracking-change {
   height: 38px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   padding: 0 16px;
   display: inline-flex;
   align-items: center;
@@ -6223,6 +6255,7 @@
 }
 
 .vault-stat-pill__label {
+  font-family: var(--font-sans);
   font-size: 12px;
   color: rgba(255, 255, 255, 0.52);
   margin-top: 0;
@@ -6339,6 +6372,7 @@
 }
 
 .vault-lm-row__name {
+  font-family: var(--font-sans);
   font-size: 15px;
   font-weight: 700;
   color: #fff;
@@ -6354,6 +6388,7 @@
 }
 
 .vault-lm-row__subline {
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.7);
@@ -6370,7 +6405,7 @@
 }
 
 .vault-lm-row__reason-col {
-  font-size: 10.5px;
+  font-size: var(--tk-ui-fs-label);
   color: rgba(255, 255, 255, 0.52);
   max-width: 150px;
   text-align: right;
@@ -6387,7 +6422,7 @@
 }
 
 .vault-lm-row__cert {
-  font-size: 10.5px;
+  font-size: var(--tk-ui-fs-label);
   color: rgba(255, 255, 255, 0.35);
 }
 
@@ -6398,7 +6433,7 @@
 }
 
 .vault-lm-row__status {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   display: inline-flex;
   align-items: center;
@@ -6418,7 +6453,7 @@
 }
 
 .vault-lm-row__token {
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--azure);
   font-weight: 700;
   display: block;
@@ -6426,7 +6461,7 @@
 }
 
 .vault-lm-row__reason {
-  font-size: 10.5px;
+  font-size: var(--tk-ui-fs-label);
   color: rgba(255, 255, 255, 0.35);
   margin-top: 2px;
 }
@@ -6438,7 +6473,7 @@
 }
 
 .vault-lb-panel__empty {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.3);
   text-align: center;
   display: flex;
@@ -6521,7 +6556,7 @@
 }
 
 .vault-lb-panel__name {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
   line-height: 1.4;
@@ -6532,7 +6567,7 @@
 
 .vault-lb-panel__sub {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -6543,7 +6578,7 @@
   margin-top: 18px;
   border-radius: 12px;
   padding: 16px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.6;
 }
 
@@ -6572,7 +6607,7 @@
 }
 
 .vault-lb-panel__rejected-sub {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
   margin-top: 6px;
 }
@@ -6624,7 +6659,7 @@
   }
 
   .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__name {
-    font-size: 14px;
+    font-size: var(--tk-ui-fs-body-lg);
     line-height: 1.35;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -6644,7 +6679,7 @@
   .vault-page--detail .vault-detail-layout-b__right.selected .vault-lb-panel__approved {
     margin-top: 12px;
     padding: 12px 14px;
-    font-size: 12.5px;
+    font-size: var(--tk-ui-fs-body-sm);
     line-height: 1.5;
   }
 
@@ -6732,7 +6767,14 @@
     height: 48px;
     width: 100%;
     justify-content: center;
-    font-size: 14px;
+  }
+
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--primary {
+    font-size: 15px;
+  }
+
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--subtle {
+    font-size: 13px;
   }
 }
 
@@ -6757,7 +6799,7 @@
 
   .vault-detail-package__cert {
     width: 100%;
-    padding-left: 54px;
+    padding-left: 72px;
   }
 
   .vault-detail-ship-to__actions {
@@ -6772,6 +6814,19 @@
 
   .vault-lm-pills {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .vault-stat-pill {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .vault-stat-pill__num {
+    font-size: 17px;
+  }
+
+  .vault-stat-pill__label {
+    font-size: 11px;
   }
 
   .vault-lm-tabs {
@@ -6905,7 +6960,7 @@
 
 .vault-stepper__compact-sub {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.04em;
   text-transform: uppercase;
   display: inline-flex;
@@ -6942,14 +6997,14 @@
 }
 
 .vault-draft-card__title {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
 }
 
 .vault-draft-card__meta {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.4);
   margin-top: 4px;
   letter-spacing: 0.04em;
@@ -7000,7 +7055,7 @@
 }
 
 .vault-ship-success__summary {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.7);
 }
 
@@ -7028,7 +7083,7 @@
 }
 
 .vault-detail-grade-tag {
-  font-size: 10px !important;
+  font-size: var(--tk-ui-fs-label) !important;
   flex-shrink: 0;
 }
 
@@ -7051,7 +7106,7 @@
   }
 
   .vault-page--detail .vault-detail-page-title {
-    font-size: 22px;
+    font-size: var(--tk-ui-fs-title);
   }
 }
 
@@ -7093,7 +7148,7 @@
 
 .sell-router__label {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.5);
   font-family: var(--font-sans, inherit);
 }

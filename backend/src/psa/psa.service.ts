@@ -15,6 +15,12 @@ import { isPsaPublicApiUpstreamEnabled } from '../marketplace/utils/psa-upstream
 import { parseCertPriceResult } from '../marketplace/market-data/cardhedger-cert-price.util';
 import { cardhedgerCertRowUsableForPsaVariety } from '../marketplace/utils/cardhedger-psa-variety.util';
 import {
+  cardhedgerCatalogFromCertCard,
+  cardhedgerCertCatalogRowUsable,
+  pickCardhedgerRowFromSearchResults,
+  psaCardhedgerSearchQueryList,
+} from '../marketplace/utils/cardhedger-resolve-from-psa.util';
+import {
   cardNumberTokenForCardhedgerSearch,
   normalizeForExactCardNumberKey,
   normalizeForExactCatalogMatch,
@@ -711,6 +717,22 @@ export class PsaService {
     const searchQuery = searchQueryRaw.trim();
     if (!searchQuery) return undefined;
 
+    const psaSearchFirst = await this.tryResolveCardhedgerMintFromPsaSearch(
+      {
+        psaSubject: hints.cardName,
+        psaBrand: hints.cardSet,
+        cardNumber: hints.cardNumber,
+        cardName: hints.cardName,
+        cardSet: hints.cardSet,
+        psaVariety: hints.psaVariety,
+      },
+      {
+        fallbackSearchQuery: searchQuery,
+        failFast: opts?.failFast,
+      },
+    );
+    if (psaSearchFirst) return psaSearchFirst;
+
     const cardNameWant = normalizeForExactCatalogMatch(hints.cardName);
     const cardSetWant = normalizeForExactCatalogMatch(hints.cardSet ?? '');
     const cardNumWant = normalizeForExactCardNumberKey(
@@ -1039,6 +1061,14 @@ export class PsaService {
     certNumber: string,
     fallbackSearchQuery: string,
     psaVariety?: string | null,
+    psaHints?: {
+      psaSubject?: string | null;
+      psaBrand?: string | null;
+      psaYear?: string | null;
+      cardNumber?: string | null;
+      cardName?: string | null;
+      cardSet?: string | null;
+    },
   ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
     const digits = certNumber.replace(/\D/g, '');
     if (digits.length < 7) return undefined;
@@ -1047,6 +1077,7 @@ export class PsaService {
     } catch {
       return undefined;
     }
+    let certDescription = '';
     try {
       const body = await this.cardhedgerService.forwardJson(
         'POST',
@@ -1061,52 +1092,139 @@ export class PsaService {
       for (const raw of results) {
         if (typeof raw !== 'object' || raw == null) continue;
         const row = raw as {
-          cert_info?: { cert?: string | number };
+          cert_info?: {
+            cert?: string | number;
+            description?: string;
+          };
           card?: Record<string, unknown>;
         };
         const certDigits = String(row.cert_info?.cert ?? '').replace(/\D/g, '');
         if (certDigits !== digits) continue;
-        const card = row.card;
-        if (!card) continue;
-        if (
-          !cardhedgerCertRowUsableForPsaVariety(
-            card as Record<string, unknown>,
-            psaVariety ?? '',
-          )
-        ) {
-          continue;
-        }
-        const id =
-          typeof card.card_id === 'string' && card.card_id.trim()
-            ? card.card_id.trim()
+        certDescription =
+          typeof row.cert_info?.description === 'string'
+            ? row.cert_info.description.trim()
             : '';
-        if (!id) continue;
-        const searchQuery =
-          (typeof card.description === 'string' && card.description.trim()
-            ? card.description.trim()
-            : typeof card.name === 'string' && card.name.trim()
-              ? card.name.trim()
-              : null) ?? fallbackSearchQuery;
-        const imageUrl =
-          typeof card.image === 'string' && card.image.trim()
-            ? normalizeImageUrl(card.image)
+        const card = row.card;
+        if (
+          card &&
+          cardhedgerCertCatalogRowUsable(card, psaVariety ?? '')
+        ) {
+          const mapped = cardhedgerCatalogFromCertCard(
+            card,
+            fallbackSearchQuery,
+          );
+          if (!mapped.cardId) continue;
+          const imageUrl = mapped.imageUrl
+            ? normalizeImageUrl(mapped.imageUrl)
             : undefined;
-        return {
-          matchConfidence: 'verified',
-          cardId: id,
-          searchQuery,
-          ...(imageUrl ? { imageUrl } : {}),
-        };
+          return {
+            matchConfidence: 'verified',
+            cardId: mapped.cardId,
+            searchQuery: mapped.searchQuery,
+            ...(imageUrl ? { imageUrl } : {}),
+          };
+        }
+        break;
       }
     } catch (e) {
       this.logger.warn(
         `Cardhedger mint resolve via cert lookup failed: ${e instanceof Error ? e.message : String(e)}`,
       );
     }
+
+    return this.tryResolveCardhedgerMintFromPsaSearch(
+      {
+        psaSubject: psaHints?.psaSubject,
+        psaBrand: psaHints?.psaBrand,
+        psaYear: psaHints?.psaYear,
+        cardNumber: psaHints?.cardNumber,
+        cardName: psaHints?.cardName,
+        cardSet: psaHints?.cardSet,
+        psaVariety,
+      },
+      {
+        certDescription,
+        fallbackSearchQuery,
+      },
+    );
+  }
+
+  private async tryResolveCardhedgerMintFromPsaSearch(
+    hints: {
+      psaSubject?: string | null;
+      psaBrand?: string | null;
+      psaYear?: string | null;
+      cardNumber?: string | null;
+      cardName?: string | null;
+      cardSet?: string | null;
+      psaVariety?: string | null;
+    },
+    opts: {
+      certDescription?: string;
+      fallbackSearchQuery: string;
+      failFast?: boolean;
+    },
+  ): Promise<PsaAnalyzeResult['cardhedgerMint'] | undefined> {
+    try {
+      this.cardhedgerService.assertConfigured();
+    } catch {
+      return undefined;
+    }
+    const queries = psaCardhedgerSearchQueryList(hints, {
+      certDescription: opts.certDescription,
+      cardhedgerSearchQuery: opts.fallbackSearchQuery,
+    });
+    for (const search of queries) {
+      try {
+        const body = await this.cardhedgerService.forwardJson(
+          'POST',
+          '/v1/cards/card-search',
+          {
+            body: { search, page: 1, page_size: 35 },
+            ...(opts.failFast
+              ? {
+                  timeoutMs: CARDHEDGER_IMAGE_FALLBACK_TIMEOUT_MS,
+                  maxRetries: CARDHEDGER_IMAGE_FALLBACK_MAX_RETRIES,
+                }
+              : {}),
+          },
+        );
+        const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
+          ? ((body as { cards: unknown[] }).cards ?? [])
+          : [];
+        if (cards.length === 0) continue;
+        const picked = pickCardhedgerRowFromSearchResults(
+          cards as Record<string, unknown>[],
+          hints,
+        );
+        if (!picked) continue;
+        const imageUrl = picked.imageUrl
+          ? normalizeImageUrl(picked.imageUrl)
+          : undefined;
+        return {
+          matchConfidence: 'verified',
+          cardId: picked.cardId,
+          searchQuery: search,
+          ...(imageUrl ? { imageUrl } : {}),
+        };
+      } catch {
+        continue;
+      }
+    }
     return undefined;
   }
 
   private buildCardhedgerSearchQuery(psa: ParsedPsaLabel): string {
+    const queries = psaCardhedgerSearchQueryList({
+      psaSubject: psa.cardNameHint,
+      psaBrand: psa.setHint,
+      psaYear: psa.year,
+      cardNumber: psa.cardNumberHint,
+      cardName: psa.cardNameHint,
+      cardSet: psa.setHint,
+      psaVariety: psa.varietyHint,
+    });
+    if (queries.length > 0) return queries[0];
     const numRaw = String(psa.cardNumberHint ?? '')
       .replace(/^#/, '')
       .trim();
@@ -1656,6 +1774,14 @@ export class PsaService {
           psaParsed.certNumber,
           cardhedgerQuery,
           psaParsed.varietyHint,
+          {
+            psaSubject: psaParsed.cardNameHint,
+            psaBrand: psaParsed.setHint,
+            psaYear: psaParsed.year,
+            cardNumber: psaParsed.cardNumberHint,
+            cardName: psaParsed.cardNameHint,
+            cardSet: psaParsed.setHint,
+          },
         );
       }
       if (!cardhedgerMint) {

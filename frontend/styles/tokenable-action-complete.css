@@ -55,7 +55,7 @@
 .tk-sale-result__title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -65,7 +65,7 @@
 .tk-sale-result__sub {
   margin: 8px 0 0;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.55);
 }
@@ -73,7 +73,7 @@
 .tk-sale-result__extra {
   margin-top: 10px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -91,7 +91,7 @@
 
 .tk-sale-result__status-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.35);
@@ -99,7 +99,7 @@
 
 .tk-sale-result__status-value {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: var(--pos, #00c864);
 }
@@ -164,7 +164,7 @@
 .tk-ac-title {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1.25;
@@ -174,7 +174,7 @@
 .tk-ac-sub {
   margin: 8px 0 0;
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.5;
   color: #a7a9ac;
 }

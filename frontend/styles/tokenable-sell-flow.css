@@ -83,7 +83,7 @@
   padding: 0 14px;
   margin-bottom: 16px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: #fff;
   background: transparent;
@@ -129,7 +129,7 @@
   align-items: center;
   gap: 6px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 500;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -150,14 +150,14 @@
 }
 
 .sell-flow-vault-opt__title {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 800;
   letter-spacing: -0.01em;
 }
 
 .sell-flow-vault-opt__desc {
   margin-top: 5px;
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.6;
 }
@@ -174,7 +174,7 @@
   display: flex;
   gap: 9px;
   align-items: flex-start;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
   line-height: 1.5;
 }
@@ -201,11 +201,11 @@
 .sell-flow-vault-back {
   height: 52px !important;
   padding: 0 24px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
 }
 
 .sell-flow-vault-hint {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t3);
   margin: 28px 0 0;
   line-height: 1.6;
@@ -230,7 +230,7 @@
 
 .sell-flow-vault-sec-p {
   margin: 0 0 20px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.6;
   max-width: 620px;
@@ -255,7 +255,7 @@
   list-style: none;
   cursor: pointer;
   padding: 16px 18px;
-  font-size: 14.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
   display: flex;
@@ -271,7 +271,7 @@
 .sell-flow-vault-faq summary::after {
   content: "+";
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   color: var(--t2);
   flex-shrink: 0;
 }
@@ -283,7 +283,7 @@
 .sell-flow-vault-faq p {
   margin: 0;
   padding: 0 18px 18px;
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.65;
 }
@@ -291,7 +291,7 @@
 /* Choose-Vault-Individual.html / Sell-Flow.html `.eyebrow` — page font is Inter. */
 .sell-flow-eyebrow {
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.18em;
   text-transform: uppercase;
@@ -328,7 +328,7 @@
   border-radius: 10px;
   background: rgba(26, 111, 255, 0.08);
   border: 1px solid rgba(26, 111, 255, 0.2);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.45;
 }
@@ -364,14 +364,14 @@
 }
 
 .sell-flow-id-title {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 800;
   color: #fff;
   margin-bottom: 8px;
 }
 
 .sell-flow-id-copy {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.6;
   margin: 0;
@@ -410,7 +410,7 @@
 
 .sell-flow-id-failed-copy {
   margin: 6px 0 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
   line-height: 1.55;
 }
@@ -418,13 +418,13 @@
 .sell-flow-id-cta {
   height: 48px !important;
   padding: 0 24px !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 .sell-flow-id-retry {
   height: 44px !important;
   padding: 0 20px !important;
-  font-size: 13.5px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 .sell-flow-status-chip {
@@ -432,7 +432,7 @@
   align-items: center;
   gap: 8px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
 }
@@ -470,7 +470,7 @@
 }
 
 .sell-flow-consent-title {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 800;
   color: #fff;
   margin-bottom: 16px;
@@ -503,14 +503,14 @@
 }
 
 .sell-flow-consent-strong {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
   line-height: 1.6;
 }
 
 .sell-flow-consent-row > span:last-child {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t1, rgba(255, 255, 255, 0.95));
   line-height: 1.6;
 }
@@ -537,7 +537,7 @@
 }
 
 .sell-flow-consent-note {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   margin-top: 16px;
   line-height: 1.5;
@@ -595,7 +595,7 @@
 .sell-flow-reg-cta .tk-btn {
   width: 100%;
   height: 52px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   align-self: stretch;
 }
 
@@ -611,7 +611,7 @@
 }
 
 .sell-flow-gate-hint {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   text-align: center;
   margin: 10px 0 0;
@@ -628,7 +628,7 @@
   gap: 12px;
   padding: 0 24px;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: 1.3;
   color: #18181b;
@@ -656,7 +656,7 @@
   width: 100%;
   height: 64px !important;
   margin-bottom: 18px;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600 !important;
   gap: 12px;
 }
@@ -675,7 +675,7 @@
 }
 
 .sell-flow-or__label {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   letter-spacing: 0.08em;
 }
@@ -689,7 +689,7 @@
 /* Sell-Flow.html `#cert-input` — flat gray field (not tk-input pixel chrome) */
 .sell-flow-cert-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: var(--t2);
   margin-bottom: 8px;
@@ -705,7 +705,7 @@
   border-radius: 12px;
   box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.12);
   color: #18181b;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   letter-spacing: 0.04em;
   outline: none;
   box-sizing: border-box;
@@ -735,7 +735,7 @@
 .sell-flow-lookup-btn {
   height: 52px !important;
   padding: 0 24px !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
   min-width: 120px;
   display: flex !important;
   align-items: center;
@@ -758,13 +758,13 @@
 }
 
 .sell-flow-cert-progress__label {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.06em;
 }
 
 .sell-flow-cert-progress__pct {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   color: var(--azure);
 }
@@ -784,7 +784,7 @@
 }
 
 .sell-flow-cert-progress__hint {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.05em;
   margin-top: 8px;
 }
@@ -815,14 +815,14 @@
 
 .sell-flow-cert-error {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--neg);
   line-height: 1.5;
 }
 
 .sell-flow-upload-hint {
   margin: 10px 0 0;
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.02em;
   line-height: 1.4;
   color: rgba(17, 17, 17, 0.42);
@@ -846,7 +846,7 @@
 }
 
 .sell-flow-cards-title {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 800;
   color: #fff;
 }
@@ -858,7 +858,7 @@
   padding: 0;
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   color: var(--azure);
 }
@@ -868,7 +868,7 @@
 }
 
 .sell-flow-cards-count {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: var(--t3);
 }
@@ -883,7 +883,7 @@
 .sell-flow-cards-empty {
   padding: 44px 24px;
   text-align: center;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.6;
 }
@@ -936,7 +936,7 @@
 }
 
 .sell-flow-cardrow__name {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.01em;
@@ -949,14 +949,14 @@
 
 .sell-flow-cardrow__sub {
   margin-top: 5px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.4;
   color: var(--t3);
 }
 
 .sell-flow-cardrow__cert {
   margin-top: 4px;
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--t3);
   line-height: 1.4;
 }
@@ -972,7 +972,7 @@
   align-items: center;
   cursor: pointer;
   margin-top: 9px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
 }
 
@@ -999,7 +999,7 @@
 .sell-flow-draft-btn {
   height: 52px !important;
   padding: 0 24px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   flex-shrink: 0;
 }
 
@@ -1008,7 +1008,7 @@
   flex: 1 1 0;
   min-width: 0;
   padding: 0 20px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   justify-content: center;
   gap: 8px;
   line-height: 1.25;
@@ -1037,7 +1037,7 @@
 
 .sell-flow-partner-crumb {
   margin-bottom: 18px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
 }
 
@@ -1052,7 +1052,7 @@
   background: transparent;
   padding: 0;
   font: inherit;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(17, 17, 17, 0.45);
   cursor: pointer;
 }
@@ -1092,7 +1092,7 @@
 .sell-flow-partner-scan-slab {
   width: 100% !important;
   height: 64px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   display: flex !important;
   align-items: center;
   justify-content: center;
@@ -1102,7 +1102,7 @@
 
 .sell-flow-slab-upload-hint {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   line-height: 1.5;
   text-align: center;
@@ -1118,7 +1118,7 @@
 
 .sell-flow-slab-bulk-summary {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: var(--t2);
 }
@@ -1139,7 +1139,7 @@
   gap: 8px 10px;
   align-items: start;
   padding: 10px 12px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
 }
 
 .sell-flow-slab-bulk-row + .sell-flow-slab-bulk-row {
@@ -1182,7 +1182,7 @@
 
 .sell-flow-screen--partner .sell-flow-select-all {
   color: var(--azure);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 .sell-flow-screen--partner .sell-flow-select-all:hover {
@@ -1190,7 +1190,7 @@
 }
 
 .sell-flow-select-all--partner {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
 }
 
 @media (max-width: 1024px) {
@@ -1206,7 +1206,7 @@
 
 .sell-flow-page-sub {
   margin: 10px 0 0;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   color: var(--t2);
   line-height: 1.55;
 }
@@ -1226,7 +1226,7 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: var(--t2);
   cursor: pointer;
@@ -1290,7 +1290,7 @@
 }
 
 .sell-flow-csv-drop__t {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: #18181b;
 }
@@ -1300,7 +1300,7 @@
 }
 
 .sell-flow-csv-drop__d {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
   line-height: 1.55;
   max-width: 420px;
@@ -1330,13 +1330,13 @@
 .sell-flow-csv-chip__loading-text {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #18181b;
 }
 
 .sell-flow-csv-chip__loading-frac {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
 }
 
@@ -1396,7 +1396,7 @@
 }
 
 .sell-flow-csv-chip__name {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #18181b;
   white-space: nowrap;
@@ -1405,7 +1405,7 @@
 }
 
 .sell-flow-csv-chip__stat {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
   margin-top: 2px;
 }
@@ -1413,7 +1413,7 @@
 .sell-flow-csv-chip__replace {
   height: 38px !important;
   padding: 0 16px !important;
-  font-size: 13px !important;
+  font-size: var(--tk-ui-fs-body) !important;
 }
 
 .sell-flow-csv-links {
@@ -1428,7 +1428,7 @@
   background: transparent;
   padding: 4px 0;
   color: var(--azure);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1459,7 +1459,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   padding: 4px 10px;
   border-radius: 999px;
@@ -1533,7 +1533,7 @@
   background: transparent;
   color: var(--azure);
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1561,7 +1561,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 800;
   color: #fff;
 }
@@ -1579,12 +1579,12 @@
 }
 
 .sell-flow-csv-cert {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #18181b;
 }
 
 .sell-flow-csv-nm {
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #18181b;
   white-space: nowrap;
@@ -1593,7 +1593,7 @@
 }
 
 .sell-flow-csv-tag {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   padding: 3px 9px;
   border-radius: 6px;
@@ -1625,7 +1625,7 @@
   padding: 13px 16px;
   background: rgba(234, 130, 0, 0.08);
   border-radius: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #7a4600;
   line-height: 1.5;
 }
@@ -1647,7 +1647,7 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   padding: 4px 11px;
   border-radius: 999px;
@@ -1656,7 +1656,7 @@
 }
 
 .sell-flow-csv-frac {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #18181b;
 }
@@ -1684,20 +1684,20 @@
 }
 
 .sell-flow-csv-metrics__k {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   font-weight: 600;
 }
 
 .sell-flow-csv-metrics__v {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #18181b;
   margin-top: 4px;
 }
 
 .sell-flow-csv-pnote {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t2);
   margin: 14px 0 0;
   line-height: 1.55;
@@ -1719,14 +1719,14 @@
 
 .sell-flow-csv-toast {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--pos);
   text-align: right;
 }
 
 .sell-flow-csv-bg {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
   text-align: right;
   line-height: 1.5;
@@ -1795,7 +1795,7 @@
 }
 
 .sell-flow-csv-modal__title {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #18181b;
 }
@@ -1824,18 +1824,18 @@
 .sell-flow-csv-modal__hide {
   height: 48px !important;
   padding: 0 22px !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 .sell-flow-csv-modal__prog {
   height: 48px !important;
   flex: 1;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 .sell-flow-csv-modal__done-title {
   margin: 16px 0 0;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #18181b;
   line-height: 1.4;
@@ -1843,7 +1843,7 @@
 
 .sell-flow-csv-modal__done-fail {
   margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--neg);
   line-height: 1.45;
 }
@@ -1859,14 +1859,14 @@
   height: 48px !important;
   flex: 1;
   min-width: 160px;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
   justify-content: center;
 }
 
 .sell-flow-csv-modal__close {
   height: 48px !important;
   padding: 0 18px !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 @media (max-width: 640px) {
@@ -1902,7 +1902,7 @@
 
 .sell-flow-partner-cert-label {
   display: block;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: var(--t2);
   margin-bottom: 8px;
@@ -1918,7 +1918,7 @@
   border-radius: 12px;
   box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.12);
   color: #18181b;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   letter-spacing: 0.04em;
   outline: none;
 }
@@ -1933,7 +1933,7 @@
 
 .sell-flow-partner-cert-error {
   margin: 12px 0 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--neg);
   line-height: 1.5;
 }
@@ -1943,7 +1943,7 @@
 }
 
 .sell-flow-or--partner .sell-flow-or__label {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
 }
 
 .sell-flow-partner-cta {
@@ -1955,14 +1955,14 @@
 .sell-flow-partner-back {
   height: 52px !important;
   padding: 0 24px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   flex-shrink: 0;
 }
 
 .sell-flow-partner-register {
   height: 52px !important;
   flex: 1;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   justify-content: center;
 }
 
@@ -1971,7 +1971,7 @@
 }
 
 .sell-flow-partner-footnote {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   margin: 14px 0 0;
   line-height: 1.6;
@@ -1993,7 +1993,7 @@
 
 .sell-flow-page .sell-flow-mint-status {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
   color: var(--t2);
 }
@@ -2008,7 +2008,7 @@
   padding: 80px 24px;
   text-align: center;
   color: var(--t2);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2019,7 +2019,7 @@
   margin: 0 0 20px;
   padding: 12px 14px;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
 }
 
@@ -2053,7 +2053,7 @@
 
 .sell-ship-package-sync__title {
   margin: 0 0 4px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 650;
   color: #fff;
 }
@@ -2093,7 +2093,7 @@
 
 .sell-ship-banner__title {
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: 1.35;
   text-align: center;
@@ -2110,7 +2110,7 @@
 
 .sell-ship-banner__card {
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 400;
   line-height: 1.35;
   color: rgba(17, 17, 17, 0.85);
@@ -2125,7 +2125,7 @@
 /* PSA-Shipping.html — light canvas; dark seps (white seps disappear on #f5f5f7) */
 .sell-ship-crumb {
   margin-bottom: 24px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(17, 17, 17, 0.62);
 }
 
@@ -2219,7 +2219,7 @@ button.sell-ship-step--btn:focus-visible {
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.55);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   cursor: pointer;
 }
@@ -2236,7 +2236,7 @@ button.sell-ship-step--btn:focus-visible {
   padding: 0 14px;
   margin-bottom: 16px;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: #18181b;
   background: transparent;
@@ -2269,7 +2269,7 @@ button.sell-ship-step--btn:focus-visible {
   display: grid;
   place-items: center;
   font-family: var(--font-mono);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums lining-nums;
@@ -2319,7 +2319,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-step__label {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   letter-spacing: 0.02em;
   margin-top: 10px;
   font-weight: 600;
@@ -2337,7 +2337,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-step__sub {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   color: var(--azure);
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -2364,7 +2364,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-panel__eyebrow {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--eyebrow, #1a6fff);
@@ -2385,7 +2385,7 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px;
   padding: 14px 16px;
   margin-bottom: 24px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.75);
   line-height: 1.6;
 }
@@ -2403,7 +2403,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.5);
@@ -2413,7 +2413,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-addr-name {
-  font-size: 24px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 800;
   letter-spacing: -0.01em;
   color: #fff;
@@ -2476,7 +2476,7 @@ button.sell-ship-step--btn:focus-visible {
   gap: 8px;
   height: 40px;
   padding: 0 16px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   font-family: var(--font-sans);
   background: transparent;
@@ -2545,7 +2545,7 @@ button.sell-ship-step--btn:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #ff6b7a;
   line-height: 1.6;
   margin-bottom: 16px;
@@ -2560,7 +2560,7 @@ button.sell-ship-step--btn:focus-visible {
   width: 100%;
   height: 50px;
   padding: 0 22px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   font-family: var(--font-sans);
   line-height: 1.3;
@@ -2600,7 +2600,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-slip-hint {
   margin: 10px 0 0;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.5);
   line-height: 1.6;
 }
@@ -2613,7 +2613,7 @@ button.sell-ship-step--btn:focus-visible {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #c42133;
   line-height: 1.6;
   margin-bottom: 20px;
@@ -2630,7 +2630,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-howto__title {
   margin: 0 0 8px;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   letter-spacing: -0.02em;
   color: #fff;
@@ -2638,7 +2638,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-howto__sub {
   margin: 0 0 18px;
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.6;
 }
@@ -2691,7 +2691,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-howto__step {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: #1A6FFF;
@@ -2700,7 +2700,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-howto__name {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
   margin-bottom: 6px;
@@ -2708,7 +2708,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-howto__copy {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.68);
   line-height: 1.6;
 }
@@ -2717,7 +2717,7 @@ button.sell-ship-step--btn:focus-visible {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.68);
   line-height: 1.6;
   text-align: left;
@@ -2746,7 +2746,7 @@ button.sell-ship-step--btn:focus-visible {
   align-items: center;
   gap: 12px;
   margin-bottom: 16px;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 600;
   color: #fff;
 }
@@ -2757,7 +2757,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-progress-text {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.35);
 }
@@ -2818,7 +2818,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-check__text {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.75);
 }
@@ -2837,7 +2837,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-ship-continue {
   height: 52px !important;
   width: 100%;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   justify-content: center;
   align-self: stretch;
 }
@@ -2859,7 +2859,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-gate-hint {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.35);
   text-align: center;
   margin: 10px 0 0;
@@ -2896,13 +2896,13 @@ button.sell-ship-step--btn:focus-visible {
   align-items: center;
   gap: 8px;
   margin-bottom: 14px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: var(--t2);
 }
 
 .sell-ship-track-lock {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.25);
   margin-left: auto;
   font-weight: 400;
@@ -2926,7 +2926,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-track-note {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: rgba(255, 255, 255, 0.35);
   margin: -4px 0 14px;
   line-height: 1.5;
@@ -2942,7 +2942,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-return__copy {
   margin: 0 0 18px;
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.55;
 }
@@ -2961,7 +2961,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-ship-return__saved-text {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: #fff;
   line-height: 1.5;
 }
@@ -2974,7 +2974,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-return__hint {
   margin: 14px 0 0;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.45);
   line-height: 1.5;
 }
@@ -2993,7 +2993,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-ship-confirm {
   height: 52px !important;
   width: 100%;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600;
   justify-content: center;
   align-self: stretch;
@@ -3031,7 +3031,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-warn {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--amber, #f3701e);
   margin-top: 12px;
   line-height: 1.6;
@@ -3049,7 +3049,7 @@ button.sell-ship-step--btn:focus-visible {
   background: rgba(17, 17, 17, 0.03);
   border-radius: 12px;
   padding: 14px 16px;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(17, 17, 17, 0.5);
   line-height: 1.6;
   margin-top: 12px;
@@ -3068,7 +3068,7 @@ button.sell-ship-step--btn:focus-visible {
   background: transparent;
   padding: 0;
   color: var(--azure);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   cursor: pointer;
 }
@@ -3117,7 +3117,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-ship-package-row__name {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
   white-space: nowrap;
@@ -3127,7 +3127,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-ship-package-row__meta {
   margin-top: 4px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -3174,7 +3174,7 @@ button.sell-ship-step--btn:focus-visible {
     width: 100%;
     flex: none;
     height: 52px !important;
-    font-size: 15px !important;
+    font-size: var(--tk-ui-fs-section) !important;
   }
 
   .sell-ship-track-grid {
@@ -3234,7 +3234,7 @@ button.sell-ship-step--btn:focus-visible {
   }
 
   .sell-ship-step__label {
-    font-size: 11px;
+    font-size: var(--tk-ui-fs-caption);
     white-space: nowrap;
     line-height: 1.25;
     max-width: none;
@@ -3258,14 +3258,14 @@ button.sell-ship-step--btn:focus-visible {
   }
 
   .sell-ship-step__label {
-    font-size: 10px;
+    font-size: var(--tk-ui-fs-label);
     letter-spacing: 0.01em;
   }
 }
 
 .sell-flow-mint-error {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
   color: #f87171;
 }
@@ -3512,13 +3512,13 @@ button.sell-ship-step--btn:focus-visible {
 
 /* PSA-Shipping.html — section labels, return fields, tracking fields */
 .sell-flow-page .sell-ship-label {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: #18181b;
 }
 
 .sell-flow-page .sell-ship-panel__eyebrow,
 .sell-flow-page .sell-ship-panel__eyebrow--inline {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: var(--eyebrow, #1a6fff);
 }
 
@@ -3527,7 +3527,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-track-note {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: #18181b;
 }
 
@@ -3538,7 +3538,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-return__fields .tk-field__label {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: #18181b;
@@ -3549,7 +3549,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-track-box .tk-field__label {
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 400;
   letter-spacing: normal;
   text-transform: none;
@@ -3567,7 +3567,7 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px !important;
   color: #18181b !important;
   font-family: var(--font-mono, ui-monospace, monospace) !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   box-shadow: none !important;
   clip-path: none !important;
   filter: none !important;
@@ -3577,7 +3577,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-track-box select.tk-input,
 .sell-flow-page .sell-ship-track-box input[type="date"].tk-input {
   font-family: var(--font-sans, system-ui, sans-serif) !important;
-  font-size: 14px !important;
+  font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
 .sell-flow-page .sell-ship-return__fields .tk-input:hover:not(:disabled),
@@ -3610,7 +3610,7 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-ship-return__fields .tk-field__hint--error,
 .sell-flow-page .sell-ship-track-box .tk-field__hint--error {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   color: #ff6b7a;
   margin-top: 6px;
 }
@@ -3784,7 +3784,7 @@ button.sell-ship-step--btn:focus-visible {
 
 /* Choose-Vault-Individual.html — master row only: 14px / 700 / #18181B */
 .sell-flow-page .sell-flow-consent-row--master .sell-flow-consent-strong {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 700;
   color: #18181b;
   line-height: 1.6;
@@ -4081,11 +4081,11 @@ button.sell-ship-step--btn:focus-visible {
   }
 
   .sell-flow-page .sell-flow-consent-title {
-    font-size: 17px;
+    font-size: var(--tk-ui-fs-subheading);
   }
 
   .sell-flow-page .sell-flow-consent-list .sell-flow-consent-row > span:last-child {
-    font-size: 14px;
+    font-size: var(--tk-ui-fs-body-lg);
     line-height: 1.6;
   }
 
@@ -4100,7 +4100,7 @@ button.sell-ship-step--btn:focus-visible {
 
   .sell-flow-ship-btn {
     height: 52px !important;
-    font-size: 15px !important;
+    font-size: var(--tk-ui-fs-section) !important;
   }
 
   .sell-flow-page .sell-ship-header {
@@ -4176,7 +4176,7 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px;
   color: #18181b;
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   text-align: left;
   cursor: pointer;
 }
@@ -4235,7 +4235,7 @@ button.sell-ship-step--btn:focus-visible {
   padding: 16px 20px;
   text-align: left;
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   color: #18181b;
   cursor: pointer;
   border-bottom: 1px solid rgba(17, 17, 17, 0.06);

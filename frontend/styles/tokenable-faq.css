@@ -9,7 +9,7 @@
 
 .faq-page__eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -27,7 +27,7 @@
 }
 
 .faq-page__sub {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   color: var(--t2);
   margin: 14px 0 0;
   line-height: 1.5;
@@ -51,7 +51,7 @@
 
 .faq-page__group-h {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -79,7 +79,7 @@
   cursor: pointer;
   padding: 20px 4px;
   font-family: var(--font-sans);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: var(--t1);
 }
@@ -113,7 +113,7 @@
 
 .faq-page__a-inner {
   padding: 0 4px 22px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.65;
   color: var(--t2);
 }
@@ -138,21 +138,21 @@
 
 .faq-page__cta h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: var(--t1);
 }
 
 .faq-page__cta p {
   margin: 6px 0 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
 }
 
 .faq-page__cta-btn {
   height: 48px !important;
   padding: 0 24px !important;
-  font-size: 15px !important;
+  font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600;
 }
 
@@ -242,7 +242,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: var(--t2, #a1a1aa);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -277,7 +277,7 @@
 .tkfd-head h3 {
   margin: 0;
   font-family: var(--font-sans);
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--t1, #f4f4f5);
@@ -289,7 +289,7 @@
   border: 0;
   background: rgba(255, 255, 255, 0.08);
   color: var(--t1, #f4f4f5);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   border-radius: 8px;
   cursor: pointer;
   flex: none;
@@ -301,7 +301,7 @@
 
 .tkfd-sub {
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2, #a1a1aa);
   margin: 0 0 6px;
 }
@@ -327,7 +327,7 @@
 
 .tkfd-group__h {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -355,7 +355,7 @@
   cursor: pointer;
   padding: 16px 2px;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   color: var(--t1, #f4f4f5);
 }
@@ -390,7 +390,7 @@
 .tkfd-a__inner {
   padding: 0 2px 18px;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.6;
   color: var(--t2, #a1a1aa);
 }

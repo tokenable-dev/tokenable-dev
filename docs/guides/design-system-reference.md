@@ -88,6 +88,7 @@ New pages: reuse `CollectibleCard` + `tkl-wrap`; add page CSS only for layout un
 |---------|------|
 | Color / spacing tokens (Figma) | `frontend/design-system/tokens/fig-tokens.css` |
 | Typography, elevation, motion | `frontend/design-system/tokens/base.css` |
+| **Product UI type scale** (Figma `typography/ui`, `--tk-ui-fs-*`, `.tk-ui-*`) | `frontend/design-system/tokens/typography-ui.css` |
 | `tk-btn`, `tk-dialog`, … | `frontend/design-system/components/components.css` |
 | DS entry (imported by app) | `frontend/styles/tokenable-ds-entry.css` |
 | Legacy → DS aliases (`--azure`, `--ink`) | `frontend/styles/tokenable-ds-bridge.css` |
@@ -119,6 +120,26 @@ We use **semantic CSS variables** from Figma, e.g.:
 App root sets `data-theme="dark"` in `frontend/app/layout.tsx`.
 
 **next/font weights** (same file): Inter `400 500 600 700 800` (500 = `font-medium` / `.tk-caption`; 800 = home/vault titles). JetBrains Mono `400 500 600 700`. Do not register unused weights.
+
+### Product UI typography (`typography-ui.css`)
+
+Imported after `base.css` in `tokenable-ds-entry.css`. Default app text is **13px body** with OpenType `tnum` + `cv11` on sans.
+
+| Token | Size | Utility class |
+|-------|------|----------------|
+| `--tk-ui-fs-num-xl` | 30px | `.tk-ui-num-xl` |
+| `--tk-ui-fs-title` | 24px | `.tk-ui-title` |
+| `--tk-ui-fs-heading` | 20px | `.tk-ui-heading` |
+| `--tk-ui-fs-section` | 15px | `.tk-ui-section` |
+| `--tk-ui-fs-body-lg` | 14px | `.tk-ui-body-lg` |
+| `--tk-ui-fs-body` | 13px | `.tk-ui-body` (also `html` / `.tk-ds-surface`) |
+| `--tk-ui-fs-body-sm` | 12px | `.tk-ui-body-sm` |
+| `--tk-ui-fs-caption` | 11px | `.tk-ui-caption` |
+| `--tk-ui-fs-label` | 10px | `.tk-ui-label` |
+
+Legacy classes `.tk-body`, `.tk-heading`, etc. are remapped to this scale. Marketing **display** classes (`tk-title-hero`, `tk-title-page`) stay at the larger Figma marketing sizes in `base.css`.
+
+Route CSS (`tokenable-*.css`) should use `var(--tk-ui-fs-*)` instead of raw `px` for font-size.
 
 ### Bridge aliases (legacy — prefer semantic tokens in new code)
 

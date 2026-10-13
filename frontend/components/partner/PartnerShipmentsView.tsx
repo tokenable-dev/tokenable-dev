@@ -144,7 +144,7 @@ function TrackingModal({
         </div>
 
         <div className="partner-ship-modal__panel">
-          <div className="partner-ship-modal__eyebrow tkl-mono">
+          <div className="partner-ship-modal__eyebrow">
             In this shipment{" "}
             <span className="partner-ship-modal__count">
               ({group.items.length} card{group.items.length === 1 ? "" : "s"})
@@ -164,9 +164,9 @@ function TrackingModal({
                   >
                     {partnerRedeemCardTitle(item, metadataByTokenId)}
                   </span>
-                  {partnerCardCertLine(item) ? (
+                  {partnerCardCertLine(item, metadataByTokenId) ? (
                     <span className="partner-ship__cid tkl-mono">
-                      {partnerCardCertLine(item)}
+                      {partnerCardCertLine(item, metadataByTokenId)}
                     </span>
                   ) : null}
                 </span>
@@ -177,16 +177,16 @@ function TrackingModal({
             One tracking number covers the whole shipment.
           </p>
           <hr className="partner-ship-modal__rule" />
-          <div className="partner-ship-modal__eyebrow tkl-mono">Ship to</div>
+          <div className="partner-ship-modal__eyebrow">Ship to</div>
           <div className="partner-ship-modal__addr">
             {partnerShipToAddressLines(group).map((line) => (
               <span key={line}>{line}</span>
             ))}
           </div>
           <div className="partner-ship-modal__deadline">
-            <span className="partner-ship-modal__eyebrow tkl-mono">Deadline</span>
+            <span className="partner-ship-modal__eyebrow">Deadline</span>
             <span
-              className={`partner-ship__dl tkl-mono${deadline.warn ? " partner-ship__dl--warn" : ""}`}
+              className={`partner-ship__dl${deadline.warn ? " partner-ship__dl--warn" : ""}`}
             >
               {deadline.text}
             </span>
@@ -395,15 +395,15 @@ function ShipmentRow({
             <span className={`partner-ship__cname ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
               {partnerRedeemCardTitle(first, metadataByTokenId)}
             </span>
-            {partnerCardCertLine(first) ? (
+            {partnerCardCertLine(first, metadataByTokenId) ? (
               <span className="partner-ship__cid tkl-mono">
-                {partnerCardCertLine(first)}
+                {partnerCardCertLine(first, metadataByTokenId)}
               </span>
             ) : null}
             {extra > 0 ? (
               <button
                 type="button"
-                className="partner-ship__more tkl-mono"
+                className="partner-ship__more"
                 onClick={onToggleExpand}
               >
                 {expanded ? "Hide" : `＋${extra} more`}
@@ -413,31 +413,31 @@ function ShipmentRow({
         </div>
 
         <div>
-          <span className="partner-ship__cellk tkl-mono">Ship to</span>
+          <span className="partner-ship__cellk">Ship to</span>
           <span className="partner-ship__v">{shipName}</span>
           {shipCity ? <span className="partner-ship__vs">{shipCity}</span> : null}
         </div>
 
         <div>
-          <span className="partner-ship__cellk tkl-mono">Requested</span>
-          <span className="partner-ship__v partner-ship__v--mono tkl-mono">
+          <span className="partner-ship__cellk">Requested</span>
+          <span className="partner-ship__v partner-ship__v--mono">
             {formatPartnerRedeemRequestedAt(group.requestedAt)}
           </span>
         </div>
 
         <div>
-          <span className="partner-ship__cellk tkl-mono">Deadline</span>
+          <span className="partner-ship__cellk">Deadline</span>
           <span
-            className={`partner-ship__dl tkl-mono${deadline.warn ? " partner-ship__dl--warn" : ""}`}
+            className={`partner-ship__dl${deadline.warn ? " partner-ship__dl--warn" : ""}`}
           >
             {deadline.text}
           </span>
         </div>
 
         <div>
-          <span className="partner-ship__cellk tkl-mono">Status</span>
+          <span className="partner-ship__cellk">Status</span>
           <span
-            className="partner-ship__status-pill tkl-mono"
+            className="partner-ship__status-pill"
             style={{ background: status.bg, color: status.fg }}
           >
             {status.label}
@@ -470,23 +470,23 @@ function ShipmentRow({
               <>
                 {showTrackingMeta && group.trackingNumber ? (
                   <span className="partner-ship__track-meta">
-                    <span className="partner-ship__v">
+                    <span className="partner-ship__track-carrier">
                       {carrierShown || "—"}
                     </span>
-                    <span className="partner-ship__vs">
-                      {trackingHref ? (
-                        <a
-                          className="tkl-mono"
-                          href={trackingHref}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {group.trackingNumber} →
-                        </a>
-                      ) : (
-                        <span className="tkl-mono">{group.trackingNumber}</span>
-                      )}
-                    </span>
+                    {trackingHref ? (
+                      <a
+                        className="partner-ship__track-num"
+                        href={trackingHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {group.trackingNumber}
+                      </a>
+                    ) : (
+                      <span className="partner-ship__track-num">
+                        {group.trackingNumber}
+                      </span>
+                    )}
                   </span>
                 ) : null}
                 {showRowMenu ? (
@@ -535,9 +535,9 @@ function ShipmentRow({
                     >
                       {partnerRedeemCardTitle(item, metadataByTokenId)}
                     </span>
-                    {partnerCardCertLine(item) ? (
+                    {partnerCardCertLine(item, metadataByTokenId) ? (
                       <span className="partner-ship__cid tkl-mono">
-                        {partnerCardCertLine(item)}
+                        {partnerCardCertLine(item, metadataByTokenId)}
                       </span>
                     ) : null}
                   </span>
@@ -673,8 +673,8 @@ export function PartnerShipmentsView() {
 
   return (
     <div className="partner-redeem-page tkl-wrap">
-      <nav className="partner-redeem-page__breadcrumb tkl-mono" aria-label="Breadcrumb">
-        <Link href={PARTNER_PORTFOLIO_PATH}>Portfolio</Link>
+      <nav className="partner-redeem-page__breadcrumb" aria-label="Breadcrumb">
+        <Link href={PARTNER_PORTFOLIO_PATH}>Collection</Link>
         <span className="partner-redeem-page__breadcrumb-sep" aria-hidden>
           /
         </span>
@@ -689,12 +689,12 @@ export function PartnerShipmentsView() {
           </p>
         </div>
         <div className="partner-redeem-page__pills" aria-label="Shipment summary">
-          <span className="partner-redeem-page__pill partner-redeem-page__pill--neutral tkl-mono">
+          <span className="partner-redeem-page__pill partner-redeem-page__pill--neutral">
             <span>{counts.to_ship}</span>
             &nbsp;to ship
           </span>
           {dueSoonCount > 0 ? (
-            <span className="partner-redeem-page__pill partner-redeem-page__pill--soon tkl-mono">
+            <span className="partner-redeem-page__pill partner-redeem-page__pill--soon">
               <span>{dueSoonCount}</span>
               &nbsp;due soon
             </span>
@@ -732,12 +732,12 @@ export function PartnerShipmentsView() {
 
         <div className="partner-ship__tbl">
           <div className="partner-ship__thead" aria-hidden={query.isLoading}>
-            <span className="partner-ship__th tkl-mono">Card</span>
-            <span className="partner-ship__th tkl-mono">Ship to</span>
-            <span className="partner-ship__th tkl-mono">Requested</span>
-            <span className="partner-ship__th tkl-mono">Deadline</span>
-            <span className="partner-ship__th tkl-mono">Status</span>
-            <span className="partner-ship__th partner-ship__th--action tkl-mono">
+            <span className="partner-ship__th">Card</span>
+            <span className="partner-ship__th">Ship to</span>
+            <span className="partner-ship__th">Requested</span>
+            <span className="partner-ship__th">Deadline</span>
+            <span className="partner-ship__th">Status</span>
+            <span className="partner-ship__th partner-ship__th--action">
               Action
             </span>
           </div>
@@ -771,7 +771,7 @@ export function PartnerShipmentsView() {
               Couldn&apos;t load your shipments.{" "}
               <button
                 type="button"
-                className="partner-ship__retry tkl-mono"
+                className="partner-ship__retry"
                 onClick={() => void query.refetch()}
               >
                 Retry

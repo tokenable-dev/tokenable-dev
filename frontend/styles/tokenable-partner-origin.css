@@ -26,7 +26,7 @@
 
 .po-eyebrow {
   font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 600;
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -34,7 +34,7 @@
 }
 
 .po-title {
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   letter-spacing: -0.02em;
   margin: 12px 0 0;
@@ -43,7 +43,7 @@
 }
 
 .po-sub {
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.5;
   color: #a7a9ac;
   margin: 10px 0 0;
@@ -60,7 +60,7 @@
   border-radius: 8px;
   background: rgba(26, 111, 255, 0.12);
   font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -87,7 +87,7 @@
 
 .po-label {
   font-family: var(--font-mono, "JetBrains Mono", ui-monospace, monospace);
-  font-size: 10.5px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -103,7 +103,7 @@
   background: #fff;
   color: #111;
   font-family: var(--font-sans, Inter, sans-serif);
-  font-size: 14.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   outline: none;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
 }
@@ -122,7 +122,7 @@
 }
 
 .po-err {
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: #ff6b7a;
   display: none;
 }
@@ -137,7 +137,7 @@
 
 .po-acc summary {
   cursor: pointer;
-  font-size: 13.5px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: rgba(255, 255, 255, 0.55);
   list-style: none;
 }
@@ -152,7 +152,7 @@
 
 .po-why {
   margin-top: 14px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.65;
   color: rgba(255, 255, 255, 0.55);
   background: #191919;
@@ -166,7 +166,7 @@
 }
 
 .po-help {
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: var(--t3);
   margin-top: 18px;
   line-height: 1.6;
@@ -181,7 +181,7 @@
 }
 
 .po-link {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #5b9aff;
   cursor: pointer;
   background: none;
@@ -210,19 +210,19 @@
 }
 
 .po-banner__t {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: #fff;
 }
 
 .po-banner__d {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: var(--t2);
 }
 
 .po-save-error {
   margin-top: 12px;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #ff6b7a;
 }
 

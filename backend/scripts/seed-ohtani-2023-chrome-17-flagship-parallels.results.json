@@ -1,0 +1,234 @@
+[
+  {
+    "variant": "Aqua",
+    "cardId": "1689040576444x952211887210303500",
+    "collectionKey": "95829e8bd76a6c4ed5ada8325ea0c4fd28ea667787f11eee99189e0df47208a1",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Aqua",
+    "psaVariety": "AQUA"
+  },
+  {
+    "variant": "Aqua Lava",
+    "cardId": "1689040981680x668796050565373200",
+    "collectionKey": "1a589f6d1b0a6d3295f54e91521f7af47fb41d3ecaf4368f2d19d72230252553",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Aqua Lava",
+    "psaVariety": "AQUA LAVA"
+  },
+  {
+    "variant": "Base",
+    "cardId": "1689015593015x344265088009482600",
+    "collectionKey": "1985ef9c805b813bfd931a75b9a2d5bbe14c4bc481b74e48fa5fc7d94b746339",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball",
+    "psaVariety": ""
+  },
+  {
+    "variant": "Blue",
+    "cardId": "1689041557073x225687718950226000",
+    "collectionKey": "55a7bb7bc7f2185aa05cafdcff1357ba292aaa65f599e457acb8ce2d4f2de76c",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Blue",
+    "psaVariety": "BLUE"
+  },
+  {
+    "variant": "Blue Sonar",
+    "cardId": "1689042294297x289494981994125040",
+    "collectionKey": "7c98da5bacfc1d4bd7fd3b38eb0ec81d0aee86f5539476087af4ecfab3a1e27e",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Blue Sonar",
+    "psaVariety": "BLUE SONAR"
+  },
+  {
+    "variant": "Blue Wave",
+    "cardId": "1689044284101x665788718625399300",
+    "collectionKey": "fab25ad171d9ac56df82159ffc5bf9fcb5c99a3b97f3f9802a12a22505a2f0dd",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Blue Wave",
+    "psaVariety": "BLUE WAVE"
+  },
+  {
+    "variant": "Gold",
+    "cardId": "1689044748418x192538087381440200",
+    "collectionKey": "f36661728cd041931afe50a30b2f4bebde505f933b58bad3cc4e959ebe96e09b",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Gold",
+    "psaVariety": "GOLD"
+  },
+  {
+    "variant": "Gold Wave Refractor",
+    "cardId": "1689045150326x498339738768849300",
+    "collectionKey": "4b9817bd7da40cc1964218a95fc9f0e29c27cc1780ad9a34c2607da33ebf4f9e",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Gold Wave Refractor",
+    "psaVariety": "GOLD WAVE REFRACTOR"
+  },
+  {
+    "variant": "Green",
+    "cardId": "1689042839531x872092278447222300",
+    "collectionKey": "47aec1aefb155ee8413bb854108ac5a0040232537e002198a2a093a27ab4d9d4",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Green",
+    "psaVariety": "GREEN"
+  },
+  {
+    "variant": "Green Sonar",
+    "cardId": "1689043783601x617797670051043700",
+    "collectionKey": "8fcb0f1f013d871ca60536c6cb3434d9bba230e3f2ee3cdbae566053ab78daea",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Green Sonar",
+    "psaVariety": "GREEN SONAR"
+  },
+  {
+    "variant": "Green Wave",
+    "cardId": "1689043215513x781430712389846000",
+    "collectionKey": "440752de9071274035c890194e4bd462230b16eb81dd7de19e150abb3be2e533",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Green Wave",
+    "psaVariety": "GREEN WAVE"
+  },
+  {
+    "variant": "Magenta",
+    "cardId": "1689037187853x582471265769531400",
+    "collectionKey": "fe7ab11446ae64b33a485d4ffce3e888240b1bb01cbda549d53c48c5c13b0a07",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Magenta",
+    "psaVariety": "MAGENTA"
+  },
+  {
+    "variant": "Magenta Speckle",
+    "cardId": "1689037742045x719801712781634600",
+    "collectionKey": "0812f4f8e86875ffa5113f2a64f38fc3c5847cad23825957e62e3dafcba8ffe6",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Magenta Speckle",
+    "psaVariety": "MAGENTA SPECKLE"
+  },
+  {
+    "variant": "Negative",
+    "cardId": "1689036208509x499010474988494000",
+    "collectionKey": "60753656badee018fd5ebf2654ce130594676f57712651372644e124ca79856d",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Negative",
+    "psaVariety": "NEGATIVE"
+  },
+  {
+    "variant": "Orange",
+    "cardId": "1689045766221x759365025558105700",
+    "collectionKey": "da1f5fad9a4224010f4fbf2286cb77191d9dbe9c3c2161d18e71263757e7ac2a",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Orange",
+    "psaVariety": "ORANGE"
+  },
+  {
+    "variant": "Orange Wave",
+    "cardId": "1689046316835x139046957851391310",
+    "collectionKey": "cd64f1953a9818e24fc340bf0ec3994b67807cbee0086529674ec4a7d41dbc19",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Orange Wave",
+    "psaVariety": "ORANGE WAVE"
+  },
+  {
+    "variant": "Pink",
+    "cardId": "1689035408937x540407672389821900",
+    "collectionKey": "adf7c9b407a8f020b40374b8a4f505a59dd72b8b92bffb38335b27355880e2f8",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Pink",
+    "psaVariety": "PINK"
+  },
+  {
+    "variant": "Printing Plates",
+    "cardId": "1689048307133x650650747740494100",
+    "collectionKey": "a182ec58e788e170dec1b0c649ae6fc97c54ec16fef857aada6e83da7d765ab4",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Printing Plates",
+    "psaVariety": "PRINTING PLATES"
+  },
+  {
+    "variant": "Prism",
+    "cardId": "1689019133414x649014997427014800",
+    "collectionKey": "5a433121a44914cb51f2e8d073a0a4875080dc71e492c3146c65565df5d5b8b6",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Prism",
+    "psaVariety": "PRISM"
+  },
+  {
+    "variant": "Purple",
+    "cardId": "1689039930372x553692922133791900",
+    "collectionKey": "99e704814be8c4441bf535df6b3108b80a1d39b15f8d3f531b12f31a317f8633",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Purple",
+    "psaVariety": "PURPLE"
+  },
+  {
+    "variant": "Purple Sonar",
+    "cardId": "1689039308834x436875225451227600",
+    "collectionKey": "bb5b180bfd65ace4c774aa5e32716ecda163d67552931f28d453bab6bf2431a5",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Purple Sonar",
+    "psaVariety": "PURPLE SONAR"
+  },
+  {
+    "variant": "Purple Speckle",
+    "cardId": "1689038642264x573990664446548030",
+    "collectionKey": "57d3ed98db58bfd73b6554595df0e78fe3efa94f8ea86d57abc6dd346367332c",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Purple Speckle",
+    "psaVariety": "PURPLE SPECKLE"
+  },
+  {
+    "variant": "Red",
+    "cardId": "1689046830096x336240630370267840",
+    "collectionKey": "3b731cca3d5b7e688de2da30a276c997255b420fd564aede53edeb32558dfd6c",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Red",
+    "psaVariety": "RED"
+  },
+  {
+    "variant": "Red Wave",
+    "cardId": "1689046940102x527593945436406000",
+    "collectionKey": "01e01bcf0d7f2837f248006f6d81e9d3c9bab469059ff184a29d51a5378f6d4c",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Red Wave",
+    "psaVariety": "RED WAVE"
+  },
+  {
+    "variant": "Refractor",
+    "cardId": "1689016970553x279178776367428700",
+    "collectionKey": "6ff385257af25b19c45d189d7feb03b5ce6551b24592f02f28cb7caf4de8ce31",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Refractor",
+    "psaVariety": "REFRACTOR"
+  },
+  {
+    "variant": "Sepia",
+    "cardId": "1689020483998x242851930153800120",
+    "collectionKey": "d307a3a4c29fd3c8abef155b2587f8395a2953dd899aff211b216bdcb1f2a651",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Sepia",
+    "psaVariety": "SEPIA"
+  },
+  {
+    "variant": "Sub-Zero Frozenfractor",
+    "cardId": "1689047511358x958009902211871400",
+    "collectionKey": "a000668c5e95711a566b67b44fc0c9bea4a6ef98c28c197541ca1f88b894fcd3",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Sub-Zero Frozenfractor",
+    "psaVariety": "SUB-ZERO FROZENFRACTOR"
+  },
+  {
+    "variant": "Superfractor",
+    "cardId": "1689047615637x970047032727983000",
+    "collectionKey": "2ce5e6ad2edb9c128c990e91ee11112706f06ffa5b3dec2d1a7bd64c94836370",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball Superfractor",
+    "psaVariety": "SUPERFRACTOR"
+  },
+  {
+    "variant": "X-Fractor",
+    "cardId": "1689018607961x514969478786381630",
+    "collectionKey": "15a5ae0b4861144f8f806b7e77141db527e452f68bfc94744d1941c5a17761d3",
+    "created": true,
+    "displayLabel": "Shohei Ohtani 2023 Topps Chrome Baseball X-Fractor",
+    "psaVariety": "X-FRACTOR"
+  }
+]

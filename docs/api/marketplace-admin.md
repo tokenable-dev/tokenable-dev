@@ -202,7 +202,7 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/upload` | Multipart `file` → overwrite stable S3 key → persist public URL |
 | POST | `/api/marketplace/collections/:key/admin/cover/from-token` | Resolve cover from RWA token metadata (save ingests to S3) |
-| POST | `/api/marketplace/collections/:key/admin/delete` | Delete **this chain's** catalog row + chain-scoped orders. Snapshot deleted only when no other chain row remains for that key. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. |
+| POST | `/api/marketplace/collections/:key/admin/delete` | Cancel **active asks** for this bucket (by `collection_key` or registry token ids), then delete **this chain's** catalog row + chain-scoped orders. Snapshot deleted only when no other chain row remains for that key. **Unlinks** `rwa_tokens.collection_key` — does **not** delete mint registry / portfolio owner index. Response includes `cancelledActiveAsks`. |
 
 First **ask listing** creates or activates `review_status = active` (Markets-visible without Approve). Admin `create-from-cert` without a listing still starts `pending_review`. Canceling an ask does not remove the collection. See [catalog-cover-s3.md](../guides/catalog-cover-s3.md) and BR-11b.
 

@@ -540,9 +540,9 @@ export default function MarketsPage() {
             </TkButton>
           </div>
         ) : sortedForRank.length === 0 && orphanAsks.length === 0 && searchCards.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="mb-2 text-base text-[var(--t2)]">No items listed for sale yet.</p>
-            <p className="text-sm text-[var(--t3)]">
+          <div className="markets-empty">
+            <p className="markets-empty__lead">No items listed for sale yet.</p>
+            <p className="markets-empty__sub">
               Mint and list your items from{" "}
               <GatedSellLink className="text-[var(--azure)] hover:underline">Vault</GatedSellLink>.
             </p>
@@ -552,9 +552,9 @@ export default function MarketsPage() {
             {isSearchMode ? <SearchCertMatches cards={searchCards} query={searchQ} /> : null}
             {filteredSorted.length === 0 ? (
               sortedForRank.length > 0 ? (
-              <div className="rounded-2xl bg-[var(--surf)] px-6 py-12 text-center">
-                <p className="text-base text-[var(--t2)]">No collections match these filters yet.</p>
-                <p className="mt-2 text-sm text-[var(--t3)]">
+              <div className="markets-filter-empty">
+                <p className="markets-empty__lead">No collections match these filters yet.</p>
+                <p className="markets-empty__sub">
                   Try a different category, price range, grade, or year.
                 </p>
                 {detailFacetChips.length > 0 ? (

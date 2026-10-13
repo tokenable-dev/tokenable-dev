@@ -23,9 +23,9 @@ export function HomeHero() {
       <div className="home-hero__content">
         <div className="home-hero__inner">
           <h1 className="home-hero__title home-hero__reveal">
-            The safest and fastest way
+            Safest. Fastest.
             <br />
-            to trade collectibles.
+            Collectibles Trading.
           </h1>
 
           <div className="home-hero__chips home-hero__reveal home-hero__reveal--1">

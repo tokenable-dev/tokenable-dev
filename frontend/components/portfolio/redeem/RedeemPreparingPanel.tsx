@@ -81,7 +81,7 @@ export function RedeemPreparingPanel({
               Shipment {sh.idx} · {sh.vaultLabel} ({sh.cardCount || "—"} card
               {(sh.cardCount || 0) === 1 ? "" : "s"})
             </span>
-            <span className="pf-redeem-status-pill pf-redeem-status-pill--warn tkl-mono">
+            <span className="pf-redeem-status-pill pf-redeem-status-pill--warn">
               {sh.state === "on_the_way" ? "On the way" : "Preparing"}
             </span>
           </div>
@@ -115,7 +115,7 @@ export function RedeemPreparingPanel({
 
       <Link href="/portfolio" className="pf-redeem-primary-link pf-redeem-primary-link--prep">
         <TkButton type="button" variant="primary" className="pf-redeem-primary">
-          Back to Portfolio
+          Back to Collection
         </TkButton>
       </Link>
     </div>

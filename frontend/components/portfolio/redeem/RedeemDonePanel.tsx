@@ -57,7 +57,7 @@ export function RedeemDonePanel() {
 
       <Link href="/portfolio" className="pf-redeem-primary-link">
         <TkButton type="button" variant="primary" className="pf-redeem-primary">
-          Back to Portfolio
+          Back to Collection
         </TkButton>
       </Link>
     </div>

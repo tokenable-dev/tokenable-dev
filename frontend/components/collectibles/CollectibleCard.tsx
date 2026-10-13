@@ -88,6 +88,7 @@ export const CollectibleCard = memo(function CollectibleCard({
   marketChangePeriodLabel,
   onBeforeNavigate,
   shell = "wrap",
+  coverVariant = "flat",
   position,
   showCatalogSubtitle = false,
   titleOverride,
@@ -101,6 +102,8 @@ export const CollectibleCard = memo(function CollectibleCard({
   marketChangePeriodLabel?: string;
   onBeforeNavigate?: () => void;
   shell?: "wrap" | "none";
+  /** Home grid4 — graded slab bezel + contain (not stretched flat fill). */
+  coverVariant?: "flat" | "compact";
   position?: number;
   /** Search results — Line 2 `{Year} · {Set} {Language} · {Variant}` under Line 1. */
   showCatalogSubtitle?: boolean;
@@ -149,7 +152,7 @@ export const CollectibleCard = memo(function CollectibleCard({
         {imageSrc ? (
           <CollectionCoverFrame
             imageUrl={imageSrc}
-            variant="flat"
+            variant={coverVariant}
             className="h-full w-full"
             quietLoading
           />
@@ -177,7 +180,7 @@ export const CollectibleCard = memo(function CollectibleCard({
                 {sub.glyph}
               </span>
             ) : null}
-            {sub.pctLabel}
+            <span className="card__sub-pct">{sub.pctLabel}</span>
             {sub.period ? <span className="card__per">{sub.period}</span> : null}
           </span>
         </div>

@@ -5,4 +5,5 @@
 @import './tokens/fig-tokens.css';
 @import './tokens/fig-typography.css';
 @import './tokens/base.css';
+@import './tokens/typography-ui.css';
 @import './components/components.css';

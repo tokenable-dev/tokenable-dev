@@ -100,7 +100,7 @@ export function RedeemAccessGate({
 
 export function RedeemVerifiedChip() {
   return (
-    <p className="pf-redeem-verified tkl-mono">
+    <p className="pf-redeem-verified">
       <svg
         width="13"
         height="13"

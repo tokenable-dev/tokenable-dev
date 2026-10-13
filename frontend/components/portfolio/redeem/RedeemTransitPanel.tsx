@@ -285,7 +285,7 @@ function ShipmentBox({
           card{shipment.cardCount === 1 ? "" : "s"}
         </span>
         <span
-          className={`pf-redeem-status-pill tkl-mono ${
+          className={`pf-redeem-status-pill ${
             locallyReceived
               ? "pf-redeem-status-pill--pos"
               : "pf-redeem-status-pill--warn"
@@ -479,7 +479,7 @@ export function RedeemTransitPanel({
       ) : null}
       <Link href="/portfolio" className="pf-redeem-primary-link">
         <TkButton type="button" variant="subtle" className="pf-redeem-primary">
-          Back to Portfolio
+          Back to Collection
         </TkButton>
       </Link>
 

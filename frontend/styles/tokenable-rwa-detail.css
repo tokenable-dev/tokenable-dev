@@ -35,7 +35,7 @@
 .rd-breadcrumb {
   display: none;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   letter-spacing: 0.08em;
   color: var(--t3);
   margin-bottom: 20px;
@@ -72,7 +72,7 @@
 }
 
 .rwa-detail-page .rd-trades-panel h2 {
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
@@ -134,14 +134,14 @@
 
 .rd-empty-state__title {
   margin: 0 0 8px;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
 
 .rd-empty-state__text {
   margin: 0 0 24px;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   color: var(--t2);
   line-height: 1.5;
 }
@@ -150,7 +150,7 @@
 
 .rd-list-sheet__eyebrow {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -163,7 +163,7 @@
 
 .rd-list-sheet__card-name {
   margin: 8px 0 14px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.02em;
@@ -174,7 +174,7 @@
 .rd-list-sheet__card-facts {
   margin: 6px 0 6px;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   letter-spacing: 0.04em;
   color: rgba(255, 255, 255, 0.55);
@@ -197,7 +197,7 @@
 .rd-list-sheet__mkt {
   margin: 0;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -228,7 +228,7 @@
 .rd-list-sheet__ref-label {
   margin-bottom: 2px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -237,13 +237,13 @@
 
 .rd-list-sheet__ref-val {
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
 }
 
 .rd-list-sheet__ref-val--muted {
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -257,7 +257,7 @@
 
 .rd-list-sheet__ref-tag {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.06em;
   color: rgba(255, 255, 255, 0.35);
@@ -268,7 +268,7 @@
   border: 0;
   color: var(--azure);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   padding: 6px 12px;
   border-radius: 8px;
@@ -292,7 +292,7 @@
   z-index: 1;
   transform: translateY(-50%);
   font-family: var(--font-mono);
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: 1;
   color: rgba(0, 0, 0, 0.4);
@@ -309,7 +309,7 @@
   padding: 8px 0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -317,7 +317,7 @@
 }
 
 .rd-list-sheet__fee-amt {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   letter-spacing: 0;
   text-transform: none;
   color: rgba(255, 255, 255, 0.5);
@@ -333,7 +333,7 @@
 
 .rd-list-sheet__fee-net {
   font-family: var(--font-mono);
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -342,7 +342,7 @@
 
 .rd-list-sheet__hint {
   margin: 12px 0 0;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.5;
   color: rgba(255, 255, 255, 0.4);
 }
@@ -356,7 +356,7 @@
 
 .rd-bid-sheet__title {
   margin: 0;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.02em;
@@ -364,7 +364,7 @@
 
 .rd-bid-sheet__subtitle {
   margin: 8px 0 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
   color: var(--t2);
 }
@@ -398,7 +398,7 @@
   align-items: center;
   gap: 7px;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   font-weight: 600;
@@ -412,7 +412,7 @@
 }
 
 .tk-price__ref-val {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 700;
   color: #fff;
 }
@@ -426,7 +426,7 @@
   color: var(--brand-400, #5b9aff);
   box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.4);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 700;
   height: 28px;
   padding: 0 14px;
@@ -472,7 +472,7 @@
   background: transparent;
   color: var(--azure, #1A6FFF);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -489,7 +489,7 @@
   gap: 5px;
   text-transform: none;
   letter-spacing: 0;
-  font-size: 10px;
+  font-size: var(--tk-ui-fs-label);
 }
 
 .tk-price__live-dot {
@@ -501,7 +501,7 @@
 
 .tk-price__loading {
   margin: 0 0 14px;
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   color: rgba(255, 255, 255, 0.45);
 }
 
@@ -541,7 +541,7 @@
 .tk-price__offset-badge {
   color: rgba(255, 255, 255, 0.6);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: var(--tk-ui-fs-body-sm);
   font-weight: 600;
 }
 
@@ -555,7 +555,7 @@
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 17px;
+  font-size: var(--tk-ui-fs-subheading);
   color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }
@@ -569,7 +569,7 @@
   border-radius: 12px;
   box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.12);
   color: #fff;
-  font-size: 20px;
+  font-size: var(--tk-ui-fs-heading);
   font-weight: 700;
   outline: none;
 }
@@ -591,7 +591,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: #fff;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   height: 36px;
   border-radius: 8px;
@@ -614,7 +614,7 @@
   background: rgba(255, 255, 255, 0.07);
   color: #fff;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   font-weight: 600;
   height: 36px;
   border-radius: 8px;
@@ -629,14 +629,14 @@
 
 .tk-price__basenote {
   margin: 0 0 14px;
-  font-size: 11.5px;
+  font-size: var(--tk-ui-fs-caption);
   color: rgba(255, 255, 255, 0.4);
   line-height: 1.5;
 }
 
 .tk-price__hint {
   display: block;
-  font-size: 12.5px;
+  font-size: var(--tk-ui-fs-body-sm);
   line-height: 1.5;
   margin: 0 0 14px;
   padding: 10px 12px;
@@ -671,7 +671,7 @@
 }
 
 .tk-price__fee-amt {
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: rgba(255, 255, 255, 0.6);
 }
 
@@ -688,14 +688,14 @@
 }
 
 .tk-price__net-val {
-  font-size: 22px;
+  font-size: var(--tk-ui-fs-title);
   font-weight: 700;
   color: var(--pos, #00C864);
 }
 
 .tk-price__payout-note {
   margin: 8px 0 0;
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.45);
 }
@@ -776,7 +776,7 @@
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1;
   cursor: pointer;
   transition: background 0.15s ease;
@@ -798,7 +798,7 @@
 
 .tk-set-price-modal__card-name {
   margin: 8px 0 14px;
-  font-size: 16px;
+  font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: 1.3;
   color: #fff;

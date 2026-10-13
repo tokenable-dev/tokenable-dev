@@ -39,6 +39,10 @@
 
 html {
   font-family: var(--font-sans);
+  font-size: var(--tk-ui-fs-body);
+  line-height: var(--tk-ui-lh-body);
+  letter-spacing: var(--tk-ui-ls-body);
+  font-feature-settings: var(--tk-ui-features);
   -webkit-font-smoothing: antialiased;
 }
 

@@ -36,6 +36,7 @@ import {
 } from '../utils/market-parallel-key.util';
 import {
   cardhedgerCatalogVariantSpecificity,
+  cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerRowIsPrintFinishOnly,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
@@ -49,6 +50,7 @@ import {
   psaVarietyRequiresNonBaseCardhedgerRow,
 } from '../../psa/psa-variety-catalog.util';
 import { varietyHintsForSearch } from '../../psa/utils/psa-ocr.util';
+import { orderedPsaCardhedgerSearchQueries } from '../utils/psa-cardhedger-search.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
 import type { CardhedgerCardRow } from './cardhedger-market-data.types';
@@ -334,11 +336,23 @@ export class CardhedgerResolveService {
       ordered.push(t);
     };
 
-    // cardhedgerSearchQuery is either admin-set or derived from a CardHedger-formatted
-    // cert_info.description — both are the most specific identifier available and should
-    // be tried first, before any alias expansions. Placing it here ensures it lands within
-    // the default search-candidate cap (CARDHEDGER_MAX_SEARCH_CANDIDATES).
-    push(q.cardhedgerSearchQuery);
+    /**
+     * PSA `Variety` + Brand/Subject/# first — GemRate cert descriptions can omit parallels.
+     */
+    for (const sq of orderedPsaCardhedgerSearchQueries(
+      {
+        psaSubject: q.psaSubject,
+        psaBrand: q.psaBrand,
+        psaYear: q.psaYear,
+        cardNumber: q.cardNumber,
+        cardName: q.cardName,
+        cardSet: q.cardSet,
+        psaVariety: q.psaVariety,
+      },
+      { cardhedgerSearchQuery: q.cardhedgerSearchQuery },
+    )) {
+      push(sq);
+    }
 
     /**
      * For known promo card types (MEP, SVP), push Cardhedger-idiomatic aliases first
@@ -566,10 +580,29 @@ export class CardhedgerResolveService {
       brandOrSet?: string | null;
     },
   ): boolean {
-    if (opts?.trustStoredCardhedgerCatalogId || opts?.trustCertLinkedRow) {
+    if (opts?.trustStoredCardhedgerCatalogId) {
       return false;
     }
     const pv = psaVariety?.trim() ?? '';
+    if (opts?.trustCertLinkedRow) {
+      if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv, opts?.brandOrSet)) {
+        return false;
+      }
+      if (
+        cardhedgerRowMatchesPsaVariety(row as Record<string, unknown>, pv)
+      ) {
+        return false;
+      }
+      if (
+        cardhedgerCertRowRelaxedGemRateLink(
+          row as Record<string, unknown>,
+          pv,
+        )
+      ) {
+        return false;
+      }
+      return true;
+    }
     if (!pv) {
       return !cardhedgerRowMatchesPsaVariety(
         row as Record<string, unknown>,

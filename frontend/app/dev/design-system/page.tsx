@@ -1,5 +1,6 @@
 import { DsButtonShowcase } from "@/components/ds/DsButtonShowcase";
 import { DsStepperShowcase } from "@/components/ds/DsStepperShowcase";
+import { DsTypographyUiShowcase } from "@/components/ds/DsTypographyUiShowcase";
 
 /** Designer handoff showcase — live Tk* strips + standalone bundle iframe. */
 export default function DesignSystemDevPage() {
@@ -7,6 +8,9 @@ export default function DesignSystemDevPage() {
     <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <DsButtonShowcase />
       <DsStepperShowcase />
+      <div className="p-6">
+        <DsTypographyUiShowcase />
+      </div>
       <iframe
         title="Tokenable Design System"
         src="/design-system-standalone.html"

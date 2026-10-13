@@ -60,6 +60,71 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     );
   });
 
+  it('prefers Pink Refractor search when cert links color-only Pink (PSA PINK REFRACTOR)', async () => {
+    const forwardJson = jest
+      .fn()
+      .mockResolvedValueOnce({
+        results: [
+          {
+            cert_info: {
+              cert: '82573835',
+              description:
+                '2023 Topps Chrome Shohei Ohtani Pink Refractor #17',
+            },
+            card: {
+              card_id: 'ch_pink_only',
+              variant: 'Pink',
+              description: 'Shohei Ohtani 2023 Topps Chrome Baseball Pink #17',
+              name: 'Shohei Ohtani',
+              number: '17',
+            },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        cards: [
+          {
+            card_id: 'ch_pink_only',
+            variant: 'Pink',
+            description: 'Shohei Ohtani 2023 Topps Chrome Baseball Pink #17',
+            name: 'Shohei Ohtani',
+            number: '17',
+          },
+          {
+            card_id: 'ch_pink_refractor',
+            variant: 'Pink Refractor',
+            description:
+              'Shohei Ohtani 2023 Topps Chrome Baseball Pink Refractor #17',
+            name: 'Shohei Ohtani',
+            number: '17',
+            image: 'https://cdn.example.com/pink-ref.jpg',
+          },
+        ],
+      });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '82573835',
+            cardNameHint: 'Shohei Ohtani',
+            cardNumberHint: '17',
+            Variety: 'PINK REFRACTOR',
+            brand: 'TOPPS CHROME',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '82573835');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBe('ch_pink_refractor');
+    expect(ch.imageUrl).toBe('https://cdn.example.com/pink-ref.jpg');
+  });
+
   it('does not attach a Reverse Foil cert cardId when PSA Variety is Master Ball', async () => {
     const forwardJson = jest
       .fn()
@@ -122,16 +187,15 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
 
     expect(ch.cardId).toBe('ch_master_ball');
     expect(ch.imageUrl).toBe('https://cdn.example.com/master.jpg');
-    expect(forwardJson).toHaveBeenNthCalledWith(
-      2,
-      'POST',
-      '/v1/cards/card-search',
-      expect.objectContaining({
-        body: expect.objectContaining({
-          search: 'Pokemon Japanese 151 Gengar Reverse Foil 094',
-        }),
-      }),
+    const searchCalls = forwardJson.mock.calls.filter(
+      (c) => c[1] === '/v1/cards/card-search',
     );
+    expect(searchCalls.length).toBeGreaterThan(0);
+    expect(
+      searchCalls.some((c) =>
+        /master\s*ball/i.test(String(c[2]?.body?.search ?? '')),
+      ),
+    ).toBe(true);
   });
 
   it('does not persist Reverse Foil when Master Ball is absent from search', async () => {
@@ -354,29 +418,38 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
   });
 
   it('falls back to card-search when details-by-certs has card: null', async () => {
-    const forwardJson = jest
-      .fn()
-      .mockResolvedValueOnce({
-        results: [
-          {
-            cert_info: {
-              cert: '83179580',
-              description: "Misty's Gyarados 2025 Pokemon Destined Rivals",
+    const forwardJson = jest.fn(async (method: string, path: string, opts?: { body?: { search?: string } }) => {
+      if (path === '/v1/cards/details-by-certs') {
+        return {
+          results: [
+            {
+              cert_info: {
+                cert: '83179580',
+                description: "Misty's Gyarados 2025 Pokemon Destined Rivals",
+              },
+              card: null,
             },
-            card: null,
-          },
-        ],
-      })
-      .mockResolvedValueOnce({
-        cards: [
-          {
-            card_id: 'ch_from_search',
-            description: "Misty's Gyarados 2025 Pokemon Destined Rivals",
-            number: '49',
-            image: 'https://cdn.example.com/big.webp',
-          },
-        ],
-      });
+          ],
+        };
+      }
+      const search = String(opts?.body?.search ?? '');
+      if (
+        search.includes('Destined Rivals') ||
+        search.includes("Misty's Gyarados")
+      ) {
+        return {
+          cards: [
+            {
+              card_id: 'ch_from_search',
+              description: "Misty's Gyarados 2025 Pokemon Destined Rivals",
+              number: '49',
+              image: 'https://cdn.example.com/big.webp',
+            },
+          ],
+        };
+      }
+      return { cards: [] };
+    });
     const svc = buildService(forwardJson);
     const meta = {
       properties: {
@@ -397,15 +470,9 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
 
     expect(ch.cardId).toBe('ch_from_search');
     expect(ch.imageUrl).toBe('https://cdn.example.com/big.webp');
-    expect(forwardJson).toHaveBeenNthCalledWith(
-      2,
-      'POST',
-      '/v1/cards/card-search',
-      expect.objectContaining({
-        body: expect.objectContaining({
-          search: "Misty's Gyarados 2025 Pokemon Destined Rivals",
-        }),
-      }),
+    const searchCalls = forwardJson.mock.calls.filter(
+      (c) => c[1] === '/v1/cards/card-search',
     );
+    expect(searchCalls.length).toBeGreaterThan(0);
   });
 });

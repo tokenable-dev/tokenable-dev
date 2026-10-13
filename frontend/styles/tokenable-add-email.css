@@ -32,12 +32,12 @@
 }
 
 .tk-dialog.tk-add-email .tk-dialog__title {
-  font-size: 24px;
+  font-size: var(--tk-ui-fs-title);
   line-height: 1.25;
 }
 
 .tk-dialog.tk-add-email .tk-dialog__head > .tk-dialog__body {
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.45;
   color: #a7a9ac;
   max-width: none;
@@ -50,7 +50,7 @@
 }
 
 .tk-dialog.tk-add-email .tk-add-email__field .tk-field__label {
-  font-size: 11px;
+  font-size: var(--tk-ui-fs-caption);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -64,7 +64,7 @@
   clip-path: none;
   box-shadow: inset 0 0 0 1.5px #1a6fff;
   padding: 14px 16px;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   width: 100%;
 }
 

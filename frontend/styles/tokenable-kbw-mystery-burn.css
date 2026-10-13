@@ -28,7 +28,7 @@
 
 .tk-kbw-burn__error {
   margin: 0;
-  font-size: 13px;
+  font-size: var(--tk-ui-fs-body);
   color: #ff6b6b;
   text-align: center;
 }
@@ -43,14 +43,14 @@
 
 .tk-kbw-burn__staff-lead {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--tk-ui-fs-section);
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.92);
 }
 
 .tk-kbw-burn__staff-warn {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--tk-ui-fs-body-lg);
   line-height: 1.4;
   color: #ffb020;
 }

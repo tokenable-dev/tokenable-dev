@@ -7,11 +7,16 @@ import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolv
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
+  cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerCertRowUsableForPsaVariety,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
 } from '../utils/cardhedger-psa-variety.util';
 import { catalogTcgPrefixedNumberCompatible } from '../utils/card-match.util';
+import {
+  pickCardhedgerRowFromSearchResults,
+  psaCardhedgerSearchQueryList,
+} from '../utils/cardhedger-resolve-from-psa.util';
 import {
   isHttpOrHttpsUrl,
   normalizeImageUrl,
@@ -142,9 +147,11 @@ export class CollectionCoverService {
             card,
             psaVariety,
           );
-          // GemRate cert link is authoritative even when Cardhedger labels the
-          // row `Base` but PSA says `ALTERNATE ART` (common on JP One Piece).
-          if (id && (varietyOk || !cardId)) {
+          const relaxedCertLink = cardhedgerCertRowRelaxedGemRateLink(
+            card,
+            psaVariety,
+          );
+          if (id && (varietyOk || relaxedCertLink)) {
             cardId = id;
             const img =
               typeof card.image === 'string' ? card.image.trim() : '';
@@ -540,70 +547,69 @@ export class CollectionCoverService {
             : ''
     ).trim();
     const year = String(cardMeta?.year ?? psaMeta?.year ?? '').trim();
+    const psaVarietyForSearch = psaVarietyFromMintMeta(meta);
+    const psaSubject = String(
+      psaMeta?.subject ?? psaMeta?.Subject ?? psaMeta?.cardNameHint ?? cardName,
+    ).trim();
+    const psaBrand = String(
+      psaMeta?.brand ?? psaMeta?.Brand ?? psaMeta?.setHint ?? setName,
+    ).trim();
 
-    const search =
-      certDescription.trim() ||
-      [cardName, cardNumber, setName, year].filter(Boolean).join(' ');
-    if (!search) return null;
+    const searchQueries = psaCardhedgerSearchQueryList(
+      {
+        psaSubject,
+        psaBrand,
+        psaYear: year,
+        cardNumber,
+        cardName,
+        cardSet: setName,
+        psaVariety: psaVarietyForSearch,
+      },
+      { certDescription },
+    );
+    if (searchQueries.length === 0) return null;
+
+    const hints = {
+      psaSubject,
+      psaBrand,
+      psaYear: year,
+      cardNumber,
+      cardName,
+      cardSet: setName,
+      psaVariety: psaVarietyForSearch,
+    };
 
     try {
       this.cardhedger.assertConfigured();
-      const body = await this.cardhedger.forwardJson(
-        'POST',
-        '/v1/cards/card-search',
-        { body: { search, page: 1, page_size: 10 } },
-      );
-      const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
-        ? ((body as { cards: unknown[] }).cards ?? [])
-        : [];
-      if (cards.length === 0) return null;
 
-      const norm = (s: string) =>
-        s
-          .trim()
-          .toLowerCase()
-          .replace(/\s+/g, '')
-          .replace(/[^a-z0-9]/g, '');
-      const wantNum = norm(cardNumber).replace(/^#/, '');
-      const wantNameWords = norm(cardName).match(/[a-z0-9]+/g) ?? [];
-      const psaVariety = psaVarietyFromMintMeta(meta);
-      const requireNamed =
-        psaVarietyHasNamedCollectibleIdentity(psaVariety);
+      let picked: ReturnType<typeof pickCardhedgerRowFromSearchResults> = null;
+      let searchUsed = searchQueries[0] ?? '';
 
-      let bestCompatible: Record<string, unknown> | null = null;
-      let bestNameNum: Record<string, unknown> | null = null;
-      let bestFirst: Record<string, unknown> | null = null;
-      for (const row of cards as Record<string, unknown>[]) {
-        const id = typeof row.card_id === 'string' ? row.card_id.trim() : '';
-        if (!id) continue;
-        if (!bestFirst) bestFirst = row;
-        const rowNum = norm(String(row.number ?? '')).replace(/^#/, '');
-        const rowDesc = norm(String(row.description ?? row.name ?? ''));
-        const numOk =
-          !wantNum ||
-          rowNum === wantNum ||
-          catalogTcgPrefixedNumberCompatible(cardNumber, String(row.number ?? ''));
-        const nameOk =
-          wantNameWords.length === 0 ||
-          wantNameWords.every((w) => rowDesc.includes(w));
-        if (!(numOk && nameOk)) continue;
-        if (!bestNameNum) bestNameNum = row;
-        if (cardhedgerRowMatchesPsaVariety(row, psaVariety)) {
-          bestCompatible = row;
+      for (const search of searchQueries) {
+        const body = await this.cardhedger.forwardJson(
+          'POST',
+          '/v1/cards/card-search',
+          { body: { search, page: 1, page_size: 25 } },
+        );
+        const cards = Array.isArray((body as { cards?: unknown[] })?.cards)
+          ? ((body as { cards: unknown[] }).cards ?? [])
+          : [];
+        if (cards.length === 0) continue;
+        picked = pickCardhedgerRowFromSearchResults(
+          cards as Record<string, unknown>[],
+          hints,
+        );
+        if (picked) {
+          searchUsed = search;
           break;
         }
       }
-      const best =
-        bestCompatible ?? (requireNamed ? null : (bestNameNum ?? bestFirst));
-      if (!best) return null;
-      const cardId = String(best.card_id ?? '').trim();
-      if (!cardId) return null;
-      const imageUrl =
-        typeof best.image === 'string' ? best.image.trim() : '';
+
+      if (!picked) return null;
       return {
-        cardId,
-        imageUrl,
-        searchQuery: search,
+        cardId: picked.cardId,
+        imageUrl: picked.imageUrl,
+        searchQuery: searchUsed,
       };
     } catch {
       return null;

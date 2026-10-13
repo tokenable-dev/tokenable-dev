@@ -190,6 +190,7 @@ export function HomeCardGrid({
               marketChangePctOverride={changePctOverride}
               marketChangePeriodLabel={periodLabel}
               shell="none"
+              coverVariant="compact"
             />
           );
         })}

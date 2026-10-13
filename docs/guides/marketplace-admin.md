@@ -221,7 +221,7 @@ List/detail enrichment: `role`, `partner`, `custodyCardCount` (minted vault cycl
 | `POST` | `/marketplace/collections/:key/admin/cover` |
 | `POST` | `/marketplace/collections/:key/admin/cover/upload` |
 | `POST` | `/marketplace/collections/:key/admin/cover/from-token` |
-| `POST` | `/marketplace/collections/:key/admin/delete` | Removes the marketplace bucket, snapshots, and orders. **Does not delete `rwa_tokens`** — those rows are the NFT registry + portfolio owner index. `collection_key` is set to null. |
+| `POST` | `/marketplace/collections/:key/admin/delete` | Cancels **active asks** on this bucket (including legacy listings with null/mismatched `collection_key`), then removes the marketplace bucket, snapshots, and chain-scoped order rows. **Does not delete `rwa_tokens`** — those rows are the NFT registry + portfolio owner index. `collection_key` is set to null. |
 
 Public `GET /marketplace/collections` always returns **`active`** only.  
 Cover upload **overwrites** the collection’s stable S3 object and writes that public URL to `coverImageUrl`. New collections ingest Cardhedger images to S3 on create. Listings and sales do **not** replace an existing cover. See [catalog-cover-s3.md](catalog-cover-s3.md).  

@@ -376,6 +376,7 @@ export async function postAdminDeleteCollection(
 ): Promise<{
   collectionKey: string;
   deletedSnapshots: number;
+  cancelledActiveAsks: number;
   deletedOrders: number;
   unlinkedRwaTokens: number;
   deletedCollection: boolean;
@@ -398,7 +399,8 @@ export async function postAdminDeleteCollection(
   return res.json() as Promise<{
     collectionKey: string;
     deletedSnapshots: number;
-    deletedOrders: number;
+    cancelledActiveAsks: number;
+  deletedOrders: number;
     unlinkedRwaTokens: number;
     deletedCollection: boolean;
   }>;

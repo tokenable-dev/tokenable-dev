@@ -1,6 +1,7 @@
 import {
   chromeColorTokensIn,
   psaVarietyIsGenericSportRefractorLine,
+  psaVarietyIsPokemonRarityLabel,
   psaVarietyRequiresNonBaseCardhedgerRow,
 } from '../../psa/psa-variety-catalog.util';
 
@@ -365,24 +366,6 @@ export function cardhedgerRowMatchesPsaVariety(
     });
     if (leftoverIdentity.length === 0) return true;
     /**
-     * Topps Chrome: Cardhedger often shortens `Green Wave Refractor` → `Green Wave` /
-     * `Pitching Prism` (omits the word Refractor). When a non-variation parallel anchor
-     * (color / wave / prism / …) from PSA is on the row, leftover `refractor` alone is OK.
-     * Do **not** treat image-variation base (`Base - Variation`) as a Refractor parallel.
-     */
-    if (
-      leftoverIdentity.length === 1 &&
-      leftoverIdentity[0] === 'refractor' &&
-      namedIdentityTokens(variantTokens).some(
-        (t) =>
-          t !== 'refractor' &&
-          t !== 'variation' &&
-          psaTokens.has(t),
-      )
-    ) {
-      return true;
-    }
-    /**
      * PSA One Piece championship stamps: `Championship 2024-Top Prize`.
      * Cardhedger files the same overlay as `variant: "Championship 2024"`
      * (distinct from other characters' `Top Prize` / Finalist / Top Player).
@@ -423,18 +406,6 @@ export function cardhedgerRowMatchesPsaVariety(
     ) {
       return true;
     }
-    // Same Chrome shorthand: PSA `… REFRACTOR` vs catalog without the word.
-    if (
-      c === 'refractor' &&
-      namedIdentityTokens([...psaTokens]).some(
-        (t) =>
-          t !== 'refractor' &&
-          t !== 'variation' &&
-          blobHasVarietyChunk(blob, t),
-      )
-    ) {
-      return true;
-    }
     return false;
   });
 }
@@ -449,4 +420,21 @@ export function cardhedgerCertRowUsableForPsaVariety(
 ): boolean {
   if (!row) return !psaVarietyHasNamedCollectibleIdentity(psaVariety);
   return cardhedgerRowMatchesPsaVariety(row, psaVariety);
+}
+
+/**
+ * GemRate `details-by-certs` linked a catalog row that fails {@link cardhedgerRowMatchesPsaVariety}
+ * but is still the correct market line (Cardhedger `variant` label drift).
+ */
+export function cardhedgerCertRowRelaxedGemRateLink(
+  row: Record<string, unknown>,
+  psaVariety: string | null | undefined,
+): boolean {
+  const pv = String(psaVariety ?? '').trim();
+  if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
+  const vr = String(row.variant ?? '').trim().toLowerCase();
+  if (vr !== '' && vr !== 'base') return false;
+  if (/\balternate\s+art\b/i.test(pv)) return true;
+  if (psaVarietyIsPokemonRarityLabel(pv)) return true;
+  return false;
 }

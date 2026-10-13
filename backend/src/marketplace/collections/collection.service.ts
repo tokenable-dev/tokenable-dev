@@ -1953,6 +1953,7 @@ export class CollectionService {
   ): Promise<{
     collectionKey: string;
     deletedSnapshots: number;
+    cancelledActiveAsks: number;
     deletedOrders: number;
     unlinkedRwaTokens: number;
     deletedCollection: boolean;
@@ -1971,6 +1972,35 @@ export class CollectionService {
     });
 
     const result = await this.collectionRepo.manager.transaction(async (em) => {
+      const tokenIdRows = await em
+        .createQueryBuilder(RwaToken, 't')
+        .select('t.token_id', 'tokenId')
+        .where('LOWER(t.collection_key) = :k', { k })
+        .andWhere('LOWER(t.token_contract) = :tc', { tc: tokenContract })
+        .getRawMany<{ tokenId: string }>();
+      const tokenIds = tokenIdRows
+        .map((r) => String(r.tokenId ?? '').trim())
+        .filter((id) => id.length > 0);
+
+      // Cancel live asks before unlinking the bucket (includes legacy rows with null/mismatched collection_key).
+      const cancelBuilder = em
+        .createQueryBuilder()
+        .update(Order)
+        .set({ status: OrderStatus.CANCELLED })
+        .where('LOWER(token_contract) = :tc', { tc: tokenContract })
+        .andWhere('side = :side', { side: OrderSide.ASK })
+        .andWhere('status = :status', { status: OrderStatus.ACTIVE });
+      if (tokenIds.length > 0) {
+        cancelBuilder.andWhere(
+          '(LOWER(collection_key) = :k OR token_id IN (:...tokenIds))',
+          { k, tokenIds },
+        );
+      } else {
+        cancelBuilder.andWhere('LOWER(collection_key) = :k', { k });
+      }
+      const cancelRes = await cancelBuilder.execute();
+      const cancelledActiveAsks = cancelRes.affected ?? 0;
+
       // Delete snapshot only when this is the last chain row for this bucket.
       let deletedSnapshots = 0;
       if (totalRows <= 1) {
@@ -2003,6 +2033,7 @@ export class CollectionService {
       });
       return {
         deletedSnapshots,
+        cancelledActiveAsks,
         deletedOrders: orderRes.affected ?? 0,
         unlinkedRwaTokens: rwaRes.affected ?? 0,
         deletedCollection: (colRes.affected ?? 0) > 0,
@@ -2012,7 +2043,7 @@ export class CollectionService {
     this.merkleSet.invalidateForCollection(k);
 
     this.logger.warn(
-      `[Admin] deleted collection ${k} contract=${tokenContract}: snapshots=${result.deletedSnapshots} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
+      `[Admin] deleted collection ${k} contract=${tokenContract}: snapshots=${result.deletedSnapshots} cancelled_active_asks=${result.cancelledActiveAsks} orders=${result.deletedOrders} unlinked_rwa_tokens=${result.unlinkedRwaTokens}`,
     );
 
     return { collectionKey: k, ...result };
