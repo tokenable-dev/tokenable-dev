@@ -39,7 +39,7 @@ import {
   cardIdFromPsaCertLookup,
   catalogRowTrustedForMarketData,
 } from '../utils/card-match.util';
-import { cardhedgerRowMatchesPsaVariety } from '../utils/cardhedger-psa-variety.util';
+import { cardhedgerCertRowUsableForPsaVariety } from '../utils/cardhedger-psa-variety.util';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { MarketplaceCollection } from '../entities/marketplace-collection.entity';
 import {
@@ -761,7 +761,7 @@ export class CollectionComponentsService {
       if (!certRow) {
         return { checked: true, ok: true, cleared: false, failCodes: [] };
       }
-      if (cardhedgerRowMatchesPsaVariety(certRow, psaVariety)) {
+      if (cardhedgerCertRowUsableForPsaVariety(certRow, psaVariety)) {
         return { checked: true, ok: true, cleared: false, failCodes: [] };
       }
       if (options?.clearOnMismatch) {
@@ -863,7 +863,7 @@ export class CollectionComponentsService {
       if (
         psaVariety &&
         !psaVarietyIndicatesGenericBaseLine(psaVariety, brandOrSet) &&
-        !cardhedgerRowMatchesPsaVariety(row, psaVariety)
+        !cardhedgerCertRowUsableForPsaVariety(row, psaVariety)
       ) {
         if (options?.clearOnMismatch) {
           const { cleared } =

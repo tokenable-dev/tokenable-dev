@@ -160,6 +160,8 @@ function cardhedgerRowParallelFlavorConflict(
 function synonymizeToken(t: string): string {
   if (t === 'foil' || t === 'holofoil' || t === 'holographic') return 'holo';
   if (t === 'vatiation') return 'variation';
+  // Cardhedger / GemRate: `Prizms Silver` vs PSA `SILVER PRIZM`.
+  if (t === 'prizms') return 'prizm';
   return t;
 }
 
@@ -419,7 +421,47 @@ export function cardhedgerCertRowUsableForPsaVariety(
   psaVariety: string | null | undefined,
 ): boolean {
   if (!row) return !psaVarietyHasNamedCollectibleIdentity(psaVariety);
-  return cardhedgerRowMatchesPsaVariety(row, psaVariety);
+  if (cardhedgerRowMatchesPsaVariety(row, psaVariety)) return true;
+  return cardhedgerCertRowRelaxedGemRateLink(row, psaVariety);
+}
+
+/** PSA JP SV-P promos: `SPECIAL BOX PC HIROSHIMA` (Cardhedger often `variant: Base`). */
+export function psaVarietyIsPokemonCenterSpecialBoxLine(
+  psaVariety: string | null | undefined,
+): boolean {
+  const pv = normalizePsaVarietyForMatch(psaVariety).toLowerCase();
+  return /\bspecial\s+box\b/.test(pv) && /\bpc\b/.test(pv);
+}
+
+function compactAlnumBlob(parts: string[]): string {
+  return parts.join(' ').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function pokemonCenterCityFromSpecialBoxPsaVariety(
+  psaVariety: string,
+): string | null {
+  const pv = normalizePsaVarietyForMatch(psaVariety).toLowerCase();
+  const m = pv.match(/\bpc\s+([a-z][a-z\s'-]+)$/i);
+  if (!m) return null;
+  const city = m[1].replace(/['']/g, '').replace(/\s+/g, ' ').trim();
+  if (city.length < 3) return null;
+  return city.replace(/\s+/g, '');
+}
+
+function cardhedgerBaseRowMatchesPokemonCenterSpecialBox(
+  row: Record<string, unknown>,
+  psaVariety: string,
+): boolean {
+  const cityKey = pokemonCenterCityFromSpecialBoxPsaVariety(psaVariety);
+  if (!cityKey) return false;
+  const blob = compactAlnumBlob([
+    rowParallelBlob(row),
+    String(row.player ?? row.name ?? ''),
+  ]);
+  if (!blob.includes('specialbox') && !blob.includes('pokemoncenter')) {
+    return false;
+  }
+  return blob.includes(cityKey);
 }
 
 /**
@@ -436,5 +478,11 @@ export function cardhedgerCertRowRelaxedGemRateLink(
   if (vr !== '' && vr !== 'base') return false;
   if (/\balternate\s+art\b/i.test(pv)) return true;
   if (psaVarietyIsPokemonRarityLabel(pv)) return true;
+  if (
+    psaVarietyIsPokemonCenterSpecialBoxLine(pv) &&
+    cardhedgerBaseRowMatchesPokemonCenterSpecialBox(row, pv)
+  ) {
+    return true;
+  }
   return false;
 }

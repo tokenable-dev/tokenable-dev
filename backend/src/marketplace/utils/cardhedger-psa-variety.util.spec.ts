@@ -2,6 +2,7 @@ import {
   cardhedgerCatalogVariantSpecificity,
   cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerCertRowUsableForPsaVariety,
+  psaVarietyIsPokemonCenterSpecialBoxLine,
   cardhedgerRowIsPrintFinishOnly,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
@@ -278,6 +279,18 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         'SILVER PRIZM',
       ),
     ).toBe(false);
+  });
+
+  it('matches GemRate Prizms Silver cert row to PSA SILVER PRIZM (LaMelo #278)', () => {
+    const certRow = {
+      variant: 'Prizms Silver',
+      description: 'LaMelo Ball 2020 Panini Prizm Basketball Silver',
+      number: '278',
+    };
+    expect(cardhedgerRowMatchesPsaVariety(certRow, 'SILVER PRIZM')).toBe(true);
+    expect(cardhedgerCertRowUsableForPsaVariety(certRow, 'SILVER PRIZM')).toBe(
+      true,
+    );
   });
 
   it('matches Red Manga Alternate Art to the named variant', () => {
@@ -649,5 +662,65 @@ describe('cardhedgerRowMatchesPsaVariety — existing TCG / sports parallels', (
         'CHAMPIONSHIP 2024-TOP PRIZE',
       ),
     ).toBe(false);
+  });
+});
+
+describe('Pokemon Center Special Box SV-P — PSA SPECIAL BOX PC {city}', () => {
+  const hiroshimaRow = {
+    variant: 'Base',
+    description:
+      "Hiroshima's Pikachu 2025 Pokemon Japanese Scarlet & Violet Promos Special Box Pokemon Center Hiroshima",
+    player: "Hiroshima's Pikachu",
+    set: '2025 Pokemon Japanese Scarlet & Violet Promos',
+    number: '261',
+  };
+
+  it('detects PSA Special Box PC lines', () => {
+    expect(psaVarietyIsPokemonCenterSpecialBoxLine('SPECIAL BOX PC HIROSHIMA')).toBe(
+      true,
+    );
+    expect(psaVarietyIsPokemonCenterSpecialBoxLine('PINK REFRACTOR')).toBe(
+      false,
+    );
+  });
+
+  it('accepts cert-linked Base row for Hiroshima via relaxed GemRate link', () => {
+    expect(
+      cardhedgerRowMatchesPsaVariety(hiroshimaRow, 'SPECIAL BOX PC HIROSHIMA'),
+    ).toBe(false);
+    expect(
+      cardhedgerCertRowRelaxedGemRateLink(
+        hiroshimaRow,
+        'SPECIAL BOX PC HIROSHIMA',
+      ),
+    ).toBe(true);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        hiroshimaRow,
+        'SPECIAL BOX PC HIROSHIMA',
+      ),
+    ).toBe(true);
+  });
+
+  it('rejects Base row when city does not match PSA Special Box line', () => {
+    expect(
+      cardhedgerCertRowRelaxedGemRateLink(
+        hiroshimaRow,
+        'SPECIAL BOX PC FUKUOKA',
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts Tohoku Special Box PC (cert 152206685)', () => {
+    const tohokuRow = {
+      variant: 'Base',
+      description:
+        "Tohoku's Pikachu 2025 Pokemon Japanese Scarlet & Violet Promos Special Box Pokemon Center Tohoku",
+      player: "Tohoku's Pikachu",
+      number: '260',
+    };
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(tohokuRow, 'SPECIAL BOX PC TOHOKU'),
+    ).toBe(true);
   });
 });
