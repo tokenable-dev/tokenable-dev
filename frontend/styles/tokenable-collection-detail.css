@@ -3436,8 +3436,8 @@
 
 @media (min-width: 1141px) {
   .collection-detail-page .cd-similar-items__grid {
-    grid-template-columns: repeat(5, var(--cd-si-card-w));
-    justify-content: start;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    justify-content: stretch;
     gap: 20px;
   }
 }
@@ -3539,6 +3539,29 @@
 
   .collection-detail-page .cd-si-card__media {
     width: 132px;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 416 / 700;
+    flex: 0 0 auto;
+  }
+
+  .collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
+    left: 0;
+    transform: none;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+@media (min-width: 1141px) {
+  .collection-detail-page .cd-si-card {
+    width: 100%;
+    max-width: none;
+  }
+
+  .collection-detail-page .cd-si-card__media {
+    width: 100%;
     height: auto;
     min-height: 0;
     max-height: none;
