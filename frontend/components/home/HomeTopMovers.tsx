@@ -30,7 +30,6 @@ export function HomeTopMovers() {
           subMode="change"
           changeLoading={snapshotsPending}
           use90dChange
-          layout="wrap"
         />
       )}
     </section>

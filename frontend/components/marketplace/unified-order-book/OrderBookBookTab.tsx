@@ -375,9 +375,6 @@ export function OrderBookBookTab({
             onListYours={onListYours}
           />
         </div>
-        <p className="cd-ob-book-hint cd-ob-book-hint--market-empty">
-          Vaulted cards can be listed here.
-        </p>
       </div>
     );
   }
@@ -417,13 +414,7 @@ export function OrderBookBookTab({
           <div className="cd-ob-book-stack">
             {asksEmptyBidsLive ? (
               <div className="cd-ob-book-pane cd-ob-book-pane--empty-side">
-                <OrderBookEmptyPanel
-                  variant="no_asks"
-                  onPlaceBid={onPlaceBid}
-                  listingAlertActive={listingAlertActive}
-                  listingAlertPending={listingAlertPending}
-                  onToggleListingAlert={onToggleListingAlert}
-                />
+                <OrderBookEmptyPanel variant="no_asks" onListYours={onListYours} />
               </div>
             ) : (
               <OrderBookSplitScrollPane

@@ -3,10 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { buildHomeTickerCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
-import {
-  formatReferencePercentChange,
-  referenceChangeTone,
-} from "@/lib/market/priceChangePeriod";
+import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
 import "@/styles/tokenable-home.css";
 
@@ -22,7 +19,7 @@ export function HomeTicker() {
 
   const items = useMemo(() => {
     return tickerItems.map(({ collection, changePct }) => {
-      const tone = referenceChangeTone(changePct ?? 0);
+      const display = resolveReferencePercentChangeDisplay(changePct);
       const shortTitle = buildHomeTickerCollectionTitle({
         collection,
         comp: collection.components,
@@ -32,8 +29,9 @@ export function HomeTicker() {
       return {
         name,
         collectionKey: collection.collectionKey,
-        pct: formatReferencePercentChange(changePct ?? 0, 0),
-        up: tone !== "down",
+        pct: display.pctLabel,
+        tone: display.tone,
+        showGlyph: display.showGlyph,
       };
     });
   }, [tickerItems]);
@@ -111,14 +109,18 @@ export function HomeTicker() {
                 <span className="mono home-ticker__item-name">{item.name}</span>
                 <span
                   className={`mono home-ticker__item-pct ${
-                    item.up
+                    item.tone === "up"
                       ? "home-ticker__item-pct--up"
-                      : "home-ticker__item-pct--down"
+                      : item.tone === "down"
+                        ? "home-ticker__item-pct--down"
+                        : "home-ticker__item-pct--muted"
                   }`}
                 >
-                  <span className="home-ticker__item-glyph" aria-hidden>
-                    {item.up ? "▲" : "▼"}
-                  </span>
+                  {item.showGlyph ? (
+                    <span className="home-ticker__item-glyph" aria-hidden>
+                      {item.tone === "down" ? "▼" : "▲"}
+                    </span>
+                  ) : null}
                   {item.pct}
                 </span>
               </Link>

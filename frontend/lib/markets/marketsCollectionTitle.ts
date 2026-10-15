@@ -81,12 +81,20 @@ export function buildMarketsCollectionHeadlineParts(params: {
   });
 }
 
-/** Markets tile Line 1 — `{Name} · {Number} · {Grade}`. */
+export type MarketsCollectionTitleFormatOptions = {
+  /** Collection detail similar tiles — grade on its own row in UI. */
+  splitGradeToSecondLine?: boolean;
+};
+
+/** Markets listing Line 1 — default `{Name} · {Number} · {Grade}`. */
 export function formatMarketsCollectionTileTitle(
   parts: AssetDetailHeadlineParts,
   grade?: string | null,
+  opts?: MarketsCollectionTitleFormatOptions,
 ): string {
-  return formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade));
+  return formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade), {
+    omitGrade: Boolean(opts?.splitGradeToSecondLine),
+  });
 }
 
 function collectionDisplayLabelFallback(
@@ -97,14 +105,24 @@ function collectionDisplayLabelFallback(
   return dl ? toCardDisplayCase(dl) : "";
 }
 
-/** Markets / home / search / watchlist — Line 1 only. */
-export function buildMarketsCollectionTitle(params: {
-  collection: MarketsCollectionTitleCollection;
+/** Grade row under listing Line 1 — PSA 10, BGS 10, etc. */
+export function buildMarketsCollectionTileGrade(params: {
   comp: CollectionComponents;
 }): string {
+  return gradeLabelFromComp(params.comp);
+}
+
+/** Markets / home / search / watchlist — Line 1 with grade; collection detail tiles may split grade. */
+export function buildMarketsCollectionTitle(
+  params: {
+    collection: MarketsCollectionTitleCollection;
+    comp: CollectionComponents;
+  },
+  opts?: MarketsCollectionTitleFormatOptions,
+): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
   const grade = gradeLabelFromComp(params.comp);
-  const out = formatMarketsCollectionTileTitle(parts, grade);
+  const out = formatMarketsCollectionTileTitle(parts, grade, opts);
   if (out) return out;
   return collectionDisplayLabelFallback(params.collection);
 }

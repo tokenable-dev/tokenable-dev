@@ -10,7 +10,6 @@ export * from "./rwa-blockchain";
 export * from "./orders";
 export * from "./marketplace-collections";
 export * from "./marketplace-admin-rwa";
-export * from "./marketplace-admin-bulk-mint";
 export * from "./marketplace-admin-partners";
 export * from "./marketplace-partner-me";
 export * from "./marketplace-admin-auth";

@@ -28,6 +28,9 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
     headlineTitleLayout = false,
     badgeLabel = "Collection",
     imageUrl,
+    coverComp,
+    coverDisplayLabel,
+    coverCollectionKey,
     metadataRows,
     stats,
     chartMetricsRow,
@@ -144,6 +147,9 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
         <div className={`min-w-0 ${layout.useMobileTabbedMarket ? "min-[1141px]:hidden" : ""}`}>
           <CollectionOverviewLeftColumn
             imageUrl={imageUrl}
+            coverComp={coverComp}
+            coverDisplayLabel={coverDisplayLabel}
+            coverCollectionKey={coverCollectionKey}
             marketsTriple={layout.marketsTriple}
             useMobileTabbedMarket={layout.useMobileTabbedMarket}
             mobileMarketTabs={mobileMarketTabs}

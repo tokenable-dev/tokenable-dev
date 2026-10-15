@@ -1,8 +1,8 @@
 import type { ConfigService } from '@nestjs/config';
 import { RWA_SETTLEMENT_POLICY, type RwaSettlementPolicy } from './rwa-settlement-policy';
 
-/** Partner / self-vault marketplace fee — default 10% (1000 bps). */
-export const SELF_VAULT_PLATFORM_FEE_BPS_DEFAULT = 1000;
+/** Partner / self-vault marketplace fee — default 5% (500 bps). */
+export const SELF_VAULT_PLATFORM_FEE_BPS_DEFAULT = 500;
 
 export function readPlatformFeeBps(config: ConfigService): number {
   const raw = Number(config.get<string>('PLATFORM_FEE_BPS') ?? '500');

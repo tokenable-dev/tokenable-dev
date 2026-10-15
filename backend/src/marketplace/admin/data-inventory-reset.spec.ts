@@ -79,8 +79,6 @@ describe('DataInventoryService.resetForNewContract', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
       dataSource,
       config,
       chainConfig,

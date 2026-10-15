@@ -77,13 +77,13 @@ All marketplace trades use **Seaport 1.5**. There is no relational bid/ask match
 - Orders are signed EIP-712 structures, not matched server-side
 - Settlement is on-chain (`fulfillOrder` / `matchAdvancedOrders`)
 - Platform fee (5% default) is encoded as Seaport consideration item on **asks** only — bids/offers have no bid fee
-- **Self-vault hold** (partner vault) asks encode **seller USDC + platform fee** on Seaport (`SELF_VAULT_PLATFORM_FEE_BPS`, default **10%** = $10 on a $100 sale to the fee wallet)
+- **Self-vault hold** (partner vault) asks encode **seller USDC + platform fee** on Seaport (`SELF_VAULT_PLATFORM_FEE_BPS`, default **5%** = $5 on a $100 sale to the fee wallet)
 
 ### BR-8c: Self-Vault Hold Settlement
 
-Partner-vault tokens (`settlement_policy = self_vault_hold`) use the **same instant on-chain split** as PSA vault, with a higher fee:
+Partner-vault tokens (`settlement_policy = self_vault_hold`) use the **same instant on-chain split** as PSA vault (fee via `SELF_VAULT_PLATFORM_FEE_BPS`, default **5%**):
 
-1. **Ask consideration** — USDC to seller (net) + USDC to `PLATFORM_FEE_RECIPIENT` (fee bps, default 10%)
+1. **Ask consideration** — USDC to seller (net) + USDC to `PLATFORM_FEE_RECIPIENT` (fee bps, default 5%)
 2. **On fulfill** — NFT → buyer; USDC → seller + fee wallet (no delayed hold for new listings)
 3. **Legacy ledger** — fulfilled asks that still used **100% → fee wallet** create `self_vault_settlements` for off-chain seller payout (admin or cron). New split asks skip the ledger.
 4. **Bid-only fulfill** is **blocked** for these tokens — match bid+ask on Seaport or list an ask

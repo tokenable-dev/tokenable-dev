@@ -7,7 +7,7 @@ import { Suspense, useCallback, useEffect, useState, type CSSProperties } from "
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { ASSETS } from "@/constants/assets";
-import { shouldHideAppChrome } from "@/constants/layout";
+import { isHomeLandingPath, shouldHideAppChrome } from "@/constants/layout";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
@@ -36,6 +36,7 @@ export function TkHeader() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const hideChrome = shouldHideAppChrome(pathname);
+  const hideGnbSearch = isHomeLandingPath(pathname);
   const { unreadCount } = useMarketplaceNotifications({
     enabled: !hideChrome,
   });
@@ -112,6 +113,7 @@ export function TkHeader() {
           drawerOpen && "tk-header--drawer-open",
           mobileSearchOpen && "tk-header--search-open",
           desktopSearchCompact && "tk-header--search-compact",
+          hideGnbSearch && "tk-header--landing-no-search",
         )}
         style={searchPositionStyle}
       >
@@ -139,19 +141,23 @@ export function TkHeader() {
             <HeaderDesktopNav />
           </div>
 
-          <div className="tk-header__center gnb-search-center">
-            <Suspense fallback={<div className="gnb-search-skel" aria-hidden />}>
-              <TkHeaderSearch
-                mobileOpen={mobileSearchOpen}
-                onMobileOpenChange={setMobileSearchOpen}
-                overlayMode={overlaySearch}
-              />
-            </Suspense>
-          </div>
+          {!hideGnbSearch ? (
+            <div className="tk-header__center gnb-search-center">
+              <Suspense fallback={<div className="gnb-search-skel" aria-hidden />}>
+                <TkHeaderSearch
+                  mobileOpen={mobileSearchOpen}
+                  onMobileOpenChange={setMobileSearchOpen}
+                  overlayMode={overlaySearch}
+                />
+              </Suspense>
+            </div>
+          ) : null}
 
           <div className="tk-header__right">
             <div className="tk-header__mobile-actions">
-              <TkHeaderSearchMobileButton onClick={openMobileSearch} />
+              {!hideGnbSearch ? (
+                <TkHeaderSearchMobileButton onClick={openMobileSearch} />
+              ) : null}
 
               <button
                 type="button"
@@ -176,7 +182,7 @@ export function TkHeader() {
               </button>
             </div>
 
-            {desktopSearchCompact ? (
+            {desktopSearchCompact && !hideGnbSearch ? (
               <TkHeaderSearchMobileButton
                 className="gnb-search-desktop-fallback"
                 onClick={openMobileSearch}

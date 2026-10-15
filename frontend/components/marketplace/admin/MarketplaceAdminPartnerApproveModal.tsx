@@ -113,7 +113,7 @@ export function MarketplaceAdminPartnerApproveModal({
 
         <p className={`mt-4 text-sm leading-relaxed ${ADMIN_TEXT_SECONDARY}`}>
           파트너는 자체 보관(PSA 입고 없음). Origin·키는 승인 후 이 유저 상세에서
-          설정하고, 대량 민트는 Partner bulk mint에서 진행합니다.
+          설정합니다. 파트너 대량 민트는 Sell flow에서 진행합니다.
         </p>
 
         <div className="mt-5 space-y-4">
@@ -149,7 +149,7 @@ export function MarketplaceAdminPartnerApproveModal({
           </div>
           <div>
             <label className={ADMIN_LABEL} htmlFor="partner-approve-pk">
-              Private key (선택 · bulk mint용)
+              Private key (선택 · 파트너 Seaport 서명용)
             </label>
             <input
               id="partner-approve-pk"

@@ -97,8 +97,8 @@ function CertCarousel({
 
   return (
     <div className="cd-trade-panel__cert">
-      <span className="cd-trade-panel__cert-label mono">
-        {current?.label ?? emptyLabel}
+      <span className="cd-trade-panel__cert-label">
+        {current?.label ?? (emptyLabel || "\u00a0")}
       </span>
       {total > 0 ? (
         <span className="cd-trade-panel__cert-nav">
@@ -111,7 +111,7 @@ function CertCarousel({
           >
             <Chevron dir="prev" active={canPrev} />
           </button>
-          <span className="cd-trade-panel__cert-idx mono">
+          <span className="cd-trade-panel__cert-idx">
             {index + 1}/{total}
           </span>
           <button
@@ -282,55 +282,21 @@ export function CollectionDetailTradePanel({
     setSellRaw(rawFromWholeUsd(bumpWholeUsd(base, direction)));
   };
 
-  const bidHint = useMemo(() => {
-    if (!(bidUsd > 0))
-      return { text: "Enter a bid", tone: "muted" as const };
-    if (bidCrossesAsk) {
-      return {
-        text: "Meets the ask — buy now",
-        tone: "pos" as const,
-      };
-    }
-    if (topBid > 0 && bidUsd > topBid) {
-      return {
-        text:
-          bidCount > 0
-            ? `The highest of ${bidCount} bids`
-            : "The highest bid",
-        tone: "pos" as const,
-      };
-    }
-    if (topBid > 0 && bidUsd <= topBid) {
-      return { text: "Below top bid", tone: "muted" as const };
-    }
-    return { text: "Your bid", tone: "pos" as const };
-  }, [bidUsd, bidCrossesAsk, topBid, bidCount]);
-
-  const sellHint = useMemo(() => {
-    if (!(sellUsd > 0))
-      return { text: "Enter a price", tone: "muted" as const };
-    if (topBid > 0 && sellUsd <= topBid) {
-      return { text: "At or below top bid", tone: "muted" as const };
-    }
-    if (floorAsk > 0 && sellUsd < floorAsk) {
-      return {
-        text: askCount > 0 ? `Lowest of ${askCount} asks` : "Lowest ask",
-        tone: "pos" as const,
-      };
-    }
-    if (floorAsk > 0 && sellUsd >= floorAsk) {
-      return { text: "Above lowest ask", tone: "muted" as const };
-    }
-    return { text: "Your price", tone: "pos" as const };
-  }, [sellUsd, floorAsk, topBid, askCount]);
-
   const hasAsk = payUsd > 0 && selectedBuy != null;
   const buyMeta =
     askCount > 0
-      ? `Lowest of ${askCount} asks`
+      ? `Lowest · ${askCount} ${askCount === 1 ? "Ask" : "Asks"}`
       : hasAsk
-        ? "Lowest ask"
+        ? "Lowest · Ask"
         : "No asks";
+
+  const bidMeta =
+    bidCount > 0
+      ? `Highest · ${bidCount} ${bidCount === 1 ? "Bid" : "Bids"}`
+      : topBid > 0
+        ? "Highest · Bid"
+        : "No bids";
+
   const hasOwned = selectedOwned != null;
 
   return (
@@ -372,7 +338,7 @@ export function CollectionDetailTradePanel({
             items={buyItems}
             index={buyIndex}
             onIndexChange={setBuyIndex}
-            emptyLabel="No asks in this collection"
+            emptyLabel=""
           />
           <div className="cd-trade-panel__field">
             <span className="cd-trade-panel__field-lbl">You pay</span>
@@ -389,24 +355,26 @@ export function CollectionDetailTradePanel({
               <rect x="4" y="11" width="16" height="9" rx="2" />
               <path d="M8 11V7a4 4 0 0 1 8 0v4" />
             </svg>
-            <span className="cd-trade-panel__field-val mono">
+            <span className="cd-trade-panel__field-val">
               {moneyRound(payUsd)}
             </span>
           </div>
-          <div className="cd-trade-panel__meta">
-            <span className="cd-trade-panel__meta-muted">{buyMeta}</span>
-            <span className="cd-trade-panel__meta-muted">Set by seller</span>
+          <div className="cd-trade-panel__foot">
+            <div className="cd-trade-panel__meta">
+              <span className="cd-trade-panel__meta-muted">{buyMeta}</span>
+              <span className="cd-trade-panel__meta-end" aria-hidden="true" />
+            </div>
+            <TkButton
+              type="button"
+              variant="primary"
+              className="cd-trade-panel__cta"
+              disabled={tab !== "buy" || buyDisabled || !hasAsk || buyBusy}
+              tabIndex={tab === "buy" ? 0 : -1}
+              onClick={() => selectedBuy && onBuy(selectedBuy.tokenId)}
+            >
+              {buyBusy ? "Buying…" : "Buy now"}
+            </TkButton>
           </div>
-          <TkButton
-            type="button"
-            variant="primary"
-            className="cd-trade-panel__cta"
-            disabled={tab !== "buy" || buyDisabled || !hasAsk || buyBusy}
-            tabIndex={tab === "buy" ? 0 : -1}
-            onClick={() => selectedBuy && onBuy(selectedBuy.tokenId)}
-          >
-            {buyBusy ? "Buying…" : "Buy now"}
-          </TkButton>
         </div>
         <div
           className={`cd-trade-panel__body${tab === "bid" ? "" : " cd-trade-panel__body--off"}`}
@@ -414,27 +382,25 @@ export function CollectionDetailTradePanel({
           role="tabpanel"
           aria-hidden={tab !== "bid"}
         >
-          <div className="cd-trade-panel__row">
-            <span className="cd-trade-panel__row-lbl">Highest bid</span>
-            <span className="cd-trade-panel__row-val mono">
-              {topBid > 0 ? moneyRound(topBid) : "—"}
-            </span>
+          <div className="cd-trade-panel__row cd-trade-panel__row--reserved" aria-hidden="true">
+            <span className="cd-trade-panel__row-lbl" />
+            <span className="cd-trade-panel__row-val" />
           </div>
           <div className="cd-trade-panel__adj">
             <span className="cd-trade-panel__field-lbl">Your bid</span>
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Decrease bid"
+              aria-label="Decrease bid by 1%"
               disabled={tab !== "bid" || !(bidUsd > 0)}
               tabIndex={tab === "bid" ? 0 : -1}
               onClick={() => bumpBid(-1)}
             >
-              −
+              −1%
             </button>
             <input
               id="tt-bid-v"
-              className="cd-trade-panel__adj-input mono"
+              className="cd-trade-panel__adj-input"
               type="text"
               inputMode="numeric"
               autoComplete="off"
@@ -454,48 +420,41 @@ export function CollectionDetailTradePanel({
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Increase bid"
+              aria-label="Increase bid by 1%"
               disabled={tab !== "bid"}
               tabIndex={tab === "bid" ? 0 : -1}
               onClick={() => bumpBid(1)}
             >
-              +
+              +1%
             </button>
           </div>
-          <div className="cd-trade-panel__meta">
-            <span
-              className={
-                bidHint.tone === "pos"
-                  ? "cd-trade-panel__meta-pos"
-                  : "cd-trade-panel__meta-muted"
+          <div className="cd-trade-panel__foot">
+            <div className="cd-trade-panel__meta">
+              <span className="cd-trade-panel__meta-muted">{bidMeta}</span>
+              <span className="cd-trade-panel__meta-end" aria-hidden="true" />
+            </div>
+            <TkButton
+              type="button"
+              variant="primary"
+              className="cd-trade-panel__cta"
+              disabled={
+                tab !== "bid" || bidDisabled || bidBusy || buyBusy || !(bidUsd > 0)
               }
-              id="tt-bid-hint"
+              tabIndex={tab === "bid" ? 0 : -1}
+              onClick={() => {
+                if (!(bidUsd > 0)) return;
+                onBid(bidUsd);
+              }}
             >
-              {bidHint.text}
-            </span>
-            <span className="cd-trade-panel__meta-muted">Top bid +1%</span>
+              {bidCrossesAsk
+                ? bidBusy || buyBusy
+                  ? "Buying…"
+                  : "Buy now"
+                : bidBusy
+                  ? "Placing bid…"
+                  : "Place bid"}
+            </TkButton>
           </div>
-          <TkButton
-            type="button"
-            variant="primary"
-            className="cd-trade-panel__cta"
-            disabled={
-              tab !== "bid" || bidDisabled || bidBusy || buyBusy || !(bidUsd > 0)
-            }
-            tabIndex={tab === "bid" ? 0 : -1}
-            onClick={() => {
-              if (!(bidUsd > 0)) return;
-              onBid(bidUsd);
-            }}
-          >
-            {bidCrossesAsk
-              ? bidBusy || buyBusy
-                ? "Buying…"
-                : "Buy now"
-              : bidBusy
-                ? "Placing bid…"
-                : "Place bid"}
-          </TkButton>
         </div>
 
         <div
@@ -508,23 +467,23 @@ export function CollectionDetailTradePanel({
             items={ownedItems}
             index={sellIndex}
             onIndexChange={setSellIndex}
-            emptyLabel="No unlisted copies in your portfolio"
+            emptyLabel=""
           />
           <div className="cd-trade-panel__adj">
             <span className="cd-trade-panel__field-lbl">Your price</span>
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Decrease price"
+              aria-label="Decrease price by 1%"
               disabled={tab !== "sell" || !(sellUsd > 0)}
               tabIndex={tab === "sell" ? 0 : -1}
               onClick={() => bumpSell(-1)}
             >
-              −
+              −1%
             </button>
             <input
               id="tt-sell-v"
-              className="cd-trade-panel__adj-input mono"
+              className="cd-trade-panel__adj-input"
               type="text"
               inputMode="numeric"
               autoComplete="off"
@@ -544,46 +503,39 @@ export function CollectionDetailTradePanel({
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Increase price"
+              aria-label="Increase price by 1%"
               disabled={tab !== "sell"}
               tabIndex={tab === "sell" ? 0 : -1}
               onClick={() => bumpSell(1)}
             >
-              +
+              +1%
             </button>
           </div>
-          <div className="cd-trade-panel__meta">
-            <span
-              className={
-                sellHint.tone === "pos"
-                  ? "cd-trade-panel__meta-pos"
-                  : "cd-trade-panel__meta-muted"
+          <div className="cd-trade-panel__foot">
+            <div className="cd-trade-panel__meta">
+              <span className="cd-trade-panel__meta-muted">{buyMeta}</span>
+              <span className="cd-trade-panel__meta-end" aria-hidden="true" />
+            </div>
+            <TkButton
+              type="button"
+              variant="primary"
+              className="cd-trade-panel__cta"
+              disabled={
+                tab !== "sell" ||
+                sellDisabled ||
+                !hasOwned ||
+                !(sellUsd > 0) ||
+                sellBusy
               }
-              id="tt-sell-hint"
+              tabIndex={tab === "sell" ? 0 : -1}
+              onClick={() => {
+                if (!selectedOwned || !(sellUsd > 0)) return;
+                onSell(selectedOwned.tokenId, sellUsd);
+              }}
             >
-              {sellHint.text}
-            </span>
-            <span className="cd-trade-panel__meta-muted">Ask −1%</span>
+              {sellBusy ? "Listing…" : "List for sale"}
+            </TkButton>
           </div>
-          <TkButton
-            type="button"
-            variant="primary"
-            className="cd-trade-panel__cta"
-            disabled={
-              tab !== "sell" ||
-              sellDisabled ||
-              !hasOwned ||
-              !(sellUsd > 0) ||
-              sellBusy
-            }
-            tabIndex={tab === "sell" ? 0 : -1}
-            onClick={() => {
-              if (!selectedOwned || !(sellUsd > 0)) return;
-              onSell(selectedOwned.tokenId, sellUsd);
-            }}
-          >
-            {sellBusy ? "Listing…" : "List for sale"}
-          </TkButton>
         </div>
       </div>
     </div>

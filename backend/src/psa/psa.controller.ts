@@ -87,14 +87,14 @@ export class PsaController {
   /**
    * Raw `/psa/public/*` and `/psa/order/*` proxies are permanently closed.
    * Live PSA quota (~500/day) is reserved for mint only:
-   * `POST /psa/analyze`, `POST /psa/analyze-by-cert`, partner bulk-mint.
+   * `POST /psa/analyze`, `POST /psa/analyze-by-cert`, partner vault mint jobs.
    */
   private assertPsaPublicProxyAllowed(): never {
     throw new ForbiddenException({
       statusCode: 403,
       code: 'PSA_MINT_ONLY',
       message:
-        'PSA Public API proxies are disabled. Live PSA is mint-only (POST /psa/analyze, POST /psa/analyze-by-cert, partner bulk-mint) to protect the daily call quota.',
+        'PSA Public API proxies are disabled. Live PSA is mint-only (POST /psa/analyze, POST /psa/analyze-by-cert, partner vault mint) to protect the daily call quota.',
     });
   }
 

@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 /**
- * Fail fast when a styles/*.css file has unbalanced { }.
- * Catches broken partial edits before Tailwind/Next dev surfaces a vague CssSyntaxError.
+ * Fail fast when CSS is invalid before Tailwind/Next dev surfaces a vague CssSyntaxError.
+ * 1) Balanced { } in styles/ and design-system/
+ * 2) Full Tailwind parse of app/globals.css (same pipeline as `next dev`)
  */
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import postcss from "postcss";
+import tailwindcss from "@tailwindcss/postcss";
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stylesDir = path.join(root, "styles");
 const designSystemDir = path.join(root, "design-system");
+const globalsCss = path.join(root, "app", "globals.css");
 
 function collectCssFiles(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -84,6 +88,21 @@ for (const file of files) {
   }
 }
 
+if (!fs.existsSync(globalsCss)) {
+  console.error("app/globals.css: missing");
+  failed = true;
+} else {
+  try {
+    await postcss([tailwindcss()]).process(fs.readFileSync(globalsCss, "utf8"), {
+      from: globalsCss,
+    });
+  } catch (err) {
+    const msg = err?.message ?? String(err);
+    console.error(`Tailwind CSS (globals.css): ${msg}`);
+    failed = true;
+  }
+}
+
 if (failed) process.exit(1);
 
-console.log(`check-css-braces: OK (${files.length} files)`);
+console.log(`check-css-braces: OK (${files.length} style files + globals.css)`);

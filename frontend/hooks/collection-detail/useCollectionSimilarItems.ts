@@ -9,11 +9,18 @@ import {
 } from "@/lib/core";
 import { rq } from "@/lib/core/queryKeys";
 import { activeRqChainId } from "@/lib/chains";
-import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import {
+  buildMarketsCollectionTileGrade,
+  buildMarketsCollectionTitle,
+} from "@/lib/markets/marketsCollectionTitle";
 
 export type SimilarCollectionItem = {
   collectionKey: string;
   displayLabel: string;
+  gradeLabel: string;
+  catalogLabel: string;
+  components: CollectionComponents;
   imageUrl: string | null;
   lastPriceUsd: number | null;
   changePct: number | null;
@@ -41,10 +48,16 @@ function toItems(
     const snap = snapByKey.get(key);
     return {
       collectionKey: row.collectionKey,
-      displayLabel: buildMarketsCollectionTitle({
-        collection: row,
-        comp: row.components,
-      }),
+      displayLabel: buildMarketsCollectionTitle(
+        {
+          collection: row,
+          comp: row.components,
+        },
+        { splitGradeToSecondLine: true },
+      ),
+      gradeLabel: buildMarketsCollectionTileGrade({ comp: row.components }),
+      catalogLabel: row.displayLabel,
+      components: row.components,
       imageUrl: row.displayImageUrl ?? row.coverImageUrl ?? null,
       lastPriceUsd: pickLastPriceUsd(snap),
       changePct:

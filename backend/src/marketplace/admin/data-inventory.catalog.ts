@@ -89,26 +89,6 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     adminPagePath: '/marketplace/admin/cards',
   },
   {
-    id: 'bulk_mint_jobs',
-    table: 'bulk_mint_jobs',
-    domain: 'catalog',
-    label: '파트너 벌크 민트 잡',
-    description:
-      '배치 민트 세션 — 파트너 지갑, prepare/commit 상태, 아이템 수.',
-    howAccumulated:
-      '파트너 벌크 민트에서 cert+가격 CSV 업로드 시 생성. prepare → commit 진행.',
-    adminPagePath: '/marketplace/admin/bulk-mint',
-  },
-  {
-    id: 'bulk_mint_job_items',
-    table: 'bulk_mint_job_items',
-    domain: 'catalog',
-    label: '벌크 민트 라인 아이템',
-    description: '벌크 잡 안 cert별 행 — 가격, prepare 오류, mint tx.',
-    howAccumulated: '부모 잡과 함께 삽입, cert별 prepare·민트 시 갱신.',
-    adminPagePath: '/marketplace/admin/bulk-mint',
-  },
-  {
     id: 'marketplace_partners',
     table: 'marketplace_partners',
     domain: 'catalog',

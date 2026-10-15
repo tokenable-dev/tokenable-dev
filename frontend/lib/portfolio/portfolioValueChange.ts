@@ -19,8 +19,7 @@ function formatChangeUsdAbs(usd: number): string {
 }
 
 function formatChangePctAbs(pct: number): string {
-  const abs = Math.abs(pct);
-  return Number.isInteger(abs) ? String(abs) : abs.toFixed(1);
+  return String(Math.abs(Math.round(pct)));
 }
 
 /** Portfolio value — change states.html */
@@ -32,7 +31,7 @@ export function formatPortfolioValueChangeLabel(
   if (state === "nodata") return null;
 
   if (state === "flat") {
-    return { arrow: "–", usd: "$0", pct: "0.0%" };
+    return { arrow: "–", usd: "$0", pct: "0%" };
   }
 
   if (state === "up") {

@@ -24,7 +24,7 @@ import {
   extractPsaCertImageUrlsFromApiBody,
   extractPsaCertImagesFromGetImagesBody,
 } from '../../psa/utils/psa-cert-images.util';
-import { buildBulkMintMetadataFromPsaCert } from '../../rwa/bulk-mint/bulk-mint-prepare.util';
+import { buildPsaCertMintMetadata } from '../../rwa/psa-cert-mint-metadata.util';
 import {
   BUCKET_KEY_VERSION,
   computeMarketBucketKey,
@@ -251,7 +251,7 @@ export class CollectionService {
       }
     }
 
-    const { metadata } = buildBulkMintMetadataFromPsaCert({
+    const { metadata } = buildPsaCertMintMetadata({
       certNumber,
       psaCert,
       imageUrl: imageUrl ?? '',

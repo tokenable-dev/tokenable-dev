@@ -5,12 +5,12 @@ import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 
 const PARTNER_LOGOS = [
-  { src: ASSETS.ds.partners.psa, alt: "PSA", height: 54 },
-  { src: ASSETS.ds.partners.beckett, alt: "Beckett", height: 70 },
-  { src: ASSETS.ds.partners.ebay, alt: "eBay", height: 42 },
-  { src: ASSETS.ds.partners.cardladder, alt: "Card Ladder", height: 42 },
-  { src: ASSETS.ds.partners.gemrate, alt: "GemRate", height: 42 },
-  { src: ASSETS.ds.partners.pricecharting, alt: "PriceCharting", height: 42 },
+  { src: ASSETS.ds.partners.psa, alt: "PSA", height: 44 },
+  { src: ASSETS.ds.partners.beckett, alt: "Beckett", height: 64 },
+  { src: ASSETS.ds.partners.ebay, alt: "eBay", height: 40 },
+  { src: ASSETS.ds.partners.cardladder, alt: "Card Ladder", height: 40 },
+  { src: ASSETS.ds.partners.gemrate, alt: "GemRate", height: 40 },
+  { src: ASSETS.ds.partners.pricecharting, alt: "PriceCharting", height: 40 },
 ] as const;
 
 export function HomePartners() {
@@ -19,6 +19,7 @@ export function HomePartners() {
   return (
     <section className="tkl-wrap home-partners-section">
       <div className="home-partners__row">
+        <span className="home-partners__label">Data and information sources</span>
         <div className="home-partners__logos">
           {PARTNER_LOGOS.map((logo) => (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -42,7 +43,12 @@ export function HomePartners() {
           </p>
         </div>
         <div className="home-partners__cta-actions">
-          <TkButton variant="primaryInv" size="md" onClick={() => navigate("/vault", 0)}>
+          <TkButton
+            variant="primaryInv"
+            size="md"
+            className="home-partners__cta-btn"
+            onClick={() => navigate("/vault", 0)}
+          >
             Start selling
           </TkButton>
         </div>

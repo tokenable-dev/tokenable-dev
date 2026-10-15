@@ -46,7 +46,7 @@ export class SelfVaultSettlement {
 
   /**
    * Amount owed to seller after platform fee BPS
-   * (`gross * (10000 - PLATFORM_FEE_BPS) / 10000`).
+   * (`gross * (10000 - SELF_VAULT_PLATFORM_FEE_BPS) / 10000`).
    */
   @Column({ name: 'seller_payout_usdc', type: 'varchar', length: 78 })
   sellerPayoutUsdc: string;

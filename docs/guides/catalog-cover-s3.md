@@ -51,7 +51,7 @@ dev/covers/user-avatars/{userId}/avatar
 
 This stays under the existing IAM scope (`…/dev/covers/*`). Optional override: `USER_AVATAR_S3_PREFIX` (must also be allowed by IAM). Same MIME/size limits as covers.
 
-### RWA mint slab images (Phase 1–3 — sell / custody / bulk mint)
+### RWA mint slab images (Phase 1–3 — sell / custody / partner vault mint)
 
 At `POST /api/rwa/upload`, the backend copies the slab image (PSA URL or uploaded file) to:
 
@@ -64,7 +64,7 @@ Example: `dev/covers/rwa-slabs/84532/84089328/slab` (front) and `…/slab-back` 
 
 - On-chain `metadata.image` remains **Pinata / IPFS** (unchanged).
 - `displayImageUrl` / `displayImageBackUrl` in upload response + optional `POST /api/rwa/mint` fields → `rwa_tokens.display_image_url` / `display_image_back_url`.
-- Partner **bulk mint** stores `slab_display_image_url` and `slab_display_image_back_url` on `bulk_mint_job_items` at prepare and writes to `rwa_tokens` at commit.
+- Partner **vault mint jobs** persist slab URLs on job items at prepare and write to `rwa_tokens` at commit.
 - Admin **All cards**: `POST /api/marketplace/admin/rwa-slab/:tokenId/image` (`file` + `face=front|back`) uploads a missing face to the same keys.
 - S3 ingest at mint is **best-effort** — upload/mint succeed even when S3 is down. Admin file upload fails if S3 is not configured.
 - PSA slab photos may exceed the **8MB catalog-cover cap**. Slab ingest downloads up to **24MB**, then downscales to a **2000px** JPEG before PutObject so `displayImageUrl` still lands. Collection covers stay at 8MB.

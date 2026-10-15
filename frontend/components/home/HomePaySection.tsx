@@ -137,11 +137,13 @@ export function HomePaySection() {
         ))}
       </div>
 
-      <div className="home-pay__inner">
+      <div className="tkl-wrap home-pay__inner">
         <div className="home-pay__grid">
           <div className="home-pay__copy">
             <h2 id="home-pay-title" className="tkl-sec-title">
-              Pay and get paid, however you like. Bank, card, or crypto.
+              Pay and get paid,
+              <br />
+              however you like.
             </h2>
             <p className="tkl-sec-sub home-pay__sub">
               Card, bank, Apple & Google Pay, or crypto. It all pays into your Tokenable
@@ -150,9 +152,10 @@ export function HomePaySection() {
             <div className="home-pay__chips">
               <span className="home-pay__chip">Card</span>
               <span className="home-pay__chip">Apple / Google Pay</span>
-              <span className="home-pay__chip-break" aria-hidden />
+              <span className="home-pay__chip-break home-pay__chip-break--after-apple" aria-hidden />
               <span className="home-pay__chip">Bank</span>
               <span className="home-pay__chip">Crypto</span>
+              <span className="home-pay__chip-break home-pay__chip-break--before-usd" aria-hidden />
               <span className="home-pay__chip home-pay__chip--pos">USD balance</span>
             </div>
             <Link href="/markets" className="tk-btn tk-btn--primary home-pay__cta">
@@ -174,7 +177,7 @@ export function HomePaySection() {
                       </div>
                       <div className="home-pay__item-copy">
                         <div className="home-pay__item-name">Charizard ex</div>
-                        <div className="home-pay__item-meta tkl-mono">PSA 10 · Vaulted</div>
+                        <div className="home-pay__item-meta tkl-mono">PSA 10 vaulted</div>
                       </div>
                       <div className="home-pay__item-price tkl-mono">$9,000</div>
                     </div>

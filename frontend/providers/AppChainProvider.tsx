@@ -157,8 +157,6 @@ export function AppChainProvider({ children }: { children: ReactNode }) {
     void queryClient.invalidateQueries({ queryKey: ["admin-custody-nfts"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-rwa-roles-overview"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-rwa-roles-status"] });
-    void queryClient.invalidateQueries({ queryKey: ["admin-bulk-mint-jobs"] });
-    void queryClient.invalidateQueries({ queryKey: ["admin-bulk-mint-job"] });
     void queryClient.invalidateQueries({ queryKey: ["admin-partner-inventory"] });
     void queryClient.invalidateQueries({ queryKey: ["collection-snapshots"] });
     void queryClient.invalidateQueries({ queryKey: ["marketplace-collection"] });

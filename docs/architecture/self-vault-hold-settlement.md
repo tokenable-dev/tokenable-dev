@@ -4,7 +4,7 @@ Self-vault mints (`deliveryMode=direct`) persist `rwa_tokens.settlement_policy =
 
 ## On-chain (Seaport)
 
-- Ask consideration is **seller USDC + platform fee** (default **10%** via `SELF_VAULT_PLATFORM_FEE_BPS` / `NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS`), same instant split shape as PSA vault (5%).
+- Ask consideration is **seller USDC + platform fee** (default **5%** via `SELF_VAULT_PLATFORM_FEE_BPS` / `NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS`), same instant split shape as PSA vault.
 - Fulfill transfers NFT → buyer; USDC → seller net + fee wallet on-chain.
 - Bid-only fulfill (no matching ask) is still rejected for these tokens.
 
@@ -13,7 +13,7 @@ Self-vault mints (`deliveryMode=direct`) persist `rwa_tokens.settlement_policy =
 ## Off-protocol payout
 
 1. Fulfill/match creates `self_vault_settlements` (`pending_confirm`). Unique key is **`order_hash`** (not `token_id`) — each sale of the same card gets its own row (e.g. A→B then B→C before auto-pay → **two** open payouts).
-2. `seller_payout_usdc` = gross × (1 − `PLATFORM_FEE_BPS` / 10000) — same net as a standard 5% fee sale.
+2. `seller_payout_usdc` = gross × (1 − `SELF_VAULT_PLATFORM_FEE_BPS` / 10000) — matches the partner-vault ask fee (default 5%).
 3. **Admin early payout** — `POST …/execute-payout` (confirm if still pending, then platform-fee-wallet USDC → seller) → `paid`.
 4. **Auto payout** — cron every minute pays rows still `pending_confirm` or `confirmed` once `created_at` + delay has passed (default **300s / 5 min**). Auto path confirms then pays. Skip if `rejected` or already `paid`. Each row’s delay is independent.
 5. Buyer `POST …/confirm` (or admin confirm) still works as an optional status step before early pay; not required for auto pay.

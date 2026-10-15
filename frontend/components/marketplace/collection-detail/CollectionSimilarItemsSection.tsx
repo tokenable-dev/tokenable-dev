@@ -1,38 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import { formatUsdCompact, resolveReferencePercentChangeDisplay } from "@/lib/market";
 import {
-  formatReferencePercentChange,
-  formatUsdCompact,
-  referenceChangeTone,
-} from "@/lib/market";
+  ListingCardChange,
+  listingCardChangeGlyph,
+} from "@/components/collectibles/ListingCardChange";
 import {
   useCollectionSimilarItems,
   type SimilarCollectionItem,
 } from "@/hooks/collection-detail/useCollectionSimilarItems";
-import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 function ChangeChip({ pct }: { pct: number | null }) {
-  if (pct == null || !Number.isFinite(pct)) {
-    return <span className="cd-si-card__chg mono cd-si-card__chg--muted">—</span>;
-  }
-  const tone = referenceChangeTone(pct);
-  const arrow = tone === "down" ? "▼" : "▲";
+  const display = resolveReferencePercentChangeDisplay(pct);
   return (
-    <span
-      className={`cd-si-card__chg mono${
-        tone === "down"
-          ? " cd-si-card__chg--down"
-          : tone === "up"
-            ? " cd-si-card__chg--up"
-            : ""
-      }`}
-    >
-      <span className="cd-chg-glyph" aria-hidden>
-        {arrow}
-      </span>{" "}
-      {formatReferencePercentChange(pct)}
-    </span>
+    <ListingCardChange
+      pctLabel={display.pctLabel}
+      tone={display.tone}
+      glyph={listingCardChangeGlyph(display)}
+    />
   );
 }
 
@@ -44,17 +32,22 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
     >
       <div className="cd-si-card__media">
         {item.imageUrl ? (
-          <CollectionCoverFrame
+          <CollectionPsaSlabFrame
             imageUrl={item.imageUrl}
-            variant="flat"
-            quietLoading
+            alt={item.displayLabel}
+            comp={parseCollectionComponents(item.components)}
+            displayLabel={item.catalogLabel}
+            collectionKey={item.collectionKey}
           />
         ) : (
           <div className="cd-si-card__media-empty" aria-hidden />
         )}
       </div>
       <div className="cd-si-card__body">
-        <div className="cd-si-card__title">{item.displayLabel}</div>
+        <div className="cd-si-card__headlines">
+          <div className="cd-si-card__title">{item.displayLabel}</div>
+          <div className="cd-si-card__grade-line">{item.gradeLabel}</div>
+        </div>
         <div className="cd-si-card__price-row">
           <span className="cd-si-card__price">
             {item.lastPriceUsd != null

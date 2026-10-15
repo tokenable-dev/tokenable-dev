@@ -21,8 +21,8 @@ export const MARKET_PRICE_CHANGE_SNAPSHOT_DURATION = "max" as const;
  */
 export const MARKET_METRICS_SERIES_DURATION = "max" as const;
 
-/** Flat reference move (~0% over the window) — show explicit zero, not "no data". */
-export const REFERENCE_CHANGE_FLAT_LABEL = "0.0%";
+/** Rounded / negligible reference move — UI shows em dash, not "0%". */
+export const REFERENCE_CHANGE_FLAT_LABEL = "—";
 
 const FLAT_CHANGE_EPSILON_PCT = 0.05;
 const SEC_DAY = 86_400;
@@ -33,19 +33,67 @@ export function isFlatReferencePercentChange(pct: number): boolean {
 
 export type ReferenceChangeTone = "up" | "down" | "flat";
 
+export type ReferencePercentChangeDisplay = {
+  pctLabel: string;
+  tone: "up" | "down" | "muted";
+  /** False when label is `—` (no data, flat, or whole % rounds to 0). */
+  showGlyph: boolean;
+};
+
+function referencePercentRoundsToZero(pct: number): boolean {
+  return Math.round(pct) === 0;
+}
+
+/** Whole-number reference % for UI — `—` when flat or rounds to 0%. */
+export function resolveReferencePercentChangeDisplay(
+  pct: number | null | undefined,
+): ReferencePercentChangeDisplay {
+  if (pct == null || !Number.isFinite(pct)) {
+    return { pctLabel: "—", tone: "muted", showGlyph: false };
+  }
+  if (isFlatReferencePercentChange(pct) || referencePercentRoundsToZero(pct)) {
+    return { pctLabel: "—", tone: "muted", showGlyph: false };
+  }
+  const rounded = Math.round(pct);
+  const tone = rounded > 0 ? "up" : "down";
+  const sign = rounded > 0 ? "+" : "";
+  return {
+    pctLabel: `${sign}${rounded}%`,
+    tone,
+    showGlyph: true,
+  };
+}
+
 export function referenceChangeTone(pct: number): ReferenceChangeTone {
-  if (isFlatReferencePercentChange(pct)) return "flat";
-  if (pct > 0) return "up";
-  return "down";
+  const display = resolveReferencePercentChangeDisplay(pct);
+  if (display.tone === "muted") return "flat";
+  return display.tone;
 }
 
 export function formatReferencePercentChange(
   pct: number,
-  decimals = 1,
+  decimals = 0,
 ): string {
-  if (isFlatReferencePercentChange(pct)) return REFERENCE_CHANGE_FLAT_LABEL;
+  if (decimals <= 0) {
+    return resolveReferencePercentChangeDisplay(pct).pctLabel;
+  }
+  if (!Number.isFinite(pct)) return "—";
+  if (isFlatReferencePercentChange(pct) || referencePercentRoundsToZero(pct)) {
+    return "—";
+  }
   const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(decimals)}%`;
+}
+
+/** @deprecated Use {@link resolveReferencePercentChangeDisplay}. */
+export function resolveListingCardPercentChangeDisplay(
+  pct: number,
+): ReferencePercentChangeDisplay {
+  return resolveReferencePercentChangeDisplay(pct);
+}
+
+export function formatListingCardPercentChange(pct: number): string {
+  return resolveReferencePercentChangeDisplay(pct).pctLabel;
 }
 
 export type ReferencePercentChangeResult = {

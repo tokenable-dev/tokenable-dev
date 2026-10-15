@@ -1,16 +1,16 @@
-import type { MintImageSource } from '../rwa-mint-image.util';
-import type { PsaCertRecord } from '../../psa/psa-public-api.service';
-import { parseGradeFromPsaCertRecord } from '../../psa/psa-public-api.service';
-import type { RwaMetadata } from '../interfaces/rwa-metadata.interface';
+import type { MintImageSource } from './rwa-mint-image.util';
+import type { PsaCertRecord } from '../psa/psa-public-api.service';
+import { parseGradeFromPsaCertRecord } from '../psa/psa-public-api.service';
+import type { RwaMetadata } from './interfaces/rwa-metadata.interface';
 import {
   attachPokemonNormalizedToGraded,
   attachPrintLanguageToGraded,
-} from '../../marketplace/utils/pokemon-metadata-normalize.util';
+} from '../marketplace/utils/pokemon-metadata-normalize.util';
 
 /**
  * Build OpenSea-style graded metadata + display name from a PSA GetByCertNumber body.
  */
-export function buildBulkMintMetadataFromPsaCert(params: {
+export function buildPsaCertMintMetadata(params: {
   certNumber: string;
   psaCert: PsaCertRecord;
   imageUrl: string;
@@ -48,7 +48,7 @@ export function buildBulkMintMetadataFromPsaCert(params: {
   const description = [
     `PSA-graded collectible (cert ${certNumber}).`,
     gradeDesc && `Grade: ${gradeDesc}.`,
-    'Minted via Tokenable enterprise bulk mint.',
+    'Minted via Tokenable.',
   ]
     .filter(Boolean)
     .join(' ');

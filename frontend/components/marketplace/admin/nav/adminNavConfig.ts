@@ -110,13 +110,6 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         prefix: "/marketplace/admin/self-vault-payouts",
         description: "Confirm and record seller USDC after self-vault sales",
       },
-      {
-        href: "/marketplace/admin/bulk-mint",
-        label: "Partner bulk mint",
-        icon: "upload",
-        prefix: "/marketplace/admin/bulk-mint",
-        description: "Excel cert+price → mint to company wallet and list",
-      },
     ],
   },
   {

@@ -2,18 +2,20 @@
 
 import { memo } from "react";
 import Link from "next/link";
-import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { TkButton } from "@/components/ds";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import {
-  isFlatReferencePercentChange,
-  referenceChangeTone,
-} from "@/lib/market/priceChangePeriod";
+  ListingCardChange,
+  listingCardChangeGlyph,
+} from "@/components/collectibles/ListingCardChange";
 import {
   buildMarketsCollectionHoverTitle,
   buildMarketsCollectionTitle,
+  gradeLabelFromComp,
 } from "@/lib/markets/marketsCollectionTitle";
 import {
   resolveMarketsListingMarketChangePct,
@@ -34,45 +36,44 @@ function formatCardChangePeriod(snapshot: CollectionListMarketSnapshot | undefin
   return "1Y";
 }
 
-function formatCardChangePercent(pct: number): string {
-  if (isFlatReferencePercentChange(pct)) return "0.0%";
-  const sign = pct > 0 ? "+" : "";
-  const rounded = Math.round(pct * 10) / 10;
-  const nearInt = Math.abs(rounded - Math.round(rounded)) < 0.05;
-  if (nearInt && Math.abs(rounded) >= 100) {
-    return `${sign}${Math.round(rounded)}%`;
-  }
-  return `${sign}${rounded.toFixed(1)}%`;
-}
-
 function resolveChangeDisplay(
   snapshot: CollectionListMarketSnapshot | undefined,
   changePct: number | null,
   changeLoading: boolean,
-): { pctLabel: string; period: string; tone: "up" | "down" | "muted" } {
+): {
+  pctLabel: string;
+  period: string;
+  tone: "up" | "down" | "muted";
+  glyph?: string;
+} {
   if (changeLoading) {
     return { pctLabel: "…", period: "", tone: "muted" };
   }
   if (changePct == null || !Number.isFinite(changePct)) {
     return { pctLabel: "—", period: "", tone: "muted" };
   }
-  const tone = referenceChangeTone(changePct);
   const period = formatCardChangePeriod(snapshot);
-  const pct = formatCardChangePercent(changePct);
-  const arrow = tone === "down" ? "▼ " : "▲ ";
+  const display = resolveReferencePercentChangeDisplay(changePct);
   return {
-    pctLabel: `${arrow}${pct}`,
-    period,
-    tone: tone === "down" ? "down" : "up",
+    pctLabel: display.pctLabel,
+    glyph: listingCardChangeGlyph(display),
+    period: display.showGlyph ? period : "",
+    tone: display.tone,
   };
 }
 
 export type WatchlistRowModel = {
   href: string;
   title: string;
+  gradeLabel: string;
   titleHover: string;
   priceLabel: string;
-  change: { pctLabel: string; period: string; tone: "up" | "down" | "muted" };
+  change: {
+    pctLabel: string;
+    period: string;
+    tone: "up" | "down" | "muted";
+    glyph?: string;
+  };
   imageSrc: string | null;
 };
 
@@ -85,13 +86,18 @@ export function buildWatchlistRowModel(
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
-  const title = buildMarketsCollectionTitle({ collection, comp });
+  const title = buildMarketsCollectionTitle(
+    { collection, comp },
+    { splitGradeToSecondLine: true },
+  );
+  const gradeLabel = gradeLabelFromComp(comp);
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct = resolveMarketsListingMarketChangePct(snapshot);
   return {
     href: `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`,
     title,
+    gradeLabel,
     titleHover,
     priceLabel: formatUsdCompact(priceUsd),
     change: resolveChangeDisplay(snapshot, changePct, changeLoading),
@@ -116,7 +122,9 @@ export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
     resolvedCoverUrl,
     changeLoading,
   );
-  const { href, title, titleHover, priceLabel, change, imageSrc } = row;
+  const { href, title, gradeLabel, titleHover, priceLabel, change, imageSrc } =
+    row;
+  const comp = parseCollectionComponents(collection.components);
 
   return (
     <Link
@@ -128,30 +136,35 @@ export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
     >
       <div className="card__img">
         {imageSrc ? (
-          <CollectionCoverFrame
+          <CollectionPsaSlabFrame
             imageUrl={imageSrc}
-            variant="flat"
-            className="h-full w-full"
-            quietLoading
+            alt={title}
+            comp={comp}
+            displayLabel={collection.displayLabel}
+            collectionKey={collection.collectionKey}
+            chamberFit="contain"
           />
         ) : (
           <div className="h-full w-full bg-[#111113]" aria-hidden />
         )}
         <div className="card__fade" aria-hidden />
-        <div className="fav">
-          <WatchlistToggleButton collectionKey={collection.collectionKey} />
-        </div>
+      </div>
+      <div className="fav">
+        <WatchlistToggleButton collectionKey={collection.collectionKey} />
       </div>
       <div className="card__body">
         <div className="card__title" title={titleHover || title}>
           {title}
         </div>
+        <div className="card__grade-line">{gradeLabel}</div>
         <div className="card__price-row">
           <span className="card__price">{priceLabel}</span>
-          <span className={`card__sub card__sub--${change.tone}`}>
-            {change.pctLabel}
-            {change.period ? <span className="card__per"> {change.period}</span> : null}
-          </span>
+          <ListingCardChange
+            pctLabel={change.pctLabel}
+            tone={change.tone}
+            glyph={change.glyph}
+            period={change.period}
+          />
         </div>
         <div className="watchlist-card-actions" aria-hidden>
           <TkButton variant="primary" size="sm" decorative className="watchlist-card-actions__btn">

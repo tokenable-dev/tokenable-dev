@@ -2,14 +2,15 @@
 
 import { memo } from "react";
 import Link from "next/link";
-import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import {
-  isFlatReferencePercentChange,
-  referenceChangeTone,
-} from "@/lib/market/priceChangePeriod";
+  ListingCardChange,
+  listingCardChangeGlyph,
+} from "@/components/collectibles/ListingCardChange";
 import {
   buildMarketsCollectionHoverTitle,
   buildMarketsCollectionMeta,
@@ -43,17 +44,6 @@ function formatCardChangePeriod(snapshot: CollectionListMarketSnapshot | undefin
   return "1Y";
 }
 
-function formatCardChangePercent(pct: number): string {
-  if (isFlatReferencePercentChange(pct)) return "0.0%";
-  const sign = pct > 0 ? "+" : "";
-  const rounded = Math.round(pct * 10) / 10;
-  const nearInt = Math.abs(rounded - Math.round(rounded)) < 0.05;
-  if (nearInt && Math.abs(rounded) >= 100) {
-    return `${sign}${Math.round(rounded)}%`;
-  }
-  return `${sign}${rounded.toFixed(1)}%`;
-}
-
 function formatChangeSub(
   snapshot: CollectionListMarketSnapshot | undefined,
   changePct: number | null,
@@ -66,15 +56,13 @@ function formatChangeSub(
   if (changePct == null || !Number.isFinite(changePct)) {
     return { pctLabel: "—", period: "", tone: "muted" };
   }
-  const tone = referenceChangeTone(changePct);
   const window = periodLabel?.trim() || formatCardChangePeriod(snapshot);
-  const pct = formatCardChangePercent(changePct);
-  const glyph = tone === "down" ? "\u25BC" : "\u25B2";
+  const display = resolveReferencePercentChangeDisplay(changePct);
   return {
-    glyph,
-    pctLabel: pct,
-    period: window,
-    tone: tone === "down" ? "down" : "up",
+    glyph: listingCardChangeGlyph(display),
+    pctLabel: display.pctLabel,
+    period: display.showGlyph ? window : "",
+    tone: display.tone,
   };
 }
 
@@ -88,7 +76,6 @@ export const CollectibleCard = memo(function CollectibleCard({
   marketChangePeriodLabel,
   onBeforeNavigate,
   shell = "wrap",
-  coverVariant = "flat",
   position,
   showCatalogSubtitle = false,
   titleOverride,
@@ -102,8 +89,6 @@ export const CollectibleCard = memo(function CollectibleCard({
   marketChangePeriodLabel?: string;
   onBeforeNavigate?: () => void;
   shell?: "wrap" | "none";
-  /** Home grid4 — graded slab bezel + contain (not stretched flat fill). */
-  coverVariant?: "flat" | "compact";
   position?: number;
   /** Search results — Line 2 `{Year} · {Set} {Language} · {Variant}` under Line 1. */
   showCatalogSubtitle?: boolean;
@@ -114,8 +99,12 @@ export const CollectibleCard = memo(function CollectibleCard({
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
   const grade = gradeLabelFromComp(comp);
-  const title =
-    titleOverride?.trim() || buildMarketsCollectionTitle({ collection, comp });
+  const line1Title =
+    titleOverride?.trim() ||
+    buildMarketsCollectionTitle(
+      { collection, comp },
+      { splitGradeToSecondLine: true },
+    );
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
   const catalogSubtitle = showCatalogSubtitle
     ? buildMarketsCollectionMeta({ collection, comp })
@@ -140,7 +129,7 @@ export const CollectibleCard = memo(function CollectibleCard({
         rememberCollectionCoverImage(collection.collectionKey, imageSrc);
         trackEvent("card_clicked", {
           card_id: collection.collectionKey,
-          card_name: title,
+          card_name: line1Title,
           grade,
           price: priceUsd ?? undefined,
           position,
@@ -150,39 +139,39 @@ export const CollectibleCard = memo(function CollectibleCard({
     >
       <div className="card__img">
         {imageSrc ? (
-          <CollectionCoverFrame
+          <CollectionPsaSlabFrame
             imageUrl={imageSrc}
-            variant={coverVariant}
-            className="h-full w-full"
-            quietLoading
+            alt={line1Title}
+            comp={comp}
+            displayLabel={collection.displayLabel}
+            collectionKey={collection.collectionKey}
+            chamberFit="contain"
           />
         ) : (
           <div className="h-full w-full bg-[#111113]" aria-hidden />
         )}
         <div className="card__fade" aria-hidden />
-        <div className="fav">
-          <WatchlistToggleButton
-            collectionKey={collection.collectionKey}
-            price={priceUsd ?? undefined}
-          />
-        </div>
+      </div>
+      <div className="fav">
+        <WatchlistToggleButton
+          collectionKey={collection.collectionKey}
+          price={priceUsd ?? undefined}
+        />
       </div>
       <div className="card__body">
-        <div className="card__title" title={titleHover || title}>
-          {title}
+        <div className="card__title" title={titleHover || line1Title}>
+          {line1Title}
         </div>
         {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
+        <div className="card__grade-line">{grade}</div>
         <div className="card__price-row">
           <span className="card__price">{formatUsdCompact(priceUsd)}</span>
-          <span className={`card__sub card__sub--${sub.tone}`}>
-            {sub.glyph ? (
-              <span className="card__sub-glyph" aria-hidden>
-                {sub.glyph}
-              </span>
-            ) : null}
-            <span className="card__sub-pct">{sub.pctLabel}</span>
-            {sub.period ? <span className="card__per">{sub.period}</span> : null}
-          </span>
+          <ListingCardChange
+            pctLabel={sub.pctLabel}
+            tone={sub.tone}
+            glyph={sub.glyph}
+            period={sub.period}
+          />
         </div>
       </div>
     </Link>

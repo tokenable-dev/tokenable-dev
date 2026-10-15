@@ -9,7 +9,7 @@ import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
-import { formatUsdCompact } from "@/lib/market";
+import { formatReferencePercentChange, formatUsdCompact } from "@/lib/market";
 import { useCollectionAiInsight } from "@/hooks/collection-ai-insight/useCollectionAiInsight";
 import {
   AI_INSIGHT_THEME_DARK,
@@ -26,8 +26,7 @@ function useT(): AiInsightPanelTheme {
 
 function formatPct(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  const sign = n >= 0 ? "+" : "";
-  return `${sign}${n.toFixed(1)}%`;
+  return formatReferencePercentChange(n);
 }
 
 function formatDate(iso: string): string {

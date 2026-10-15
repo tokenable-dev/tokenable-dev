@@ -1270,7 +1270,7 @@ export class OrdersService {
   }
 
   /**
-   * Self-vault hold asks: seller USDC + platform fee (instant split, default 10% bps).
+   * Self-vault hold asks: seller USDC + platform fee (instant split, `SELF_VAULT_PLATFORM_FEE_BPS`).
    * Legacy single-line full-platform-take asks are still accepted for in-flight orders.
    */
   private async assertAskSettlementPolicy(

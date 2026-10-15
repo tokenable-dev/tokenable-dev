@@ -304,48 +304,6 @@ Sandbox Test keys do **not** return live shipment status. Real 12–15 digit tra
 
 ---
 
-## Partner bulk mint & list
-
-**Controller:** `backend/src/rwa/admin/bulk-mint-admin.controller.ts`  
-**Base:** `/api/marketplace/admin/bulk-mint`
-
-Excel/CSV **certNumber + price** → **prepare** (PSA + IPFS) → **one approve** (`commit`) → `mintBatch` chunks of **50** to the **partner company wallet** (max **500**), then server-signed Seaport asks. Markets show the partner display name; USDC fills go to that wallet. Job GET derives **Listed / Sold** from `orders.status`.
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/jobs` | List recent jobs (`?partnerId=&limit=`) |
-| POST | `/jobs` | Create from JSON `{ partnerId, items:[{certNumber,price}] }` / `csvText` or multipart `file` + `partnerId` |
-| GET | `/jobs/:id` | Job + items (incl. `saleStatus`: listed/sold/…) — never returns partner private key |
-| GET | `/inventory?partnerId=` | Cross-job inventory for a partner (Listed/Sold) |
-| POST | `/jobs/:id/prepare` | Re-run prepare for `pending` / `prepare_failed` items |
-| POST | `/jobs/:id/commit` | Mint ready items to partner + list asks (async; poll GET) |
-| POST | `/jobs/:jobId/items/:itemId/cancel-listing` | Cancel active ask; item becomes `list_failed` for re-list |
-
-**Job statuses:** `pending` → `preparing` → `ready_to_commit` → `committing` → `completed` (or `failed` / partial `ready_to_commit` for retry).
-
-**Item statuses:** `pending` · `preparing` · `ready` · `minting` · `minted` · `listed` · `prepare_failed` · `mint_failed` · `list_failed` · `skipped`
-
-Prepare downloads each PSA slab once → IPFS (`metadata.image`) + S3 (`slab_display_image_url` on the item, then `rwa_tokens.display_image_url` at commit). If S3 ingest fails, prepare still succeeds when IPFS upload works (`slab_display_image_url` null). If PSA has no slab image, prepare tries Cardhedger catalog art (skipping Cardhedger’s branded placeholder card), then the bundled Tokenable default (`tokenable_mint_placeholder.png`) — same priority as self-vault mint.
-
-**Example (JSON):**
-
-```bash
-curl -X POST "$API/marketplace/admin/bulk-mint/jobs" \
-  -H "Cookie: marketplace_admin_session=…" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "partnerId": "…uuid…",
-    "items": [
-      { "certNumber": "83179580", "price": "1250" },
-      { "certNumber": "84956785", "price": "980.50" }
-    ]
-  }'
-```
-
-**Existing DB:** apply `add_marketplace_partners.sql` then `add_bulk_mint_tables.sql`. If upgrading from custody-recipient bulk mint, use `migrate_bulk_mint_to_partner_list.sql`. For S3 slab URLs on job items: `add_bulk_mint_slab_display_image_url.sql`.
-
----
-
 ## RWA slab display images (backfill)
 
 **Controller:** `backend/src/rwa/admin/rwa-slab-admin.controller.ts`  
@@ -451,7 +409,7 @@ User-facing JWT API: [vault-submissions.md](./vault-submissions.md).
 | POST | `/self-vault-settlements/:id/execute-payout` | Send `seller_payout_usdc` from `PLATFORM_FEE_PRIVATE_KEY` wallet (auto-confirms if pending) → mark `paid`. Cron also auto-pays ~5 min after fulfill. |
 | POST | `/self-vault-settlements/backfill-missing` | Create ledger rows for fulfilled self-vault asks missing a settlement (repair) |
 
-Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; same token can have multiple open payouts after resale). Seller net ≈ gross × (1 − `PLATFORM_FEE_BPS`/10000). Auto payout cron: `SELF_VAULT_AUTO_PAYOUT_CRON` / `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` (default 300). See [self-vault-hold-settlement.md](../architecture/self-vault-hold-settlement.md).
+Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; same token can have multiple open payouts after resale). Seller net ≈ gross × (1 − `SELF_VAULT_PLATFORM_FEE_BPS`/10000). Auto payout cron: `SELF_VAULT_AUTO_PAYOUT_CRON` / `SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS` (default 300). See [self-vault-hold-settlement.md](../architecture/self-vault-hold-settlement.md).
 
 ---
 
@@ -465,7 +423,7 @@ Created when a `self_vault_hold` ask is fulfilled (one row per `order_hash`; sam
 | GET | `/data-inventory/schema` | Live columns + PK/UK/FK from Postgres, plus documented logical joins for the admin schema map. |
 | GET | `/data-inventory/tables/:table/rows?page=&pageSize=` | Paginated raw rows (`pageSize` 1–200). Sensitive columns (`password`, `secret`, `private_key`, …) redacted. |
 | GET | `/data-inventory/reset-targets` | Configured networks and their current `CHAIN_{id}_RWA_ADDRESS`. Each address is a separate marketplace. |
-| POST | `/data-inventory/reset-for-new-contract` | **Disabled when `NODE_ENV=production`** unless `MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION=true` (still requires reset password). Body `{ password, chainId, tokenContract }`. `password` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Deletes rows for that RWA address (tokens, orders, holdings, catalog rows no other contract still uses). **Vault lifecycle:** collects PSA certs from `rwa_tokens`, `marketplace_collections`, and `bulk_mint_job_items` on that chain *before* deletes, then removes **all** `vault_cycles` / `vault_redemptions` / submission items for those certs (any status), plus cycles still linked via `rwa_tokens.vault_cycle_id`. When `tokenContract` is the **currently configured** address for `chainId`, also clears notifications, portfolio snapshots, bulk-mint jobs, and **orphan** `vault_cycles` on that chain with no `rwa_tokens` row (excludes in-flight `pending_deposit` / `deposit_verified` / `minting`). Use that configured-address reset to clear leftovers like `redemption_requested` cycles after a partial wipe. Run once per **legacy** RWA address too, then reset the **current** env address before swapping `CHAIN_*_RWA_ADDRESS`. Does **not** burn on-chain NFTs. Full all-network wipe: `sql/maintenance/reset_marketplace_data.sql`. |
+| POST | `/data-inventory/reset-for-new-contract` | **Disabled when `NODE_ENV=production`** unless `MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION=true` (still requires reset password). Body `{ password, chainId, tokenContract }`. `password` must match `MARKETPLACE_ADMIN_DB_RESET_PASSWORD` (default `3009`). Deletes rows for that RWA address (tokens, orders, holdings, catalog rows no other contract still uses). **Vault lifecycle:** collects PSA certs from `rwa_tokens` and `marketplace_collections` on that chain *before* deletes, then removes **all** `vault_cycles` / `vault_redemptions` / submission items for those certs (any status), plus cycles still linked via `rwa_tokens.vault_cycle_id`. When `tokenContract` is the **currently configured** address for `chainId`, also clears notifications, portfolio snapshots, and **orphan** `vault_cycles` on that chain with no `rwa_tokens` row (excludes in-flight `pending_deposit` / `deposit_verified` / `minting`). Use that configured-address reset to clear leftovers like `redemption_requested` cycles after a partial wipe. Run once per **legacy** RWA address too, then reset the **current** env address before swapping `CHAIN_*_RWA_ADDRESS`. Does **not** burn on-chain NFTs. Full all-network wipe: `sql/maintenance/reset_marketplace_data.sql`. |
 | POST | `/data-inventory/prune-chain-residue` | Body `{ password, chainId, clearPsaMailReviews?: boolean }`. Same `password` as contract reset. **Keeps** `rwa_tokens`, orders, and `vault_cycles` linked via `rwa_tokens.vault_cycle_id`. **Deletes** on `chainId`: vault_cycles with no `rwa_tokens` row; `vault_submissions` where `(chain_id IS NULL OR chain_id = chainId)` and the row is not stamped with the configured `CHAIN_{id}_RWA_ADDRESS` (other chains’ stamped submissions are untouched); `vault_assets` with no cycles; orphan `vault_redeem_payment_claims` on that chain. Optional `clearPsaMailReviews: true` TRUNCATEs `vault_psa_arrival_reviews` and `vault_psa_vaulted_reviews` (all networks). UI: Data inventory → “체인 잔재·고아 데이터 정리”. |
 
 Vault submissions / PSA mail / mint-queue admin hooks poll every ~45–60s only while the browser tab is visible (paused when hidden).

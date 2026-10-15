@@ -145,8 +145,9 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 
 | Surface | Primary files | Current formatter | Line rule target | Gap vs SSOT |
 | --- | --- | --- | --- | --- |
-| Markets grid / home cards | `CollectibleCard.tsx`, `marketsCollectionTitle.ts` | `buildMarketsCollectionTitle` | Line 1 only | — |
-| Watchlist | `WatchlistCollectibleCard.tsx` | `buildMarketsCollectionTitle` | Line 1 only | — |
+| Markets grid / home cards | `CollectibleCard.tsx`, `marketsCollectionTitle.ts` | `buildMarketsCollectionTitle` | Line 1 `{Name} · {Number} · {Grade}` | — |
+| Watchlist | `WatchlistCollectibleCard.tsx` | same | Line 1 with grade | — |
+| Collection detail similar | `useCollectionSimilarItems.ts` | `buildMarketsCollectionTitle(..., { splitGradeToSecondLine: true })` + `buildMarketsCollectionTileGrade` | Line 1 + grade row | Aligns price row across tiles |
 | GNB search typeahead | `TkHeaderSearch.tsx` | Line 1 + `buildMarketsCollectionSearchMeta` | Line 1 + compact L2 | — |
 | Collection detail hero | `useCollectionDetailHeadline.ts`, `AssetDetailHeadlineTitle.tsx`, `CollectionOverviewTopBar.tsx` | `formatAssetDetailLine1` / `formatCardDisplayMeta` (adapter) → SSOT `cardDisplayName.formatCardDisplayName` | L1 name+number+grade + L2 | Grade on the title |
 | Portfolio asset / certificate | `usePortfolioCertificate.ts`, `PortfolioCertificateView.tsx` | Line 1 via asset-detail adapter (`omitGrade`) + `formatCardDisplayMeta` | L1 + L2 | Grade + cert chips stay below; do not put number on a third line |
@@ -210,8 +211,9 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 
 | Surface | Mode | Implementation |
 | --- | --- | --- |
-| Markets / home grid | Line 1 only | `CollectibleCard` — name · number · grade only |
-| Watchlist | Line 1 only | `WatchlistCollectibleCard` |
+| Markets / home grid | Line 1 with grade | `CollectibleCard` — name · number · grade |
+| Watchlist | Line 1 with grade | `WatchlistCollectibleCard` |
+| Collection detail similar | Line 1 + grade row | `splitGradeToSecondLine: true` in title builder only |
 | GNB search collections | Line 1 + Line 2 meta | `buildMarketsCollectionSearchMeta` |
 | Portfolio holdings | Line 1 only | `resolvePortfolioHoldingsDisplayNames` |
 | Collection detail | Line 1 name+number+grade + full Line 2 | Grade on hero title |

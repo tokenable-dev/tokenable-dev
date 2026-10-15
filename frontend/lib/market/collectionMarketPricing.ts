@@ -15,10 +15,12 @@ export function formatUsdListing(n: number | null | undefined): string {
   return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
-/** Hero velocity — one decimal, trailing % */
+/** Hero velocity — whole % (reference window change). */
 export function formatVelocityPercent(pct: number | null | undefined): string {
   if (pct == null || !Number.isFinite(pct)) return "—";
-  return `${pct.toFixed(1)}%`;
+  const rounded = Math.round(pct);
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded}%`;
 }
 
 /**

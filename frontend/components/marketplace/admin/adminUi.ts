@@ -107,7 +107,7 @@ export const ADMIN_TABLE_WRAP =
 export const ADMIN_TABLE =
   "w-full min-w-[28rem] text-left text-xs sm:min-w-[32rem] sm:text-sm";
 
-/** Users, bulk mint job items, etc. */
+/** Users, partner vault job items, etc. */
 export const ADMIN_TABLE_WIDE =
   "w-full min-w-[40rem] text-left text-xs sm:min-w-[48rem] sm:text-sm";
 

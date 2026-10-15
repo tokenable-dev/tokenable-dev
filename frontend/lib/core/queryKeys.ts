@@ -240,9 +240,6 @@ export const rq = {
   ) => ["admin-self-vault-settlements", chainId, status ?? "all"] as const,
   adminRedeems: (status?: string) =>
     ["admin-redeems", status ?? "all"] as const,
-  adminBulkMintJob: (jobId: string) => ["admin-bulk-mint-job", jobId] as const,
-  adminBulkMintJobs: (partnerId?: string) =>
-    ["admin-bulk-mint-jobs", partnerId ?? "all"] as const,
   adminPartnerInventory: (partnerId: string) =>
     ["admin-partner-inventory", partnerId] as const,
   adminMarketplacePartners: ["admin-marketplace-partners"] as const,

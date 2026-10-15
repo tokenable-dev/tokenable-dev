@@ -1,6 +1,7 @@
 "use client";
 
 import { formatMarketCapUsd } from "@/lib/market";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePeriod";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
@@ -15,6 +16,9 @@ export function CollectionDetailMetricsStrip({
   headlineParts,
   headlineMeta,
   coverImageUrl,
+  coverComp,
+  coverDisplayLabel,
+  coverCollectionKey,
   priceUsd,
   priceLoading,
   changePct,
@@ -33,6 +37,9 @@ export function CollectionDetailMetricsStrip({
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineMeta?: string | null;
   coverImageUrl?: string | null;
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   priceUsd: number | null;
   priceLoading: boolean;
   changePct: number | null;
@@ -54,6 +61,9 @@ export function CollectionDetailMetricsStrip({
         headlineParts={headlineParts}
         headlineMeta={headlineMeta}
         imageUrl={coverImageUrl}
+        coverComp={coverComp}
+        coverDisplayLabel={coverDisplayLabel}
+        coverCollectionKey={coverCollectionKey}
         priceUsd={priceUsd}
         priceLoading={priceLoading}
         changePct={changePct}

@@ -385,10 +385,17 @@ export function PortfolioCertificateView({
               <span className="mval-k">Market value</span>
               <span className="mval-v">{formatUsdCompact(d.marketUsd)}</span>
               {chg ? (
-                <span className={`mval-chg${chg.positive ? "" : " neg"}`}>
-                  <span className="mval-chg__dir" aria-hidden>
-                    {chg.arrow}
-                  </span>{" "}
+                <span
+                  className={`mval-chg${
+                    chg.muted ? " mval-chg--muted" : chg.positive ? "" : " neg"
+                  }`}
+                >
+                  {chg.arrow ? (
+                    <span className="mval-chg__dir" aria-hidden>
+                      {chg.arrow}
+                    </span>
+                  ) : null}
+                  {chg.arrow ? " " : null}
                   {chg.label}
                 </span>
               ) : null}

@@ -61,6 +61,14 @@ html {
   }
 }
 
+/* DS controls — rounded product default (overrides stray feature clip-path). */
+.tk-btn,
+.tk-input,
+.tk-search-field,
+.tk-search-field__input.tk-input {
+  clip-path: none !important;
+}
+
 /*
  * TkButton chrome rule:
  * DS variants already own border/shadow (ghost inset outline; primary/subtle

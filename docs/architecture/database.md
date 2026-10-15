@@ -73,10 +73,8 @@
 | Table | Purpose | Entity |
 |-------|---------|--------|
 | `marketplace_admins` | Marketplace admin console credentials | `marketplace/entities/marketplace-admin.entity.ts` |
-| `marketplace_partners` | Company wallets for Self vault (+ optional encrypted PK for bulk mint) | `marketplace/entities/marketplace-partner.entity.ts` |
+| `marketplace_partners` | Company wallets for Self vault (+ optional encrypted PK for Seaport) | `marketplace/entities/marketplace-partner.entity.ts` |
 | `marketplace_partner_addresses` | Partner Self-vault Origin address (FedEx Rate ship-from; 1:1) | `marketplace/entities/marketplace-partner-address.entity.ts` |
-| `bulk_mint_jobs` | Partner mint+list job runs | `rwa/entities/bulk-mint-job.entity.ts` |
-| `bulk_mint_job_items` | Per-cert price + order status rows | `rwa/entities/bulk-mint-job-item.entity.ts` |
 | `partner_vault_mint_jobs` | Sell-flow server mint jobs (user → partner vault) | `rwa/entities/partner-vault-mint-job.entity.ts` |
 | `partner_vault_mint_job_items` | Per-cert rows for partner vault mint jobs | `rwa/entities/partner-vault-mint-job-item.entity.ts` |
 | `cardhedger_price_subscriptions` | Price push registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
@@ -261,7 +259,6 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 060 | `060_admin.sql` | `marketplace_admins` |
 | 064 | `064_marketplace_partners.sql` | Consignment partners (encrypted wallet keys) |
 | 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
-| 065 | `065_bulk_mint.sql` | `bulk_mint_jobs`, `bulk_mint_job_items` (partner mint+list) |
 | 067 | `067_partner_vault_mint.sql` | `partner_vault_mint_jobs`, `partner_vault_mint_job_items` (sell-flow mint) |
 | 070 | `070_cardhedger.sql` | Cardhedger pricing infra |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |

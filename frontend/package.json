@@ -5,8 +5,9 @@
   "scripts": {
     "postinstall": "node scripts/patch-privy-isactive.mjs",
     "check:css": "node scripts/check-css-braces.mjs",
+    "prebuild": "pnpm run check:css",
     "generate:partner-cert-xlsx": "node scripts/generate-partner-cert-xlsx.mjs",
-    "dev": "NODE_OPTIONS=--max-old-space-size=4096 next dev",
+    "dev": "pnpm run check:css && NODE_OPTIONS=--max-old-space-size=4096 next dev",
     "dev:webpack": "NODE_OPTIONS=--max-old-space-size=4096 next dev --webpack",
     "build": "NODE_OPTIONS=--max-old-space-size=8192 next build",
     "start": "next start"
@@ -38,6 +39,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.185.0",
+    "postcss": "^8.5.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

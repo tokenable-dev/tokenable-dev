@@ -18,7 +18,7 @@ export interface FeeSplit {
 /**
  * Splits a total USDC price into seller proceeds + platform fee.
  * When no fee recipient is configured the full amount goes to the seller.
- * `self_vault_hold` → same split shape as PSA, but {@link SELF_VAULT_PLATFORM_FEE_BPS} (10%).
+ * `self_vault_hold` → same split shape as PSA via {@link SELF_VAULT_PLATFORM_FEE_BPS}.
  */
 export function computeFeeSplit(
   totalPriceUnits: bigint,
@@ -69,7 +69,7 @@ type ConsiderationItem = {
 /**
  * Builds the Seaport `consideration` array for an ask listing.
  * - standard: seller (+ optional fee)
- * - self_vault_hold: seller USDC + platform fee (10% default)
+ * - self_vault_hold: seller USDC + platform fee (`SELF_VAULT_PLATFORM_FEE_BPS`)
  */
 export function buildAskConsideration(
   totalPriceUnits: bigint,

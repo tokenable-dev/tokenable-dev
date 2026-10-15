@@ -84,7 +84,7 @@ export class PartnersAdminController {
   @Post()
   @ApiOperation({
     summary:
-      'Register partner wallet for Self vault (privateKey optional; required later for bulk mint)',
+      'Register partner wallet for Self vault (privateKey optional for server-side signing)',
   })
   async create(@Req() req: Request, @Body() body: CreateMarketplacePartnerDto) {
     this.admin.assertAdminSession(req);

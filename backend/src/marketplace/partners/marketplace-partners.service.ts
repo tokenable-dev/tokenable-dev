@@ -594,7 +594,7 @@ export class MarketplacePartnersService {
     return await this.toPublic(saved);
   }
 
-  /** Decrypt entrusted key for server-side mint/list — never log the result. */
+  /** Decrypt entrusted partner key — never log the result. */
   async getDecryptedPrivateKey(partnerId: string): Promise<{
     partner: MarketplacePartner;
     privateKey: string;
@@ -605,7 +605,7 @@ export class MarketplacePartnersService {
     }
     if (!this.hasKeyMaterial(partner)) {
       throw new BadRequestException(
-        `Partner ${partnerId} has no entrusted private key — add one before bulk mint/list`,
+        `Partner ${partnerId} has no entrusted private key`,
       );
     }
     try {

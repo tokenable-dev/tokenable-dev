@@ -5,7 +5,12 @@ import { useEffect, useState } from "react";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { useResolvedMediaUrl } from "@/hooks/media";
 import { useCollectionAdminCover } from "@/hooks/marketplace/collection-hero/useCollectionAdminCover";
-import { parseGradeScoreNumber, representativeGradeUsd, formatSportCategoryDisplayLabel } from "@/lib/market";
+import {
+  formatReferencePercentChange,
+  parseGradeScoreNumber,
+  representativeGradeUsd,
+  formatSportCategoryDisplayLabel,
+} from "@/lib/market";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import { CollectionAiInsightPanel } from "@/components/marketplace/collection-ai-insight";
 import { AdminMarketPriceStrip } from "./AdminMarketPriceStrip";
@@ -228,8 +233,7 @@ export function MarketplaceAdminCollectionRow({
                         changePct >= 0 ? "font-semibold text-emerald-600" : "font-semibold text-red-600"
                       }
                     >
-                      {changePct >= 0 ? "+" : ""}
-                      {changePct.toFixed(1)}% ref
+                      {formatReferencePercentChange(changePct)} ref
                     </span>
                   </>
                 ) : null}

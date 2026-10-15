@@ -578,6 +578,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     market,
     collectionOrderBookProps: orderBookPropsWithActions,
     coverImageUrl: collectionCoverUrl,
+    coverComp: comp,
+    coverDisplayLabel: collection.displayLabel,
+    coverCollectionKey: collectionKey,
     headlineTitle: headline.collectionHeadlineDisplayTitle,
     headlineParts: headline.collectionHeadlineParts,
     headlineMeta: headline.collectionHeadlineMetaStrip,
@@ -620,6 +623,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           hideDesktopTopBarHeadline
           badgeLabel="Collection"
           imageUrl={collectionCoverUrl}
+          coverComp={comp}
+          coverDisplayLabel={collection.displayLabel}
+          coverCollectionKey={collectionKey}
           coverOverlay={<WatchlistToggleButton collectionKey={collectionKey} />}
           coverGallery={coverGallery}
           belowCover={renderHeroDetailsTabs()}

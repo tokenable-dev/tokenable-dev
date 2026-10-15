@@ -136,18 +136,6 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   },
   {
     kind: 'column',
-    table: 'bulk_mint_job_items',
-    column: 'display_name',
-    fix: DEPLOY_SYNC_FIX,
-  },
-  {
-    kind: 'column',
-    table: 'bulk_mint_job_items',
-    column: 'collection_key',
-    fix: DEPLOY_SYNC_FIX,
-  },
-  {
-    kind: 'column',
     table: 'user_buyer_listing_alert',
     column: 'token_contract',
     fix: DEPLOY_SYNC_FIX,

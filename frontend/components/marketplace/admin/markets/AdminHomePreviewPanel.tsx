@@ -8,7 +8,7 @@ import {
   resolveMarketsListingMarketChangePct90d,
   resolveMarketsListingMarketUsd,
 } from "@/lib/markets/marketsListingMarketPrice";
-import { formatUsdCompact } from "@/lib/market";
+import { formatReferencePercentChange, formatUsdCompact } from "@/lib/market";
 import {
   ADMIN_ARTICLE,
   ADMIN_EMBEDDED_DARK,
@@ -102,7 +102,9 @@ function AdminHomePreviewTable({
                               : ""
                         }`}
                       >
-                        {change != null ? `${change > 0 ? "+" : ""}${change.toFixed(1)}%` : "—"}
+                        {change != null
+                          ? formatReferencePercentChange(change)
+                          : "—"}
                       </td>
                     ) : null}
                     <td className={`${ADMIN_TABLE_TD} text-right font-mono text-sm`}>

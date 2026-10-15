@@ -94,8 +94,6 @@ describe('DataInventoryService.getSchema', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
       { query } as unknown as DataSource,
       { get: jest.fn() } as unknown as ConfigService,
       {} as never,

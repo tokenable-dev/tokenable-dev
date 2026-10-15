@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import Link from "next/link";
 import {
   patchAdminMarketplacePartner,
   rq,
@@ -31,7 +30,7 @@ function shortWallet(addr: string): string {
 
 /**
  * Partner vault ops for a user who already has a marketplace_partners row:
- * rename, Origin (FedEx ship-from), optional encrypted key for bulk mint.
+ * rename, Origin (FedEx ship-from), optional encrypted key for server signing.
  */
 export function MarketplaceAdminUserPartnerPanel({
   partner,
@@ -87,14 +86,8 @@ export function MarketplaceAdminUserPartnerPanel({
         <div>
           <h3 className="text-sm font-semibold text-zinc-900">파트너 vault</h3>
           <p className={`mt-1 text-sm ${ADMIN_TEXT_SECONDARY}`}>
-            회사명·Origin·민팅 키는 이 유저 상세에서 관리합니다. 대량 민트는{" "}
-            <Link
-              href="/marketplace/admin/bulk-mint"
-              className="font-medium text-[var(--brand-500)] hover:underline"
-            >
-              Partner bulk mint
-            </Link>
-            .
+            회사명·Origin·민팅 키는 이 유저 상세에서 관리합니다. 파트너 대량
+            민트는 Sell flow(파트너 vault)에서 진행합니다.
           </p>
         </div>
         <p className={`font-mono text-xs ${ADMIN_TEXT_MUTED}`}>

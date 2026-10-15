@@ -1621,3 +1621,10 @@ COMMENT ON COLUMN users.email IS
   'Contact inbox (or @privy.wallet placeholder for MetaMask-only until set). Not globally unique.';
 
 
+-- ── drop_partner_admin_bulk_mint_tables.sql ──
+-- Admin partner bulk mint+list removed — job tables were ops-only; minted NFTs
+-- and Seaport orders live in rwa_tokens / orders and are unchanged.
+DROP TABLE IF EXISTS public.bulk_mint_job_items;
+DROP TABLE IF EXISTS public.bulk_mint_jobs;
+
+

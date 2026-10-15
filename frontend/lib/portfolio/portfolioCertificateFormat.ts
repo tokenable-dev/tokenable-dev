@@ -1,3 +1,4 @@
+import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 
 export function formatPortfolioPassportId(tokenId: number): string {
@@ -39,18 +40,26 @@ export function formatExplorerAddr(addr: string): string {
 }
 
 export function formatMarketChangePct(pct: number | null | undefined): {
-  arrow: "▲" | "▼";
+  arrow: "" | "▲" | "▼";
   label: string;
   positive: boolean;
+  muted: boolean;
 } | null {
   if (pct == null || !Number.isFinite(pct)) return null;
-  const positive = pct >= 0;
-  const abs = Math.abs(pct);
-  const body = abs.toFixed(1);
+  const display = resolveReferencePercentChangeDisplay(pct);
+  if (!display.showGlyph) {
+    return {
+      arrow: "",
+      label: display.pctLabel,
+      positive: true,
+      muted: true,
+    };
+  }
   return {
-    arrow: positive ? "▲" : "▼",
-    label: `${positive ? "+" : "−"}${body}%`,
-    positive,
+    arrow: display.tone === "down" ? "▼" : "▲",
+    label: display.pctLabel,
+    positive: display.tone === "up",
+    muted: false,
   };
 }
 

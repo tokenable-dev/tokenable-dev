@@ -72,7 +72,7 @@ export class RwaToken {
    * Seaport settlement policy — set only by mint registry (`recordMintResult`).
    * NULL means custody is unknown (e.g. Transfer-index stub before mint heal).
    * - `standard` — seller + platform fee split (PSA vault)
-   * - `self_vault_hold` — partner vault; Seaport splits seller + platform fee (10% default)
+   * - `self_vault_hold` — partner vault; Seaport splits seller + platform fee (`SELF_VAULT_PLATFORM_FEE_BPS`)
    */
   @Column({
     name: 'settlement_policy',

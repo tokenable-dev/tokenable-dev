@@ -68,8 +68,6 @@ describe('DataInventoryService.getTableRows', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
       dataSource,
       config,
       {} as never,

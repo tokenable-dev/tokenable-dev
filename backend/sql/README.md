@@ -18,7 +18,6 @@ sql/
 │   ├── 060_admin.sql             # marketplace_admins
 │   ├── 064_marketplace_partners.sql  # consignment partners (encrypted keys)
 │   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
-│   ├── 065_bulk_mint.sql         # partner bulk mint+list jobs
 │   ├── 067_partner_vault_mint.sql  # sell-flow partner vault mint jobs
 │   ├── 070_cardhedger.sql        # Cardhedger pricing infra
 │   └── 900_triggers.sql          # updated_at triggers
@@ -92,8 +91,6 @@ psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
 | `user_kyc_events` | KYC audit trail |
 | `marketplace_admins` | Admin console credentials |
 | `marketplace_partners` | Consignment sellers (encrypted wallet keys) |
-| `bulk_mint_jobs` | Partner mint+list job runs |
-| `bulk_mint_job_items` | Per-cert rows (price, order_hash, status) |
 | `vault_assets` | Permanent physical card identity |
 | `vault_cycles` | Deposit→redeem lifecycle per asset |
 | `vault_redemptions` | Redemption state machine |

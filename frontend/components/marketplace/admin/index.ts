@@ -12,7 +12,6 @@ export { MarketplaceAdminCardsPage } from "./MarketplaceAdminCardsPage";
 export { MarketplaceAdminCustodyNftsPage } from "./MarketplaceAdminCustodyNftsPage";
 export { MarketplaceAdminSelfVaultSettlementsPage } from "./MarketplaceAdminSelfVaultSettlementsPage";
 export { MarketplaceAdminRedeemsPage } from "./MarketplaceAdminRedeemsPage";
-export { MarketplaceAdminBulkMintPage } from "./MarketplaceAdminBulkMintPage";
 export { MarketplaceAdminUserPartnerPanel } from "./MarketplaceAdminUserPartnerPanel";
 export { MarketplaceAdminCardRow } from "./MarketplaceAdminCardRow";
 export { MarketplaceAdminCollectionsPage } from "./MarketplaceAdminCollectionsPage";

@@ -107,6 +107,7 @@ RWA_OWNER_PRIVATE_KEY=<backend signer private key>
 PARTNER_WALLET_ENCRYPTION_KEY=<64 hex chars — openssl rand -hex 32>
 PLATFORM_FEE_RECIPIENT=0x...
 PLATFORM_FEE_BPS=500
+SELF_VAULT_PLATFORM_FEE_BPS=500   # partner / self-vault asks (frontend: NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS=500)
 PLATFORM_FEE_PRIVATE_KEY=0x...   # self-vault seller payouts + redeem USDC refunds (same wallet as RECIPIENT)
 # SELF_VAULT_AUTO_PAYOUT_CRON=1              # set 0 to disable
 # SELF_VAULT_AUTO_PAYOUT_DELAY_SECONDS=300   # fulfill → auto pay (default 5 min)

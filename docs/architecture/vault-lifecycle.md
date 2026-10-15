@@ -66,7 +66,7 @@ Cycles are chain-scoped in both DB and API:
 
 - Partial unique index `uq_vault_cycles_one_open_per_asset_chain` on `(vault_asset_id, chain_id)` where status is open
 - `VaultService.assertAvailableForNewCycle(cert, chainId)` / `reserveCycleForDeposit({ chainId })` filter by `chain_id`
-- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-batch`, bulk-mint) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
+- Chain-sensitive writes (`POST /api/rwa/upload`, `/rwa/mint`, `/rwa/redeem-batch`, partner vault mint) use `ChainConfigService.requireChainId()` — missing `x-tokenable-chain-id` returns 400 instead of silently using `DEFAULT_CHAIN_ID` (which would mis-attribute a Sepolia conflict to a Polygon mint attempt)
 
 ```
 vault_cycles (uuid id PK)

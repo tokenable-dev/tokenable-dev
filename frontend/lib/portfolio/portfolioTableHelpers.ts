@@ -142,10 +142,25 @@ export function formatPortfolioUsd(
   return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
+export type PortfolioProfitReturn = {
+  profit: string;
+  returnPct: string;
+  positive: boolean;
+  /** Flat or whole-% rounds to 0 — show `—`, no ↗↘. */
+  muted: boolean;
+};
+
+function portfolioReturnIsFlat(delta: number, pct: number): boolean {
+  if (!Number.isFinite(delta) || !Number.isFinite(pct)) return true;
+  if (Math.abs(delta) < 0.005) return true;
+  if (Math.abs(pct) < 0.05) return true;
+  return Math.round(pct) === 0;
+}
+
 export function formatPortfolioProfitReturn(
   costBasis: number | null | undefined,
   currentValue: number | null | undefined,
-): { profit: string; returnPct: string; positive: boolean } | null {
+): PortfolioProfitReturn | null {
   if (
     costBasis == null ||
     currentValue == null ||
@@ -163,10 +178,12 @@ export function formatPortfolioProfitReturn(
     absUsd >= 1000
       ? absUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })
       : absUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const muted = portfolioReturnIsFlat(delta, pct);
   return {
     profit: `${sign}$${usd}`,
-    returnPct: `${pct >= 0 ? "+" : ""}${pct.toFixed(0)}%`,
+    returnPct: muted ? "—" : `${pct >= 0 ? "+" : ""}${Math.round(pct)}%`,
     positive: delta >= 0,
+    muted,
   };
 }
 

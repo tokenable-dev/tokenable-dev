@@ -1,7 +1,7 @@
-import { buildBulkMintMetadataFromPsaCert } from './bulk-mint-prepare.util';
-import type { PsaCertRecord } from '../../psa/psa-public-api.service';
+import { buildPsaCertMintMetadata } from './psa-cert-mint-metadata.util';
+import type { PsaCertRecord } from '../psa/psa-public-api.service';
 
-describe('buildBulkMintMetadataFromPsaCert', () => {
+describe('buildPsaCertMintMetadata', () => {
   it('builds name and graded properties from PSACert', () => {
     const psaCert: PsaCertRecord = {
       CertNumber: '83179580',
@@ -12,7 +12,7 @@ describe('buildBulkMintMetadataFromPsaCert', () => {
       GradeDescription: 'GEM MT 10',
       SpecID: 123,
     };
-    const { name, metadata } = buildBulkMintMetadataFromPsaCert({
+    const { name, metadata } = buildPsaCertMintMetadata({
       certNumber: '83179580',
       psaCert,
       imageUrl: 'https://example.com/front.jpg',
@@ -42,7 +42,7 @@ describe('buildBulkMintMetadataFromPsaCert', () => {
       CardGrade: '10',
       Category: 'Pokemon',
     };
-    const { metadata } = buildBulkMintMetadataFromPsaCert({
+    const { metadata } = buildPsaCertMintMetadata({
       certNumber: '10000001',
       psaCert,
       imageUrl: 'https://example.com/front.jpg',

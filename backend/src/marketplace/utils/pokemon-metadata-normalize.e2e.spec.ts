@@ -3,7 +3,7 @@
  * marketplace collection components. Does not touch Cardhedger matching.
  */
 
-import { buildBulkMintMetadataFromPsaCert } from '../../rwa/bulk-mint/bulk-mint-prepare.util';
+import { buildPsaCertMintMetadata } from '../../rwa/psa-cert-mint-metadata.util';
 import type { PsaCertRecord } from '../../psa/psa-public-api.service';
 import { CollectionService } from '../collections/collection.service';
 import { marketParallelKeyFromPsaVariety } from './market-parallel-key.util';
@@ -76,7 +76,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
         CardGrade: '10',
         Category: 'Pokemon',
       };
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000001',
         psaCert,
         imageUrl: 'https://example.com/slab.jpg',
@@ -113,7 +113,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
         CardGrade: '10',
         Category: 'Pokemon',
       };
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000001',
         psaCert,
         imageUrl: 'https://example.com/slab.jpg',
@@ -145,7 +145,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
   describe('Cases B–D — set catalog via graded → components', () => {
     it('Case B — SV1S Scarlet ex', () => {
       const brand = 'POKEMON JAPANESE SV1S-SCARLET EX';
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000002',
         psaCert: {
           CertNumber: '90000002',
@@ -180,7 +180,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
     it('Case C — SV1V Violet ex', () => {
       const brand = 'POKEMON JAPANESE SV1V-VIOLET EX';
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000003',
         psaCert: {
           CertNumber: '90000003',
@@ -213,7 +213,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
     it('Case C2 — SVP EN Black Star Promos canonical setName', () => {
       const brand = 'POKEMON SVP BLACK STAR PROMOS';
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000013',
         psaCert: {
           CertNumber: '90000013',
@@ -242,7 +242,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
     it('Case D — SV-P promo without invented series/setName', () => {
       const brand = 'POKEMON JAPANESE SV-P';
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000004',
         psaCert: {
           CertNumber: '90000004',
@@ -272,7 +272,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
   describe('Case E — insufficient metadata', () => {
     it('Brand Pokemon only — no invented fields through IPFS + components', () => {
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000005',
         psaCert: {
           CertNumber: '90000005',
@@ -302,7 +302,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
   describe('Case F — variants', () => {
     it('REVERSE HOLO → variant; psaVariety unchanged', () => {
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000006',
         psaCert: {
           CertNumber: '90000006',
@@ -351,7 +351,7 @@ describe('Pokémon metadata normalization V1.1 E2E', () => {
 
   describe('non-Pokémon + fill-if-empty', () => {
     it('One Piece Brand JAPANESE → graded.normalized.language JP (no pokemon block)', () => {
-      const { metadata } = buildBulkMintMetadataFromPsaCert({
+      const { metadata } = buildPsaCertMintMetadata({
         certNumber: '90000007',
         psaCert: {
           CertNumber: '90000007',

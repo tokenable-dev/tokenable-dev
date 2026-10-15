@@ -5,8 +5,6 @@ import { CardhedgerDailyPriceExportRun } from '../../cardhedger/entities/cardhed
 import { CardhedgerPriceDeltaCheckpoint } from '../../cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerPriceDeltaImportRun } from '../../cardhedger/entities/cardhedger-price-delta-import-run.entity';
 import { CardhedgerPriceSubscription } from '../../cardhedger/entities/cardhedger-price-subscription.entity';
-import { BulkMintJobItem } from '../../rwa/entities/bulk-mint-job-item.entity';
-import { BulkMintJob } from '../../rwa/entities/bulk-mint-job.entity';
 import { UserModule } from '../../user/user.module';
 import { UserAuthProvider } from '../../user/entities/user-auth-provider.entity';
 import { UserKycEvent } from '../../user/entities/user-kyc-event.entity';
@@ -58,8 +56,6 @@ import { RedeemsAdminService } from './redeems-admin.service';
       CollectionMarketSnapshot,
       PortfolioDailySnapshot,
       PortfolioHolding,
-      BulkMintJob,
-      BulkMintJobItem,
       MarketplacePartner,
       MarketplacePartnerAddress,
       CardhedgerPriceDeltaImportRun,

@@ -293,7 +293,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
               {valuesPending && row.currentPrice == null
                 ? "…"
                 : formatUsdCompact(row.currentPrice)}
-              {hasVal && pnl ? (
+              {hasVal && pnl && !pnl.muted ? (
                 <span
                   className={`pf-mkt-dir${
                     pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"
@@ -307,9 +307,11 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             <span
               className={`card__sub pf-gtile__ret tkl-mono${
                 hasVal && retLabel && pnl
-                  ? pnl.positive
-                    ? " card__sub--up pf-table-pl--pos"
-                    : " card__sub--down pf-table-pl--neg"
+                  ? pnl.muted
+                    ? " card__sub--muted"
+                    : pnl.positive
+                      ? " card__sub--up pf-table-pl--pos"
+                      : " card__sub--down pf-table-pl--neg"
                   : " pf-gtile__ret--empty"
               }`}
               title={hasVal && retLabel ? "% change vs cost" : undefined}

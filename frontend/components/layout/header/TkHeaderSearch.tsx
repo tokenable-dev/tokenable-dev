@@ -11,7 +11,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { TkInput } from "@/components/ds";
+import { TkSearchField } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type {
   CollectionListMarketSnapshot,
@@ -25,8 +25,7 @@ import {
   resolveMarketsListingMarketUsd,
 } from "@/lib/markets/marketsListingMarketPrice";
 import {
-  formatReferencePercentChange,
-  referenceChangeTone,
+  resolveReferencePercentChangeDisplay,
 } from "@/lib/market/priceChangePeriod";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
@@ -40,7 +39,9 @@ import {
   collectionDetailHref,
   resolveCollectionDetailHref,
 } from "@/lib/marketplace/collectionBrowseContext";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
+import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
@@ -137,18 +138,24 @@ function SearchItemPrice({
   snapshot: CollectionListMarketSnapshot | undefined;
 }) {
   const pct = resolveMarketsListingMarketChangePct(snapshot);
-  if (!price && pct == null) return null;
+  const change =
+    pct != null && Number.isFinite(pct)
+      ? resolveReferencePercentChangeDisplay(pct)
+      : null;
+  if (!price && !change) return null;
   return (
     <div className="gnb-search-item__price">
       {price ? <div className="gnb-search-item__price-val">{price}</div> : null}
-      {pct != null ? (
+      {change ? (
         <div
           className={cn(
             "gnb-search-item__price-chg",
-            referenceChangeTone(pct) === "down" && "is-down",
+            change.tone === "down" && "is-down",
+            change.tone === "up" && "is-up",
+            change.tone === "muted" && "is-muted",
           )}
         >
-          {formatReferencePercentChange(pct)}
+          {change.pctLabel}
         </div>
       ) : null}
     </div>
@@ -261,13 +268,17 @@ export function SearchResultsList({
               className="gnb-search-item"
             >
               <div className="gnb-search-item__thumb">
-                <Thumb
-                  src={
-                    displayImageUrl
-                      ? (coverUrlMap.get(displayImageUrl) ?? displayImageUrl)
-                      : null
-                  }
-                />
+                {displayImageUrl ? (
+                  <CollectionPsaSlabFrame
+                    imageUrl={coverUrlMap.get(displayImageUrl) ?? displayImageUrl}
+                    alt={buildGnbSearchCollectionTitle({ collection: c, comp: c.components })}
+                    comp={parseCollectionComponents(c.components)}
+                    displayLabel={c.displayLabel}
+                    collectionKey={c.collectionKey}
+                  />
+                ) : (
+                  <Thumb src={null} />
+                )}
               </div>
               <div className="gnb-search-item__info">
                 <div className="gnb-search-item__name">
@@ -600,37 +611,32 @@ export function TkHeaderSearch({
           onSubmit={handleSubmit}
           role="search"
         >
-          <div
-            className={cn(
-              "tk-search",
-              query.length > 0 && "tk-search--has-clear",
-            )}
-          >
-            <span className="tk-search__icon">
-              <SearchIcon />
-            </span>
-            <TkInput
-              ref={desktopInputRef}
-              type="search"
-              name="q"
-              size={1}
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (!desktopOpen) setDesktopOpen(true);
-              }}
-              onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
-              onFocus={() => setDesktopOpen(true)}
-              onKeyDown={handleKeyDown}
-              placeholder={SEARCH_PLACEHOLDER}
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-            />
-            {query.length > 0 ? (
-              <SearchClearButton onClick={clearQuery} />
-            ) : null}
-          </div>
+          <TkSearchField
+            ref={desktopInputRef}
+            fieldSize="compact"
+            icon={<SearchIcon />}
+            name="q"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              if (!desktopOpen) setDesktopOpen(true);
+            }}
+            onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
+            onFocus={() => setDesktopOpen(true)}
+            onKeyDown={handleKeyDown}
+            placeholder={SEARCH_PLACEHOLDER}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+            trailing={
+              query.length > 0 ? (
+                <SearchClearButton
+                  className="tk-search__clear"
+                  onClick={clearQuery}
+                />
+              ) : null
+            }
+          />
           <div className={cn("gnb-search-dropdown", showDesktopDropdown && "open")}>
             <SearchResultsList
               hits={hits}

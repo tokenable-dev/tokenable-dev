@@ -193,9 +193,11 @@ export function PortfolioHoldingsTableView({
                 <span
                   className={`tkl-mono pf-table-return${
                     pnl
-                      ? pnl.positive
-                        ? " pf-table-pl--pos"
-                        : " pf-table-pl--neg"
+                      ? pnl.muted
+                        ? " pf-table-muted"
+                        : pnl.positive
+                          ? " pf-table-pl--pos"
+                          : " pf-table-pl--neg"
                       : ""
                   }`}
                 >

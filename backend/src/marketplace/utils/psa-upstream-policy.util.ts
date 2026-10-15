@@ -2,7 +2,7 @@ import type { ConfigService } from '@nestjs/config';
 
 /**
  * Master switch for live PSA Public API HTTP calls used by **mint** paths
- * (`POST /psa/analyze`, `analyze-by-cert`, partner bulk-mint) and optional admin proxies.
+ * (`POST /psa/analyze`, `analyze-by-cert`, partner vault mint) and optional admin proxies.
  * Default **on** when `PSA_PUBLIC_API_TOKEN` / tokens are set.
  * Set `PSA_PUBLIC_API_UPSTREAM_ENABLED=false` to disable mint PSA entirely.
  */
@@ -24,7 +24,7 @@ export function isPsaPublicApiMarketplaceUpstreamEnabled(): boolean {
   return false;
 }
 
-/** Mint analyze / bulk-mint may call PSA when the master upstream switch is on. */
+/** Mint analyze / partner vault mint may call PSA when the master upstream switch is on. */
 export function isPsaPublicApiMintUpstreamEnabled(
   config: ConfigService,
 ): boolean {

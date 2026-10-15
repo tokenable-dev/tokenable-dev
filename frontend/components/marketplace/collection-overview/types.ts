@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { CollectionMetadataExpandableProps } from "@/components/marketplace/collection-cover";
 import type { CollectionCoverGalleryProps } from "@/components/marketplace/collection-cover/CollectionCoverFrame";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export interface CollectionOverviewStat {
   label: string;
@@ -25,6 +26,10 @@ export interface CollectionOverviewBoardProps {
   headlineTitleLayout?: boolean;
   badgeLabel?: string;
   imageUrl: string | null;
+  /** Label source for the PSA slab around `imageUrl`. */
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   metadataRows: { label: string; value: string }[];
   stats: CollectionOverviewStat[];
   chartMetricsRow?: ReactNode;

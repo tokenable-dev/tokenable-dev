@@ -18,7 +18,7 @@ export class CreateMarketplacePartnerDto {
   displayName!: string;
 
   @ApiProperty({
-    description: 'Company wallet (self-vault eligibility + bulk-mint offerer)',
+    description: 'Company wallet (self-vault eligibility + Seaport offerer)',
     example: '0xAc5EBB0573Ca515741D8986a1bA1CDC178F46539',
   })
   @IsEthereumAddress()
@@ -26,7 +26,7 @@ export class CreateMarketplacePartnerDto {
 
   @ApiPropertyOptional({
     description:
-      'Optional entrusted private key for partner bulk mint+list. Write-only; never returned. Must match walletAddress when set.',
+      'Optional entrusted private key (server-side Seaport). Write-only; never returned. Must match walletAddress when set.',
     example: '0x…64 hex chars…',
   })
   @IsOptional()

@@ -1,29 +1,114 @@
-/* Shared collectible card — index.html .card / CollectibleCard.tsx
-   Used by Home (grid4), Markets (.markets-grid), Watchlist (.watchlist-grid). */
+/* Shared collectible card — CollectibleCard.tsx
+   Listing typography SSOT: Home, Markets, Watchlist, Search (similar items: `cd-si-card` in collection-detail CSS).
+   Breakpoints: default (>1024) · tablet (≤1024) · phone (≤560). */
 
 :root {
-  --card-list-price-fs: 16px;
-  --card-list-change-fs: 12px;
-  --card-list-period-fs: 13px;
-  --card-list-change-glyph-fs: 11px;
+  --card-list-title-fs: 18px;
+  --card-list-title-lh: 23.4px;
+  --card-list-meta-fs: 18px;
+  --card-list-price-fs: 15px;
+  --card-list-price-ls: -0.3px;
+  --card-list-change-fs: 15px;
+  --card-list-change-ls: -0.15px;
+  --card-list-change-glyph-fs: 15px;
+  --card-list-period-fs: 15px;
+  --card-list-period-ls: -0.15px;
   --card-list-price-row-gap: 8px;
-  --card-list-period-color: rgba(255, 255, 255, 0.5);
+  --card-list-period-color: rgba(255, 255, 255, 0.55);
+  --card-list-positive-color: var(--text-positive-default, #00c864);
+  /* ① slab ↔ ②③ text block; ② title ↔ ③ price row (inside `.card__body`) */
+  --card-list-media-gap: 8px;
+  --card-list-body-gap: 6px;
+  --card-list-price-row-mt: 2px;
+  --card-list-body-pad-block-end: 4px;
+  /* Markets / Watchlist / Search — fixed card width at 5-up (1240px shell, 40px gutters). */
+  --listing-grid-gap: 22px;
+  --listing-grid-row-gap: 32px;
+  /* Listing column width band — auto-fill drops 5→4→3→2 (no shrink-to-fit-5) */
+  --listing-card-max: 214px;
+  --listing-card-min: 168px;
+  /* Figma listing tile (slab + title + price row) */
+  --listing-card-shell-h: 355.39px;
+  --listing-card-shell-pad: 8px;
 }
 
+/**
+ * Listing grids: auto-fill between min/max card width (5→4→3→2 as viewport narrows).
+ * Also used on Home (Top movers / Just vaulted) via `HomeCardGrid` wrap layout.
+ */
+.markets-grid,
+.watchlist-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(var(--listing-card-min), 100%), var(--listing-card-max))
+  );
+  gap: var(--listing-grid-gap);
+  row-gap: var(--listing-grid-row-gap);
+  justify-content: start;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Phone — 2 columns; cards scale to half row (auto-fill min was forcing 1-up on narrow viewports) */
+@media (max-width: 560px) {
+  .markets-grid,
+  .watchlist-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Tablet / narrow desktop (≤1024) — type + Figma listing tile (287.22px shell) */
+@media (max-width: 1024px) {
+  :root {
+    --card-list-title-fs: 18px;
+    --card-list-title-lh: 23.4px;
+    --card-list-meta-fs: 18px;
+    --card-list-price-fs: 12px;
+    --card-list-price-ls: -0.24px;
+    --card-list-change-fs: 12px;
+    --card-list-change-ls: -0.12px;
+    --card-list-change-glyph-fs: 12px;
+    --card-list-period-fs: 12px;
+    --card-list-period-ls: -0.12px;
+    --listing-card-shell-h: 287.22px;
+    --card-list-media-gap: 6px;
+    --card-list-body-gap: 6px;
+  }
+}
+
+@media (min-width: 1025px) {
+  :root {
+    --listing-card-shell-h: 355.39px;
+    --card-list-media-gap: 8px;
+  }
+}
+
+/* Phone (≤560) — title/meta 13px, price row 12px */
 @media (max-width: 560px) {
   :root {
-    --card-list-price-fs: 15px;
+    --card-list-title-fs: 13px;
+    --card-list-title-lh: 16.9px;
+    --card-list-meta-fs: 13px;
+    --card-list-price-fs: 12px;
+    --card-list-price-ls: -0.24px;
+    --card-list-change-fs: 12px;
+    --card-list-change-ls: -0.12px;
+    --card-list-change-glyph-fs: 12px;
     --card-list-period-fs: 12px;
+    --card-list-period-ls: -0.12px;
   }
 }
 
 .card {
   background: #0e0e0e;
   border-radius: 16px;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  padding: 8px;
-  gap: 12px;
+  align-items: stretch;
+  padding: var(--listing-card-shell-pad);
+  gap: var(--card-list-media-gap);
   cursor: pointer;
   position: relative;
   overflow: hidden;
@@ -72,10 +157,10 @@
   cursor: pointer;
 }
 
-.card__img .fav {
+.card > .fav {
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: calc(8px + 8px);
+  right: calc(8px + 8px);
   left: auto;
   z-index: 15;
 }
@@ -135,18 +220,23 @@
 }
 
 .card__body {
-  padding: 8px 0 4px;
+  padding: 0 0 var(--card-list-body-pad-block-end);
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--card-list-body-gap);
+  align-self: stretch;
+  width: 100%;
+  min-width: 0;
+  flex: 0 0 auto;
 }
 
 .card__title {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-heading);
+  font-size: var(--card-list-title-fs);
+  font-style: normal;
   font-weight: 600;
   color: #fff;
-  line-height: var(--cd-line1-lh, 1.3);
+  line-height: var(--card-list-title-lh);
   --cd-line1-lh: 1.3;
   margin: 0;
   min-width: 0;
@@ -155,8 +245,24 @@
   text-overflow: ellipsis;
 }
 
+/** Listing Line 1 — `{Name} · {Number}`; grade on `.card__grade-line` above price row. */
+
+.card__grade-line {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  font-size: var(--card-list-title-fs);
+  font-style: normal;
+  font-weight: 600;
+  line-height: var(--card-list-title-lh);
+  color: rgba(255, 255, 255, 0.85);
+  margin: 0;
+}
+
 /**
- * Line 1 `{Name} · {Number} · {Grade}` — single run; ellipsis at end when overflow.
+ * Legacy chip grade (admin / other surfaces) — not used on listing `CollectibleCard`.
  */
 .cd-display-name--line1-clamp-2 {
   display: block;
@@ -172,7 +278,7 @@
   /* Match title — Inter / --font-sans (not mono). */
   font-family: var(--font-sans);
   font-weight: 600;
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: var(--card-list-meta-fs);
   letter-spacing: -0.02em;
   color: rgba(255, 255, 255, 0.4);
   margin-top: -2px;
@@ -204,7 +310,7 @@
   align-items: center;
   justify-content: center;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: var(--card-list-meta-fs);
   font-weight: 600;
   color: #fff;
   padding: 4px 8px;
@@ -216,7 +322,7 @@
 .card__stat,
 .card__kv {
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: var(--card-list-meta-fs);
   font-weight: 400;
   color: rgba(255, 255, 255, 0.4);
   line-height: 1;
@@ -235,20 +341,50 @@
   align-items: center;
   justify-content: flex-start;
   flex-wrap: nowrap;
-  margin-top: 2px;
+  margin-top: 0;
   gap: 2px var(--card-list-price-row-gap);
   min-width: 0;
   width: 100%;
   overflow: hidden;
 }
 
+/* Listing grids — text block flush with slab / tile inner edges */
+.markets-grid .card__body,
+.watchlist-grid .card__body {
+  padding-inline: 0;
+  width: 100%;
+  box-sizing: border-box;
+  gap: var(--card-list-body-gap);
+}
+
+.markets-grid .card__price-row,
+.watchlist-grid .card__price-row {
+  margin-top: var(--card-list-price-row-mt);
+}
+
+.markets-grid .card__title,
+.watchlist-grid .card__title {
+  width: 100%;
+  max-width: 100%;
+}
+
+.markets-grid .card__price-row,
+.watchlist-grid .card__price-row,
+.markets-grid .card__foot,
+.watchlist-grid .card__foot {
+  justify-content: flex-start;
+  width: 100%;
+  max-width: 100%;
+}
+
 .card__price {
   font-family: var(--font-sans);
   font-size: var(--card-list-price-fs);
+  font-style: normal;
   font-weight: 600;
   color: #fff;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  letter-spacing: var(--card-list-price-ls);
+  line-height: normal;
   white-space: nowrap;
   min-width: 0;
   flex: 0 1 auto;
@@ -257,9 +393,10 @@
 .card__sub {
   font-family: var(--font-sans);
   font-size: var(--card-list-change-fs);
+  font-style: normal;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  letter-spacing: var(--card-list-change-ls);
+  line-height: normal;
   white-space: nowrap;
   display: inline-flex;
   align-items: center;
@@ -272,14 +409,23 @@
 .card__sub-glyph {
   flex: none;
   display: inline-block;
+  font-family: var(--font-sans);
   font-size: var(--card-list-change-glyph-fs);
-  font-weight: 700;
-  line-height: 1;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: var(--card-list-change-ls);
   transform: none;
 }
 
-.card__sub--up {
-  color: var(--pos);
+.card__sub-pct {
+  font: inherit;
+  letter-spacing: inherit;
+}
+
+.card__sub--up,
+.card__sub--up .card__sub-glyph,
+.card__sub--up .card__sub-pct {
+  color: var(--card-list-positive-color);
 }
 
 .card__sub--down {
@@ -295,55 +441,33 @@
 }
 
 .card__per {
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   font-size: var(--card-list-period-fs);
+  font-style: normal;
   font-weight: 600;
-  letter-spacing: normal;
-  line-height: 1.25;
+  letter-spacing: var(--card-list-period-ls);
+  line-height: normal;
   color: var(--card-list-period-color);
   margin-left: 4px;
 }
 
-/* index.html card tokens — home grid4 (Top movers / Just vaulted) */
 .home-page .card__grade,
 .home-page .card__stat,
-.home-page .card__kv {
-  font-synthesis: none;
-}
-
+.home-page .card__kv,
 .home-page .card__sub {
   font-synthesis: none;
 }
 
-.home-page .card__sub--up {
-  color: rgb(0, 200, 100);
-}
-
-.home-page .card__sub--down {
-  color: rgb(245, 51, 44);
-}
-
-.home-page .card__sub--muted {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.home-page .card__sub--accent {
-  color: rgb(142, 180, 255);
-}
-
 @media (max-width: 768px) {
   .card__body {
-    padding: 10px 10px 12px;
-    gap: 8px;
+    padding: 0 10px 12px;
+    gap: var(--card-list-body-gap);
   }
 
-  .card__title {
-    font-size: var(--tk-ui-fs-body);
-    --cd-line1-lh: 1.3;
-  }
-
-  .card__set {
-    font-size: var(--tk-ui-fs-caption);
+  .markets-grid .card__body,
+  .watchlist-grid .card__body {
+    padding-inline: 0;
+    padding-bottom: 12px;
   }
 
   .card__meta {
@@ -351,13 +475,7 @@
   }
 
   .card__grade {
-    font-size: var(--tk-ui-fs-label);
     padding: 3px 7px;
-  }
-
-  .card__stat,
-  .card__kv {
-    font-size: var(--tk-ui-fs-label);
   }
 
   .card__sub {
@@ -370,15 +488,9 @@
   }
 }
 
-@media (max-width: 400px) {
+@media (max-width: 560px) {
   .card__grade {
-    font-size: var(--tk-ui-fs-label);
     padding: 3px 6px;
-  }
-
-  .card__stat,
-  .card__kv {
-    font-size: var(--tk-ui-fs-label);
   }
 }
 
@@ -386,6 +498,8 @@
   position: relative;
   height: 100%;
 }
+
+/* PSA slab listing layout → tokenable-collection-psa-slab.css (imported after this file). */
 
 @media (prefers-reduced-motion: reduce) {
   .card {

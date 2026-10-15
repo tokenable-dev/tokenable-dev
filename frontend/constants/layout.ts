@@ -37,6 +37,13 @@ export function isSiteAccessGatePath(
   return pathname === "/site-access" || pathname.startsWith("/site-access/");
 }
 
+/** Main marketing landing (`/`) — hero search replaces GNB search bar. */
+export function isHomeLandingPath(
+  pathname: string | null | undefined,
+): boolean {
+  return pathname === "/";
+}
+
 export function shouldHideAppChrome(
   pathname: string | null | undefined,
 ): boolean {

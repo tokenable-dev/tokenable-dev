@@ -1,18 +1,29 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CollectionCoverFrame } from "@/components/marketplace/collection-cover";
-import { CollectionMetadataExpandable } from "@/components/marketplace/collection-cover";
+import {
+  CollectionMetadataExpandable,
+  CollectionPsaSlabFrame,
+} from "@/components/marketplace/collection-cover";
+import { CollectionCoverLightbox } from "@/components/marketplace/collection-cover/CollectionCoverLightbox";
+import { CollectionCoverSwipeLightbox } from "@/components/marketplace/collection-cover/CollectionCoverSwipeLightbox";
 import {
   COLLECTION_DETAILS_BG_CLASS,
   COLLECTION_DETAILS_BORDER_ALL,
   COLLECTION_HERO_DESKTOP_HEIGHT_CLASS,
 } from "@/components/marketplace/collectionOverviewChrome";
 import type { CollectionCoverGalleryProps } from "@/components/marketplace/collection-cover/CollectionCoverFrame";
+import {
+  parseCollectionComponents,
+  type CollectionComponents,
+} from "@/lib/marketplace/collectionDetailComponents";
 import type { CollectionOverviewBoardProps } from "../types";
 
 export function CollectionOverviewLeftColumn({
   imageUrl,
+  coverComp,
+  coverDisplayLabel,
+  coverCollectionKey,
   marketsTriple,
   useMobileTabbedMarket,
   mobileMarketTabs,
@@ -26,6 +37,9 @@ export function CollectionOverviewLeftColumn({
   leftColumnFooter,
 }: {
   imageUrl: string | null;
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   marketsTriple: boolean;
   useMobileTabbedMarket: boolean;
   mobileMarketTabs?: ReactNode;
@@ -80,13 +94,39 @@ export function CollectionOverviewLeftColumn({
             </div>
           ) : imageUrl ? (
             wrapCover(
-              <CollectionCoverFrame
-                imageUrl={imageUrl}
-                alt=""
-                variant="hero"
-                className="relative z-[1] w-full shrink-0 overflow-visible max-lg:ms-auto max-lg:shrink-0 lg:w-full"
-                coverGallery={coverGallery}
-              />,
+              <div className="relative z-[1] w-full max-w-[307px]">
+                <CollectionPsaSlabFrame
+                  imageUrl={imageUrl}
+                  comp={parseCollectionComponents(coverComp)}
+                  displayLabel={coverDisplayLabel}
+                  collectionKey={coverCollectionKey ?? undefined}
+                />
+                <button
+                  type="button"
+                  className="absolute inset-0 z-[2] cursor-zoom-in bg-transparent"
+                  aria-label="Open collection cover in large view"
+                  onClick={() => coverGallery?.onOpenChange(true)}
+                />
+                {coverGallery?.canSwipe ? (
+                  <CollectionCoverSwipeLightbox
+                    open={coverGallery.open}
+                    entries={coverGallery.entries}
+                    viewingKey={coverGallery.viewingKey}
+                    currentIndex={coverGallery.currentIndex}
+                    canSwipe={coverGallery.canSwipe}
+                    onClose={coverGallery.onClose}
+                    onNext={coverGallery.onNext}
+                    onPrev={coverGallery.onPrev}
+                  />
+                ) : (
+                  <CollectionCoverLightbox
+                    open={Boolean(coverGallery?.open)}
+                    resolvedUrl={imageUrl}
+                    alt=""
+                    onClose={() => coverGallery?.onClose()}
+                  />
+                )}
+              </div>,
             )
           ) : (
             <div

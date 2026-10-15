@@ -59,8 +59,6 @@ describe('DataInventoryService.pruneChainResidue', () => {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
-      {} as never,
       dataSource,
       config,
       chainConfig,

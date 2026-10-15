@@ -19,8 +19,6 @@ import { CardhedgerDailyPriceExportRun } from '../../cardhedger/entities/cardhed
 import { CardhedgerPriceDeltaCheckpoint } from '../../cardhedger/entities/cardhedger-price-delta-checkpoint.entity';
 import { CardhedgerPriceDeltaImportRun } from '../../cardhedger/entities/cardhedger-price-delta-import-run.entity';
 import { CardhedgerPriceSubscription } from '../../cardhedger/entities/cardhedger-price-subscription.entity';
-import { BulkMintJobItem } from '../../rwa/entities/bulk-mint-job-item.entity';
-import { BulkMintJob } from '../../rwa/entities/bulk-mint-job.entity';
 import { UserKycEvent } from '../../user/entities/user-kyc-event.entity';
 import { UserWallet } from '../../user/entities/user-wallet.entity';
 import { User } from '../../user/entities/user.entity';
@@ -181,10 +179,6 @@ export class DataInventoryService {
     private readonly collectionsRepo: Repository<MarketplaceCollection>,
     @InjectRepository(RwaToken)
     private readonly rwaRepo: Repository<RwaToken>,
-    @InjectRepository(BulkMintJob)
-    private readonly bulkMintJobsRepo: Repository<BulkMintJob>,
-    @InjectRepository(BulkMintJobItem)
-    private readonly bulkMintItemsRepo: Repository<BulkMintJobItem>,
     @InjectRepository(MarketplacePartner)
     private readonly partnersRepo: Repository<MarketplacePartner>,
     @InjectRepository(CollectionMarketSnapshot)
@@ -334,16 +328,6 @@ export class DataInventoryService {
           'chain_id = $1',
           [chain],
         );
-        if (await has('bulk_mint_jobs')) {
-          await note(
-            'bulk_mint_job_items',
-            `job_id IN (SELECT id FROM bulk_mint_jobs WHERE chain_id = $1)`,
-            [chain],
-          );
-          await note('bulk_mint_jobs', 'chain_id = $1', [chain]);
-        } else if (!(await this.tableExists('bulk_mint_job_items'))) {
-          skippedMissingTables.push('bulk_mint_job_items');
-        }
       }
 
       await note(
@@ -756,7 +740,7 @@ export class DataInventoryService {
   }
 
   /**
-   * PSA certs tied to this contract wipe — rwa_tokens, catalog, and bulk-mint
+   * PSA certs tied to this contract wipe — rwa_tokens, catalog
    * rows. Collected before deletes so orphan vault_cycles still match after
    * manual rwa_tokens cleanup.
    */
@@ -791,22 +775,6 @@ export class DataInventoryService {
              )
            )`,
         [addr, collectionKeys],
-      )) as { c: string }[];
-      for (const r of rows) {
-        const c = String(r.c).toLowerCase().trim();
-        if (c) out.add(c);
-      }
-    }
-    if (
-      (await has('bulk_mint_job_items')) &&
-      (await this.tableExists('bulk_mint_jobs'))
-    ) {
-      const rows = (await manager.query(
-        `SELECT DISTINCT lower(i.cert_number) AS c
-         FROM bulk_mint_job_items i
-         INNER JOIN bulk_mint_jobs j ON j.id = i.job_id
-         WHERE j.chain_id = $1 AND i.cert_number IS NOT NULL`,
-        [chainId],
       )) as { c: string }[];
       for (const r of rows) {
         const c = String(r.c).toLowerCase().trim();
@@ -1258,16 +1226,6 @@ export class DataInventoryService {
         oldest: 'createdAt',
         newest: 'createdAt',
         lastActivity: 'createdAt',
-      }, estimates),
-      this.loadSimple('bulk_mint_jobs', this.bulkMintJobsRepo, {
-        oldest: 'createdAt',
-        newest: 'updatedAt',
-        lastActivity: 'updatedAt',
-      }, estimates),
-      this.loadSimple('bulk_mint_job_items', this.bulkMintItemsRepo, {
-        oldest: 'createdAt',
-        newest: 'updatedAt',
-        lastActivity: 'updatedAt',
       }, estimates),
       this.loadSimple('marketplace_partners', this.partnersRepo, {
         oldest: 'createdAt',

@@ -26,6 +26,7 @@ import {
 } from '../entities/self-vault-settlement.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { microsToUsdc } from '../admin/platform-analytics.util';
+import { readSelfVaultPlatformFeeBps } from './platform-fee-split.util';
 import { isSelfVaultHoldPolicy } from './rwa-settlement-policy';
 
 /** Default delay before auto confirm+payout (fulfill → paid). */
@@ -53,9 +54,7 @@ export class SelfVaultSettlementService {
   ) {}
 
   private platformFeeBps(): number {
-    const raw = Number(this.config.get<string>('PLATFORM_FEE_BPS') ?? '500');
-    if (!Number.isFinite(raw) || raw < 0) return 500;
-    return Math.min(Math.floor(raw), 10_000);
+    return readSelfVaultPlatformFeeBps(this.config);
   }
 
   /** Seconds after fulfill (`created_at`) before cron auto-pays. */

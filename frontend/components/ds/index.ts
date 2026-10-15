@@ -4,6 +4,9 @@ export type { TkButtonProps, TkButtonVariant, TkButtonSize } from "./Button";
 export { TkInput, TkTextarea, TkSelect } from "./Input";
 export type { TkInputProps, TkTextareaProps, TkSelectProps } from "./Input";
 
+export { TkSearchField } from "./SearchField";
+export type { TkSearchFieldProps, TkSearchFieldSize } from "./SearchField";
+
 export { TkField } from "./Field";
 export type { TkFieldProps } from "./Field";
 

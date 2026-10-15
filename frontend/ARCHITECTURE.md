@@ -787,6 +787,7 @@ CSS is loaded once via `app/globals.css`. Do not import page CSS from components
 | `tokenable-wallet-menu.css` | GNB wallet chip + dropdown — imported from `TkHeader.tsx` (Turbopack dev module graph) |
 | `tokenable-notifications.css` | Notifications drawer — imported from `TkHeader.tsx` |
 | `tokenable-collectible-card.css` | `.card`, `.card__*`, `.fav-btn` — `CollectibleCard` |
+| `tokenable-collection-psa-slab.css` | `.psa-slab-frame*` — `CollectionPsaSlabFrame` |
 
 ### Page-specific
 

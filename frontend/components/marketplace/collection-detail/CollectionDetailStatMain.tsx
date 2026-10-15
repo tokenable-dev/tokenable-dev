@@ -5,18 +5,22 @@ import { TkTag } from "@/components/ds";
 import {
   computeGemRatePct,
   formatGemRatePercent,
-  formatReferencePercentChange,
+  resolveReferencePercentChangeDisplay,
   formatUsdCompact,
   formatPsaPopulationCount,
   formatVelocityPercent,
   NO_EXTERNAL_PRICE,
   REFERENCE_CHANGE_UNAVAILABLE_LABEL,
-  referenceChangeTone,
 } from "@/lib/market";
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
 import type { ReferencePercentChangeResult } from "@/lib/market/priceChangePeriod";
 import { formatReferenceChangePeriodShort } from "@/lib/market/priceChangePeriod";
 import { RwaImageLightbox } from "@/components/common";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
+import {
+  parseCollectionComponents,
+  type CollectionComponents,
+} from "@/lib/marketplace/collectionDetailComponents";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
   formatAssetDetailLine1,
@@ -26,11 +30,16 @@ import {
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 
-function formatChangeTag(pct: number): { arrow: string; label: string } {
-  const tone = referenceChangeTone(pct);
+function formatChangeTag(pct: number): {
+  arrow: string;
+  label: string;
+  tone: "up" | "down" | "muted";
+} {
+  const display = resolveReferencePercentChangeDisplay(pct);
   return {
-    arrow: tone === "down" ? "▼" : "▲",
-    label: formatReferencePercentChange(pct),
+    arrow: display.showGlyph ? (display.tone === "down" ? "▼" : "▲") : "",
+    label: display.pctLabel,
+    tone: display.tone,
   };
 }
 
@@ -346,6 +355,9 @@ export function CollectionDetailStatMain({
   headlineParts,
   headlineMeta,
   imageUrl,
+  coverComp,
+  coverDisplayLabel,
+  coverCollectionKey,
   priceUsd,
   priceLoading,
   changePct,
@@ -366,6 +378,9 @@ export function CollectionDetailStatMain({
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineMeta?: string | null;
   imageUrl?: string | null;
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   priceUsd: number | null;
   priceLoading: boolean;
   changePct: number | null;
@@ -386,14 +401,11 @@ export function CollectionDetailStatMain({
   const title = headlineTitle?.trim() || null;
   const meta = headlineMeta?.trim() || null;
 
-  const changeTone =
-    changePct != null && Number.isFinite(changePct)
-      ? referenceChangeTone(changePct)
-      : null;
   const changeTag =
     changePct != null && Number.isFinite(changePct)
       ? formatChangeTag(changePct)
       : null;
+  const changeTone = changeTag?.tone ?? null;
 
   const statCells = resolveHeroStatCells({
     formatMarketCap,
@@ -418,14 +430,16 @@ export function CollectionDetailStatMain({
           <button
             type="button"
             className="cd-hero-bar__thumb-btn"
+            id="hero-img"
             onClick={() => setLightboxOpen(true)}
             aria-label="View card image"
           >
-            <img
-              src={coverSrc}
-              alt=""
-              className="cd-hero-bar__thumb"
-              id="hero-img"
+            <CollectionPsaSlabFrame
+              imageUrl={coverSrc}
+              alt={title ?? ""}
+              comp={parseCollectionComponents(coverComp)}
+              displayLabel={coverDisplayLabel}
+              collectionKey={coverCollectionKey ?? undefined}
             />
           </button>
         ) : (
@@ -437,6 +451,7 @@ export function CollectionDetailStatMain({
         )}
 
         <div className="cd-hero-bar__mid" id="hero-mid">
+          <div className="cd-hero-bar__copy" id="hero-copy">
           {title ? (
             <div className="cd-hero-bar__head" id="hero-head">
               {headlineParts ? (
@@ -499,12 +514,17 @@ export function CollectionDetailStatMain({
                             ? " cd-hero-bar__chg-val--down"
                             : changeTone === "up"
                               ? " cd-hero-bar__chg-val--up"
-                              : ""
+                              : changeTone === "muted"
+                                ? " cd-hero-bar__chg-val--muted"
+                                : ""
                         }`}
                       >
-                        <span className="cd-chg-glyph" aria-hidden>
-                          {changeTag.arrow}
-                        </span>{" "}
+                        {changeTag.arrow ? (
+                          <span className="cd-chg-glyph" aria-hidden>
+                            {changeTag.arrow}
+                          </span>
+                        ) : null}
+                        {changeTag.arrow ? " " : null}
                         {changeTag.label}{" "}
                         <span className="cd-hero-bar__period">
                           {periodChipLabel(changePeriod)}
@@ -519,6 +539,7 @@ export function CollectionDetailStatMain({
                 </div>
               </div>
             </div>
+          </div>
           </div>
 
           <div className="cd-hero-stats" id="hero-stats">

@@ -51,7 +51,13 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   onActivate?: () => void;
 }) {
   const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
-  const plClass = pnl ? (pnl.positive ? "pf-table-pl--pos" : "pf-table-pl--neg") : "";
+  const plClass = pnl
+    ? pnl.muted
+      ? "pf-table-muted"
+      : pnl.positive
+        ? "pf-table-pl--pos"
+        : "pf-table-pl--neg"
+    : "";
   const titleHover = headline?.hover ?? row.name;
   const titleLabel = headline?.line1 ?? row.name;
   const dimClass =
@@ -151,7 +157,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
                 {valuesPending && row.currentPrice == null
                   ? "…"
                   : formatUsdCompact(row.currentPrice)}
-                {pnl ? (
+                {pnl && !pnl.muted ? (
                   <span
                     className={`pf-mkt-dir${
                       pnl.positive ? " pf-table-pl--pos" : " pf-table-pl--neg"

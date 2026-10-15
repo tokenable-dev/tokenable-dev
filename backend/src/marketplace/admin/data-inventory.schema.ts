@@ -133,20 +133,6 @@ export const DATA_INVENTORY_LOGICAL_EDGES: SchemaLogicalEdge[] = [
     label: 'collection_key',
   },
   {
-    fromTable: 'bulk_mint_job_items',
-    fromColumn: 'job_id',
-    toTable: 'bulk_mint_jobs',
-    toColumn: 'id',
-    label: 'job_id',
-  },
-  {
-    fromTable: 'bulk_mint_jobs',
-    fromColumn: 'partner_id',
-    toTable: 'marketplace_partners',
-    toColumn: 'id',
-    label: 'partner_id',
-  },
-  {
     fromTable: 'marketplace_partner_addresses',
     fromColumn: 'partner_id',
     toTable: 'marketplace_partners',

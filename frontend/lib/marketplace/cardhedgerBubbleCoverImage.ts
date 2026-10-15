@@ -48,6 +48,23 @@ export function collectionCoverImageStyle(
   };
 }
 
+export type CollectionCoverChamberFit = "fill" | "contain";
+
+/**
+ * How collection catalog art is fit inside a fixed frame.
+ * - `fill` — `CollectionCoverFrame` flat + `flatFit="fill"` (markets/search grids): stretch to the frame.
+ * - `contain` — collection detail hero: preserve aspect, optional Bubble `scaleX` via {@link collectionCoverImageStyle}.
+ */
+export function collectionCoverChamberImageStyle(
+  url: string | null | undefined,
+  fit: CollectionCoverChamberFit,
+): CSSProperties {
+  if (fit === "fill") {
+    return COVER_IMAGE_FILTER;
+  }
+  return collectionCoverImageStyle(url);
+}
+
 /**
  * Prefer Cardhedger Bubble catalog art (`/crop_image`, `/resize`) — raw card scans,
  * not eBay graded slab photos. Used when scoring a known URL (e.g. mint source),

@@ -224,13 +224,15 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__lbl {
+    font-size: 11px;
     margin-bottom: 2px;
-    line-height: 1.1;
+    line-height: normal;
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val,
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val.mono {
-    line-height: 1.1;
+    font-size: 13px;
+    line-height: normal;
   }
 
   .collection-detail-page .cd-mobile-scroll__book.cd-notch {
@@ -636,7 +638,7 @@
   flex: 0 0 auto;
 }
 
-/* Card.html `#hero-mid` — title / price / stats spread to slab height. */
+/* Card.html `#hero-mid` — stretch to slab row height; stats pin to bottom. */
 .cd-hero-bar--embed .cd-hero-bar__mid,
 .cd-hero-bar--embed #hero-mid {
   display: flex;
@@ -644,16 +646,34 @@
   flex: 1 1 300px;
   min-width: 0;
   min-height: 0;
-  gap: 16px;
-  align-self: flex-start;
+  gap: 0;
+  align-self: stretch;
   justify-content: flex-start;
+}
+
+.cd-hero-bar__copy,
+#hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-width: 0;
+  flex: 1 1 auto;
+  gap: 0;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__copy,
+.cd-hero-bar--embed #hero-copy {
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 32px;
 }
 .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
 .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
-  flex: 0 0 150px;
-  width: 150px;
-  max-width: 150px;
-  min-width: 150px;
+  flex: 0 0 128px;
+  width: 128px;
+  max-width: 128px;
+  min-width: 128px;
   height: auto;
   min-height: 0;
   aspect-ratio: 0.72;
@@ -690,34 +710,51 @@
   filter: none;
 }
 
-/* Card.html `#hero-title` */
+/* Card.html `#hero-title` — Figma title line (name · number · grade) */
 .cd-hero-bar--embed .cd-hero-bar__title,
 .cd-hero-bar--embed #hero-title {
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   font-family: var(--font-sans);
-  font-size: clamp(17px, 1.8vw, 24px);
-  line-height: 1.2;
-  letter-spacing: -0.02em;
+  font-size: var(--tk-ui-fs-title);
+  font-style: normal;
   font-weight: 700;
+  line-height: 28.8px;
+  letter-spacing: -0.48px;
   color: #fff;
   max-width: none;
   white-space: normal;
 }
 
-/* Card.html `#hero-meta` — year · muted variant */
+.cd-hero-bar--embed .cd-hero-bar__title-name,
+.cd-hero-bar--embed .cd-hero-bar__title-num,
+.cd-hero-bar--embed .cd-hero-bar__title-grade,
+.cd-hero-bar--embed .cd-hero-bar__title-sep {
+  font: inherit;
+  letter-spacing: inherit;
+  color: #fff;
+}
+
+/* Card.html `#hero-meta` — year · set · variant (Figma 15px / 70% white) */
 .cd-hero-bar--embed .cd-hero-bar__meta,
 .cd-hero-bar--embed #hero-meta {
   margin: 0;
   font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-section);
+  font-style: normal;
   font-weight: 400;
   line-height: normal;
-  letter-spacing: 0.01em;
-  color: var(--t2);
+  letter-spacing: 0.15px;
+  color: rgba(255, 255, 255, 0.7);
   white-space: normal;
   overflow: visible;
   text-overflow: unset;
   max-width: none;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__meta-variant {
+  font: inherit;
+  letter-spacing: inherit;
+  color: inherit;
 }
 
 .cd-hero-bar--embed .cd-hero-bar__priceblock,
@@ -731,38 +768,87 @@
 .cd-hero-bar--embed .cd-hero-bar__metrics {
   flex: 0 0 auto;
   align-items: flex-start;
+  margin-top: 0;
 }
 
 .cd-hero-bar--embed .cd-hero-bar__lastlbl,
 .cd-hero-bar--embed #hero-lastlbl {
-  font-size: var(--tk-ui-fs-section);
-  letter-spacing: 0.16em;
+  font-family: var(--font-sans);
+  font-size: var(--tk-ui-fs-body);
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: 0.52px;
   text-transform: uppercase;
-  color: var(--t3);
-  line-height: 1.2;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .cd-hero-bar--embed .cd-hero-bar__price-row {
-  margin-top: 6px;
+  --cd-hero-price-line-fs: 32px;
+  --cd-hero-price-line-lh: 33.6px;
+  --cd-hero-price-line-ls: -0.96px;
+
+  margin-top: 8px;
+  gap: 10px;
+  align-items: baseline;
 }
 
+/* Figma — one 32px baseline row; color differs per segment */
 .cd-hero-bar--embed .cd-hero-bar__price {
   font-family: var(--font-sans);
-  font-size: clamp(26px, 2.8vw, 38px);
+  font-size: var(--cd-hero-price-line-fs);
+  font-style: normal;
   font-weight: 800;
-  letter-spacing: -0.03em;
-  line-height: 1.05;
+  line-height: var(--cd-hero-price-line-lh);
+  letter-spacing: var(--cd-hero-price-line-ls);
   color: #fff;
 }
 
-/* Card.html `#hero-chg` — 15px inline; period is muted text, not a pill. */
+.cd-hero-bar--embed .cd-hero-bar__price--muted {
+  font-size: var(--cd-hero-price-line-fs);
+  line-height: var(--cd-hero-price-line-lh);
+  letter-spacing: var(--cd-hero-price-line-ls);
+  color: var(--t2);
+}
+
 .cd-hero-bar--embed .cd-hero-bar__chg,
 .cd-hero-bar--embed #hero-chg {
   display: inline;
-  font-size: var(--tk-ui-fs-section);
-  font-weight: 700;
+  font-family: var(--font-sans);
+  font-size: var(--cd-hero-price-line-fs);
+  font-weight: 500;
+  line-height: var(--cd-hero-price-line-lh);
+  letter-spacing: var(--cd-hero-price-line-ls);
   white-space: nowrap;
   gap: 0;
+}
+
+.cd-hero-bar--embed .cd-hero-bar__chg-val {
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  color: var(--t2);
+}
+
+.cd-hero-bar--embed .cd-hero-bar__chg-val--up {
+  color: var(--pos);
+}
+
+.cd-hero-bar--embed .cd-hero-bar__chg-val--down {
+  color: var(--neg);
+}
+
+.cd-hero-bar--embed .cd-hero-bar__chg-val--muted {
+  color: var(--t3);
+  font-weight: 500;
+}
+
+.cd-hero-bar--embed .cd-chg-glyph {
+  font-size: inherit;
+  line-height: inherit;
+  color: inherit;
 }
 
 .cd-hero-bar--embed .cd-hero-bar__price-row .cd-hero-bar__period {
@@ -771,11 +857,12 @@
   padding: 0;
   border-radius: 0;
   background: transparent;
-  font-family: inherit;
-  font-size: inherit;
-  font-weight: 600;
+  font-family: var(--font-sans);
+  font-size: var(--cd-hero-price-line-fs);
+  font-weight: 500;
+  line-height: var(--cd-hero-price-line-lh);
+  letter-spacing: var(--cd-hero-price-line-ls);
   color: var(--t3);
-  letter-spacing: 0;
 }
 
 .cd-hero-bar__stuck-title,
@@ -998,6 +1085,11 @@
   color: var(--neg);
 }
 
+.cd-hero-bar__chg-val--muted {
+  color: var(--t3);
+  font-weight: 600;
+}
+
 .cd-hero-bar__period {
   color: var(--t3);
   font-weight: 600;
@@ -1016,8 +1108,29 @@
 
 .cd-hero-bar--embed .cd-hero-stats,
 .cd-hero-bar--embed #hero-stats {
-  margin-top: 20px;
+  margin-top: auto;
   flex: 0 0 auto;
+  align-self: stretch;
+}
+
+.cd-hero-bar--embed .cd-hero-stats__lbl {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0 0 4px;
+}
+
+.cd-hero-bar--embed .cd-hero-stats__val,
+.cd-hero-bar--embed .cd-hero-stats__val.mono {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  color: #fff;
 }
 
 .cd-hero-md-panel,
@@ -1036,18 +1149,24 @@
   gap: 10px;
 }
 
+/* Figma ui/caption — Mkt cap, Vol 1Yr, … */
 .cd-hero-md-panel__lbl {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-caption);
-  color: var(--t2);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+  color: rgba(255, 255, 255, 0.7);
   margin-bottom: 4px;
 }
 
 .cd-hero-md-panel__val,
 .cd-hero-md-panel__val.mono {
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-style: normal;
   font-weight: 700;
+  line-height: normal;
   color: #fff;
 }
 
@@ -1085,19 +1204,21 @@
 
 .cd-hero-stats__lbl {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: 12px;
+  font-style: normal;
   font-weight: 400;
   line-height: normal;
   letter-spacing: normal;
   text-transform: none;
-  color: var(--t2);
+  color: rgba(255, 255, 255, 0.7);
   margin: 0 0 3px;
 }
 
 .cd-hero-stats__val,
 .cd-hero-stats__val.mono {
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-section);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: normal;
   font-weight: 700;
   line-height: normal;
   letter-spacing: normal;
@@ -1478,18 +1599,159 @@
     box-shadow: none !important;
   }
 
+  .cd-chart-panel--with-hero .cd-chart-panel__hero {
+    padding: 12px 16px 0;
+    box-sizing: border-box;
+  }
+
+  /* Figma ~390 — hero padding lives on `#hero-bar`, not the chart wrapper. */
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel--with-hero.cd-chart-panel--embed {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel--with-hero .cd-chart-panel__hero {
+    flex: 0 0 auto;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-chart-panel--with-hero .cd-chart-panel__plot {
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 1;
+    margin-top: 0;
+    padding-top: 16px;
+    min-width: 0;
+  }
+
   .cd-hero-bar {
     /* Expanded hero scrolls with the page; only `.is-stuck` is fixed. */
     position: static !important;
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    column-gap: 18px;
+    /* Slab column = intrinsic width; copy column eats the rest (not 50/50 center bunching). */
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: 24px;
     row-gap: 14px;
-    align-items: center;
+    align-items: start;
+    justify-items: start;
+    justify-content: start;
+    width: 100%;
     box-shadow: none;
     padding: 0;
     background: transparent;
-    gap: 14px 18px;
+    gap: 14px 24px;
+  }
+
+  /* Figma ~390 — mobile chart-card hero grid (`#hero-bar`) */
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed {
+    display: grid !important;
+    box-sizing: border-box;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 14px;
+    row-gap: 8px;
+    column-gap: 14px;
+    gap: 8px 14px;
+    align-self: stretch;
+    overflow: hidden;
+    margin: 0;
+    grid-template-rows: auto auto !important;
+    grid-template-columns: 105px minmax(0, 1fr) !important;
+    justify-items: stretch;
+    justify-content: stretch;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
+    grid-column: 1 !important;
+    grid-row: 1 / -1 !important;
+    align-self: start !important;
+    justify-self: start !important;
+    width: 105px !important;
+    min-width: 105px !important;
+    max-width: 105px !important;
+    height: 172px !important;
+    min-height: 172px !important;
+    max-height: 172px !important;
+    aspect-ratio: auto !important;
+    filter: none;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+
+  /* PSA slab — beat tokenable-collection-psa-slab.css embed breakpoints (overflow + 122/210px). */
+  .collection-detail-page
+    .cd-mobile-scroll__chart
+    .cd-hero-bar--embed
+    .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+    flex: 0 0 auto !important;
+    width: 105px !important;
+    min-width: 105px !important;
+    max-width: 105px !important;
+    height: 172px !important;
+    min-height: 172px !important;
+    max-height: 172px !important;
+    aspect-ratio: auto !important;
+    overflow: hidden !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+    filter: none !important;
+  }
+
+  .collection-detail-page
+    .cd-mobile-scroll__chart
+    .cd-hero-bar--embed
+    .cd-hero-bar__thumb-btn:has(> .psa-slab-frame)
+    > .psa-slab-frame {
+    display: block;
+    width: 105px !important;
+    height: 172px !important;
+    max-height: 172px !important;
+    overflow: hidden;
+  }
+
+  .collection-detail-page
+    .cd-mobile-scroll__chart
+    .cd-hero-bar--embed
+    .cd-hero-bar__thumb-btn:has(> .psa-slab-frame)
+    .psa-slab {
+    width: 105px !important;
+    height: auto !important;
+    max-height: 172px !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__head,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-head {
+    max-height: 57.91px;
+    overflow: hidden;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__copy,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-copy {
+    gap: 12px !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__priceblock,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-priceblock {
+    gap: 8px !important;
+    margin-top: 0 !important;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-img.cd-hero-bar__thumb,
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__thumb {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    object-fit: fill !important;
+    object-position: center;
+    filter: none;
   }
 
   .cd-hero-bar__stuck-title,
@@ -1497,7 +1759,7 @@
     display: none !important;
   }
 
-  /* Flatten mid + actions so head / thumb / price / secondaries are grid kids */
+  /* Flatten mid + actions; title + price live in `#hero-copy` beside the slab. */
   .cd-hero-bar__mid,
   #hero-mid,
   .cd-hero-bar__actions,
@@ -1506,23 +1768,44 @@
     display: contents !important;
   }
 
+  .cd-hero-bar__copy,
+  #hero-copy {
+    grid-column: 2 !important;
+    grid-row: 1 / -1 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    align-self: start !important;
+    justify-self: stretch !important;
+    width: 100%;
+    min-width: 0;
+    gap: 6px !important;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__copy,
+  .cd-hero-bar--embed #hero-copy {
+    gap: 12px !important;
+  }
+
   /* Card.html: title sits beside image (not full-width above). */
   .cd-hero-bar__head,
   #hero-head {
-    grid-column: 2 !important;
-    grid-row: 1 !important;
     align-self: start !important;
+    justify-self: stretch !important;
+    width: 100%;
+    min-width: 0;
     padding-bottom: 0 !important;
     border-bottom: none !important;
   }
 
-  /* 0.72 frame, 210px tall — fill the slot like Markets listings. */
-  .cd-hero-bar__thumb-btn,
-  .cd-hero-bar__thumb--empty {
+  /* 0.72 frame — legacy mobile hero (chart-card embed uses mobile-scroll rules). */
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb-btn,
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb--empty {
     grid-column: 1 !important;
     grid-row: 1 / span 2 !important;
     align-self: start !important;
-    justify-self: center !important;
+    justify-self: start !important;
     position: relative !important;
     width: calc(210px * 0.72) !important;
     min-width: 0 !important;
@@ -1548,46 +1831,21 @@
     filter: none;
   }
 
-  .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
-  .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
-    width: calc(210px * 0.72) !important;
-    max-width: 152px !important;
-    height: 210px !important;
-    aspect-ratio: 0.72 !important;
-    overflow: hidden !important;
-    background: #111113 !important;
-  }
-
-  .cd-hero-bar--embed #hero-img.cd-hero-bar__thumb,
-  .cd-hero-bar--embed .cd-hero-bar__thumb {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    object-fit: fill !important;
-    filter: none;
-  }
-
-  .cd-hero-bar__thumb--empty {
-    width: calc(210px * 0.72) !important;
-    max-width: 152px !important;
-    height: 210px !important;
-    aspect-ratio: 0.72 !important;
-    background: #111113 !important;
-    overflow: hidden !important;
-  }
-
-  /* Card.html mobile price row under title — 29px */
-  .cd-hero-bar__priceblock .cd-hero-bar__price,
-  #hero-priceblock .cd-hero-bar__price {
+  /* Card.html mobile price row under title — 29px (legacy non-embed) */
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__priceblock .cd-hero-bar__price,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-priceblock .cd-hero-bar__price {
     font-size: 29px !important;
   }
 
-  .cd-hero-bar__priceblock,
-  #hero-priceblock {
-    grid-column: 2 !important;
-    grid-row: 2 !important;
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__copy,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-copy {
+    justify-content: space-between !important;
+    min-height: 100%;
+  }
+
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__priceblock,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-priceblock {
+    align-self: stretch !important;
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
@@ -1596,11 +1854,26 @@
     gap: 6px !important;
     padding: 0 !important;
     min-width: 0 !important;
+    margin-top: auto !important;
   }
 
-  /* Stack change % + period under the price so the row doesn't overflow. */
-  .cd-hero-bar__priceblock .cd-hero-bar__price-row,
-  #hero-priceblock .cd-hero-bar__price-row {
+  .cd-hero-bar--embed .cd-hero-bar__priceblock,
+  .cd-hero-bar--embed #hero-priceblock {
+    align-self: stretch !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    justify-content: flex-start !important;
+    text-align: left !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    min-width: 0 !important;
+    margin-top: 0 !important;
+  }
+
+  /* Legacy non-embed — stack change under price when narrow. */
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__priceblock .cd-hero-bar__price-row,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-priceblock .cd-hero-bar__price-row {
     flex-wrap: wrap !important;
     align-items: baseline !important;
     gap: 0 !important;
@@ -1608,9 +1881,35 @@
     min-width: 0;
   }
 
-  .cd-hero-bar__priceblock .cd-hero-bar__price-row > .cd-hero-bar__price,
-  #hero-priceblock .cd-hero-bar__price-row > .cd-hero-bar__price {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__priceblock .cd-hero-bar__price-row > .cd-hero-bar__price,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-priceblock .cd-hero-bar__price-row > .cd-hero-bar__price {
     flex: 1 1 100%;
+  }
+
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-priceblock #hero-chg,
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__priceblock .cd-hero-bar__chg {
+    display: flex !important;
+    justify-content: flex-start !important;
+    margin-top: 8px !important;
+  }
+
+  /* Chart-card embed — $price ▼ -79% 1Y on one line; wrap only if needed. */
+  .cd-hero-bar--embed .cd-hero-bar__priceblock .cd-hero-bar__price-row,
+  .cd-hero-bar--embed #hero-priceblock .cd-hero-bar__price-row {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    align-items: baseline !important;
+    gap: 6px !important;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0 !important;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__priceblock .cd-hero-bar__price-row > .cd-hero-bar__price,
+  .cd-hero-bar--embed #hero-priceblock .cd-hero-bar__price-row > .cd-hero-bar__price {
+    flex: 0 1 auto !important;
+    min-width: 0;
   }
 
   #hero-priceblock #hero-lastlbl,
@@ -1618,11 +1917,112 @@
     display: block !important;
   }
 
-  #hero-priceblock #hero-chg,
-  .cd-hero-bar__priceblock .cd-hero-bar__chg {
-    display: flex !important;
-    justify-content: flex-start !important;
-    margin-top: 8px !important;
+  .cd-hero-bar--embed #hero-priceblock #hero-chg,
+  .cd-hero-bar--embed .cd-hero-bar__priceblock .cd-hero-bar__chg {
+    display: inline !important;
+    flex: 0 1 auto !important;
+    margin-top: 0 !important;
+    min-width: 0;
+  }
+
+  /* Figma ~390 — embed hero typography (mobile chart-card) */
+  .cd-hero-bar--embed .cd-hero-bar__title,
+  .cd-hero-bar--embed #hero-title {
+    margin: 0 0 4px;
+    font-family: var(--font-sans);
+    font-size: 15.1px;
+    font-style: normal;
+    line-height: 18.88px;
+    letter-spacing: -0.302px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__meta,
+  .cd-hero-bar--embed #hero-meta {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 16.2px;
+    letter-spacing: 0.12px;
+    font-weight: 400;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__lastlbl,
+  .cd-hero-bar--embed #hero-lastlbl {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 14.4px;
+    letter-spacing: 0.48px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__price-row {
+    --cd-hero-price-line-fs: 22.3px;
+    --cd-hero-price-line-lh: 22.31px;
+    --cd-hero-price-line-ls: -0.669px;
+    --cd-hero-chg-line-fs: 15.4px;
+    --cd-hero-chg-line-lh: 15.44px;
+    --cd-hero-chg-line-ls: -0.309px;
+    margin-top: 0;
+    gap: 6px;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__priceblock .cd-hero-bar__price,
+  .cd-hero-bar--embed #hero-priceblock .cd-hero-bar__price {
+    font-family: var(--font-sans);
+    font-size: var(--cd-hero-price-line-fs) !important;
+    font-style: normal;
+    font-weight: 800 !important;
+    line-height: var(--cd-hero-price-line-lh) !important;
+    letter-spacing: var(--cd-hero-price-line-ls) !important;
+    color: #fff;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__chg,
+  .cd-hero-bar--embed #hero-chg {
+    font-family: var(--font-sans);
+    font-size: var(--cd-hero-chg-line-fs);
+    font-style: normal;
+    line-height: var(--cd-hero-chg-line-lh);
+    letter-spacing: var(--cd-hero-chg-line-ls);
+    font-weight: 500;
+    margin-top: 0 !important;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__chg-val {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    letter-spacing: inherit;
+    font-weight: 500;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__chg-val--up {
+    color: #00c864;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__chg-val--down {
+    color: var(--neg);
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__chg-val--muted {
+    font-weight: 500;
+    color: var(--t3);
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__price-row .cd-hero-bar__period {
+    font-family: inherit;
+    font-size: inherit;
+    font-style: normal;
+    line-height: inherit;
+    letter-spacing: inherit;
+    font-weight: inherit;
+    color: inherit;
   }
 
   .cd-hero-bar__secondary,
@@ -1825,9 +2225,9 @@
   }
 }
 
-/* Phone — Card.html ≤600 hero densify */
+/* Phone — Card.html ≤600 hero densify (not chart-card embed — see mobile-scroll rules). */
 @media (max-width: 600px) {
-  .cd-hero-bar {
+  .cd-hero-bar:not(.cd-hero-bar--embed) {
     grid-template-columns: minmax(0, 0.72fr) minmax(0, 1fr) !important;
     column-gap: 14px !important;
     row-gap: 10px !important;
@@ -1837,8 +2237,8 @@
   }
 
   /* 122px-wide 0.72 frame — fill the slot like Markets listings. */
-  .cd-hero-bar__thumb-btn,
-  .cd-hero-bar__thumb--empty {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb-btn,
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb--empty {
     width: 100% !important;
     max-width: 122px !important;
     height: auto !important;
@@ -1863,51 +2263,38 @@
     filter: none;
   }
 
-  .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
-  .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
-    width: 100% !important;
-    max-width: 122px !important;
-    height: auto !important;
-    aspect-ratio: 0.72 !important;
-    overflow: hidden !important;
-    background: #111113 !important;
-  }
-
-  .cd-hero-bar--embed #hero-img.cd-hero-bar__thumb,
-  .cd-hero-bar--embed .cd-hero-bar__thumb {
-    position: absolute !important;
-    inset: 0 !important;
-    width: 100% !important;
-    max-width: none !important;
-    height: 100% !important;
-    object-fit: fill !important;
-    filter: none;
-  }
-
-  .cd-hero-bar__thumb--empty {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb--empty {
     aspect-ratio: 0.72 !important;
     height: auto !important;
     background: #111113 !important;
     overflow: hidden !important;
   }
 
-  /* Card.html ≤600 — title wraps; meta densifies. */
-  .cd-hero-bar__title,
-  #hero-title {
+  /* Card.html ≤600 — title wraps; meta densifies (legacy non-embed). */
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__title,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-title {
     font-size: var(--tk-ui-fs-section) !important;
     white-space: normal !important;
   }
 
-  .cd-hero-bar__meta,
-  #hero-meta {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__meta,
+  .cd-hero-bar:not(.cd-hero-bar--embed) #hero-meta {
     font-size: var(--tk-ui-fs-body-sm) !important;
   }
 
-  .cd-hero-bar__price {
+  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed {
+    grid-template-columns: 105px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    align-items: start !important;
+    gap: 8px 14px !important;
+    padding: 14px !important;
+  }
+
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__price {
     font-size: 38px !important;
   }
 
-  .cd-hero-bar__price--muted {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__price--muted {
     font-size: 28px !important;
   }
 
@@ -2366,6 +2753,14 @@
 .cd-chart-panel__hero {
   width: 100%;
   min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Hero slab + title — breathe below chart notch top (non-trade uses `.cd-notch` padding). */
+@media (min-width: 1141px) {
+  .cd-chart-panel--with-hero:not(.cd-chart-panel--embed) .cd-chart-panel__hero {
+    padding-top: 4px;
+  }
 }
 
 .cd-chart-panel__plot {
@@ -2420,19 +2815,28 @@
 .cd-trade-panel {
   background: #191919;
   border-radius: 16px;
-  padding: 6px 18px 8px;
+  /* Figma `#tk-trade` shell — keep 372px rail width; spacing only here. */
+  padding: 6px 18px 12px;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+  font-family: var(--font-sans);
   /* Never grow for warnings / tab content differences. */
   overflow: hidden;
+}
+
+/* Figma — Buy / Bid / Sell use Inter, not JetBrains. */
+.cd-trade-panel .mono {
+  font-family: var(--font-sans);
 }
 
 .cd-trade-panel__tabs {
   display: flex;
   gap: 0;
+  align-self: stretch;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   margin: 0 -18px 12px;
   padding: 0 18px;
@@ -2463,8 +2867,12 @@
 .cd-trade-panel__bodies {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  grid-template-rows: minmax(0, auto);
+  grid-template-rows: minmax(0, 1fr);
+  flex: 1 1 auto;
+  align-self: stretch;
+  width: 100%;
   min-width: 0;
+  min-height: 0;
   position: relative;
 }
 
@@ -2472,10 +2880,26 @@
   grid-area: 1 / 1;
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
   min-width: 0;
-  min-height: 0;
+  min-height: 100%;
+  height: 100%;
+  padding-bottom: 14px;
   z-index: 1;
+}
+
+/* Meta + CTA — one block; sits above body padding, not stranded under inputs. */
+.cd-trade-panel__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  align-self: stretch;
+  width: 100%;
+  margin-top: auto;
 }
 
 .cd-trade-panel__body--off {
@@ -2485,7 +2909,7 @@
   position: absolute;
   inset: 0;
   width: 100%;
-  height: auto;
+  height: 100%;
   overflow: hidden;
 }
 
@@ -2494,11 +2918,14 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  align-self: stretch;
+  width: 100%;
   min-width: 0;
   min-height: 16px;
 }
 
 .cd-trade-panel__cert-label {
+  font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-body);
   color: var(--t2);
   min-width: 0;
@@ -2516,6 +2943,7 @@
 }
 
 .cd-trade-panel__cert-idx {
+  font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-body);
   color: var(--t2);
 }
@@ -2541,6 +2969,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  align-self: stretch;
+  width: 100%;
   height: 52px;
   padding: 0 14px;
   background: #0e0e0e;
@@ -2561,6 +2991,7 @@
 }
 
 .cd-trade-panel__field-val {
+  font-family: var(--font-sans);
   font-size: 19px;
   font-weight: 700;
   color: #fff;
@@ -2570,7 +3001,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-family: var(--font-mono);
+  align-self: stretch;
+  width: 100%;
+  font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-caption);
 }
 
@@ -2582,11 +3015,24 @@
   color: var(--t3);
 }
 
+/* Card.html meta row — right slot (was Set by seller / Top bid +1% / Ask −1%). */
+.cd-trade-panel__meta-end {
+  flex: 0 0 auto;
+  min-width: 5.5rem;
+  min-height: 1em;
+}
+
 .cd-trade-panel__row {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  align-self: stretch;
+  width: 100%;
   min-height: 16px;
+}
+
+.cd-trade-panel__row--reserved {
+  pointer-events: none;
 }
 
 .cd-trade-panel__row-lbl {
@@ -2596,6 +3042,7 @@
 }
 
 .cd-trade-panel__row-val {
+  font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-body-lg);
   color: var(--t3);
 }
@@ -2605,6 +3052,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  align-self: stretch;
+  width: 100%;
   height: 52px;
   padding: 0 14px;
   background: #0e0e0e;
@@ -2617,18 +3066,22 @@
 }
 
 .cd-trade-panel__adj-btn {
-  width: 40px;
+  box-sizing: border-box;
+  min-width: 40px;
   height: 40px;
   margin-left: 0;
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: transparent;
   color: var(--t2);
-  font-size: var(--tk-ui-fs-heading);
+  font-family: var(--font-sans);
+  font-size: var(--tk-ui-fs-body-sm);
+  font-weight: 600;
   line-height: 1;
+  letter-spacing: -0.02em;
   cursor: pointer;
   flex-shrink: 0;
-  padding: 0;
+  padding: 0 8px;
 }
 
 .cd-trade-panel__adj-btn:first-of-type {
@@ -2643,6 +3096,7 @@
 .cd-trade-panel__adj-val {
   min-width: 96px;
   text-align: center;
+  font-family: var(--font-sans);
   font-size: 19px;
   font-weight: 700;
   color: #fff;
@@ -2659,7 +3113,7 @@
   font-size: 19px;
   font-weight: 700;
   color: #fff;
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
   padding: 0;
   box-sizing: border-box;
 }
@@ -2673,8 +3127,10 @@
 .cd-trade-panel__cta {
   height: 52px !important;
   width: 100%;
-  margin-top: auto;
+  align-self: stretch;
+  margin-top: 0;
   flex: 0 0 52px;
+  font-family: var(--font-sans) !important;
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 700 !important;
   cursor: pointer;
@@ -2757,9 +3213,8 @@
 /* Card.html `#chart-card` desktop fixed height — match `.cd-detail-grid` row 1 */
 @media (min-width: 1141px) {
   .collection-detail-page .cd-trade-panel {
-    /* Bid no longer shows Lowest ask; keep this row taller than the slab
-       so the hero stays vertically centered in the shared track. */
-    min-height: 264px;
+    /* Track the desktop slab (128×~215) so the trade rail does not stretch past it. */
+    min-height: 228px;
   }
 
   .collection-detail-page .cd-chart-panel.cd-notch:not(.cd-chart-panel--embed) {
@@ -2815,9 +3270,9 @@
     align-self: stretch;
     display: flex;
     flex-direction: column;
-    padding: 6px 18px 14px;
+    padding: 16px 18px 14px;
     box-sizing: border-box;
-    justify-content: center;
+    justify-content: flex-start;
     margin-bottom: 0;
   }
 
@@ -2847,7 +3302,7 @@
     flex: 1 1 auto;
     min-height: 0;
     height: 100%;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
   .collection-detail-page
@@ -2871,7 +3326,7 @@
     .cd-chart-panel__hero
     .cd-hero-bar--embed
     #hero-mid {
-    justify-content: space-between;
+    justify-content: flex-start;
   }
 
   .collection-detail-page
@@ -2950,17 +3405,40 @@
 }
 
 @media (max-width: 600px) {
-  .collection-detail-page .cd-similar-items__grid,
   .cd-similar-items__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
+/* Phone — two equal halves; 132px card centered in each half. */
+@media (max-width: 600px) {
+  .collection-detail-page .cd-similar-items__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    justify-items: center;
+    column-gap: 0;
+    row-gap: 18px;
+  }
+}
+
 @media (min-width: 601px) and (max-width: 1140px) {
-  .collection-detail-page .cd-similar-items__grid,
   .cd-similar-items__grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
+  }
+
+  .collection-detail-page .cd-similar-items__grid {
+    grid-template-columns: repeat(auto-fill, var(--cd-si-card-w));
+    justify-content: start;
+    column-gap: 16px;
+    row-gap: 20px;
+  }
+}
+
+@media (min-width: 1141px) {
+  .collection-detail-page .cd-similar-items__grid {
+    grid-template-columns: repeat(5, var(--cd-si-card-w));
+    justify-content: start;
+    gap: 20px;
   }
 }
 
@@ -2988,7 +3466,95 @@
   transform: translateY(-4px);
 }
 
-/* Similar tile: same fixed frame + object-fill as markets `.card__img` — stretch to width/height, no crop. */
+/* Phone 150×200. Wider viewports scale the slab (markets tile is ~214px wide). */
+.collection-detail-page {
+  --cd-si-card-w: 150px;
+  --cd-si-slab-h: 200px;
+}
+
+@media (min-width: 601px) {
+  .collection-detail-page {
+    --cd-si-card-w: 200px;
+    --cd-si-slab-h: 267px;
+  }
+}
+
+@media (min-width: 1141px) {
+  .collection-detail-page {
+    --cd-si-card-w: 214px;
+    --cd-si-slab-h: 286px;
+  }
+}
+
+.collection-detail-page .cd-si-card {
+  width: var(--cd-si-card-w);
+  max-width: 100%;
+  align-self: start;
+}
+
+.collection-detail-page .cd-si-card__media {
+  position: relative;
+  width: var(--cd-si-card-w);
+  max-width: 100%;
+  height: var(--cd-si-slab-h);
+  min-height: var(--cd-si-slab-h);
+  max-height: var(--cd-si-slab-h);
+  aspect-ratio: auto;
+  flex: 0 0 var(--cd-si-slab-h);
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111113;
+  contain: layout style;
+  isolation: isolate;
+}
+
+.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) {
+  background: transparent;
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(var(--cd-si-slab-h) * 416 / 700);
+  max-width: 100%;
+  height: var(--cd-si-slab-h);
+  display: block;
+}
+
+.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) .psa-slab {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+  box-shadow: none;
+}
+
+@media (max-width: 600px) {
+  .collection-detail-page .cd-si-card {
+    width: 132px;
+  }
+
+  .collection-detail-page .cd-si-card__media {
+    width: 132px;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: 416 / 700;
+    flex: 0 0 auto;
+  }
+
+  .collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
+    left: 0;
+    transform: none;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+/* Non–collection-detail fallbacks (if reused elsewhere). */
 .cd-si-card__media {
   position: relative;
   width: 100%;
@@ -3028,25 +3594,50 @@
 }
 
 .cd-si-card__body {
-  padding: 11px 5px 5px;
+  flex: 0 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: var(--card-list-media-gap) 5px 5px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  position: relative;
+  z-index: 1;
 }
 
+.cd-si-card__headlines {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: calc(16.9px * 2 + 2px);
+  min-width: 0;
+}
+
+/* Similar tiles — fixed type at all breakpoints (not listing `--card-list-*` vars). */
 .cd-si-card__title {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 13px;
+  font-style: normal;
   font-weight: 600;
   color: #fff;
-  line-height: 1.35;
+  line-height: 16.9px;
   min-width: 0;
   overflow: hidden;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  word-break: break-word;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.cd-si-card__grade-line {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 16.9px;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .cd-si-card__price-row {
@@ -3060,36 +3651,36 @@
 
 .cd-si-card__price {
   font-family: var(--font-sans);
-  font-size: var(--card-list-price-fs);
+  font-size: 14px;
+  font-style: normal;
   font-weight: 600;
   color: #fff;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
+  letter-spacing: -0.28px;
+  line-height: normal;
   white-space: nowrap;
   min-width: 0;
   flex: 0 1 auto;
 }
 
-.cd-si-card__chg {
-  font-family: var(--font-sans);
-  font-size: var(--card-list-change-fs);
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  white-space: nowrap;
-  flex: 0 0 auto;
+.cd-si-card .card__sub,
+.cd-si-card .card__sub-pct,
+.cd-si-card .card__per {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.11px;
+  line-height: normal;
 }
 
-.cd-si-card__chg--up {
-  color: var(--pos);
+.cd-si-card .card__sub-glyph {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: -0.11px;
+  line-height: normal;
 }
 
-.cd-si-card__chg--down {
-  color: var(--danger);
-}
-
-.cd-si-card__chg--muted {
-  color: var(--t3);
+.cd-si-card .card__per {
+  margin-left: 2px;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 
@@ -4095,7 +4686,7 @@
   border-top: 1px solid rgba(255, 255, 255, 0.07);
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 13px;
   line-height: 1;
 }
 
@@ -4334,8 +4925,8 @@
 }
 
 .collection-detail-page .cd-ob-book-hdr span {
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-label);
+  font-family: var(--font-sans);
+  font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--t3);
@@ -4588,6 +5179,11 @@
   opacity: 1;
 }
 
+/* Card.html `#tab-offers .ob-note` — hidden on listings */
+.collection-detail-page .cd-ob-book .cd-ob-book-hint {
+  display: none;
+}
+
 .collection-detail-page .cd-ob-book-hint {
   margin: 0;
   padding: 9px 16px;
@@ -4626,109 +5222,87 @@
   color: var(--t3);
 }
 
-/* Empty pane — design HTML `.emptyPane` compact horizontal row */
+/* Empty pane — Card.html `.ob-emp2` / `#ob-empty-market` */
 .collection-detail-page .cd-ob-empty {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 11px;
-  text-align: left;
   flex: none;
   width: 100%;
   box-sizing: border-box;
-  padding: 12px 16px;
   background: transparent;
+}
+
+.collection-detail-page .cd-ob-empty--emp2 {
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 12px;
+  padding: 14px 28px;
 }
 
 .collection-detail-page .cd-ob-empty--market {
   flex: 1 1 auto;
   min-height: 0;
   height: 100%;
+  flex-direction: column;
+  align-items: stretch;
   justify-content: center;
+  gap: 28px;
+  padding: 24px 28px;
 }
 
-.collection-detail-page .cd-ob-empty--market .cd-ob-empty__title {
-  flex: none;
-}
-
-.collection-detail-page .cd-ob-empty__dot {
-  width: 8px;
-  height: 8px;
-  flex: none;
-  border-radius: 50%;
-  background: #5b9aff;
-  margin: 0;
-}
-
-.collection-detail-page .cd-ob-empty--asks .cd-ob-empty__dot {
-  background: var(--ob-neg);
-}
-
-.collection-detail-page .cd-ob-empty--bids .cd-ob-empty__dot {
-  background: var(--ob-pos);
-}
-
-.collection-detail-page .cd-ob-empty__title {
-  margin: 0;
-  font-size: var(--tk-ui-fs-body);
-  font-weight: 500;
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--t2, rgba(255, 255, 255, 0.6));
-  line-height: 1.25;
-}
-
-.collection-detail-page .cd-ob-empty--asks .cd-ob-empty__title {
-  color: var(--ob-neg);
-}
-
-.collection-detail-page .cd-ob-empty--bids .cd-ob-empty__title {
-  color: var(--ob-pos);
-}
-
-.collection-detail-page .cd-ob-empty__btns {
+.collection-detail-page .cd-ob-empty__mdiv {
   display: flex;
-  gap: 8px;
-  margin: 0;
-  flex: none;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
+  align-items: center;
+  gap: 16px;
 }
 
-/* HTML `.nbtn` */
-.collection-detail-page .cd-ob-empty__btn.tk-btn {
-  height: 30px !important;
-  min-height: 30px !important;
-  padding: 0 14px !important;
-  font-size: var(--tk-ui-fs-body-sm) !important;
+.collection-detail-page .cd-ob-empty__mdiv > span:not(.cd-ob-empty__mtitle) {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.collection-detail-page .cd-ob-empty__mtitle {
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--t2, rgba(255, 255, 255, 0.6));
+  white-space: nowrap;
+}
+
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn {
+  width: 100%;
+  height: 46px !important;
+  min-height: 46px !important;
+  font-size: 15px !important;
   font-weight: 500 !important;
-}
-
-.collection-detail-page .cd-ob-empty__btn--primary.tk-btn,
-.collection-detail-page .cd-ob-empty__btn--primary.tk-btn--primary {
-  background: #1A6FFF !important;
-  color: #fff !important;
-  filter: drop-shadow(3px 3px 0 rgba(5, 10, 40, 0.5));
-}
-
-.collection-detail-page .cd-ob-empty__btn--primary.tk-btn:hover,
-.collection-detail-page .cd-ob-empty__btn--primary.tk-btn--primary:hover {
-  background: #3d85ff !important;
-}
-
-.collection-detail-page .cd-ob-empty__btn--ghost.tk-btn {
-  background: #243044 !important;
-  color: #8fb8ff !important;
+  border-radius: 12px !important;
   box-shadow: none !important;
   filter: none !important;
 }
 
-.collection-detail-page .cd-ob-empty__btn--ghost.tk-btn:hover {
-  background: #2d3c56 !important;
+/* Listings empty — Bid / subtle Sell (not hero purple neutral) */
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn--neutral,
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn.tk-btn--neutral {
+  background: #414042 !important;
   color: #fff !important;
+}
+
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn--neutral:hover,
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn.tk-btn--neutral:hover {
+  background: #4d4d4f !important;
+  color: #fff !important;
+}
+
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn--neutral:active,
+.collection-detail-page .cd-ob-empty__mbtn.tk-btn.tk-btn--neutral:active {
+  background: #353536 !important;
+}
+
+.collection-detail-page .cd-ob-empty__mbtn--primary.tk-btn,
+.collection-detail-page .cd-ob-empty__mbtn--primary.tk-btn--primary {
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Card.html `#ob-coach` */
@@ -4849,26 +5423,24 @@
 }
 
 @media (max-width: 1140px) {
-  .collection-detail-page .cd-ob-empty {
-    padding: 10px 14px;
-    gap: 9px;
+  .collection-detail-page .cd-ob-empty--emp2 {
+    padding: 12px 16px;
+    gap: 10px;
   }
 
-  .collection-detail-page .cd-ob-empty__title {
-    font-size: var(--tk-ui-fs-body-sm);
+  .collection-detail-page .cd-ob-empty--market {
+    padding: 20px 16px;
+    gap: 22px;
   }
 
-  .collection-detail-page .cd-ob-empty__btn.tk-btn,
-  .collection-detail-page .cd-ob-empty__btn--notify {
-    height: 28px !important;
-    min-height: 28px !important;
-    padding: 0 12px !important;
-    font-size: var(--tk-ui-fs-body-sm) !important;
+  .collection-detail-page .cd-ob-empty__mtitle {
+    font-size: var(--tk-ui-fs-body);
   }
 
-  .collection-detail-page .cd-ob-book-hint--market-empty {
-    padding: 8px 16px 10px;
-    font-size: var(--tk-ui-fs-caption);
+  .collection-detail-page .cd-ob-empty__mbtn.tk-btn {
+    height: 42px !important;
+    min-height: 42px !important;
+    font-size: var(--tk-ui-fs-body) !important;
   }
 
   .collection-detail-page .cd-ob-book-hdr,

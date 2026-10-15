@@ -1,17 +1,24 @@
-/* Tokenable — component styles · CHUNKY PIXEL direction.
-   Multi-step staircase corners, thick inset borders, hard offset shadows.
-   Buttons have gradient depth for clear affordance. */
+/* Tokenable — component styles.
+   Controls default to rounded corners (see --tk-radius-*). Legacy pixel
+   clip-path tokens remain for gradual migration in feature CSS. */
 
 /* Tabular figures on every mono-based component (numbers align in columns) */
 .tk-tag,.tk-badge,.tk-stat,.tk-avatar,.tk-page,.tk-menu__shortcut{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
 
 /* ---------- Shared pixel clip-paths ---------- */
 :root{
-  /* Large — buttons, cards, dialogs (8px, 2-step) */
+  --tk-radius-button: 12px;
+  --tk-radius-button-sm: 10px;
+  --tk-radius-button-table: 8px;
+  --tk-radius-input: 12px;
+  --tk-radius-search: 12px;
+  --tk-radius-iconbtn: 10px;
+  --tk-shadow-button-primary: 4px 4px 0 0 rgba(26, 111, 255, 0.55);
+  --tk-shadow-button-primary-hover: 5px 5px 0 0 rgba(26, 111, 255, 0.65);
+  --tk-shadow-button-primary-active: 2px 2px 0 0 rgba(26, 111, 255, 0.45);
+  /* Legacy pixel chamfers — feature CSS only; DS controls use border-radius. */
   --pixel-notch-lg: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); /* @kind other */
-  /* Medium — tags, inputs, tabs (6px, 2-step) */
   --pixel-notch-md: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); /* @kind other */
-  /* Small — badges, icon buttons (4px, 1-step) */
   --pixel-notch-sm: polygon(0 4px, 4px 4px, 4px 0, calc(100% - 4px) 0, calc(100% - 4px) 4px, 100% 4px, 100% calc(100% - 4px), calc(100% - 4px) calc(100% - 4px), calc(100% - 4px) 100%, 4px 100%, 4px calc(100% - 4px), 0 calc(100% - 4px)); /* @kind other */
 }
 
@@ -20,14 +27,15 @@
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   font-family:var(--font-sans);font-weight:600;line-height:1.3;
   font-feature-settings:var(--tk-ui-features);
-  border:0;cursor:pointer;white-space:nowrap;box-sizing:border-box;border-radius:0;
-  clip-path:var(--pixel-notch-lg);
-  transition:transform var(--duration-fast) steps(3),filter var(--duration-fast) steps(3),background var(--duration-fast) steps(3);
+  border:0;cursor:pointer;white-space:nowrap;box-sizing:border-box;
+  border-radius:var(--tk-radius-button);
+  clip-path:none;
+  transition:background var(--duration-fast) var(--ease-standard),box-shadow var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard);
   user-select:none;text-decoration:none;
 }
 .tk-btn--md{height:46px;padding:0 24px;font-size:var(--tk-ui-fs-section)}
-.tk-btn--sm{height:38px;padding:0 18px;font-size:var(--tk-ui-fs-body-lg);clip-path:var(--pixel-notch-md)}
-.tk-btn--table{height:32px;padding:0 12px;font-size:var(--tk-ui-fs-body);border-radius:8px;clip-path:none}
+.tk-btn--sm{height:38px;padding:0 18px;font-size:var(--tk-ui-fs-body-lg);border-radius:var(--tk-radius-button-sm)}
+.tk-btn--table{height:32px;padding:0 12px;font-size:var(--tk-ui-fs-body);border-radius:var(--tk-radius-button-table)}
 .tk-btn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
 .tk-btn:disabled,.tk-btn[aria-disabled="true"]{cursor:not-allowed;opacity:.45;box-shadow:none !important;transform:none !important;pointer-events:none}
 .tk-btn__icon{display:inline-flex;flex:0 0 auto}
@@ -38,30 +46,30 @@
 /* Primary — Bold Blue #1A6FFF */
 .tk-btn--primary{
   color:#fff;background:#1A6FFF;
-  box-shadow:inset 0 3px 0 0 rgba(80,120,255,0.35), inset 0 -3px 0 0 rgba(0,10,80,0.4);
+  box-shadow:var(--tk-shadow-button-primary);
   filter:none;
 }
-.tk-btn--primary:hover{background:#2255FF;box-shadow:inset 0 3px 0 0 rgba(80,120,255,0.45), inset 0 -3px 0 0 rgba(0,10,80,0.45);transform:translate(-1px,-1px)}
-.tk-btn--primary:active{transform:translate(1px,1px);background:#0028DD;box-shadow:inset 0 3px 0 0 rgba(0,10,80,0.25), inset 0 -3px 0 0 rgba(80,120,255,0.15)}
+.tk-btn--primary:hover{background:#2255FF;box-shadow:var(--tk-shadow-button-primary-hover)}
+.tk-btn--primary:active{background:#0028DD;box-shadow:var(--tk-shadow-button-primary-active)}
 
 /* Neutral/Secondary — Light Violet #977DFF */
-.tk-btn--neutral{color:#fff;background:#977DFF;box-shadow:inset 0 3px 0 0 rgba(180,160,255,0.3), inset 0 -3px 0 0 rgba(60,40,120,0.35);filter:none}
-.tk-btn--neutral:hover{background:#A990FF;box-shadow:inset 0 3px 0 0 rgba(180,160,255,0.4), inset 0 -3px 0 0 rgba(60,40,120,0.4);transform:translate(-1px,-1px)}
-.tk-btn--neutral:active{transform:translate(1px,1px);background:#8468E8;box-shadow:inset 0 3px 0 0 rgba(60,40,120,0.2), inset 0 -3px 0 0 rgba(180,160,255,0.12)}
+.tk-btn--neutral{color:#fff;background:#977DFF;box-shadow:none;filter:none}
+.tk-btn--neutral:hover{background:#A990FF}
+.tk-btn--neutral:active{background:#8468E8}
 
 /* Subtle/Tertiary — Graphite surface */
-.tk-btn--subtle{color:#d1d3d4;background:#414042;box-shadow:inset 0 3px 0 0 rgba(255,255,255,0.08), inset 0 -3px 0 0 rgba(0,0,0,0.25);filter:none}
-.tk-btn--subtle:hover{color:#fff;background:#58595b;box-shadow:inset 0 3px 0 0 rgba(255,255,255,0.12), inset 0 -3px 0 0 rgba(0,0,0,0.3);transform:translate(-1px,-1px)}
-.tk-btn--subtle:active{color:#fff;background:#383838;box-shadow:inset 0 3px 0 0 rgba(0,0,0,0.15), inset 0 -3px 0 0 rgba(255,255,255,0.05);transform:translate(1px,1px)}
+.tk-btn--subtle{color:#d1d3d4;background:#414042;box-shadow:none;filter:none}
+.tk-btn--subtle:hover{color:#fff;background:#58595b}
+.tk-btn--subtle:active{color:#fff;background:#383838}
 
 /* Danger — red (functional, kept for destructive actions) */
-.tk-btn--danger{color:#fff;background:#F5332C;box-shadow:inset 0 3px 0 0 rgba(255,150,160,0.3), inset 0 -3px 0 0 rgba(80,0,0,0.35);filter:none}
-.tk-btn--danger:hover{background:#FF4A44;box-shadow:inset 0 3px 0 0 rgba(255,170,180,0.4), inset 0 -3px 0 0 rgba(80,0,0,0.4);transform:translate(-1px,-1px)}
-.tk-btn--danger:active{transform:translate(1px,1px);box-shadow:inset 0 3px 0 0 rgba(80,0,0,0.2), inset 0 -3px 0 0 rgba(255,150,160,0.12)}
+.tk-btn--danger{color:#fff;background:#F5332C;box-shadow:none;filter:none}
+.tk-btn--danger:hover{background:#FF4A44}
+.tk-btn--danger:active{background:#d92b25}
 
-/* Ghost — subtle filled outline, no 3D shadow (quiet level for dense tables) */
-.tk-btn--ghost{color:#fff;background:rgba(255,255,255,0.05);box-shadow:inset 0 0 0 1px var(--border-strong);filter:none;font-weight:600;clip-path:none;border-radius:10px}
-.tk-btn--ghost.tk-btn--table{border-radius:8px}
+/* Ghost — subtle filled outline (quiet level for dense tables) */
+.tk-btn--ghost{color:#fff;background:rgba(255,255,255,0.05);box-shadow:inset 0 0 0 1px var(--border-strong);filter:none;font-weight:600;border-radius:var(--tk-radius-button-sm)}
+.tk-btn--ghost.tk-btn--table{border-radius:var(--tk-radius-button-table)}
 .tk-btn--ghost:hover{background:rgba(255,255,255,0.1);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);transform:none}
 .tk-btn--ghost:active{background:rgba(255,255,255,0.14);box-shadow:inset 0 0 0 1px rgba(255,255,255,0.3);transform:none}
 .tk-btn--ghost:disabled,.tk-btn--ghost[aria-disabled="true"]{color:rgba(255,255,255,0.4);background:transparent;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.1) !important}
@@ -70,29 +78,29 @@
 /* App extension — inverse CTA on brand panels (HomePartners); not in designer showcase bundle */
 .tk-btn--primary-inv{
   color:var(--brand-500);background:#fff;
-  box-shadow:inset 0 0 0 3px rgba(0,0,20,0.15), inset 0 0 0 1px rgba(255,255,255,0.8), inset 0 3px 0 0 rgba(255,255,255,0.9), inset 0 -3px 0 0 rgba(0,0,50,0.1);
-  filter:drop-shadow(4px 4px 0 rgba(4,39,119,0.5));
+  box-shadow:inset 0 0 0 1px rgba(0,0,20,0.08);
+  filter:none;
 }
-.tk-btn--primary-inv:hover{background:#f0f4ff;box-shadow:inset 0 0 0 3px rgba(0,0,20,0.15), inset 0 0 0 1px rgba(255,255,255,0.9), inset 0 3px 0 0 rgba(255,255,255,1), inset 0 -3px 0 0 rgba(0,0,50,0.12);filter:drop-shadow(6px 6px 0 rgba(4,39,119,0.6));transform:translate(-2px,-2px)}
-.tk-btn--primary-inv:active{transform:translate(2px,2px);filter:drop-shadow(2px 2px 0 rgba(4,39,119,0.35))}
+.tk-btn--primary-inv:hover{background:#f0f4ff}
+.tk-btn--primary-inv:active{background:#e8eeff}
 
-/* ---------- Icon Button — chunky pixel square ---------- */
-.tk-iconbtn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;border-radius:0;padding:0;clip-path:var(--pixel-notch-sm);transition:transform var(--duration-fast) steps(3),filter var(--duration-fast) steps(3),background var(--duration-fast) steps(3)}
+/* ---------- Icon Button ---------- */
+.tk-iconbtn{display:inline-flex;align-items:center;justify-content:center;border:0;cursor:pointer;border-radius:var(--tk-radius-iconbtn);padding:0;clip-path:none;transition:background var(--duration-fast) var(--ease-standard),color var(--duration-fast) var(--ease-standard)}
 .tk-iconbtn--md{width:44px;height:44px}
 .tk-iconbtn--md svg{width:20px;height:20px}
 .tk-iconbtn--sm{width:36px;height:36px}
 .tk-iconbtn--sm svg{width:18px;height:18px}
 .tk-iconbtn:focus-visible{outline:2px solid var(--brand-400);outline-offset:3px}
 .tk-iconbtn:disabled{cursor:not-allowed;opacity:.45;pointer-events:none}
-.tk-iconbtn--primary{color:#fff;background:#1A6FFF;box-shadow:inset 0 2px 0 0 rgba(80,120,255,0.35), inset 0 -2px 0 0 rgba(0,10,80,0.4);filter:none}
-.tk-iconbtn--primary:hover{background:#2255FF;box-shadow:inset 0 2px 0 0 rgba(80,120,255,0.45), inset 0 -2px 0 0 rgba(0,10,80,0.45);transform:translate(-1px,-1px);filter:none}
-.tk-iconbtn--primary:active{transform:translate(1px,1px);box-shadow:inset 0 2px 0 0 rgba(0,10,80,0.25), inset 0 -2px 0 0 rgba(80,120,255,0.15);filter:none}
-.tk-iconbtn--neutral{color:#fff;background:#414042;box-shadow:inset 0 2px 0 0 rgba(255,255,255,0.1), inset 0 -2px 0 0 rgba(0,0,0,0.25)}
-.tk-iconbtn--neutral:hover{background:#58595b;box-shadow:inset 0 2px 0 0 rgba(255,255,255,0.15), inset 0 -2px 0 0 rgba(0,0,0,0.3)}
+.tk-iconbtn--primary{color:#fff;background:#1A6FFF;box-shadow:none;filter:none}
+.tk-iconbtn--primary:hover{background:#2255FF;filter:none}
+.tk-iconbtn--primary:active{background:#0028DD;filter:none}
+.tk-iconbtn--neutral{color:#fff;background:#414042;box-shadow:none}
+.tk-iconbtn--neutral:hover{background:#58595b}
 .tk-iconbtn--subtle{color:#a7a9ac;background:transparent}
 .tk-iconbtn--subtle:hover{background:rgba(64,91,255,0.12);color:#fff}
 
-/* ---------- Input / Textarea / Select — chunky pixel ---------- */
+/* ---------- Input / Textarea / Select ---------- */
 .tk-field{display:flex;flex-direction:column;gap:6px}
 .tk-field__label{font-family:var(--font-sans);font-size: var(--tk-ui-fs-body-lg);font-weight:500;color:#d1d3d4}
 .tk-field__hint{font-family:var(--font-sans);font-size: var(--tk-ui-fs-body-sm);color:#6d6e71}
@@ -100,18 +108,18 @@
 .tk-input{
   font-family:var(--font-sans);font-size:16px;color:#111;
   background:#fff;
-  border:0;border-radius:0;
-  box-shadow:inset 0 0 0 4px rgba(0,0,20,0.3), inset 0 2px 0 0 rgba(0,0,0,0.08), inset 0 -2px 0 0 rgba(255,255,255,0.5);
-  clip-path:var(--pixel-notch-md);
+  border:0;border-radius:var(--tk-radius-input);
+  box-shadow:inset 0 0 0 1px rgba(0,0,20,0.14);
+  clip-path:none;
   padding:10px 14px;box-sizing:border-box;width:100%;
   transition:box-shadow var(--duration-fast) var(--ease-standard);
   outline:none;
 }
 .tk-input::placeholder{color:rgba(0,0,0,0.4)}
-.tk-input:hover{box-shadow:inset 0 0 0 4px rgba(0,0,20,0.35), inset 0 2px 0 0 rgba(0,0,0,0.1), inset 0 -2px 0 0 rgba(255,255,255,0.6)}
-.tk-input:focus{box-shadow:inset 0 0 0 4px rgba(26,111,255,0.5), inset 0 2px 0 0 rgba(80,160,255,0.2), inset 0 -2px 0 0 rgba(255,255,255,0.5)}
+.tk-input:hover{box-shadow:inset 0 0 0 1px rgba(0,0,20,0.22)}
+.tk-input:focus{box-shadow:inset 0 0 0 2px rgba(26,111,255,0.55)}
 .tk-input:disabled{opacity:.5;cursor:not-allowed}
-.tk-input--error{box-shadow:inset 0 0 0 4px rgba(245,51,44,0.8), inset 0 2px 0 0 rgba(255,100,120,0.3), inset 0 -2px 0 0 rgba(245,51,44,0.4)}
+.tk-input--error{box-shadow:inset 0 0 0 2px rgba(245,51,44,0.75)}
 textarea.tk-input{resize:vertical;min-height:88px;line-height:1.5}
 .tk-select-wrap{position:relative;display:flex}
 .tk-select-wrap svg{position:absolute;right:12px;top:50%;transform:translateY(-50%);width:18px;height:18px;color:var(--icon-default-secondary);pointer-events:none}
@@ -296,6 +304,91 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
 .tk-search__icon{position:absolute;left:12px;display:flex;color:var(--icon-default-secondary);pointer-events:none}
 .tk-search__icon svg{width:18px;height:18px}
 .tk-search .tk-input{padding-left:38px}
+
+/* TkSearchField — Figma hero field; GNB uses --compact */
+.tk-search-field{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  flex:1 0 0;
+  min-width:0;
+  height:60px;
+  box-sizing:border-box;
+  border-radius:var(--tk-radius-search);
+  clip-path:none;
+  overflow:hidden;
+}
+.tk-search-field--compact{height:44px;border-radius:var(--tk-radius-input)}
+.tk-search-field--compact .tk-search-field__input.tk-input{border-radius:var(--tk-radius-input)}
+.tk-search-field__icon{
+  position:absolute;
+  left:20px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:2;
+  display:inline-flex;
+  color:rgba(0,0,0,0.42);
+  pointer-events:none;
+}
+.tk-search-field--compact .tk-search-field__icon{left:14px}
+.tk-search-field__icon svg{width:22px;height:22px}
+.tk-search-field--compact .tk-search-field__icon svg{width:16px;height:16px}
+.tk-search-field__trailing{
+  position:absolute;
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  z-index:2;
+  display:inline-flex;
+}
+.tk-search-field__input.tk-input{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  flex:1 0 0;
+  align-self:stretch;
+  width:100%;
+  height:100%;
+  min-height:0;
+  min-width:0;
+  border:0;
+  outline:none;
+  background:#fff;
+  color:#111;
+  font-family:var(--font-sans);
+  font-size:17px;
+  line-height:normal;
+  padding:20px 20px 20px 54px;
+  box-shadow:inset 0 0 0 4px rgba(0,0,0,0.12);
+  box-sizing:border-box;
+  clip-path:none;
+  border-radius:var(--tk-radius-search);
+  transition:box-shadow var(--duration-fast) var(--ease-standard);
+  -webkit-appearance:none;
+  appearance:none;
+}
+.tk-search-field--compact .tk-search-field__input.tk-input{
+  padding:0 16px 0 40px;
+  font-size:var(--tk-ui-fs-body-lg);
+  line-height:44px;
+  box-shadow:inset 0 0 0 1px rgba(0,0,20,0.1);
+}
+.tk-search-field--has-trailing .tk-search-field__input.tk-input{padding-right:40px}
+.tk-search-field--compact.tk-search-field--has-trailing .tk-search-field__input.tk-input{padding-right:40px}
+.tk-search-field__input.tk-input:hover{box-shadow:inset 0 0 0 4px rgba(0,0,0,0.16)}
+.tk-search-field--compact .tk-search-field__input.tk-input:hover{box-shadow:inset 0 0 0 1px rgba(0,0,20,0.16)}
+.tk-search-field__input.tk-input:focus{box-shadow:inset 0 0 0 4px rgba(26,111,255,0.45)}
+.tk-search-field--compact .tk-search-field__input.tk-input:focus{box-shadow:inset 0 0 0 2px rgba(26,111,255,0.5)}
+.tk-search-field__input.tk-input::placeholder{color:rgba(0,0,0,0.4)}
+.tk-search-field__input.tk-input::-webkit-search-decoration,
+.tk-search-field__input.tk-input::-webkit-search-cancel-button,
+.tk-search-field__input.tk-input::-webkit-search-results-button,
+.tk-search-field__input.tk-input::-webkit-search-results-decoration{
+  -webkit-appearance:none;
+  appearance:none;
+  display:none;
+}
 
 /* ---------- Pagination — chunky pixel ---------- */
 .tk-pagination{display:inline-flex;gap:6px;align-items:center}

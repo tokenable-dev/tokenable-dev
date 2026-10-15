@@ -11,6 +11,7 @@ import type { CollectionUnifiedOrderBookProps } from "@/lib/marketplace/marketpl
 import type { useCollectionDetailMarketData } from "@/hooks/collection-detail";
 import { formatMarketCapUsd } from "@/lib/market";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export type CollectionDetailMarketSlice = Pick<
   ReturnType<typeof useCollectionDetailMarketData>,
@@ -29,9 +30,20 @@ export type CollectionDetailMarketSlice = Pick<
   | "gradeChart"
 >;
 
-function metricsStripProps(market: CollectionDetailMarketSlice, coverImageUrl?: string | null) {
+function metricsStripProps(
+  market: CollectionDetailMarketSlice,
+  cover: {
+    coverImageUrl?: string | null;
+    coverComp?: CollectionComponents | null;
+    coverDisplayLabel?: string | null;
+    coverCollectionKey?: string | null;
+  },
+) {
   return {
-    coverImageUrl,
+    coverImageUrl: cover.coverImageUrl,
+    coverComp: cover.coverComp,
+    coverDisplayLabel: cover.coverDisplayLabel,
+    coverCollectionKey: cover.coverCollectionKey,
     priceUsd: market.gradeAwareExternalUsd,
     priceLoading: market.gradeAwarePriceLoading,
     changePct: market.gradeAwareChange1MoPct,
@@ -51,6 +63,9 @@ export function buildCollectionDetailMarketsSlots(input: {
   market: CollectionDetailMarketSlice;
   collectionOrderBookProps: CollectionUnifiedOrderBookProps;
   coverImageUrl?: string | null;
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   headlineTitle?: string | null;
   headlineParts?: AssetDetailHeadlineParts | null;
   headlineMeta?: string | null;
@@ -69,6 +84,9 @@ export function buildCollectionDetailMarketsSlots(input: {
     market,
     collectionOrderBookProps,
     coverImageUrl,
+    coverComp,
+    coverDisplayLabel,
+    coverCollectionKey,
     headlineTitle,
     headlineParts,
     headlineMeta,
@@ -76,7 +94,12 @@ export function buildCollectionDetailMarketsSlots(input: {
     detailsPanel,
   } = input;
   const chartProps = market.chartProps as CollectionDualPriceChartProps;
-  const metricsProps = metricsStripProps(market, coverImageUrl);
+  const metricsProps = metricsStripProps(market, {
+    coverImageUrl,
+    coverComp,
+    coverDisplayLabel,
+    coverCollectionKey,
+  });
   const renderHero = (embedInChart: boolean) => (
     <CollectionDetailMetricsStrip
       {...metricsProps}

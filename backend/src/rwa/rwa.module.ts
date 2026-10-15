@@ -11,17 +11,12 @@ import { Order } from '../marketplace/entities/order.entity';
 import { PsaModule } from '../psa/psa.module';
 import { UserModule } from '../user/user.module';
 import { VaultModule } from '../vault/vault.module';
-import { BulkMintAdminController } from './admin/bulk-mint-admin.controller';
 import { RwaSlabAdminController } from './admin/rwa-slab-admin.controller';
 import { FedexRateAdminController } from './admin/fedex-rate-admin.controller';
 import { FedexTrackAdminController } from './admin/fedex-track-admin.controller';
 import { VaultSubmissionAdminMintController } from './admin/vault-submission-admin-mint.controller';
 import { VaultSubmissionAdminMintService } from './admin/vault-submission-admin-mint.service';
 import { PsaVaultedMailService } from '../vault/psa-vaulted-mail.service';
-import { BulkMintJobService } from './bulk-mint/bulk-mint-job.service';
-import { PartnerSeaportAskService } from './bulk-mint/partner-seaport-ask.service';
-import { BulkMintJobItem } from './entities/bulk-mint-job-item.entity';
-import { BulkMintJob } from './entities/bulk-mint-job.entity';
 import { PartnerVaultMintJob } from './entities/partner-vault-mint-job.entity';
 import { PartnerVaultMintJobItem } from './entities/partner-vault-mint-job-item.entity';
 import { PartnerVaultMintController } from './partner-vault-mint/partner-vault-mint.controller';
@@ -46,8 +41,6 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
 @Module({
   imports: [
     TypeOrmModule.forFeature([
-      BulkMintJob,
-      BulkMintJobItem,
       PartnerVaultMintJob,
       PartnerVaultMintJobItem,
       Order,
@@ -70,7 +63,6 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
   ],
   controllers: [
     RwaController,
-    BulkMintAdminController,
     RwaSlabAdminController,
     VaultSubmissionAdminMintController,
     FedexRateAdminController,
@@ -88,12 +80,10 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     RedeemShippingFeeCalculator,
     FedExRateClient,
     FedExTrackClient,
-    BulkMintJobService,
-    PartnerSeaportAskService,
     VaultSubmissionAdminMintService,
     PsaVaultedMailService,
     PartnerVaultMintJobService,
   ],
-  exports: [PinataService, BulkMintJobService, RwaSlabS3Service, PsaVaultedMailService],
+  exports: [PinataService, RwaSlabS3Service, PsaVaultedMailService],
 })
 export class RwaModule {}

@@ -27,6 +27,7 @@ export const ASSETS = {
     partners: {
       psa: `${ASSETS_BASE}/ds/logo-psa.png`,
       beckett: `${ASSETS_BASE}/ds/logo-beckett.png`,
+      fanatics: `${ASSETS_BASE}/ds/logo-fanatics.png`,
       cgc: `${ASSETS_BASE}/ds/logo-cgc.png`,
       sgc: `${ASSETS_BASE}/ds/logo-sgc.png`,
       tag: `${ASSETS_BASE}/ds/logo-tag.png`,
@@ -67,6 +68,8 @@ export const ASSETS = {
     tokenableApple: `${ASSETS_BASE}/icons/apple-touch-icon.png`,
     /** PSA wordmark PNG (card detail / docs). */
     psaMark: `${ASSETS_BASE}/icons/psa-logo.png`,
+    /** PSA slab label print — black P/A, red S (CollectionPsaSlabFrame). */
+    psaLabelLogo: `${ASSETS_BASE}/icons/psa-label-logo.png`,
     /** Vault submit cert label — square canvas, matches Vault-Submit.html `images/psa-logo.png`. */
     psaMarkSubmit: `${ASSETS_BASE}/icons/psa-logo-submit.png`,
     /** Vault safe icon — shown before PSA wordmark on card detail. */
@@ -85,7 +88,8 @@ export const ASSETS = {
 
   /** Home (`public/assets/home/`) */
   home: {
-    heroBg: `${ASSETS_BASE}/home/hero-bg.jpg`,
+    /** ds-39 landing — vault photo background */
+    heroBg: `${ASSETS_BASE}/home/hero-vault.png`,
     landing1: `${ASSETS_BASE}/home/newcards/c01.jpg`,
     landing2: `${ASSETS_BASE}/home/newcards/c02.jpg`,
     landing3: `${ASSETS_BASE}/home/newcards/c03.jpg`,

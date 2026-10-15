@@ -176,11 +176,11 @@ Seller UX for taking token offers: [seaport-accept-offer.md](./seaport-accept-of
 2. Read `Seaport.getCounter(offerer)` for nonce
 3. Build Seaport order: offer = ERC-721, consideration = USDC
    - **standard:** seller + platform fee (default **5%** / `PLATFORM_FEE_BPS=500`)
-   - **self_vault_hold:** seller USDC + platform fee (`SELF_VAULT_PLATFORM_FEE_BPS`, default 10%). Legacy single-line full-platform-take asks may still exist in the order book.
+   - **self_vault_hold:** seller USDC + platform fee (`SELF_VAULT_PLATFORM_FEE_BPS`, default 5%). Legacy single-line full-platform-take asks may still exist in the order book.
 4. EIP-712 sign via Privy SDK or MetaMask
 5. `POST /api/marketplace/orders` → stored in `orders` table (backend rejects self-vault asks that are not full-platform-take)
 
-**Partner consignment ask (admin bulk mint+list):** same Seaport shape, but the backend signs with the entrusted company private key (`PartnerSeaportAskService`) after minting to that wallet. Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address. The vault badge uses token `settlement_policy` / `vaultLabel` (`PSA Vault` vs `Tokenable Vault`), not seller identity — a partner may list PSA-vaulted cards. Admin / partner portal still show `{partner} Vault`.
+**Partner listings:** sellers sign Seaport asks from their linked wallet (or partner self-vault flow). Listing UIs resolve `sellerDisplayName` from `marketplace_partners` by offerer address when the wallet is registered. The vault badge uses token `settlement_policy` / `vaultLabel` (`PSA Vault` vs `Tokenable Vault`), not seller identity — a partner may list PSA-vaulted cards. Admin / partner portal still show `{partner} Vault`.
 
 **Self-vault delayed payout:** after fulfill, `self_vault_settlements` tracks confirm + admin `execute-payout` or auto payout (~5 min). Uses `PLATFORM_FEE_PRIVATE_KEY` USDC → seller. See BR-8c and [self-vault-hold-settlement.md](./self-vault-hold-settlement.md).
 
@@ -205,9 +205,10 @@ Encoded in standard ask `consideration` arrays (not on bids):
 ```env
 NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=0x...
 NEXT_PUBLIC_PLATFORM_FEE_BPS=500   # 5% — keep in sync with backend PLATFORM_FEE_BPS
+NEXT_PUBLIC_SELF_VAULT_PLATFORM_FEE_BPS=500   # partner vault asks — sync with SELF_VAULT_PLATFORM_FEE_BPS
 ```
 
-Frontend fallback when the env var is unset (but recipient is set) is also **500**. Marketplace fees are Seaport consideration only (the OZ preset has no ERC-2981).
+Frontend fallback when the env var is unset (but recipient is set) is also **500** for both PSA and partner vault. Marketplace fees are Seaport consideration only (the OZ preset has no ERC-2981).
 
 ---
 
