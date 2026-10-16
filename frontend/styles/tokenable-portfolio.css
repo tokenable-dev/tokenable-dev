@@ -800,6 +800,29 @@
     max-width: none;
   }
 
+  /* Items row scrolls sideways, same as the Cancel/Hide selection bar. */
+  #pf-assets-toolbar:not(.pf-tbar--select) {
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  #pf-assets-toolbar:not(.pf-tbar--select)::-webkit-scrollbar {
+    display: none;
+  }
+
+  #pf-assets-toolbar:not(.pf-tbar--select) .pf-tdrop,
+  #pf-assets-toolbar:not(.pf-tbar--select) .pf-tbar__cluster {
+    flex: 0 0 auto;
+    width: max-content;
+    min-width: max-content;
+    max-width: none;
+  }
+
   #pf-assets-toolbar .pf-tdrop select,
   #pf-assets-toolbar .pf-tdrop--sort select,
   #bids-tbar .pf-tdrop select,
@@ -813,6 +836,15 @@
     white-space: nowrap;
     /* 16px keeps iOS from zooming the page when the menu opens. */
     font-size: 16px !important;
+  }
+
+  #pf-assets-toolbar:not(.pf-tbar--select) .pf-tdrop select {
+    field-sizing: content;
+    width: auto;
+    min-width: max-content;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
   }
 
   #pf-assets-toolbar > .pf-tbtn,
