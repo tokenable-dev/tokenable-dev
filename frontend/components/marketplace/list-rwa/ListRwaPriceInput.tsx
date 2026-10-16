@@ -32,7 +32,7 @@ function UseCheckIcon() {
       height="12"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#04140b"
+      stroke="currentColor"
       strokeWidth="3.2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -56,6 +56,7 @@ export function ListRwaPriceInput({
   disabled = false,
   payoutNote,
   highestBidUsd,
+  steppers = false,
 }: {
   tokenId: number;
   collectionKey?: string | null;
@@ -66,6 +67,8 @@ export function ListRwaPriceInput({
   disabled?: boolean;
   payoutNote?: string | null;
   highestBidUsd?: number | null;
+  /** Portfolio.html `TKPrice` — ±1% inside the field, no percent chips. */
+  steppers?: boolean;
 }) {
   const suggestions = useListRwaPriceSuggestions({
     tokenId,
@@ -82,10 +85,15 @@ export function ListRwaPriceInput({
   const [pick, setPick] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
 
-  const highBid =
+  const propBid =
     highestBidUsd != null && Number.isFinite(highestBidUsd) && highestBidUsd > 0
       ? highestBidUsd
       : 0;
+  const suggestionBid =
+    suggestions.highestBidUsd != null && suggestions.highestBidUsd > 0
+      ? suggestions.highestBidUsd
+      : 0;
+  const highBid = steppers ? suggestionBid : propBid;
   const cross = highBid > 0 && value > 0 && value <= highBid;
 
   const baseVal = base === "lowest" ? lowest : market;
@@ -117,15 +125,34 @@ export function ListRwaPriceInput({
     setFromRef(market);
   }
 
-  const hasRefs = market > 0 || lowest > 0 || last > 0 || highBid > 0;
-
   function refSelected(refValue: number): boolean {
     return value > 0 && refValue > 0 && Math.round(refValue) === Math.round(value);
   }
 
+  function stepByPercent(dir: -1 | 1) {
+    const current = value || highBid || market || 0;
+    const next = Math.max(1, Math.round(current * (1 + dir / 100)));
+    setPick(null);
+    onPriceChange(applyPrice(next));
+  }
+
+  const showLast = !steppers && last > 0;
+  const showBid = !steppers && highBid > 0;
+  const showRefs = market > 0 || lowest > 0 || showLast || showBid;
+
+  if (steppers && !suggestions.ready) {
+    return (
+      <div className="tk-price tk-price--steppers">
+        <p className="tk-price__loading" role="status">
+          Loading market references…
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="tk-price">
-      {hasRefs ? (
+    <div className={cn("tk-price", steppers && "tk-price--steppers")}>
+      {showRefs ? (
         <div className="tk-price__refs">
           {lowest > 0 ? (
             <PriceRefRow
@@ -133,6 +160,7 @@ export function ListRwaPriceInput({
               amount={lowest}
               selected={refSelected(lowest)}
               disabled={disabled}
+              selectTone={steppers ? "line" : "fill"}
               onUse={applyLowestAsk}
             />
           ) : null}
@@ -142,10 +170,11 @@ export function ListRwaPriceInput({
               amount={market}
               selected={refSelected(market)}
               disabled={disabled}
+              selectTone={steppers ? "line" : "fill"}
               onUse={applyMarketValue}
             />
           ) : null}
-          {last > 0 ? (
+          {showLast ? (
             <PriceRefRow
               label="Last sold"
               amount={last}
@@ -154,7 +183,7 @@ export function ListRwaPriceInput({
               onUse={() => setFromRef(last)}
             />
           ) : null}
-          {highBid > 0 ? (
+          {showBid ? (
             <PriceRefRow
               label="Highest bid"
               amount={highBid}
@@ -172,8 +201,12 @@ export function ListRwaPriceInput({
       ) : null}
 
       <div className="tk-price__your">
-        <span className="tk-price__ref-lbl">Your listing price</span>
-        {lowest > 0 ? (
+        <span className="tk-price__ref-lbl">
+          {steppers && highBid > 0 ? "Highest bid price" : "Your listing price"}
+        </span>
+        {steppers ? (
+          <span className="tk-price__chg">Chg. price ±1%</span>
+        ) : lowest > 0 ? (
           <span className="tk-price__offset-badge">{offsetBadge}</span>
         ) : null}
       </div>
@@ -196,9 +229,31 @@ export function ListRwaPriceInput({
             onPriceChange(applyPrice(parsePriceInput(e.target.value)));
           }}
         />
+        {steppers ? (
+          <span className="tk-price__steps">
+            <button
+              type="button"
+              className="tk-price__step"
+              aria-label="Decrease 1%"
+              disabled={disabled}
+              onClick={() => stepByPercent(-1)}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className="tk-price__step"
+              aria-label="Increase 1%"
+              disabled={disabled}
+              onClick={() => stepByPercent(1)}
+            >
+              +
+            </button>
+          </span>
+        ) : null}
       </div>
 
-      {baseVal > 0 ? (
+      {!steppers && baseVal > 0 ? (
         <div className="tk-price__chips">
           {ADJUST_PCTS.map((p) => {
             const label = p === 0 ? "Market" : p > 0 ? `+${p}%` : `${p}%`;
@@ -255,6 +310,7 @@ function PriceRefRow({
   selected,
   disabled,
   bid,
+  selectTone = "fill",
   onUse,
 }: {
   label: string;
@@ -262,14 +318,17 @@ function PriceRefRow({
   selected: boolean;
   disabled: boolean;
   bid?: boolean;
+  /** Portfolio.html keeps Use blue and outlines the row. */
+  selectTone?: "fill" | "line";
   onUse: () => void;
 }) {
+  const lined = selectTone === "line";
   return (
     <div
       className={cn(
         "tk-price__ref",
         bid && "tk-price__ref--bid-tone",
-        selected && "tk-price__ref--on",
+        selected && (lined ? "tk-price__ref--sel" : "tk-price__ref--on"),
       )}
     >
       <span className="tk-price__ref-lbl">
@@ -287,7 +346,10 @@ function PriceRefRow({
         </span>
         <button
           type="button"
-          className={cn("tk-price__use", selected && "tk-price__use--on")}
+          className={cn(
+            "tk-price__use",
+            selected && (lined ? "tk-price__use--checked" : "tk-price__use--on"),
+          )}
           disabled={disabled}
           onClick={onUse}
         >

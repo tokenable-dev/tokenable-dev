@@ -202,7 +202,7 @@ export function MarketplaceAdminCreateCollectionPanel({
           between calls to respect PSA rate limits.
         </p>
         <textarea
-          className={`mt-2 min-h-[120px] w-full ${ADMIN_INPUT_MONO} text-sm`}
+          className={`mt-2 min-h-[120px] w-full ${ADMIN_INPUT_MONO} text-base`}
           placeholder="161820328 137244794 …"
           value={batchInput}
           disabled={batchBusy || busy}

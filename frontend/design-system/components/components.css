@@ -370,7 +370,7 @@ select.tk-input{appearance:none;-webkit-appearance:none;padding-right:38px;curso
 }
 .tk-search-field--compact .tk-search-field__input.tk-input{
   padding:0 16px 0 40px;
-  font-size:var(--tk-ui-fs-body-lg);
+  font-size:16px;
   line-height:44px;
   box-shadow:inset 0 0 0 1px rgba(0,0,20,0.1);
 }

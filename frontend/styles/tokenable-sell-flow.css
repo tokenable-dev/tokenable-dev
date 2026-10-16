@@ -705,7 +705,7 @@
   border-radius: 12px;
   box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.12);
   color: #18181b;
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   letter-spacing: 0.04em;
   outline: none;
   box-sizing: border-box;
@@ -1918,7 +1918,7 @@
   border-radius: 12px;
   box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.12);
   color: #18181b;
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   letter-spacing: 0.04em;
   outline: none;
 }
@@ -3567,7 +3567,7 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px !important;
   color: #18181b !important;
   font-family: var(--font-mono, ui-monospace, monospace) !important;
-  font-size: var(--tk-ui-fs-section) !important;
+  font-size: 16px !important;
   box-shadow: none !important;
   clip-path: none !important;
   filter: none !important;
@@ -3577,7 +3577,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-track-box select.tk-input,
 .sell-flow-page .sell-ship-track-box input[type="date"].tk-input {
   font-family: var(--font-sans, system-ui, sans-serif) !important;
-  font-size: var(--tk-ui-fs-body-lg) !important;
+  font-size: 16px !important;
 }
 
 .sell-flow-page .sell-ship-return__fields .tk-input:hover:not(:disabled),

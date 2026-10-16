@@ -338,7 +338,7 @@
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
 }
 
 .markets-fsearch input::placeholder {
@@ -561,7 +561,7 @@
   background: rgba(255, 255, 255, 0.9);
   color: #111;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: 16px;
   padding: 0 10px;
   outline: none;
 }

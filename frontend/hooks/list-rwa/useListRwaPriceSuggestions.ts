@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { formatUnits } from "viem";
 import {
   getMarketplaceCollectionDetailOrNull,
   getResolvedRwaAsset,
@@ -12,6 +13,7 @@ import {
   postTokenCollectionKeysByTokenIds,
   rq,
   type CollectionPlatformTapeFill,
+  type Order,
 } from "@/lib/core";
 import {
   extractBucketComponentsFromMetadata,
@@ -28,8 +30,35 @@ import {
 } from "@/lib/market";
 import { countableTapeFills } from "@/lib/market/tradesVolume";
 import { bestAskFromRows } from "@/lib/marketplace/unified-order-book";
+import { normalizeDecimalTokenId } from "@/lib/marketplace";
+import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
+import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
+import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
 
 const SUGGESTIONS_TRADE_LIMIT = 8;
+
+/** Top active bid that can fill this token — same match as the set-price modal. */
+function highestBidUsdForToken(
+  bids: Order[] | undefined,
+  tokenId: number,
+): number | null {
+  if (!bids?.length) return null;
+  const tokenIdNorm = normalizeDecimalTokenId(tokenId);
+  let best = BigInt(0);
+  for (const bid of bids) {
+    if (bid.status !== "active") continue;
+    if (isTokenBidOrder(bid)) {
+      if (tokenBidTargetTokenId(bid) !== tokenIdNorm) continue;
+    } else if (!isCriteriaCollectionBid(bid)) {
+      continue;
+    }
+    const amount = bidUsdcAmount(bid);
+    if (amount > best) best = amount;
+  }
+  if (best <= BigInt(0)) return null;
+  const usd = Number(formatUnits(best, 6));
+  return Number.isFinite(usd) && usd > 0 ? usd : null;
+}
 
 export function useListRwaPriceSuggestions(input: {
   tokenId: number;
@@ -40,16 +69,17 @@ export function useListRwaPriceSuggestions(input: {
   const tokenIdOk = Number.isFinite(tokenId) && tokenId >= 0;
   const rqChainId = activeRqChainId();
 
-  const { data: metaBundle } = useQuery({
+  const metaQuery = useQuery({
     queryKey: rq.rwaAssetDetail(tokenId, rqChainId),
     queryFn: () => getResolvedRwaAsset(tokenId),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.metadataDetailStaleMs,
   });
 
+  const metaBundle = metaQuery.data;
   const metadata = metaBundle?.metadata ?? null;
 
-  const { data: serverCollectionKey } = useQuery({
+  const serverKeyQuery = useQuery({
     queryKey: rq.tokenCollectionKey(tokenId, rqChainId),
     queryFn: async () => {
       const map = await postTokenCollectionKeysByTokenIds([tokenId]);
@@ -59,7 +89,9 @@ export function useListRwaPriceSuggestions(input: {
     staleTime: 60_000,
   });
 
-  const { data: metadataDerivedCollectionKey } = useQuery({
+  const serverCollectionKey = serverKeyQuery.data;
+
+  const derivedKeyQuery = useQuery({
     queryKey: rq.rwaBucketKey(tokenId, metaBundle?.tokenURI, rqChainId),
     queryFn: async () => {
       const meta = metaBundle?.metadata;
@@ -73,6 +105,8 @@ export function useListRwaPriceSuggestions(input: {
     enabled: enabled && tokenIdOk && !!metaBundle?.metadata && !collectionKeyProp,
     staleTime: 60_000,
   });
+
+  const metadataDerivedCollectionKey = derivedKeyQuery.data;
 
   const candidateCollectionKey =
     collectionKeyProp?.trim().toLowerCase() ||
@@ -93,19 +127,23 @@ export function useListRwaPriceSuggestions(input: {
   const chainId = activeRqChainId();
 
   /** Cert-based trades for this token — no collection row or bootstrap required. */
-  const { data: tradesPack, isLoading: tradesLoading } = useQuery({
+  const tradesQuery = useQuery({
     queryKey: rq.rwaTokenTrades(tokenId, chainId, gradeLabel),
     queryFn: () => getRwaTokenTrades(tokenId, { grade: gradeLabel }),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
-  const { data: collectionDetail, isLoading: collectionDetailLoading } = useQuery({
+  const tradesPack = tradesQuery.data;
+
+  const collectionDetailQuery = useQuery({
     queryKey: rq.collectionDetail(candidateCollectionKey ?? "", chainId),
     queryFn: () => getMarketplaceCollectionDetailOrNull(candidateCollectionKey!),
     enabled: enabled && tokenIdOk && Boolean(candidateCollectionKey),
     staleTime: marketplaceRqPolicy.collectionDetailStaleMs,
   });
+
+  const collectionDetail = collectionDetailQuery.data;
 
   const persistedCollectionKey = collectionDetail
     ? candidateCollectionKey?.toLowerCase() ?? null
@@ -120,7 +158,7 @@ export function useListRwaPriceSuggestions(input: {
     };
   }, [bucketComponents, collectionDetail?.collection?.components]);
 
-  const { data: snapshotPack, isLoading: snapshotLoading } = useQuery({
+  const snapshotQuery = useQuery({
     queryKey: rq.collectionSnapshots(
       rqChainId,
       persistedCollectionKey ? [persistedCollectionKey] : [],
@@ -132,6 +170,8 @@ export function useListRwaPriceSuggestions(input: {
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
+  const snapshotPack = snapshotQuery.data;
+
   const collectionSnapshot = useMemo(() => {
     if (!persistedCollectionKey) return undefined;
     return snapshotPack?.items?.find(
@@ -139,13 +179,14 @@ export function useListRwaPriceSuggestions(input: {
     );
   }, [snapshotPack?.items, persistedCollectionKey]);
 
-  const { data: mintPreviewPack, isLoading: mintPreviewLoading } = useQuery({
+  const mintPreviewQuery = useQuery({
     queryKey: ["list-rwa-mint-preview", rqChainId, tokenId] as const,
     queryFn: () => postBatchMintMarketPreviews([tokenId]),
     enabled: enabled && tokenIdOk,
     staleTime: marketplaceRqPolicy.snapshotsStaleMs,
   });
 
+  const mintPreviewPack = mintPreviewQuery.data;
   const mintPreview = mintPreviewPack?.[tokenId] ?? null;
 
   const marketPriceUsd = useMemo(() => {
@@ -213,11 +254,25 @@ export function useListRwaPriceSuggestions(input: {
       .slice(0, SUGGESTIONS_TRADE_LIMIT);
   }, [tradesPack?.trades]);
 
-  const loading =
-    tradesLoading ||
-    mintPreviewLoading ||
-    (Boolean(candidateCollectionKey) && collectionDetailLoading) ||
-    (Boolean(persistedCollectionKey) && snapshotLoading);
+  const hasPropKey = Boolean(collectionKeyProp?.trim());
+  const derivedKeyNeeded = !hasPropKey && Boolean(metaBundle?.metadata);
+  const collectionKeySettled =
+    hasPropKey ||
+    (serverKeyQuery.isFetched &&
+      metaQuery.isFetched &&
+      (!derivedKeyNeeded || derivedKeyQuery.isFetched));
+
+  const referencesReady =
+    !enabled ||
+    !tokenIdOk ||
+    (metaQuery.isFetched &&
+      tradesQuery.isFetched &&
+      mintPreviewQuery.isFetched &&
+      collectionKeySettled &&
+      (!candidateCollectionKey || collectionDetailQuery.isFetched) &&
+      (!persistedCollectionKey || snapshotQuery.isFetched));
+
+  const loading = enabled && tokenIdOk && !referencesReady;
 
   const hasAnyReference =
     marketPriceUsd != null ||
@@ -232,7 +287,13 @@ export function useListRwaPriceSuggestions(input: {
     lowestAskUsd,
     lastTokenableTradeUsd,
     recentTrades,
+    highestBidUsd: highestBidUsdForToken(
+      collectionDetail?.collectionBids,
+      tokenId,
+    ),
     loading,
+    /** True once every reference query that will run has settled. */
+    ready: referencesReady,
     hasAnyReference,
   };
 }

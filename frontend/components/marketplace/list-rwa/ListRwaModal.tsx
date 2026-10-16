@@ -6,7 +6,10 @@ import { TkActionSheet } from "@/components/ds";
 import { guardCloseWhileBusy } from "@/components/common/OpenGatedMount";
 import { cn } from "@/lib/ds/cn";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
-import { ListRwaModalFormView } from "@/components/marketplace/list-rwa/ListRwaModalFormView";
+import {
+  ListRwaModalFormActions,
+  ListRwaModalFormView,
+} from "@/components/marketplace/list-rwa/ListRwaModalFormView";
 import { ListRwaModalSuccessView } from "@/components/marketplace/list-rwa/ListRwaModalSuccessView";
 import { useListRwaModal } from "@/hooks/list-rwa";
 import type { ListRwaModalProps } from "@/lib/seaport/listing/listRwaModalTypes";
@@ -228,7 +231,18 @@ function ListRwaModalBody({
             >
               <span aria-hidden>×</span>
             </button>
-            <ListRwaModalFormView {...formProps} />
+            <ListRwaModalFormView {...formProps} hideActions />
+          </div>
+          <div className="tk-set-price-modal__actions">
+            <ListRwaModalFormActions
+              ctaLabel={ctaLabel}
+              sellingNow={sellingNow}
+              isProcessing={modal.isProcessing}
+              price={modal.price}
+              onSubmit={() => void modal.handleList()}
+              isSetPrice
+              onClose={requestClose}
+            />
           </div>
         </div>
       </div>,

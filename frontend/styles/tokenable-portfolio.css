@@ -245,19 +245,21 @@
   overflow: visible;
 }
 
-/* Items / Bids / Transactions — floating bar; pixel frame only (DS `.tk-tabs` shell). */
+/* Items / Bids / Transactions — top of the sheet: 16px top radius, square bottom, hairline. */
 .portfolio-page .portfolio-page__tabs.tk-tabs {
   display: flex;
   align-items: center;
+  align-self: stretch;
   justify-content: flex-start;
   width: 100%;
   gap: 0;
   height: 52px;
-  background: #191919;
-  border-radius: 0;
-  clip-path: var(--pixel-notch-lg);
+  background: var(--color-carbon, #191919);
+  border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) 0 0;
+  clip-path: none;
   padding: 0 8px;
   border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
   margin-bottom: 12px;
   overflow: hidden;
@@ -432,7 +434,7 @@
   border-radius: 9px;
   color: #fff;
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 16px;
   padding: 0 12px 0 38px;
   outline: none;
   box-sizing: border-box;
@@ -443,7 +445,7 @@
   color: transparent;
   caret-color: transparent;
   padding: 0;
-  /* Icon tap opens via the wrapper — avoid focusing at 14px before `.open`. */
+  /* Icon tap opens via the wrapper — avoid focusing before `.open`. */
   pointer-events: none;
 }
 
@@ -652,7 +654,7 @@
   color: #fff;
   border: 1px solid rgba(255, 255, 255, 0.09);
   font-family: var(--font-sans);
-  font-size: 13.5px;
+  font-size: 16px;
   font-weight: 600;
   padding: 0 32px 0 14px;
   border-radius: 9px;
@@ -695,6 +697,7 @@
   outline: 0;
   color: #fff;
   font: inherit;
+  font-size: 16px;
   padding: 0;
   margin: 0;
   cursor: pointer;
@@ -1018,7 +1021,7 @@
   border-radius: 9px;
   color: #fff;
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   padding: 0 34px 0 12px;
   outline: none;
   cursor: pointer;
@@ -1046,7 +1049,7 @@
   border-radius: 9px;
   color: #fff;
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
   padding: 0 10px;
 }
 
@@ -1067,7 +1070,7 @@
   min-width: 0;
   padding: 0 28px 0 10px;
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
   font-weight: 400;
   color: #fff;
   background: #141414;
@@ -1109,7 +1112,7 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 9px;
   color: #fff;
-  font-size: var(--tk-ui-fs-body-sm);
+  font-size: 16px;
   padding: 0 8px;
 }
 
@@ -1958,7 +1961,7 @@ button.pf-table-card-cell--activate {
   width: 120px;
   padding: 6px 8px 6px 20px;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
   text-align: right;
 }
 
@@ -2879,10 +2882,32 @@ button.pf-table-card-cell--activate {
 }
 
 .pf-gtile__media img {
-  width: 82%;
-  height: 92%;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
+  object-position: center;
+  padding: 8px;
+  box-sizing: border-box;
   display: block;
+  transition: opacity 0.15s, filter 0.15s;
+}
+
+.pf-gtile[data-seg="notlisted"] .pf-gtile__media img {
+  opacity: 0.38;
+  filter: grayscale(0.7);
+}
+
+.pf-gtile[data-seg="notlisted"]:hover .pf-gtile__media img {
+  opacity: 0.6;
+}
+
+.pf-gtile[data-seg="shipping"] .pf-gtile__media img {
+  opacity: 0.5;
+  filter: grayscale(0.5);
+}
+
+.pf-gtile[data-seg="notlisted"] .pf-gtile__title {
+  color: rgba(255, 255, 255, 0.62);
 }
 
 /* KBW event pack — fixed aspect frame so unused/redeemed art match (no transform). */
@@ -2944,6 +2969,21 @@ button.pf-table-card-cell--activate {
   padding: 3px 8px;
   border-radius: 4px;
   white-space: nowrap;
+}
+
+.pf-gbadge--lifecycle {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 5px 10px;
+  border-radius: 7px;
+  background: #f59e0b;
+  color: #1a1102;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .pf-gbadge--notlisted {
@@ -3015,12 +3055,21 @@ button.pf-table-card-cell--activate {
 
 .pf-gtile__title {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 14px;
   font-weight: 600;
   color: #fff;
-  --cd-line1-lh: 1.35;
+  line-height: 1.35;
+  min-height: 2.7em;
   min-width: 0;
   overflow: hidden;
+}
+
+.pf-gtile__title-name,
+.pf-gtile__title-grade {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .pf-gtile__meta {
@@ -3151,7 +3200,7 @@ button.pf-table-card-cell--activate {
 }
 
 .pf-gtile .pf-cost-hover .pf-cost-edit-input {
-  font-size: var(--tk-ui-fs-label);
+  font-size: 16px;
   height: 22px;
   padding: 0 6px 0 14px;
 }
@@ -3163,6 +3212,36 @@ button.pf-table-card-cell--activate {
 
 .pf-gtile__act {
   margin-top: 0;
+}
+
+.pf-gact--empty {
+  height: 38px;
+}
+
+.pf-gstatus {
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b9aff;
+  text-decoration: none;
+}
+
+.pf-gcap {
+  height: 16px;
+  margin-top: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pf-gcap__amt {
+  font-family: var(--font-mono);
 }
 
 .pf-gact.pf-gfield {
@@ -3193,7 +3272,7 @@ button.pf-table-card-cell--activate {
   background: transparent;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
   font-weight: 600;
 }
 
@@ -3246,7 +3325,7 @@ button.pf-table-card-cell--activate {
   }
 
   .portfolio-page .pf-gtile__title {
-    font-size: 12.5px;
+    font-size: 13px;
   }
 
   .portfolio-page .pf-gval span:first-child {
@@ -3263,7 +3342,7 @@ button.pf-table-card-cell--activate {
   }
 
   .portfolio-page .pf-gtile__act .pf-gfield input {
-    font-size: 12px;
+    font-size: 16px;
   }
 
   .portfolio-page .pf-gtile__act .pf-gfield input::placeholder {
@@ -3650,7 +3729,7 @@ button.pf-table-card-cell--activate {
   /* iOS Safari zooms focused inputs under 16px — keep cost-basis editor at 16px. */
   .portfolio-page .pf-cost-edit-input,
   .pf-gtile .pf-cost-hover .pf-cost-edit-input {
-    font-size: var(--tk-ui-fs-section) !important;
+    font-size: 16px !important;
     min-height: 40px;
     height: 40px;
     padding: 6px 8px 6px 22px !important;
@@ -3705,15 +3784,15 @@ button.pf-table-card-cell--activate {
     padding-top: 0;
   }
 
-  /* ≤768 — same floating tab bar; sticky scroll inside shell (no full-bleed strip). */
+  /* ≤768 — same sheet-top tab bar; sticky scroll inside shell (no full-bleed strip). */
   .portfolio-page .portfolio-page__tabs.tk-tabs {
     width: 100%;
     margin-left: 0;
     margin-right: 0;
     margin-bottom: 4px;
     padding: 0 8px;
-    border-radius: 0;
-    clip-path: var(--pixel-notch-lg);
+    border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) 0 0;
+    clip-path: none;
     box-shadow: none;
     flex-wrap: nowrap;
   }
@@ -3811,7 +3890,7 @@ button.pf-table-card-cell--activate {
     width: 100%;
     box-sizing: border-box;
     /* iOS zooms the page if focused inputs are under 16px. */
-    font-size: var(--tk-ui-fs-section);
+    font-size: 16px;
     height: 40px;
     padding: 6px 8px 6px 22px;
   }

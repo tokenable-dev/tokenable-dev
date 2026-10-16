@@ -238,11 +238,20 @@ export class CollectionCoverService {
    * on catalog S3. Tries ranked candidates and skips tiny Cardhedger thumbs
    * (~180px). Falls back to the best remote URL when S3 is not configured or
    * ingest fails (listing must not block).
+   *
+   * If this collection already has a cover, return it and do not PutObject.
+   * Re-ask used to overwrite the stable `…/cover` key with catalog art even
+   * when the DB URL was left unchanged.
    */
   async resolveCoverUrlForNewCollection(
     collectionKey: string,
     meta: Record<string, unknown>,
+    chainId?: SupportedChainId,
   ): Promise<string | null> {
+    const existing = await this.findOne(collectionKey, chainId);
+    const current = existing?.coverImageUrl?.trim() ?? '';
+    if (current) return current;
+
     const ranked = await this.resolveRankedCatalogImageUrlsFromMeta(meta);
     if (ranked.length === 0) return null;
     if (!this.catalogCoverS3.isConfigured()) return ranked[0] ?? null;

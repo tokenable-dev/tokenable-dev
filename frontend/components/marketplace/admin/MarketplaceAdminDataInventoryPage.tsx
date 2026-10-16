@@ -570,7 +570,7 @@ export function MarketplaceAdminDataInventoryPage() {
           <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-zinc-700">
             네트워크
             <select
-              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-base"
               value={resetChainId ?? ""}
               disabled={!resetTargets.data?.length || resetMutation.isPending}
               onChange={(e) => {
@@ -590,7 +590,7 @@ export function MarketplaceAdminDataInventoryPage() {
           <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs font-medium text-zinc-700">
             지울 컨트랙트 주소
             <input
-              className="h-9 rounded-md border border-zinc-300 bg-white px-2 font-mono text-sm"
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 font-mono text-base"
               value={resetAddress}
               spellCheck={false}
               disabled={resetMutation.isPending}
@@ -682,7 +682,7 @@ export function MarketplaceAdminDataInventoryPage() {
           <label className="flex min-w-[140px] flex-col gap-1 text-xs font-medium text-zinc-700">
             네트워크
             <select
-              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-sm"
+              className="h-9 rounded-md border border-zinc-300 bg-white px-2 text-base"
               value={resetChainId ?? ""}
               disabled={
                 !resetTargets.data?.length ||

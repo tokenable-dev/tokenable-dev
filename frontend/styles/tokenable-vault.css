@@ -79,7 +79,7 @@
   background: #141414;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   line-height: normal;
   outline: none;
   appearance: none;
@@ -104,12 +104,12 @@
 
 .vault-page--submit .vault-form-input--md {
   height: 48px;
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
 }
 
 .vault-page--submit .vault-form-input--sm {
   height: 38px;
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
 }
 
 .vault-page--submit .vault-form-input[type="number"] {
@@ -1057,7 +1057,7 @@
   border-radius: 10px;
   color: #fff;
   font-family: inherit;
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   outline: none;
 }
 
@@ -1405,12 +1405,12 @@
 
 .vault-form-input--md {
   height: 48px;
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
 }
 
 .vault-form-input--sm {
   height: 38px;
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
 }
 
 .vault-est-value-wrap {
@@ -1621,7 +1621,7 @@
   border-radius: 12px;
   color: #fff;
   font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -2196,7 +2196,7 @@
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   color: #fff;
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -2207,13 +2207,13 @@
 
 .vault-ship-input--date {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   color-scheme: dark;
 }
 
 .vault-ship-select {
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='rgba(255,255,255,0.4)' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
@@ -2464,7 +2464,7 @@
   border-radius: 12px;
   color: #fff;
   font-family: inherit;
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   outline: none;
 }
 
@@ -3758,7 +3758,7 @@
   border-radius: 10px;
   color: #fff;
   font-family: inherit;
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
   outline: none;
 }
 

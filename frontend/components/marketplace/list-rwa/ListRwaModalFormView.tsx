@@ -140,7 +140,7 @@ export function ListRwaModalFormView({
               : `flex gap-3 ${isSheet ? "pb-3" : "border-b border-white/[0.06] pb-4"}`
           }
         >
-          <div className="min-w-0 flex-1 space-y-2">
+          <div className={setPriceModal ? "min-w-0 flex-1" : "min-w-0 flex-1 space-y-2"}>
             <p
               className={
                 isSetPrice || isSheet
@@ -170,7 +170,9 @@ export function ListRwaModalFormView({
               <p className="text-[11px] font-medium text-white/45">{vaultLabel}</p>
             ) : null}
           </div>
-          {!isSheet ? <div className="w-7 shrink-0 sm:w-8" aria-hidden /> : null}
+          {!isSheet && !setPriceModal ? (
+            <div className="w-7 shrink-0 sm:w-8" aria-hidden />
+          ) : null}
         </header>
       ) : null}
 
@@ -202,6 +204,7 @@ export function ListRwaModalFormView({
             ? Number(topCollectionBid.inputValue)
             : null
         }
+        steppers={setPriceModal}
       />
 
       {!isSetPrice && crossingBidsForInstantSale.length >= 1 && selectedBidHash ? (

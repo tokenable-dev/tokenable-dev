@@ -223,13 +223,13 @@ function ShipmentTrackingBlock({
       {!allTracked ? (
         <div className="grid gap-1 sm:grid-cols-2">
           <input
-            className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+            className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
             value={tracking}
             onChange={(e) => setTracking(e.target.value)}
             placeholder="Tracking #"
           />
           <input
-            className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+            className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
             value={carrier}
             onChange={(e) => setCarrier(e.target.value)}
             placeholder="Carrier (FedEx, UPS, USPS…)"
@@ -274,7 +274,7 @@ function ShipmentTrackingBlock({
           </p>
           <div className="grid gap-1 sm:grid-cols-[1fr_auto]">
             <input
-              className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+              className="w-full rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
               placeholder="Carrier (FedEx, UPS, USPS…)"
@@ -440,7 +440,7 @@ function RedeemOrderCardBody({
         <label className="block text-xs text-zinc-600">
           Admin memo{multi ? " (whole order)" : ""}
           <textarea
-            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-sm text-zinc-900"
+            className="mt-1 w-full rounded-md border border-zinc-300 px-2 py-1.5 text-base text-zinc-900"
             rows={2}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}

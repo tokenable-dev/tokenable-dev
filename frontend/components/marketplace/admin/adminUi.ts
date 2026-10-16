@@ -37,9 +37,9 @@ export const ADMIN_LABEL =
   `mb-1.5 block text-xs font-medium ${ADMIN_TEXT_SECONDARY}`;
 
 export const ADMIN_INPUT =
-  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-[var(--brand-500)] focus:ring-2 focus:ring-[var(--brand-500)]/20 sm:text-sm";
+  "w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 outline-none transition-colors placeholder:text-zinc-500 focus:border-[var(--brand-500)] focus:ring-2 focus:ring-[var(--brand-500)]/20";
 
-export const ADMIN_INPUT_MONO = `${ADMIN_INPUT} font-mono sm:text-[13px]`;
+export const ADMIN_INPUT_MONO = `${ADMIN_INPUT} font-mono`;
 
 export const ADMIN_INPUT_DANGER =
   `${ADMIN_INPUT_MONO} border-red-900/60 focus:border-red-500/60`;

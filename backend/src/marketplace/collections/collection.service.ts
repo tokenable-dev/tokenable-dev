@@ -412,6 +412,7 @@ export class CollectionService {
     const coverImageUrl = await this.cover.resolveCoverUrlForNewCollection(
       collectionKey,
       coverMeta,
+      opts.chainId,
     );
 
     const compRecord: Record<string, unknown> = {

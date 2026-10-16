@@ -489,3 +489,13 @@ body {
     box-shadow: 0 28px 70px rgba(0, 0, 0, 0.85);
   }
 }
+
+/*
+ * iOS Safari zooms the page when a focused text field is under 16px.
+ * This only sets the default. Rules that size a field at 16px or larger still win.
+ */
+input,
+textarea,
+select {
+  font-size: 16px;
+}

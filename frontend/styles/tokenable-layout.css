@@ -313,7 +313,7 @@
 }
 
 .tk-header .tk-input {
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 16px;
 }
 
 /* index.html: .gnb-right { display:flex; align-items:center; gap:12px; position:relative } */
@@ -1186,7 +1186,8 @@
   background: rgba(255, 255, 255, 0.08);
   color: #fff;
   font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-section);
+  /* iOS Safari zooms the page when a focused input is under 16px. */
+  font-size: 16px;
   padding: 0 16px;
   border-radius: 8px;
   outline: none;
@@ -1621,7 +1622,7 @@ body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
   border-radius: 12px;
   color: var(--tka-text);
   font-family: var(--font-sans, system-ui, sans-serif);
-  font-size: var(--tk-ui-fs-section);
+  font-size: 16px;
   outline: none;
   box-sizing: border-box;
 }

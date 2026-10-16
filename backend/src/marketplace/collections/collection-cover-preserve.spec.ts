@@ -39,4 +39,37 @@ describe('CollectionCoverService.upgradeCoverFromMetaIfBetter preserve', () => {
     expect(catalogCoverS3.ingestBestRemoteImage).not.toHaveBeenCalled();
     expect(catalogCoverS3.downloadRemoteImage).not.toHaveBeenCalled();
   });
+
+  it('does not re-ingest S3 when the collection already has a cover', async () => {
+    const findOne = jest.fn().mockResolvedValue({
+      collectionKey: 'abc',
+      coverImageUrl: existing,
+    });
+    const catalogCoverS3 = {
+      isConfigured: jest.fn().mockReturnValue(true),
+      getPublicBaseUrl: jest.fn().mockReturnValue('https://cdn.example.com'),
+      ingestBestRemoteImage: jest.fn(),
+    };
+    const chainConfig = {
+      getDefaultChainId: jest.fn().mockReturnValue(11155111),
+      getRwaAddress: jest.fn().mockReturnValue('0xrwa1'),
+    };
+    const svc = new CollectionCoverService(
+      { findOne, update: jest.fn() } as never,
+      {} as never,
+      chainConfig as never,
+      { assertConfigured: jest.fn(), forwardJson: jest.fn() } as never,
+      {} as never,
+      catalogCoverS3 as never,
+    );
+
+    const out = await svc.resolveCoverUrlForNewCollection('abc', {
+      properties: {
+        graded: { cardhedger: { imageUrl: 'https://cdn.bubble.io/x/crop_image' } },
+      },
+    });
+
+    expect(out).toBe(existing);
+    expect(catalogCoverS3.ingestBestRemoteImage).not.toHaveBeenCalled();
+  });
 });

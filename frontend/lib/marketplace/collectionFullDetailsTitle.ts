@@ -1,3 +1,4 @@
+import { isSportCategoryLeagueDisplayLabel } from "@/lib/market/sportCategoryDisplay";
 import {
   bucketCardNameForDisplay,
   bucketCardSetForDisplay,
@@ -65,10 +66,12 @@ export function toCardDisplayCase(value: string | null | undefined): string {
     "ur",
     "hr",
     "bsp",
+    "tcg",
   ]);
 
   const mapPart = (part: string): string => {
     if (!part) return part;
+    if (isSportCategoryLeagueDisplayLabel(part)) return part.toUpperCase();
     if (/[a-z]/.test(part)) return part;
     const lower = part.toLowerCase();
     if (acronyms.has(lower)) {
