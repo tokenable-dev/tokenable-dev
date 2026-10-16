@@ -87,6 +87,7 @@ describe('PortfolioHoldingService', () => {
   };
 
   const registryCreatedAt = new Map<string, Date>();
+  const registryMintTx = new Map<string, string>();
   const rwaTokenRepo = {
     find: jest.fn(
       async ({
@@ -101,8 +102,9 @@ describe('PortfolioHoldingService', () => {
         return ids
           .map((tid) => {
             const createdAt = registryCreatedAt.get(String(tid));
-            if (!createdAt) return null;
-            return { tokenId: String(tid), createdAt };
+            const mintTxHash = registryMintTx.get(String(tid)) ?? null;
+            if (!createdAt && !mintTxHash) return null;
+            return { tokenId: String(tid), createdAt, mintTxHash };
           })
           .filter(Boolean);
       },
@@ -113,6 +115,7 @@ describe('PortfolioHoldingService', () => {
     rows.clear();
     nextId = 1;
     registryCreatedAt.clear();
+    registryMintTx.clear();
     jest.clearAllMocks();
 
     const moduleRef = await Test.createTestingModule({
@@ -212,8 +215,18 @@ describe('PortfolioHoldingService', () => {
         costBasisUsd: null,
         costBasisSource: null,
         acquiredAt: mintedAt.toISOString(),
+        mintTxHash: null,
       },
     ]);
+  });
+
+  it('returns the confirmed mint tx hash from rwa_tokens', async () => {
+    const hash =
+      '0x0d378eac7721c2720773dea9388c0733164180291659269804ebaee3f4b05c6d';
+    registryMintTx.set('48', hash);
+
+    const batch = await service.getHoldingsBatch(WALLET, [48]);
+    expect(batch[0]?.mintTxHash).toBe(hash);
   });
 
   it('unhide keeps acquisition-only rows', async () => {

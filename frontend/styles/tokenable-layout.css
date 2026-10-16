@@ -1459,12 +1459,12 @@ body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
   display: none !important;
 }
 
-/* ── Footer (Phase 2) ─────────────────────────────────────────────────── */
+/* ── Footer (tk-footer.js) ────────────────────────────────────────────── */
 
 .tk-footer {
   margin-top: auto;
-  background: var(--ink-2);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: #0e0e0e;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .tk-footer__inner {
@@ -1480,38 +1480,58 @@ body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
 .tk-footer__brand {
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  align-items: flex-start;
+  gap: 6px;
+  align-items: center;
 }
 
 .tk-footer__brand img {
-  height: 22px;
+  height: 26px;
   width: auto;
 }
 
 .tk-footer__copy {
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body-sm);
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.04em;
-  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  letter-spacing: 0.02em;
+  text-align: center;
 }
 
 .tk-footer__nav {
   display: flex;
-  gap: 28px;
+  gap: 32px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .tk-footer__nav .navlink {
   height: auto;
-  font-size: var(--tk-ui-fs-body);
+  font-size: 16px;
   font-weight: 500;
-  color: var(--t2);
+  color: rgba(255, 255, 255, 0.82);
 }
 
-.tk-footer__nav .navlink[aria-disabled="true"] {
-  cursor: default;
+.tk-footer__socials {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tk-footer__social {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.06);
+  transition: background 0.12s, color 0.12s;
+}
+
+.tk-footer__social:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
 }
 
 /* Collection detail: hide site footer on mobile so it doesn't sit under the trade bar.
@@ -1522,13 +1542,14 @@ body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767.98px) {
   .tk-footer__inner {
     flex-direction: column;
-    align-items: center;
+    justify-content: center;
     text-align: center;
-    gap: 20px;
-    padding: 36px 20px calc(28px + env(safe-area-inset-bottom, 0px));
+    gap: 40px;
+    padding-top: 44px;
+    padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px));
   }
 
   .tk-footer__brand {
@@ -1541,7 +1562,8 @@ body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
 
   .tk-footer__nav {
     justify-content: center;
-    gap: 20px;
+    order: -1;
+    gap: 28px;
   }
 }
 

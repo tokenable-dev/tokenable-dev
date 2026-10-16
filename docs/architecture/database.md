@@ -218,6 +218,7 @@ pending_deposit
 | `vault_cycle_id` | Links to vault lifecycle |
 | `vault_ref` | `keccak256(certNumber.toUpperCase())` — permanent, survives burn |
 | `burned_at` | Set on adminBurn |
+| `mint_tx_hash` | Confirmed mint transaction. Portfolio history reads this after `vault_cycles.mint_attempt` is cleared |
 | `settlement_policy` | `NULL` until mint registry (`recordMintResult`); then `standard` (PSA) or `self_vault_hold` (partner/self). Transfer-index stubs stay `NULL` — never invent PSA custody |
 | `vault_partner_id` | FK to `marketplace_partners` (admin / partner vault name; buyers see `Tokenable Vault`) |
 | `display_image_url` | Platform S3 slab front (mint or admin) |

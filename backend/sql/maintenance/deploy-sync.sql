@@ -1621,6 +1621,16 @@ COMMENT ON COLUMN users.email IS
   'Contact inbox (or @privy.wallet placeholder for MetaMask-only until set). Not globally unique.';
 
 
+-- ── add_rwa_tokens_mint_tx_hash.sql ──
+-- Keep the confirmed mint hash after vault_cycles.mint_attempt is cleared.
+
+ALTER TABLE rwa_tokens
+  ADD COLUMN IF NOT EXISTS mint_tx_hash varchar(80);
+
+COMMENT ON COLUMN rwa_tokens.mint_tx_hash IS
+  'Confirmed mint transaction hash. Portfolio history uses this after mint_attempt is cleared.';
+
+
 -- ── drop_partner_admin_bulk_mint_tables.sql ──
 -- Admin partner bulk mint+list removed — job tables were ops-only; minted NFTs
 -- and Seaport orders live in rwa_tokens / orders and are unchanged.

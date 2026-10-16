@@ -84,9 +84,6 @@ export function PortfolioValuePanel({
             </>
           )}
         </div>
-        {!totalsPending && changeState === "nodata" ? (
-          <p className="pf-value-hero__note">No change data yet</p>
-        ) : null}
       </div>
       {redeemHref ? (
         <Link

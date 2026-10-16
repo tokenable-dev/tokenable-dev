@@ -277,6 +277,7 @@ export function PortfolioPageView({
     valuesPending,
     costBasisByTokenId,
     acquiredAtByTokenId,
+    mintTxHashByTokenId,
     hiddenSet,
   } = assetsPage;
 
@@ -499,14 +500,22 @@ export function PortfolioPageView({
 
   const txRows = useMemo(() => {
     if (!portfolioAddress) return [];
-    const ownedMints: Array<{ tokenId: number; dateMs: number }> = [];
+    const ownedMints: Array<{
+      tokenId: number;
+      dateMs: number;
+      mintTxHash?: string | null;
+    }> = [];
     for (const tid of tokenIds) {
       if (hiddenSet.has(tid)) continue;
       const iso = acquiredAtByTokenId.get(tid);
       if (!iso) continue;
       const dateMs = Date.parse(iso);
       if (!Number.isFinite(dateMs)) continue;
-      ownedMints.push({ tokenId: tid, dateMs });
+      ownedMints.push({
+        tokenId: tid,
+        dateMs,
+        mintTxHash: mintTxHashByTokenId.get(tid) ?? null,
+      });
     }
     return buildPortfolioTxRows(
       fulfilledOrders,
@@ -526,6 +535,7 @@ export function PortfolioPageView({
     tokenIds,
     hiddenSet,
     acquiredAtByTokenId,
+    mintTxHashByTokenId,
     myRedemptionsQuery.data,
   ]);
 

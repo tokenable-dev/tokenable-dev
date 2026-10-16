@@ -122,13 +122,6 @@
   opacity: 0.9;
 }
 
-.pf-value-hero__note {
-  margin: 8px 0 0;
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-caption);
-  color: var(--t3);
-}
-
 /* Partner — Portfolio.html `#pf-redeem-link` (DS `tk-btn--primary` only). */
 .pf-value-hero__redeem.tk-btn.tk-btn--primary {
   flex-shrink: 0;
@@ -152,6 +145,24 @@
   font-size: 14px;
   font-weight: 700;
   line-height: 1;
+}
+
+/* Partner small screens: Redeem requests always sits under the value, even when the amount is short. */
+@media (max-width: 1024px) {
+  .portfolio-page--partner .pf-value-hero {
+    row-gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .portfolio-page--partner .pf-value-hero__main {
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+
+  .portfolio-page--partner .pf-value-hero__redeem.tk-btn.tk-btn--primary {
+    margin-top: 4px;
+    margin-bottom: 6px;
+  }
 }
 
 .pf-value-hero__skeleton {
@@ -261,7 +272,7 @@
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow: none;
-  margin-bottom: 12px;
+  margin-bottom: 0;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -321,7 +332,7 @@
 
 .portfolio-page__tabs .pf-tab-n {
   font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11.5px;
+  font-size: 12px;
   font-weight: 500;
   color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.08);
@@ -341,6 +352,21 @@
 .portfolio-page .portfolio-page__tabs .tk-tab.pf-tab:not(.tk-tab--active) .pf-tab-n {
   color: rgba(255, 255, 255, 0.5);
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* Portfolio.html typography-ui.css: this screen's --font-mono is Inter, with tnum + cv11. */
+.portfolio-page .portfolio-page__tabs,
+.portfolio-page #portfolio-panel-collectibles,
+.portfolio-page #portfolio-panel-bids,
+.portfolio-page #portfolio-panel-history {
+  --font-mono: var(--font-sans);
+}
+
+.portfolio-page .portfolio-page__tabs :is(button, input, select, textarea),
+.portfolio-page #portfolio-panel-collectibles :is(button, input, select, textarea),
+.portfolio-page #portfolio-panel-bids :is(button, input, select, textarea),
+.portfolio-page #portfolio-panel-history :is(button, input, select, textarea) {
+  font-feature-settings: inherit;
 }
 
 .portfolio-page__tabs .pf-redeem-toolbar-btn {
@@ -393,9 +419,9 @@
 .pf-tbar {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: nowrap;
-  padding: 0 4px 14px;
+  padding: 14px 0;
   margin: 0;
   width: 100%;
   box-sizing: border-box;
@@ -582,24 +608,34 @@
 }
 
 .pf-tbtn--ghost {
-  background: transparent;
-  border-color: transparent;
-  color: rgba(255, 255, 255, 0.62);
+  background: transparent !important;
+  border-color: transparent !important;
+  color: rgba(255, 255, 255, 0.62) !important;
 }
 
 .pf-tbtn--ghost:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.06);
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
 }
 
 .pf-tbtn--primary {
-  background: #1a6fff;
-  border-color: #1a6fff;
-  color: #fff;
+  background: #1a6fff !important;
+  border-color: #1a6fff !important;
+  color: #fff !important;
 }
 
 .pf-tbtn--primary:hover {
-  background: #2e80ff;
+  background: #2e80ff !important;
+}
+
+.pf-cl-bar .pf-tbtn--icon.pf-tbtn--ghost {
+  color: #fff !important;
+  background: rgba(255, 255, 255, 0.16) !important;
+  border: 1px solid rgba(255, 255, 255, 0.28) !important;
+}
+
+.pf-cl-bar .pf-tbtn--icon.pf-tbtn--ghost:hover {
+  background: rgba(255, 255, 255, 0.26) !important;
 }
 
 .pf-tbtn[disabled] {
@@ -729,39 +765,95 @@
 }
 
 @media (max-width: 1024px) {
-  #pf-assets-toolbar {
+  #pf-assets-toolbar,
+  #bids-tbar,
+  #hx-toolbar {
     flex-wrap: nowrap;
     gap: 8px;
+    overflow: visible;
   }
 
-  #pf-assets-toolbar .pf-tbar__spacer {
+  #pf-assets-toolbar .pf-tbar__spacer,
+  #bids-tbar .pf-tbar__spacer,
+  #hx-toolbar .pf-tbar__spacer {
     display: none;
   }
 
-  #pf-assets-toolbar .pf-tdrop {
+  #pf-assets-toolbar .pf-tdrop,
+  #bids-tbar .pf-tdrop,
+  #hx-toolbar .pf-tdrop {
     flex: 1 1 0;
     min-width: 0;
+    max-width: 240px;
     padding: 0 30px 0 12px;
     justify-content: flex-start;
   }
 
-  #pf-assets-toolbar .pf-tdrop__k {
+  #pf-assets-toolbar .pf-tdrop__k,
+  #bids-tbar .pf-tdrop__k {
     display: none;
   }
 
+  #hx-toolbar .pf-tdrop {
+    flex: none;
+    width: auto;
+    max-width: none;
+  }
+
   #pf-assets-toolbar .pf-tdrop select,
-  #pf-assets-toolbar .pf-tdrop--sort select {
+  #pf-assets-toolbar .pf-tdrop--sort select,
+  #bids-tbar .pf-tdrop select,
+  #hx-toolbar .pf-tdrop select {
     min-width: 0;
-    width: 100%;
+    width: auto;
+    height: 38px;
+    line-height: 38px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    /* 16px keeps iOS from zooming the page when the menu opens. */
+    font-size: 16px !important;
   }
 
   #pf-assets-toolbar > .pf-tbtn,
-  #pf-assets-toolbar #pf-hide-btn {
+  #pf-assets-toolbar #pf-hide-btn,
+  #bids-tbar > .pf-tbtn,
+  #hx-toolbar > .pf-tbtn {
     flex: none;
     padding: 0 12px;
+  }
+
+  /* Tap opens the menu only — the control stays the same size. */
+  #pf-assets-toolbar,
+  #bids-tbar,
+  #hx-toolbar,
+  #pf-assets-toolbar :is(.pf-tdrop, .pf-tbtn, select, button, .pf-tbar__search),
+  #bids-tbar :is(.pf-tdrop, .pf-tbtn, select, button, .pf-tbar__search),
+  #hx-toolbar :is(.pf-tdrop, .pf-tbtn, select, button, .pf-tbar__search) {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #pf-assets-toolbar :is(.pf-tdrop, .pf-tbtn),
+  #bids-tbar :is(.pf-tdrop, .pf-tbtn),
+  #hx-toolbar :is(.pf-tdrop, .pf-tbtn),
+  #pf-assets-toolbar :is(.pf-tdrop, .pf-tbtn):is(:active, :focus, :focus-within),
+  #bids-tbar :is(.pf-tdrop, .pf-tbtn):is(:active, :focus, :focus-within),
+  #hx-toolbar :is(.pf-tdrop, .pf-tbtn):is(:active, :focus, :focus-within) {
+    height: 38px;
+    min-height: 38px;
+    max-height: 38px;
+    transform: none;
+  }
+
+  /* Cancel/Hide stays in the toolbar row — same controls as the desktop bar. */
+  #pf-assets-toolbar.pf-tbar--select {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  #pf-assets-toolbar.pf-tbar--select::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -831,10 +923,6 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
-
-.portfolio-page .pf-cl-go {
-  height: 38px;
 }
 
 .pf-holdings-row--cl-on {
@@ -1205,14 +1293,16 @@ button.pf-table-card-cell--activate {
     left: 0;
     right: 0;
     top: 6px;
+    transform: none;
     width: auto;
     max-width: none;
+    height: 40px;
     z-index: 20;
     aspect-ratio: auto;
   }
 
   .pf-tbar__search.open input {
-    height: 44px;
+    height: 40px;
     font-size: 16px;
     box-shadow: inset 0 0 0 1px rgba(26, 111, 255, 0.6);
   }
@@ -1225,40 +1315,6 @@ button.pf-table-card-cell--activate {
     gap: 6px;
     flex: none;
     flex-wrap: nowrap;
-  }
-
-  .pf-tbar--select {
-    position: fixed;
-    left: 12px;
-    right: 12px;
-    bottom: calc(18px + env(safe-area-inset-bottom));
-    z-index: 8500;
-    width: auto;
-    max-width: 520px;
-    margin: 0 auto;
-    padding: 13px 14px;
-    overflow: visible;
-    background: linear-gradient(180deg, #1b2b52, #141414);
-    border-radius: 14px;
-    box-shadow:
-      0 -2px 0 0 var(--azure) inset,
-      0 18px 50px rgba(0, 0, 0, 0.7),
-      inset 0 0 0 1px rgba(26, 111, 255, 0.5);
-    flex-wrap: nowrap;
-    justify-content: space-between;
-    transform: none;
-    animation: pf-cl-bar-in 0.18s ease both;
-  }
-}
-
-@keyframes pf-cl-bar-in {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
   }
 }
 
@@ -2788,8 +2844,9 @@ button.pf-table-card-cell--activate {
 
 .pf-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
   gap: 16px;
+  margin-top: 24px;
 }
 
 .pf-gallery__item {
@@ -3357,23 +3414,14 @@ button.pf-table-card-cell--activate {
 
 @media (max-width: 400px) {
   .portfolio-page .pf-gtile__act .pf-gfield {
-    height: auto;
-    min-height: 72px;
-    flex-wrap: wrap;
-    align-items: center;
-    padding: 4px 4px 4px 8px;
-    row-gap: 4px;
-    box-sizing: border-box;
-  }
-
-  .portfolio-page .pf-gtile__act .pf-gfield input {
-    flex: 1 1 calc(100% - 16px);
-    height: 30px;
+    min-width: 0;
+    padding: 0 3px 0 6px;
+    gap: 3px;
   }
 
   .portfolio-page .pf-gtile__act .pf-gact-btn {
-    flex: 1 1 100%;
-    height: 28px;
+    padding: 0 7px;
+    font-size: 12px;
   }
 }
 
@@ -3415,7 +3463,7 @@ button.pf-table-card-cell--activate {
 @media (max-width: 560px) {
   .pf-gallery {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 12px;
+    gap: 10px !important;
   }
 
   .pf-gtile {
@@ -3789,7 +3837,7 @@ button.pf-table-card-cell--activate {
     width: 100%;
     margin-left: 0;
     margin-right: 0;
-    margin-bottom: 4px;
+    margin-bottom: 0;
     padding: 0 8px;
     border-radius: var(--radius-xl, 16px) var(--radius-xl, 16px) 0 0;
     clip-path: none;
@@ -3805,18 +3853,16 @@ button.pf-table-card-cell--activate {
     display: inline-flex;
   }
 
-  .portfolio-page__tabs .tk-tab.pf-tab {
+  .portfolio-page .portfolio-page__tabs .tk-tab.pf-tab,
+  .portfolio-page .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active,
+  .portfolio-page .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active:hover {
     height: 48px !important;
     white-space: nowrap;
-    font-size: 13px;
+    font-size: 13px !important;
     padding: 0 14px;
     gap: 6px;
     flex: 0 0 auto;
     justify-content: flex-start;
-  }
-
-  .portfolio-page__tabs .tk-tab.pf-tab.tk-tab--active {
-    font-size: 13px !important;
   }
 
   .portfolio-page__tabs .tk-tab.pf-tab svg {
@@ -4003,20 +4049,24 @@ button.pf-table-card-cell--activate {
 }
 
 :is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(1) {
-  width: 36%;
+  width: 36% !important;
 }
 
-:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(n + 2) {
-  width: 16%;
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(2) {
+  width: 11% !important;
 }
 
-#portfolio-panel-bids .pf-ux thead th:nth-child(1) {
-  width: 32%;
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(3) {
+  width: 23% !important;
+}
+
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(4),
+:is(#portfolio-panel-bids, #portfolio-panel-history) .pf-ux thead th:nth-child(5) {
+  width: 15% !important;
 }
 
 #portfolio-panel-bids .pf-ux thead th:nth-child(5) {
-  width: 20%;
-  min-width: 160px;
+  min-width: 150px;
 }
 
 #portfolio-panel-history .pf-ux thead th.pf-ux-r,
@@ -4082,8 +4132,8 @@ button.pf-table-card-cell--activate {
   height: 52px;
 }
 
-.portfolio-page .pf-ux-thumb img,
-.portfolio-page .pf-ux-mc__thumb img {
+.portfolio-page .pf-ux-thumb > img,
+.portfolio-page .pf-ux-mc__thumb > img {
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -4373,5 +4423,495 @@ button.pf-table-card-cell--activate {
 
   :is(#portfolio-panel-bids, #portfolio-panel-history) td.pf-ux-mc .pf-ux-acts {
     justify-content: flex-start !important;
+  }
+}
+
+/* Portfolio.html `#pf-tabbar-tools` — active toolbar sits in the tab row. */
+.portfolio-page__tabs #pf-tabbar-tools {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: none;
+}
+
+.portfolio-page__tabs #pf-tabbar-tools .pf-tbar {
+  padding: 0 !important;
+  margin: 0 !important;
+  width: auto !important;
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+  background: transparent !important;
+  border: 0 !important;
+  flex-direction: row-reverse;
+  overflow: visible;
+}
+
+.portfolio-page__tabs #pf-tabbar-tools .pf-tbar__spacer {
+  display: none !important;
+}
+
+.portfolio-page__tabs #pf-tabbar-tools .pf-tdrop,
+.portfolio-page__tabs #pf-tabbar-tools .pf-tbtn {
+  height: 36px !important;
+}
+
+/* Transactions desktop/pad — Portfolio.html `#pf-unified` type scale. */
+#portfolio-panel-history .pf-table-wrap {
+  margin-top: 24px;
+}
+
+#portfolio-panel-history .pf-ux thead th {
+  font-size: 15px !important;
+  color: rgba(255, 255, 255, 0.6) !important;
+  padding-top: 14px !important;
+  padding-bottom: 14px !important;
+}
+
+#portfolio-panel-history .pf-ux thead th:first-child,
+#portfolio-panel-history .pf-ux tbody td:first-child {
+  padding-left: 24px !important;
+}
+
+#portfolio-panel-history .pf-ux tbody td {
+  height: 88px !important;
+}
+
+#portfolio-panel-history .pf-ux-name {
+  font-size: 17px;
+}
+
+#portfolio-panel-history .pf-ux-sub,
+#portfolio-panel-history .pf-ux-hash {
+  font-size: 14px;
+}
+
+#portfolio-panel-history .pf-ux-v,
+#portfolio-panel-history .pf-ux-amt {
+  font-size: 17px;
+}
+
+#portfolio-panel-history .pf-ux-d {
+  font-size: 16px;
+}
+
+#portfolio-panel-history .pf-ux-thumb {
+  width: 52px;
+  height: 72px;
+}
+
+@media (max-width: 1024px) and (min-width: 768px) {
+  #portfolio-panel-history .pf-ux thead th,
+  #portfolio-panel-history .pf-ux tbody td {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+  }
+
+  #portfolio-panel-history .pf-ux thead th:first-child,
+  #portfolio-panel-history .pf-ux tbody td:first-child {
+    padding-left: 8px !important;
+  }
+}
+
+/* Bids — card grid at every width. Phone ≤560 is two columns. */
+#portfolio-panel-bids .pf-table-wrap.tk-table-wrap {
+  overflow: visible !important;
+  background: transparent !important;
+  margin-top: 24px;
+}
+
+#portfolio-panel-bids table.pf-table--bids.pf-ux {
+  display: block !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  width: 100% !important;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux thead {
+  display: none !important;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody tr,
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody tr.pf-table-row--zebra {
+  display: block !important;
+  background: transparent !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  height: 100%;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody tr.is-dim {
+  opacity: 1;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody tr.is-dim .pf-ux-mc__card {
+  opacity: 0.55;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody td {
+  display: none !important;
+}
+
+#portfolio-panel-bids .pf-table--bids.pf-ux tbody td.pf-ux-mc {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  padding: 0 !important;
+}
+
+#portfolio-panel-bids .pf-ux-mc__card {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  gap: 12px !important;
+  height: 100%;
+  padding: 10px 10px 14px !important;
+  background: #141414 !important;
+  border-radius: 14px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06) !important;
+  transition: background 0.12s;
+}
+
+#portfolio-panel-bids .pf-ux-mc__card:hover {
+  background: #191919 !important;
+}
+
+#portfolio-panel-bids .pf-ux-mc__thumb {
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 0.78;
+  border-radius: 10px !important;
+  background: #0e0e10 !important;
+  padding: 10px;
+  box-sizing: border-box;
+}
+
+#portfolio-panel-bids .pf-ux-mc__thumb:has(> .psa-slab-frame),
+#portfolio-panel-bids .pf-ux-thumb:has(> .psa-slab-frame) {
+  aspect-ratio: auto;
+  height: auto !important;
+  padding: 0;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible;
+}
+
+#portfolio-panel-bids .pf-ux-mc__thumb > .psa-slab-frame,
+#portfolio-panel-bids .pf-ux-thumb > .psa-slab-frame {
+  width: 100%;
+}
+
+#portfolio-panel-bids .pf-ux-mc__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+#portfolio-panel-bids .pf-ux-mc__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 0 !important;
+}
+
+#portfolio-panel-bids .pf-ux-mc__name {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6em;
+  white-space: normal !important;
+}
+
+#portfolio-panel-bids .pf-ux-chip {
+  font-size: 12px;
+  padding: 3px 9px;
+}
+
+#portfolio-panel-bids .pf-ux-mc__money,
+#portfolio-panel-bids .pf-ux-mc__money .pf-ux-mono {
+  font-family: var(--font-mono);
+  font-size: 14px !important;
+  color: rgba(255, 255, 255, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0 !important;
+}
+
+#portfolio-panel-bids .pf-ux-top::before {
+  content: " · ";
+}
+
+#portfolio-panel-bids .pf-ux-mc__meta {
+  font-family: var(--font-mono);
+  font-size: 13px !important;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  margin-bottom: 0 !important;
+}
+
+#portfolio-panel-bids .pf-ux-mc .pf-ux-acts {
+  display: flex;
+  width: 100%;
+  justify-content: flex-start;
+  margin-top: auto !important;
+  padding-top: 4px;
+  gap: 8px;
+}
+
+#portfolio-panel-bids .pf-ux-mc .pf-ux-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 36px !important;
+  padding: 0 14px;
+  font-size: 14px !important;
+  line-height: 1;
+  text-align: center !important;
+}
+
+@media (max-width: 560px) {
+  #portfolio-panel-bids .pf-table--bids.pf-ux tbody {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__card {
+    gap: 10px !important;
+    padding: 8px 8px 12px !important;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__thumb {
+    aspect-ratio: 0.85;
+    padding: 8px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__body {
+    gap: 6px;
+    padding: 0 2px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__row {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  #portfolio-panel-bids .pf-ux-chip {
+    order: -1;
+    font-size: 11.5px;
+    padding: 2px 8px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__name {
+    flex: 1 1 100% !important;
+    font-size: 13.5px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__money .pf-ux-mono {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    line-height: 1.35;
+    font-size: 12.5px !important;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__money .pf-ux-mono > span {
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #portfolio-panel-bids .pf-ux-top::before {
+    content: none;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__meta {
+    font-size: 12px !important;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc .pf-ux-btn {
+    height: 34px !important;
+    min-width: 0;
+    font-size: 13px !important;
+    padding: 0 6px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Transactions pad — fit the table, don't scroll it sideways. */
+@media (max-width: 1024px) and (min-width: 768px) {
+  #portfolio-panel-history .pf-table-wrap.tk-table-wrap {
+    overflow-x: hidden !important;
+  }
+
+  #portfolio-panel-history table.pf-ux {
+    min-width: 0 !important;
+  }
+
+  #portfolio-panel-history .pf-ux thead th,
+  #portfolio-panel-history .pf-ux tbody td {
+    overflow: hidden !important;
+  }
+
+  #portfolio-panel-history .pf-ux thead th {
+    font-size: 13px !important;
+  }
+
+  #portfolio-panel-history .pf-ux tbody td {
+    height: 72px !important;
+  }
+
+  #portfolio-panel-history .pf-ux-name {
+    font-size: 15px;
+  }
+
+  #portfolio-panel-history .pf-ux-sub,
+  #portfolio-panel-history .pf-ux-hash {
+    font-size: 12px;
+  }
+
+  #portfolio-panel-history .pf-ux-v,
+  #portfolio-panel-history .pf-ux-amt {
+    font-size: 15px;
+  }
+
+  #portfolio-panel-history .pf-ux-d {
+    font-size: 13px;
+  }
+
+  #portfolio-panel-history .pf-ux-thumb {
+    width: 44px;
+    height: 60px;
+  }
+
+  #portfolio-panel-history .pf-ux-item {
+    min-width: 0;
+  }
+
+  #portfolio-panel-history .pf-ux-d,
+  #portfolio-panel-history .pf-ux-v,
+  #portfolio-panel-history .pf-ux-amt {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+/* Transactions phone — horizontal card. Thumb stays top-aligned; status sits on the amount row. */
+@media (max-width: 767px) {
+  #portfolio-panel-history .pf-table-wrap.tk-table-wrap {
+    overflow: hidden !important;
+    margin-top: 8px;
+  }
+
+  #portfolio-panel-history table.pf-table--history.pf-ux,
+  #portfolio-panel-history .pf-table--history.pf-ux tbody,
+  #portfolio-panel-history .pf-table--history.pf-ux tr {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #portfolio-panel-history .pf-table--history.pf-ux thead {
+    display: none !important;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__card {
+    align-items: flex-start !important;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__thumb {
+    width: 64px !important;
+    height: 88px !important;
+    flex: none;
+    border-radius: 8px;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__body {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__row {
+    margin-bottom: 0 !important;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__name {
+    display: block;
+    flex: none;
+    width: 100%;
+    min-height: 0;
+    font-size: 14px;
+    line-height: 1.3;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    -webkit-line-clamp: unset;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__money {
+    display: flex !important;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    margin-bottom: 0 !important;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__money .pf-ux-v {
+    flex: none;
+    font-size: 13px;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__money .pf-ux-amt {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 14px;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__money .pf-ux-chip {
+    margin-left: auto;
+    flex: none;
+    font-size: 11px;
+  }
+
+  #portfolio-panel-history .pf-ux-mc__meta {
+    margin-bottom: 0 !important;
+    font-size: 12px !important;
+    color: rgba(255, 255, 255, 0.5);
   }
 }

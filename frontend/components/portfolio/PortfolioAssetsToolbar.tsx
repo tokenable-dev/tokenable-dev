@@ -4,7 +4,10 @@ import {
   ASSETS_FILTER_OPTIONS,
   type AssetsSegment,
 } from "@/lib/portfolio/portfolioAssetsSegment";
-import { TkButton } from "@/components/ds";
+import {
+  placePortfolioToolbar,
+  useDockPortfolioToolbar,
+} from "@/components/portfolio/PortfolioMainSection";
 
 export type AssetsViewMode = "gallery" | "table";
 export type AssetsToolbarSort = "newest" | "value" | "low";
@@ -75,6 +78,7 @@ export function PortfolioAssetsToolbar({
   onClearFilters: () => void;
 }) {
   const filterActive = segment !== "all" || sort !== "newest";
+  const dockSlot = useDockPortfolioToolbar(1024);
 
   const hideActionLabel =
     segment === "hidden"
@@ -82,7 +86,7 @@ export function PortfolioAssetsToolbar({
       : `Hide${selectedHideCount > 0 ? ` (${selectedHideCount})` : ""}`;
 
   if (selectMode) {
-    return (
+    return placePortfolioToolbar(
       <div
         className="pf-tbar pf-tbar--select pf-cl-bar"
         id="pf-assets-toolbar"
@@ -98,18 +102,16 @@ export function PortfolioAssetsToolbar({
         </button>
         <div className="pf-tbar__spacer" />
         {segment !== "hidden" ? (
-          <TkButton
+          <button
             type="button"
-            variant="primary"
-            size="sm"
-            className="pf-cl-go"
+            className="pf-tbtn pf-tbtn--primary"
             disabled={selectedListedCount === 0 || cancellingSelected}
             onClick={onCancelSelected}
           >
             {cancellingSelected
               ? "Cancelling…"
               : `Cancel listing${selectedListedCount > 0 ? ` (${selectedListedCount})` : ""}`}
-          </TkButton>
+          </button>
         ) : null}
         <button
           type="button"
@@ -140,11 +142,12 @@ export function PortfolioAssetsToolbar({
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
         </button>
-      </div>
+      </div>,
+      dockSlot,
     );
   }
 
-  return (
+  return placePortfolioToolbar(
     <div className="pf-tbar" id="pf-assets-toolbar">
         <label className="pf-tdrop">
           <span className="pf-tdrop__k">Filter:</span>
@@ -215,6 +218,7 @@ export function PortfolioAssetsToolbar({
             </button>
           </div>
         </div>
-      </div>
+      </div>,
+    dockSlot,
   );
 }

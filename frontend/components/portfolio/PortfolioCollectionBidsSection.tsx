@@ -10,7 +10,13 @@ import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
+import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
+import {
+  placePortfolioToolbar,
+  useDockPortfolioToolbar,
+} from "@/components/portfolio/PortfolioMainSection";
 
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
 type BidsStatusFilter = "" | "highest" | "outbid" | "expired";
@@ -97,6 +103,29 @@ function askUsdForToken(
   return floor != null && Number.isFinite(floor) ? floor : null;
 }
 
+function BidSlabImage({
+  imageUrl,
+  label,
+  comp,
+  collectionKey,
+}: {
+  imageUrl: string;
+  label: string;
+  comp?: CollectionComponents | null;
+  collectionKey: string;
+}) {
+  return (
+    <CollectionPsaSlabFrame
+      imageUrl={imageUrl}
+      alt=""
+      comp={comp ?? {}}
+      displayLabel={label}
+      collectionKey={collectionKey}
+      chamberFit="contain"
+    />
+  );
+}
+
 function BidRowActions({
   expired,
   busy,
@@ -170,6 +199,7 @@ export function PortfolioCollectionBidsSection({
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BidsStatusFilter>("");
+  const dockSlot = useDockPortfolioToolbar(1024);
   const { sortKey, sortDir } = usePortfolioTableSort<BidsSortKey>("bid", "desc");
 
   const sortedBids = useMemo(() => {
@@ -284,6 +314,7 @@ export function PortfolioCollectionBidsSection({
 
   return (
     <>
+      {placePortfolioToolbar(
       <div className="pf-tbar" id="bids-tbar">
         <label className="pf-tdrop">
           <span className="pf-tdrop__k">Filter:</span>
@@ -309,7 +340,9 @@ export function PortfolioCollectionBidsSection({
           aria-label="Search your bids"
         />
         <div className="pf-tbar__spacer" />
-      </div>
+      </div>,
+      dockSlot,
+      )}
 
       {sortedBids.length === 0 ? (
         <p className="pf-empty pf-empty--panel">No bids match your search.</p>
@@ -375,8 +408,12 @@ export function PortfolioCollectionBidsSection({
                   <div className="pf-ux-item">
                     <span className="pf-ux-thumb">
                       {meta?.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={meta.imageUrl} alt="" />
+                        <BidSlabImage
+                          imageUrl={meta.imageUrl}
+                          label={label}
+                          comp={meta.comp}
+                          collectionKey={bid.collectionKey}
+                        />
                       ) : metaLoading ? (
                         <span className="pf-ux-thumb__ph" />
                       ) : null}
@@ -417,8 +454,12 @@ export function PortfolioCollectionBidsSection({
                   <div className="pf-ux-mc__card">
                     <span className="pf-ux-mc__thumb">
                       {meta?.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={meta.imageUrl} alt="" />
+                        <BidSlabImage
+                          imageUrl={meta.imageUrl}
+                          label={label}
+                          comp={meta.comp}
+                          collectionKey={bid.collectionKey}
+                        />
                       ) : null}
                     </span>
                     <div className="pf-ux-mc__body">
@@ -430,8 +471,10 @@ export function PortfolioCollectionBidsSection({
                       </div>
                       <div className="pf-ux-mc__money">
                         <span className="pf-ux-mono">
-                          Your bid <b className="pf-ux-blue">{bidUsd}</b>
-                          {" · "}top {topUsd}
+                          <span>
+                            Your bid <b className="pf-ux-blue">{bidUsd}</b>
+                          </span>
+                          <span className="pf-ux-top">top {topUsd}</span>
                         </span>
                       </div>
                       <div className={`pf-ux-mc__meta${expires.urgent ? " pf-ux-warn" : ""}`}>

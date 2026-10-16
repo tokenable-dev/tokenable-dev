@@ -14,6 +14,8 @@ export type PortfolioHoldingBatchItem = {
   costBasisUsd: number | null;
   costBasisSource: PortfolioCostBasisSource | null;
   acquiredAt: string | null;
+  /** Confirmed mint tx. Null when this token was not minted to the wallet. */
+  mintTxHash: string | null;
 };
 
 @Injectable()
@@ -147,23 +149,22 @@ export class PortfolioHoldingService {
     });
     const byTokenId = new Map(rows.map((r) => [r.tokenId, r]));
 
-    const missingAcquired = normalized.filter(
-      (id) => !byTokenId.get(id)?.acquiredAt,
-    );
+    const registry = await this.rwaTokens.find({
+      where: {
+        tokenContract: contract,
+        tokenId: In(normalized.map(String)),
+      },
+      select: ['tokenId', 'createdAt', 'mintTxHash'],
+    });
     const mintedAtByToken = new Map<number, Date>();
-    if (missingAcquired.length > 0) {
-      const registry = await this.rwaTokens.find({
-        where: {
-          tokenContract: contract,
-          tokenId: In(missingAcquired.map(String)),
-        },
-        select: ['tokenId', 'createdAt'],
-      });
-      for (const row of registry) {
-        const tid = Number(row.tokenId);
-        if (Number.isFinite(tid) && row.createdAt) {
-          mintedAtByToken.set(tid, row.createdAt);
-        }
+    const mintTxByToken = new Map<number, string>();
+    for (const row of registry) {
+      const tid = Number(row.tokenId);
+      if (!Number.isFinite(tid)) continue;
+      if (row.createdAt) mintedAtByToken.set(tid, row.createdAt);
+      const hash = row.mintTxHash?.trim().toLowerCase();
+      if (hash && /^0x[a-f0-9]{64}$/.test(hash)) {
+        mintTxByToken.set(tid, hash);
       }
     }
 
@@ -179,6 +180,7 @@ export class PortfolioHoldingService {
         costBasisUsd: row?.costBasisUsd ?? null,
         costBasisSource: row?.costBasisSource ?? null,
         acquiredAt,
+        mintTxHash: mintTxByToken.get(tokenId) ?? null,
       };
     });
   }

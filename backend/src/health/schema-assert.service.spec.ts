@@ -5,6 +5,17 @@ import {
 } from './schema-assert.service';
 
 describe('SchemaAssertService checklist', () => {
+  it('REQUIRED_SCHEMA includes rwa_tokens.mint_tx_hash (portfolio mint history)', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'rwa_tokens' &&
+          r.column === 'mint_tx_hash',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes rwa_tokens.vault_partner_id (My Assets metadata)', () => {
     expect(
       REQUIRED_SCHEMA.some(

@@ -146,6 +146,7 @@ export type PortfolioHoldingBatchItem = {
   costBasisUsd: number | null;
   costBasisSource: PortfolioCostBasisSource | null;
   acquiredAt: string | null;
+  mintTxHash?: string | null;
 };
 
 export async function postPortfolioHoldingsBatch(

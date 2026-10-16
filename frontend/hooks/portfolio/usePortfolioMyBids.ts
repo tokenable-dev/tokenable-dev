@@ -132,6 +132,7 @@ export function usePortfolioMyBids(
                 imageUrl: detail
                   ? pickCollectionDetailDisplayImageUrl(detail)
                   : null,
+                comp,
               });
             } else {
               map.set(key, {

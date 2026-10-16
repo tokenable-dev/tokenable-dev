@@ -8,11 +8,123 @@ import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarke
 import { joinCardDisplaySegments } from "@/lib/marketplace/cardDisplayName";
 import {
   formatCertDate,
+  formatCertValueChange,
   formatMarketChangePct,
   formatWalletShort,
 } from "@/lib/portfolio/portfolioCertificateFormat";
 
 type CertData = PortfolioCertificateModel;
+
+function changeClass(change: ReturnType<typeof formatMarketChangePct>): string {
+  if (!change || change.muted) return "";
+  return change.positive ? "px-pos" : "px-neg";
+}
+
+function PricingPanel({ data: d, paid }: { data: CertData; paid: number | null }) {
+  const pricing = d.pricing;
+  const top = formatMarketChangePct(pricing.change30Pct);
+  const valueChange = formatCertValueChange(d.marketUsd, paid);
+  const c30 = formatMarketChangePct(pricing.change30Pct);
+  const c90 = formatMarketChangePct(pricing.change90Pct);
+  const c1y = formatMarketChangePct(pricing.change365Pct);
+  const changeCells = [
+    pricing.lastSaleUsd != null
+      ? { key: "Last sale", value: formatUsdCompact(pricing.lastSaleUsd), tone: "" }
+      : null,
+    c30 ? { key: "30-day", value: c30.label, tone: changeClass(c30) } : null,
+    c90 ? { key: "90-day", value: c90.label, tone: changeClass(c90) } : null,
+    c1y ? { key: "1-year", value: c1y.label, tone: changeClass(c1y) } : null,
+  ].filter((cell): cell is { key: string; value: string; tone: string } => cell != null);
+  const range =
+    pricing.rangeLowUsd != null && pricing.rangeHighUsd != null
+      ? `${formatUsdCompact(pricing.rangeLowUsd)} – ${formatUsdCompact(pricing.rangeHighUsd)}`
+      : null;
+
+  return (
+    <div>
+      <div className="proof-h">Market value</div>
+      <div className="px-top">
+        <span className="v">{formatUsdCompact(d.marketUsd)}</span>
+        {top && !top.muted ? (
+          <span className={`c ${changeClass(top)}`}>
+            {top.arrow} {top.label} · 30d
+          </span>
+        ) : null}
+      </div>
+      {paid != null ? (
+        <div className="px-sub">
+          You paid <span className="m">{formatPortfolioUsd(paid)}</span>
+          {valueChange ? (
+            <>
+              {" · "}
+              <span className={valueChange.tone === "neg" ? "px-neg" : valueChange.tone === "pos" ? "px-pos" : ""}>
+                value change{" "}
+                <span className="m">
+                  {valueChange.usdLabel} ({valueChange.pctLabel})
+                </span>
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+      {changeCells.length > 0 ? (
+        <>
+          <div className="proof-h">Price change</div>
+          <div className="px-grid">
+            {changeCells.map((cell) => (
+              <div key={cell.key} className="px-cell">
+                <div className="k">{cell.key}</div>
+                <div className={`n ${cell.tone}`}>{cell.value}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : null}
+      {range || pricing.sales12mo != null ? (
+        <div className="px-grid two">
+          {range ? (
+            <div className="px-cell">
+              <div className="k">12-mo range</div>
+              <div className="n">{range}</div>
+            </div>
+          ) : null}
+          {pricing.sales12mo != null ? (
+            <div className="px-cell">
+              <div className="k">Sales (12 mo)</div>
+              <div className="n">{pricing.sales12mo}</div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {pricing.recentSales.length > 0 ? (
+        <>
+          <div className="proof-h">Recent sales</div>
+          {pricing.recentSales.map((sale) => (
+            <div key={sale.id} className="px-row">
+              <span>
+                <span className="d">
+                  {formatCertDate(new Date(sale.atSec * 1000).toISOString())}
+                </span>
+                {d.gradeChip ? <span className="g">{d.gradeChip}</span> : null}
+              </span>
+              <span className="p">{formatUsdCompact(sale.priceUsd)}</span>
+            </div>
+          ))}
+        </>
+      ) : null}
+      {d.marketUsd == null && changeCells.length === 0 && pricing.recentSales.length === 0 ? (
+        <p className="note">No market pricing yet.</p>
+      ) : null}
+    </div>
+  );
+}
+type CertTab = "proof" | "history" | "pricing";
+const CERT_TABS: CertTab[] = ["proof", "history", "pricing"];
+
+function moveCertTab(current: CertTab, dir: 1 | -1): CertTab {
+  const index = CERT_TABS.indexOf(current);
+  return CERT_TABS[(index + dir + CERT_TABS.length) % CERT_TABS.length];
+}
 
 export function PortfolioCertificateView({
   tokenId,
@@ -34,7 +146,7 @@ export function PortfolioCertificateView({
   onCancelListing?: () => void;
   cancelListingPending?: boolean;
 }) {
-  const [tab, setTab] = useState<"proof" | "history">("proof");
+  const [tab, setTab] = useState<CertTab>("proof");
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomFace, setZoomFace] = useState<"front" | "back">("front");
   const [zoomed, setZoomed] = useState(false);
@@ -45,6 +157,7 @@ export function PortfolioCertificateView({
   const zoomSrc = zoomFace === "back" && back ? back : front;
   const chg = formatMarketChangePct(d.marketChangePct);
   const paid = d.holding?.costBasisUsd;
+  const valueChange = formatCertValueChange(d.marketUsd, paid ?? null);
   const ownerLabel = d.isOwner
     ? `You · ${formatWalletShort(d.walletAddress)}`
     : d.walletAddress
@@ -105,7 +218,7 @@ export function PortfolioCertificateView({
     <div className="pa-page">
       <div className="cert-wrap">
         <Link className="backlink" href={backHref}>
-          ‹ Portfolio
+          ‹ Collection
         </Link>
 
         <div className="cert">
@@ -175,7 +288,7 @@ export function PortfolioCertificateView({
                   }
                 }}
               >
-                🔍 Inspect condition
+                Inspect
               </span>
             </div>
             <div className="subj-info">
@@ -198,7 +311,9 @@ export function PortfolioCertificateView({
                 </div>
                 <div className="stub-row">
                   <span className="stub-k">Status</span>
-                  <span className={`stub-v${d.isOwner ? " pos" : ""}`}>{d.statusLine}</span>
+                  <span className={`stub-v${d.statusLine.startsWith("●") ? " pos" : ""}`}>
+                    {d.statusLine}
+                  </span>
                 </div>
                 <div className="stub-row">
                   <span className="stub-k">Acquired</span>
@@ -210,6 +325,14 @@ export function PortfolioCertificateView({
                     {paid != null ? formatPortfolioUsd(paid) : "—"}
                   </span>
                 </div>
+                {valueChange ? (
+                  <div className="stub-row">
+                    <span className="stub-k">Value change</span>
+                    <span className={`stub-v${valueChange.tone === "flat" ? "" : ` ${valueChange.tone}`}`}>
+                      {valueChange.usdLabel} · {valueChange.pctLabel}
+                    </span>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -224,32 +347,34 @@ export function PortfolioCertificateView({
           <div className="perf" />
 
           <div className="tabs">
-            <button
-              type="button"
-              className={`tab${tab === "proof" ? " on" : ""}`}
-              onClick={() => setTab("proof")}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+            {(
+              [
+                ["proof", "Custody and proof"],
+                ["history", "History"],
+                ["pricing", "Pricing"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`tab${tab === id ? " on" : ""}`}
+                data-cert-tab={id}
+                onClick={() => setTab(id)}
+                onKeyDown={(e) => {
+                  if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
                   e.preventDefault();
-                  setTab("history");
-                }
-              }}
-            >
-              Custody & proof
-            </button>
-            <button
-              type="button"
-              className={`tab${tab === "history" ? " on" : ""}`}
-              onClick={() => setTab("history")}
-              onKeyDown={(e) => {
-                if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
-                  e.preventDefault();
-                  setTab("proof");
-                }
-              }}
-            >
-              History
-            </button>
+                  const next = moveCertTab(tab, e.key === "ArrowRight" ? 1 : -1);
+                  setTab(next);
+                  queueMicrotask(() => {
+                    document
+                      .querySelector<HTMLButtonElement>(`[data-cert-tab="${next}"]`)
+                      ?.focus();
+                  });
+                }}
+              >
+                {label}
+              </button>
+            ))}
           </div>
 
           {tab === "proof" ? (
@@ -300,7 +425,7 @@ export function PortfolioCertificateView({
                 )}
               </div>
             </div>
-          ) : (
+          ) : tab === "history" ? (
             <div>
               {d.history.length === 0 && !d.tradesLoading ? (
                 <p className="note">No Tokenable trades recorded for this token yet.</p>
@@ -326,13 +451,14 @@ export function PortfolioCertificateView({
                 external or private sales stay as market comps.
               </p>
             </div>
-          )}
+          ) : null}
+
+          <div className="hair" />
+
+          {tab === "pricing" ? <PricingPanel data={d} paid={paid ?? null} /> : null}
 
           {d.listed && d.listing?.priceUsd != null ? (
-            <>
-              <div className="hair" />
-              <div className="pa-listings" data-listed-section="">
-                <div className="proof-h">Sale listing</div>
+            <div className="pa-listings" data-listed-section="">
                 <div className="prow">
                   <span className="prow-ic" aria-hidden>
                     <svg
@@ -374,11 +500,8 @@ export function PortfolioCertificateView({
                     </button>
                   ) : null}
                 </div>
-              </div>
-            </>
+            </div>
           ) : null}
-
-          <div className="hair" />
 
           <div className="cert-foot">
             <div className="mval">
@@ -400,6 +523,14 @@ export function PortfolioCertificateView({
                 </span>
               ) : null}
             </div>
+            {d.listed && d.listing?.priceUsd != null ? (
+              <div className="mval">
+                <span className="mval-k">Listed</span>
+                <span className="mval-v mval-v--listed">
+                  {formatUsdListing(d.listing.priceUsd)}
+                </span>
+              </div>
+            ) : null}
             <div className="foot-actions">
               <button
                 type="button"
@@ -449,6 +580,7 @@ export function PortfolioCertificateView({
         }}
       >
         <div className="paz-stage">
+          <span className="paz-hint">Scroll / tap image to zoom</span>
           {zoomSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img

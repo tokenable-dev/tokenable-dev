@@ -604,7 +604,7 @@ Returns `{ tokenIds: number[] }` (rows with `hidden_at` set).
   "collectionKeys": { "1": "abc123…" },
   "marketItems": [{ "collectionKey": "abc123…", "stats": null, "series": { } }],
   "mintPreviews": { },
-  "holdings": [{ "tokenId": 1, "hidden": false, "costBasisUsd": null, "costBasisSource": null, "acquiredAt": null }]
+  "holdings": [{ "tokenId": 1, "hidden": false, "costBasisUsd": null, "costBasisSource": null, "acquiredAt": null, "mintTxHash": null }]
 }
 ```
 
@@ -614,7 +614,7 @@ Server-side pipeline (DB-first, parallel where possible):
 2. **Metadata** — `batchPortfolioMetadata` with **`allowExternal: false`**: PostgreSQL only (list stubs + DB slab URLs). Incomplete tokens are listed in `needsHeal` and filled by a **process-wide** background queue (concurrency 2, max 400) — not one IPFS fan-out per concurrent user. Daily snapshot may pass `allowExternal: true`. Ops: `POST …/admin/rwa-slab/backfill-list-ready` + optional `RWA_LIST_READY_BACKFILL_ENABLED=1`. See `docs/architecture/portfolio-list-materialization.md`.
 3. **Collection keys** — `collection_key` from registry batch; optional bucket from stub metadata. Never resolves keys via chain/IPFS on this endpoint.
 4. **Market** — load `collection_market_snapshots` rows **by this page’s `collection_key` set** (`findByKeys`), then join in memory. Unlisted holdings still pick up a price when metadata yields a bucket that already has a snapshot row.
-5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed.
+5. **Holdings** — always fresh from `portfolio_holdings` (even on cache hit). When a row has no `acquired_at`, the API falls back to `rwa_tokens.created_at` so Tx History can show **Mint** for self-vault mints that never got a mark USD / holdings seed. `mintTxHash` comes from `rwa_tokens.mint_tx_hash`.
 
 **UI:** Frontend restores localStorage paint on refresh. Cold visits: `ownedIdsOnly` → shells → first-page metadata. Bootstrap network errors keep the paint cache (no false empty wallet). `mintPreviews` stays `{}` on this endpoint — client follow-up only for tokens the snapshot cannot price (no matched preview **and** no grade strip with a resolvable PSA grade). Snapshot-priced tiles paint immediately; unpriced siblings may show `…` until mint-preview returns. Hero uses a partial live sum (avoids `$0` when no marks yet).
 
@@ -626,7 +626,7 @@ Honors `x-tokenable-chain-id`.
 
 **Body:** `{ walletAddress, tokenIds }` (max 500).
 
-**Response:** `{ items: [{ tokenId, hidden, costBasisUsd, costBasisSource, acquiredAt }] }`
+**Response:** `{ items: [{ tokenId, hidden, costBasisUsd, costBasisSource, acquiredAt, mintTxHash }] }` — `mintTxHash` is the confirmed mint transaction, or null.
 
 `costBasisSource`: `manual` | `vault_delivery` | `marketplace_buy` | null.
 

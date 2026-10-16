@@ -92,7 +92,7 @@ export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
                 data-faq-tab={i}
                 onClick={() => scrollToGroup(i)}
               >
-                {group.tab}
+                {group.heading}
               </button>
             ))}
           </div>
@@ -130,6 +130,7 @@ export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
               })}
             </div>
           ))}
+          <div className="tkfd-tail" aria-hidden />
         </div>
       </div>
     </div>,

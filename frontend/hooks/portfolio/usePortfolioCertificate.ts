@@ -39,7 +39,12 @@ import {
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { displayAssetNameFromMetadata, stripGradeQualifierFromDisplayName } from "@/lib/marketplace/rwaDisplayTitle";
-import { formatVaultCustodyLabel } from "@/lib/marketplace/vaultCustodyLabel";
+import {
+  COLLECTION_TRADE_SELF_VAULT_LABEL,
+  formatVaultCustodyLabel,
+  PSA_VAULT_LABEL,
+  type VaultCustodyPolicy,
+} from "@/lib/marketplace/vaultCustodyLabel";
 import {
   buildRwaDetailMobileTrustView,
   extractGradedSlabBackCandidate,
@@ -58,6 +63,7 @@ import {
 } from "@/lib/portfolio/redeemDraft";
 import { useMyRedemptions } from "@/hooks/portfolio/useMyRedemptions";
 import { PORTFOLIO_USDC_DECIMALS } from "@/lib/portfolio/buildPortfolioPricedRows";
+import { buildCertPricing } from "@/lib/portfolio/portfolioCertificateFormat";
 
 export type CertHistoryNode = {
   id: string;
@@ -67,6 +73,22 @@ export type CertHistoryNode = {
   highlight: boolean;
   you: boolean;
 };
+
+/** Asset-detail Status is the custody location: PSA Vault or TOKN Vault. */
+function assetDetailStatusLine(
+  loading: boolean,
+  policy: VaultCustodyPolicy | null | undefined,
+  vaultLabel: string,
+): string {
+  if (loading) return "…";
+  if (policy === "self_vault_hold") return `● ${COLLECTION_TRADE_SELF_VAULT_LABEL}`;
+  if (policy === "standard") return `● ${PSA_VAULT_LABEL}`;
+  if (/^psa(\s+vault)?$/i.test(vaultLabel)) return `● ${PSA_VAULT_LABEL}`;
+  if (vaultLabel && vaultLabel !== "—" && vaultLabel !== "…") {
+    return `● ${COLLECTION_TRADE_SELF_VAULT_LABEL}`;
+  }
+  return "—";
+}
 
 export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const wallet = useLinkedPortfolioWallet();
@@ -293,15 +315,11 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   /** Custody holds the NFT while a redemption runs, so the wallet check alone under-reports. */
   const redeemInFlight = isRedeemInFlight(redeemStatus);
 
-  const statusLine = ownedQuery.isLoading
-    ? "…"
-    : redeemBadge
-        ? `● ${redeemBadge.label}`
-      : isOwner
-        ? `● Owned · ${vaultLabel}`
-        : wallet.portfolioAddress
-          ? "Not in this wallet"
-          : "Connect wallet";
+  const statusLine = assetDetailStatusLine(
+    vaultQuery.isLoading,
+    vaultQuery.data?.settlementPolicy,
+    vaultLabel,
+  );
 
   const explorerUrl = useMemo(() => {
     if (!chain) return null;
@@ -322,6 +340,22 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       .filter((t) => t.source !== "cardhedger")
       .sort((a, b) => a.t - b.t);
   }, [tradesQuery.data?.trades, tokenId]);
+
+  const pricing = useMemo(
+    () =>
+      buildCertPricing({
+        nowSec: Math.floor(Date.now() / 1000),
+        marketUsd,
+        fallback30Pct: series?.marketChangeWindow === "30d" ? marketChangePct : null,
+        points: series?.externalUsd ?? [],
+        sales: countableTapeFills(tradesQuery.data?.trades ?? []).map((sale) => ({
+          t: sale.t,
+          priceUsdc: sale.priceUsdc,
+          orderHash: sale.orderHash,
+        })),
+      }),
+    [marketUsd, marketChangePct, series?.externalUsd, tradesQuery.data?.trades],
+  );
 
   const history: CertHistoryNode[] = useMemo(() => {
     const nodes: CertHistoryNode[] = [];
@@ -393,6 +427,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     collectionKey,
     marketUsd,
     marketChangePct,
+    pricing,
     chainLine,
     headerTokenLabel,
     explorerUrl,

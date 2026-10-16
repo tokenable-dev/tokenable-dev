@@ -1,4 +1,5 @@
 import type { OrderStatus } from "@/lib/core";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 /** Card-level offer row for portfolio (from offerer order history API). */
 export type PortfolioBidRow = {
@@ -22,4 +23,6 @@ export type PortfolioBidCollectionMeta = {
   /** Hover / title attribute — Line 1 + Line 2 when available. */
   hoverLabel?: string;
   imageUrl: string | null;
+  /** Slab label fields. Missing when the collection detail has no components. */
+  comp?: CollectionComponents | null;
 };

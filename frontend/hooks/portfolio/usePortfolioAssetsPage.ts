@@ -439,6 +439,15 @@ export function usePortfolioAssetsPage(input: {
     return m;
   }, [accumulated.holdingsByToken]);
 
+  const mintTxHashByTokenId = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const item of accumulated.holdingsByToken.values()) {
+      const hash = item.mintTxHash?.trim();
+      if (hash) m.set(item.tokenId, hash);
+    }
+    return m;
+  }, [accumulated.holdingsByToken]);
+
   const hiddenSet = useMemo(() => {
     const s = new Set<number>();
     for (const item of accumulated.holdingsByToken.values()) {
@@ -531,6 +540,7 @@ export function usePortfolioAssetsPage(input: {
     mintPreviewByToken: mintPreviewByToken ?? EMPTY_MINT,
     costBasisByTokenId,
     acquiredAtByTokenId,
+    mintTxHashByTokenId,
     hiddenSet,
     serverKeysReady,
     valuesPending,

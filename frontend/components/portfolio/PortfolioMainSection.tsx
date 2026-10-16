@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { TkTab, TkTabs } from "@/components/ds/Tabs";
 
 export type PortfolioMainTab =
@@ -12,6 +13,25 @@ export type PortfolioMainTab =
 function TabCount({ value }: { value: number | undefined }) {
   if (value === undefined) return null;
   return <span className="pf-tab-n">{value}</span>;
+}
+
+/** Portfolio.html docks the active tab toolbar into `.tk-tabs` above this width. */
+export function useDockPortfolioToolbar(minWidthExclusive: number): HTMLElement | null {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const mq = window.matchMedia(`(min-width: ${minWidthExclusive + 1}px)`);
+    const apply = () => {
+      setSlot(mq.matches ? document.getElementById("pf-tabbar-tools") : null);
+    };
+    apply();
+    mq.addEventListener("change", apply);
+    return () => mq.removeEventListener("change", apply);
+  }, [minWidthExclusive]);
+  return slot;
+}
+
+export function placePortfolioToolbar(node: ReactNode, slot: HTMLElement | null) {
+  return slot ? createPortal(node, slot) : node;
 }
 
 export function PortfolioMainSection({
@@ -79,6 +99,7 @@ export function PortfolioMainSection({
           Transactions
           <TabCount value={counts.history} />
         </TkTab>
+        <div id="pf-tabbar-tools" />
       </TkTabs>
 
       {activeTab === "collectibles" ? (

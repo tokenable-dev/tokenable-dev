@@ -121,8 +121,21 @@ function cardFields(
 export type PortfolioTxExtras = {
   redemptions?: MyRedemptionRow[];
   /** Owned tokens with no matching BUY — vaulting / mint. */
-  ownedMints?: Array<{ tokenId: number; dateMs: number }>;
+  ownedMints?: Array<{
+    tokenId: number;
+    dateMs: number;
+    mintTxHash?: string | null;
+  }>;
 };
+
+function confirmedChainTx(
+  label: string,
+  hash: string | null | undefined,
+): Array<{ label: string; hash: string }> | undefined {
+  const value = hash?.trim();
+  if (!value || !/^0x[a-fA-F0-9]{64}$/.test(value)) return undefined;
+  return [{ label, hash: value }];
+}
 
 /**
  * Buy/Sell from fulfilled orders, plus Redeem (mine) and Mint (owned, no buy).
@@ -283,6 +296,7 @@ export function buildPortfolioTxRows(
       dateMs: mint.dateMs,
       orderHash: key,
       tokenId: mint.tokenId,
+      chainTxs: confirmedChainTx("Mint", mint.mintTxHash),
     });
   }
 

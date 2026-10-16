@@ -44,6 +44,12 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     fix: DEPLOY_SYNC_FIX,
   },
   {
+    kind: 'column',
+    table: 'rwa_tokens',
+    column: 'mint_tx_hash',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
     kind: 'table',
     name: 'rwa_owner_index_cursors',
     fix: DEPLOY_SYNC_FIX,

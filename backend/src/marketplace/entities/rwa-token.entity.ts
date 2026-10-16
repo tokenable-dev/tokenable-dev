@@ -68,6 +68,10 @@ export class RwaToken {
   @Column({ name: 'burn_tx_hash', type: 'varchar', length: 80, nullable: true })
   burnTxHash: string | null;
 
+  /** Confirmed mint transaction. Cleared mint attempts do not keep this hash. */
+  @Column({ name: 'mint_tx_hash', type: 'varchar', length: 80, nullable: true })
+  mintTxHash: string | null;
+
   /**
    * Seaport settlement policy — set only by mint registry (`recordMintResult`).
    * NULL means custody is unknown (e.g. Transfer-index stub before mint heal).

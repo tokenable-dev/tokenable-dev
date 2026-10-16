@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { TkButton } from "@/components/ds";
 import { FAQ_GROUPS, FAQ_SUPPORT_EMAIL } from "./faqContent";
 
 function FaqChevron() {
@@ -17,6 +16,7 @@ export function FaqPage() {
 
   return (
     <section className="faq-page">
+      <div className="faq-page__inner">
       <span className="faq-page__eyebrow">Help center</span>
       <h1 className="faq-page__title">Frequently asked questions</h1>
       <p className="faq-page__sub">
@@ -60,9 +60,10 @@ export function FaqPage() {
           <h2>Still have a question?</h2>
           <p>Our team replies within one business day.</p>
         </div>
-        <TkButton href={FAQ_SUPPORT_EMAIL} variant="primary" className="faq-page__cta-btn">
+        <a className="faq-page__cta-btn" href={FAQ_SUPPORT_EMAIL}>
           Contact support
-        </TkButton>
+        </a>
+      </div>
       </div>
     </section>
   );

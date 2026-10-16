@@ -577,6 +577,8 @@ export class VaultService {
         : null;
     const collectionKey =
       params.collectionKey?.trim().toLowerCase() || null;
+    const mintTxHash = params.txHash.trim().toLowerCase();
+    const storedMintTx = /^0x[a-f0-9]{64}$/.test(mintTxHash) ? mintTxHash : null;
 
     if (displayName) {
       const asset = await this.assets.findOne({
@@ -607,6 +609,7 @@ export class VaultService {
         vaultPartnerId,
         ownerWallet: params.ownerWallet?.trim().toLowerCase() || null,
         metadataSyncedAt: new Date(),
+        ...(storedMintTx ? { mintTxHash: storedMintTx } : {}),
       })
       .orUpdate(
         [
@@ -616,6 +619,7 @@ export class VaultService {
           'display_image_url',
           'display_image_back_url',
           ...(collectionKey ? (['collection_key'] as const) : []),
+          ...(storedMintTx ? (['mint_tx_hash'] as const) : []),
           'vault_cycle_id',
           'vault_ref',
           'settlement_policy',
