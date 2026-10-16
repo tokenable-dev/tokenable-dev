@@ -12,17 +12,24 @@ export type PortfolioPricingContext = {
   mintPreviews: Record<number, MarketCollectionPreview>;
 };
 
-export type PortfolioDailyCaptureRunResult = {
-  slotDateKst: string;
-  slotAtIso: string;
+export type PortfolioDailyCaptureChainResult = {
+  chainId: number;
   totalMinted: number;
   onChainHolders: number;
   additionalZeroOrHistoricalWallets: number;
   walletsTargeted: number;
   snapshotsWritten: number;
   failed: number;
-  durationMs: number;
   pricingBatchKeys: number;
+};
+
+export type PortfolioDailyCaptureRunResult = {
+  slotDateKst: string;
+  slotAtIso: string;
+  chains: PortfolioDailyCaptureChainResult[];
+  snapshotsWritten: number;
+  failed: number;
+  durationMs: number;
 };
 
 /** Postgres advisory lock id for portfolio daily snapshot cron (single-flight). */

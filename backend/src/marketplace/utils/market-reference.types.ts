@@ -49,7 +49,13 @@ export type MarketCompsSnapshot = {
     countUsed: number;
     latestSaleAtSec: number | null;
   } | null;
-  rawSales: Array<{ t: number; v: number }>;
+  rawSales: Array<{
+    t: number;
+    v: number;
+    saleType?: string | null;
+    platform?: string | null;
+    saleUrl?: string | null;
+  }>;
   earliestSaleAtSec: number | null;
   latestSaleAtSec: number | null;
   upstreamSource: 'cardhedger:comps';
@@ -104,9 +110,34 @@ export type MarketCollectionPreview = {
       | 'sparse_sale_avg'
       | 'catalog'
       | 'comps_median'
+      | 'fmv'
+      | 'cert_estimate'
+      | 'batch_price_estimate'
+      | 'psa_estimate'
+      | null;
+    /**
+     * Headline pricing upstream for UI (Phase 4).
+     * `cardhedger_comps` = comps / last sale / sparse history;
+     * `cardhedger_fmv` = card-fmv or card-fmv-batch;
+     * `cardhedger_estimate` = batch-prices-by-cert or batch-price-estimate.
+     */
+    priceSource?:
+      | 'cardhedger_fmv'
+      | 'cardhedger_estimate'
+      | 'cardhedger_comps'
       | null;
     /** Unix seconds — newest `sale_date` in comps raw payload, or history point time when basis is `latest_sale`. */
     latestSaleAt?: number | null;
+    /** CardHedger FMV confidence grade (A=≥0.7, B=≥0.5, C=≥0.3, D<0.3). Only set when spotPriceBasis='fmv'. */
+    fmvConfidenceGrade?: 'A' | 'B' | 'C' | 'D' | null;
+    /** Age of the FMV's underlying sale data in days. */
+    fmvFreshnessDays?: number | null;
+    /** FMV calculation method (e.g. 'direct', 'card_interpolation', 'anchor_multiplier'). */
+    fmvMethod?: string | null;
+    /** FMV lower price bound USD (Winsorized uncertainty band). */
+    fmvPriceLow?: number | null;
+    /** FMV upper price bound USD (Winsorized uncertainty band). */
+    fmvPriceHigh?: number | null;
     ebayNearMint: PriceBand | null;
     tcgplayerNearMint: PriceBand | null;
     ebayPsa10?: PriceBand | null;

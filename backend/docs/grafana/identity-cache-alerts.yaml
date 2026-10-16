@@ -1,0 +1,80 @@
+# Identity cache Grafana alert rules (P3.18)
+#
+# Import into Grafana Alerting or Prometheus RuleGroups.
+# Metrics source: GET /api/admin/cardhedger/prometheus
+#
+# Gauges reflect the current 60-second Cardhedger metrics window.
+# Adjust thresholds to match your traffic baseline after 1 week of prod data.
+
+groups:
+  - name: identity_cache_slo
+    interval: 1m
+    rules:
+      - alert: IdentityCacheHealthScoreCritical
+        expr: cardhedger_identity_consistency_health_score < 60
+        for: 5m
+        labels:
+          severity: warning
+          component: identity_cache
+        annotations:
+          summary: Identity cache health score below 60 for 5 minutes
+          description: |
+            Composite identity cache SLO health score has been below 60 for 5m.
+            Current value: {{ $value }}.
+            Check /api/admin/cardhedger/health → identitySlo.reasons.
+          runbook_url: https://github.com/your-org/tokenable-dev/blob/main/backend/docs/identity-cache-runbook.md#protect-mode
+
+      - alert: IdentityCacheDegradationProtect
+        expr: cardhedger_identity_degradation_mode == 2
+        for: 2m
+        labels:
+          severity: critical
+          component: identity_cache
+        annotations:
+          summary: Identity cache in PROTECT degradation mode
+          description: |
+            cardhedger_identity_degradation_mode == 2 (protect).
+            Warmup is disabled; reconcile repair budget reduced to 25%.
+            Investigate drift root cause before clearing protect state.
+          runbook_url: https://github.com/your-org/tokenable-dev/blob/main/backend/docs/identity-cache-runbook.md#protect-mode
+
+      - alert: IdentityCacheDriftStaleSpike
+        expr: |
+          (
+            cardhedger_identity_cache_drift_total{kind="cache_stale"}
+            /
+            clamp_min(cardhedger_identity_cache_drift_checks_total, 1)
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          component: identity_cache
+        annotations:
+          summary: Elevated cache_stale drift rate (>5% of sampled checks)
+          description: |
+            cache_stale fraction of drift checks exceeds 5% for 5m.
+            Stale ratio: {{ $value | humanizePercentage }}.
+            Common causes: Redis failover, write-through miss, replication lag.
+          runbook_url: https://github.com/your-org/tokenable-dev/blob/main/backend/docs/identity-cache-runbook.md#drift-spike
+
+      - alert: IdentityCacheRepairCooldownSpike
+        expr: |
+          (
+            cardhedger_identity_cache_repair_total{outcome="skipped_cooldown"}
+            /
+            clamp_min(
+              sum(cardhedger_identity_cache_repair_total),
+              1
+            )
+          ) > 0.30
+        for: 5m
+        labels:
+          severity: warning
+          component: identity_cache
+        annotations:
+          summary: High fraction of repairs skipped due to cooldown
+          description: |
+            More than 30% of repair attempts are deduped by the 10s cooldown window.
+            Ratio: {{ $value | humanizePercentage }}.
+            May indicate hot-key churn or reconcile/read-path contention on same keys.
+          runbook_url: https://github.com/your-org/tokenable-dev/blob/main/backend/docs/identity-cache-runbook.md#repair-cooldown-spike

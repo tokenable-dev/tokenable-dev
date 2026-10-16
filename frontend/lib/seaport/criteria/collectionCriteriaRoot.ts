@@ -43,6 +43,33 @@ export function canonicalBytes32Hex(raw: unknown): `0x${string}` | null {
 export type MerkleMatchSnapshot = { tokenIds: string[]; rootHex: Hex };
 
 /**
+ * Catalog-only collections have no minted leaves. Seaport still needs a non-zero
+ * criteria root, so we sign over token id `0` (never a real RWA). That bid sits
+ * on the book; it cannot fill until the buyer re-signs against the real set.
+ */
+export const COLLECTION_CRITERIA_PENDING_INVENTORY_LEAF = BigInt(0);
+
+export function collectionCriteriaSignLeafIds(tokenIds: bigint[]): bigint[] {
+  return tokenIds.length > 0
+    ? tokenIds
+    : [COLLECTION_CRITERIA_PENDING_INVENTORY_LEAF];
+}
+
+export function pendingInventoryCriteriaRootHex(): Hex {
+  return new SeaportMerkleTree([
+    COLLECTION_CRITERIA_PENDING_INVENTORY_LEAF,
+  ]).getHexRoot();
+}
+
+export function isPendingInventoryCollectionBid(bid: Order): boolean {
+  if (bid.side !== "bid") return false;
+  const raw = bid.parameters?.consideration?.[0]?.identifierOrCriteria;
+  const b = canonicalBytes32Hex(raw);
+  const pending = canonicalBytes32Hex(pendingInventoryCriteriaRootHex());
+  return Boolean(b && pending && b === pending);
+}
+
+/**
  * Loads the collection Merkle leaf set with aggressive retries (indexing / IPFS lag after a new list).
  */
 export async function fetchMerkleSnapshotForMatch(

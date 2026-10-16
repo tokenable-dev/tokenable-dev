@@ -1,20 +1,24 @@
 # Diagrams
 
-Pipeline and architecture diagrams live in **`docs/diagrams/`** as **Mermaid** markdown (GitHub-renderable).
+Pipeline diagrams for the Tokenable marketplace live here as **Mermaid** markdown (GitHub-renderable).
 
 ---
 
 ## Index
 
-| File | Language | Description |
-|------|----------|-------------|
-| [marketplace-lifecycle.md](./marketplace-lifecycle.md) | Korean | Full pipeline — mint → Seaport listing → criteria bid → on-chain fill; DB schema; frontend (Part 4); backend (Part 5) |
+| File | Language | Contents |
+|------|----------|---------|
+| [marketplace-lifecycle.md](./marketplace-lifecycle.md) | Korean | Mint → Seaport listing → card offer → on-chain fill · DB schema · order state transitions |
 | [marketplace-lifecycle.en.md](./marketplace-lifecycle.en.md) | English | Same content in English |
 
-**Canonical DB detail:** [architecture/database.md](../architecture/database.md) (full ER diagram)  
-**Collection snapshot workers:** [architecture/materialized-market-snapshots.md](../architecture/materialized-market-snapshots.md)  
-**Portfolio daily cron:** `portfolio_daily_snapshots` — [database.md § portfolio](../architecture/database.md#portfolio_daily_snapshots)  
-**PSA / OCR API:** [api/psa.md](../api/psa.md)
+Each file covers **Parts 1–3** (overall flow, technical sequence, DB schema & state transitions). Architecture and module details live in the dedicated docs:
+
+| Topic | Document |
+|-------|---------|
+| Frontend architecture | [architecture/frontend.md](../architecture/frontend.md) |
+| Backend module map | [architecture/backend.md](../architecture/backend.md) |
+| Database (17 tables, full ER) | [architecture/database.md](../architecture/database.md) |
+| Frontend routes | [frontend/routes.md](../frontend/routes.md) |
 
 ---
 

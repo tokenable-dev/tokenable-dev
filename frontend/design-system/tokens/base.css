@@ -1,0 +1,159 @@
+/* Tokenable — Base & semantic typography
+   Tokens are unitless floats; resolve to px here as convenient semantic aliases. */
+
+:root {
+  /* Font stacks */
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --font-serif: "Noto Serif", Georgia, serif;
+
+  /* Type scale (px) */
+  --type-hero: 72px;          /* Title / Hero (Figma) */
+  --type-display: 64px;       /* Title / Page Large */
+  --type-title: 48px;         /* Title / Page */
+  --type-title-sm: 40px;      /* Title / Page Small */
+  --type-subtitle: 32px;      /* Subtitle */
+  --type-subtitle-sm: 24px;
+  --type-heading: 24px;       /* Heading */
+  --type-heading-sm: 20px;
+  --type-subheading: 20px;
+  --type-body-lg: 20px;
+  --type-body: 16px;          /* Body / Medium — base */
+  --type-body-sm: 14px;
+  --type-caption: 12px;
+
+  /* Line heights */
+  --leading-tight: 1.1;
+  --leading-snug: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Weights */
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* Radii (px) */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 9999px;
+
+  /* Spacing (px) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+
+  /* Brand palette */
+  --brand-primary: #1A6FFF;
+  --brand-secondary: #977DFF;
+  --brand-accent-text: #EAEDF8;
+
+  --color-signal-violet: linear-gradient(179deg, #1A6FFF 1.06%, #977DFF 123.42%);
+  --color-voltage-blue: #1A6FFF;
+  --color-accent-text: #EAEDF8;
+  --color-midnight-ink: #0e0e0e;
+  --color-carbon: #191919;
+  --color-graphite: #414042;
+  --color-steel: #58595b;
+  --color-slate: #6d6e71;
+  --color-fog: #a7a9ac;
+  --color-ash: #d1d3d4;
+  --color-paper: #ffffff;
+  --color-smoke: #2c2c2c;
+  --border-strong: rgba(255,255,255,0.18); /* @kind color */ /* Ghost button border */
+  --surface-hover: rgba(255,255,255,0.03); /* @kind color */
+
+  /* Brand accent palette */
+  --brand-green: #4CDE4C; /* @kind color */
+  --brand-green-deep: #0F3B24; /* @kind color */
+  --brand-green-ink: #0B2E1A; /* @kind color */
+  --brand-peach: #FAF3E3; /* @kind color */
+
+  /* Progress / stepper semantic tokens (stepper + status chips) */
+  --step-current: var(--brand-green); /* @kind color */
+  --step-done: var(--brand-green-deep); /* @kind color */
+  --step-todo: #6d6e71; /* @kind color */
+
+  /* Elevation — offset drop-shadow for clear depth separation.
+     Levels: 1 Raised · 2 Floating · 3 Overlay · 4 Modal · 5 Lifted */
+  --elevation-1: 0 4px 12px 0 rgba(0,0,0,0.5);
+  --elevation-2: 0 8px 24px 0 rgba(0,0,0,0.55);
+  --elevation-3: 0 12px 36px 0 rgba(0,0,0,0.6);
+  --elevation-4: 0 16px 48px 0 rgba(0,0,0,0.65);
+  --elevation-5: 0 20px 60px 0 rgba(0,0,0,0.7);
+  /* Aliases */
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: rgba(0, 0, 0, 0.45) 0px 4px 20px 0px;
+  --shadow-xl: var(--elevation-4);
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1); /* @kind other */
+  --ease-emphasized: cubic-bezier(0.3, 0, 0, 1); /* @kind other */
+  --duration-fast: 120ms; /* @kind other */
+  --duration-base: 180ms; /* @kind other */
+  --duration-slow: 260ms; /* @kind other */
+
+  /* Pixel system — chosen web3 direction. Hard edges, crisp offset shadows. */
+  --pixel-edge: 2px;
+  --pixel-notch: 6px;            /* chamfer size for notched corners */
+  --pixel-shadow-btn: 4px 4px 0 0 var(--brand-700);
+  --pixel-shadow-sm: 3px 3px 0 0 rgba(26,111,255,0.45);
+  --pixel-shadow-md: 5px 5px 0 0 rgba(26,111,255,0.5);
+  --pixel-shadow-lg: 7px 7px 0 0 rgba(26,111,255,0.55);
+  /* Notched (pixel chamfer) corner clip — apply with `clip-path: var(--pixel-clip)` */
+  --pixel-clip: polygon(0 6px,6px 6px,6px 0,calc(100% - 6px) 0,calc(100% - 6px) 6px,100% 6px,100% calc(100% - 6px),calc(100% - 6px) calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,6px calc(100% - 6px),0 calc(100% - 6px)); /* @kind other */
+}
+
+/* Light theme — neutral elevation (no brand glow) */
+:root[data-theme="light"], .light {
+  --elevation-1: inset 0 0 0 1px rgba(0,0,0,0.06), 0 1px 4px 0 rgba(12,12,13,0.1), 0 1px 4px 0 rgba(12,12,13,0.05);
+  --elevation-2: inset 0 0 0 1px rgba(0,0,0,0.06), 0 4px 12px 0 rgba(12,12,13,0.1), 0 2px 6px 0 rgba(12,12,13,0.06);
+  --elevation-3: inset 0 0 0 1px rgba(0,0,0,0.06), 0 12px 28px 0 rgba(12,12,13,0.14), 0 4px 10px 0 rgba(12,12,13,0.08);
+  --elevation-4: inset 0 0 0 1px rgba(0,0,0,0.06), 0 20px 48px 0 rgba(12,12,13,0.18), 0 6px 14px 0 rgba(12,12,13,0.1);
+  --elevation-5: inset 0 0 0 1px rgba(0,0,0,0.06), 0 28px 64px 0 rgba(12,12,13,0.22), 0 8px 18px 0 rgba(12,12,13,0.12);
+  --shadow-sm: var(--elevation-1);
+  --shadow-md: var(--elevation-2);
+  --shadow-lg: var(--elevation-3);
+  --shadow-xl: var(--elevation-4);
+}
+
+.ds-body-bg {
+  background: var(--background-default-default);
+  color: var(--text-default-default);
+  font-family: var(--font-sans);
+}
+
+/* Named type styles — mirror the Figma text styles. Apply directly. */
+.tk-title-hero{font-family:var(--font-sans);font-weight:700;font-size:72px;line-height:1.1;letter-spacing:-0.03em}
+.tk-title-page{font-family:var(--font-sans);font-weight:700;font-size:48px;line-height:1.2;letter-spacing:-0.02em}
+.tk-title-page-sm{font-family:var(--font-sans);font-weight:700;font-size:40px;line-height:1.2;letter-spacing:-0.02em}
+.tk-subtitle{font-family:var(--font-sans);font-weight:400;font-size:32px;line-height:1.2}
+.tk-heading{font-family:var(--font-sans);font-weight:600;font-size:24px;line-height:1.2;letter-spacing:-0.02em}
+.tk-subheading{font-family:var(--font-sans);font-weight:600;font-size:20px;line-height:1.2}
+.tk-body-lg{font-family:var(--font-sans);font-weight:400;font-size:20px;line-height:1.5}
+.tk-body{font-family:var(--font-sans);font-weight:400;font-size:16px;line-height:1.5}
+.tk-body-strong{font-family:var(--font-sans);font-weight:600;font-size:16px;line-height:1.4}
+.tk-body-sm{font-family:var(--font-sans);font-weight:400;font-size:14px;line-height:1.4}
+.tk-body-sm-strong{font-family:var(--font-sans);font-weight:600;font-size:14px;line-height:1.4}
+.tk-caption{font-family:var(--font-sans);font-weight:500;font-size:12px;line-height:1.3}
+.tk-code{font-family:var(--font-mono);font-weight:500;font-size:16px;line-height:1;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.tk-bodycode{font-family:var(--font-mono);font-weight:500;font-size:16px;line-height:1.6;letter-spacing:0;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.tk-bodycode-sm{font-family:var(--font-mono);font-weight:500;font-size:14px;line-height:1.6;letter-spacing:0;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+.tk-bodycode-xs{font-family:var(--font-mono);font-weight:500;font-size:12px;line-height:1.6;letter-spacing:0;font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}
+/* Tabular figures on ALL mono text (inline var(--font-mono) usages included) */
+[style*="--font-mono"],[style*="JetBrains"]{font-variant-numeric:tabular-nums;font-feature-settings:"tnum"}

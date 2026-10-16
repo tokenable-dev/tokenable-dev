@@ -7,6 +7,23 @@ export type GradingCompany =
   | "TAG"
   | "AGS";
 
+/**
+ * Additive Pokémon TCG projection (`graded.normalized.pokemon`).
+ * Does not replace `card.set` / `psaBrand` / Cardhedger fields.
+ */
+export type PokemonNormalizedMetadata = {
+  game: "pokemon";
+  language?: string;
+  series?: string;
+  setName?: string;
+  setCode?: string;
+  cardName?: string;
+  cardNumber?: string;
+  variant?: string;
+  rarity?: string;
+  setKind?: "expansion" | "promo" | "unknown";
+};
+
 /** Metadata structure for graded trading card RWAs (ready for Web3/IPFS) */
 export interface GradedCardMetadata {
   name: string;
@@ -19,6 +36,10 @@ export interface GradedCardMetadata {
     year?: number;
     set?: string;
     number?: string;
+  };
+  /** Side-car normalized game metadata (Pokémon V1). */
+  normalized?: {
+    pokemon?: PokemonNormalizedMetadata | null;
   };
   grade?: {
     score?: number;
@@ -37,8 +58,6 @@ export interface GradedCardMetadata {
     /** Clean catalog image URL (no PSA cert label) — used as collection cover */
     imageUrl?: string;
   };
-  /** Collection cover on IPFS after server trims slab top (mint response) */
-  collectionCoverImage?: string;
   /** Fields filled by the PSA pipeline (cert, gradeLabel, etc.) */
   psa?: {
     certNumber?: string;

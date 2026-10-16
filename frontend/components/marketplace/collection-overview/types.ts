@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import type { CollectionMetadataExpandableProps } from "@/components/marketplace/collection-cover";
+import type { CollectionCoverGalleryProps } from "@/components/marketplace/collection-cover/CollectionCoverFrame";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
+import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 
 export interface CollectionOverviewStat {
   label: string;
@@ -18,11 +20,16 @@ export interface CollectionOverviewBoardProps {
   headlineMetaStrip?: string | null;
   headlineInfoTags?: { id: string; text: string; title?: string }[] | null;
   categoryBadge?: string | null;
-  gradeBadge?: string | null;
+  /** Grade text for Line 1 headline — not a separate badge. */
+  headlineGrade?: string | null;
   populationBadge?: string | null;
   headlineTitleLayout?: boolean;
   badgeLabel?: string;
   imageUrl: string | null;
+  /** Label source for the PSA slab around `imageUrl`. */
+  coverComp?: CollectionComponents | null;
+  coverDisplayLabel?: string | null;
+  coverCollectionKey?: string | null;
   metadataRows: { label: string; value: string }[];
   stats: CollectionOverviewStat[];
   chartMetricsRow?: ReactNode;
@@ -43,10 +50,13 @@ export interface CollectionOverviewBoardProps {
   leftColumnFooter?: ReactNode;
   belowCover?: ReactNode;
   mobileCoverBelowMetrics?: ReactNode;
-  mobileCurrentPriceRow?: ReactNode;
   mobileMarketTabs?: ReactNode;
   mobileTabbedMarketUi?: boolean;
   marketsBelowChart?: ReactNode;
   suppressHeadlineBanner?: boolean;
+  /** Card.html — h1 rendered outside the board on desktop. */
+  hideDesktopTopBarHeadline?: boolean;
   heroActions?: ReactNode;
+  coverOverlay?: ReactNode;
+  coverGallery?: CollectionCoverGalleryProps;
 }

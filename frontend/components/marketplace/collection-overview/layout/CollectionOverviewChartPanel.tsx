@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/markets-ui";
+import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/collection-markets";
 
 export function CollectionOverviewChartPanel({
   mode,

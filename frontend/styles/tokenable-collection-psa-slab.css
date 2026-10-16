@@ -1,0 +1,401 @@
+/* PSA holder around a collection cover — CollectionPsaSlabFrame.tsx.
+   Geometry is traced from a real PSA slab photo normalised to 416 units wide (416×700):
+   every length is `N * --u`, where --u = slab width / 416, so it scales with the tile. */
+
+.psa-slab-frame {
+  container-type: inline-size;
+  width: 100%;
+  background: transparent;
+}
+
+.psa-slab {
+  --u: calc(100cqw / 416);
+  /* Label width (photo ref 356) — wider = longer top/bottom red rules */
+  --psa-label-w: 378;
+  --psa-label-x: calc((416 - var(--psa-label-w)) / 2);
+  --psa-red: #e3303d;
+  --psa-label-face: #edf1f3;
+  --psa-ink: #202428;
+  --psa-frame-line: rgba(255, 255, 255, 0.14);
+  --psa-frame-line-inner: rgba(255, 255, 255, 0.08);
+  position: relative;
+  width: 100%;
+  aspect-ratio: 416 / 700;
+  border-radius: calc(13 * var(--u));
+  background: transparent;
+  box-shadow:
+    inset 0 0 0 max(1px, calc(1 * var(--u))) var(--psa-frame-line),
+    0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+/* Moulded lip just inside the outer edge */
+.psa-slab__bevel {
+  position: absolute;
+  inset: calc(8 * var(--u));
+  border: max(1px, calc(2 * var(--u))) solid var(--psa-frame-line-inner);
+  border-radius: calc(9 * var(--u));
+  pointer-events: none;
+}
+
+/* ── Label ─────────────────────────────────────────────────────────────── */
+
+.psa-slab__label {
+  position: absolute;
+  top: calc(29 * var(--u));
+  left: calc(var(--psa-label-x) * var(--u));
+  width: calc(var(--psa-label-w) * var(--u));
+  height: calc(107 * var(--u));
+  box-sizing: border-box;
+  border-style: solid;
+  border-color: var(--psa-red);
+  border-width: calc(10 * var(--u));
+  box-shadow:
+    0 0 0 max(1px, calc(1 * var(--u))) rgba(150, 40, 50, 0.55),
+    inset 0 0 0 max(1px, calc(1 * var(--u))) rgba(255, 196, 204, 0.8);
+}
+
+.psa-slab__label-face {
+  position: relative;
+  height: 100%;
+  box-sizing: border-box;
+  padding: calc(6.5 * var(--u)) calc(9 * var(--u)) 0 calc(8 * var(--u));
+  background: var(--psa-label-face);
+  color: var(--psa-ink);
+  font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
+  font-size: calc(15 * var(--u));
+  font-weight: 500;
+  line-height: calc(17.2 * var(--u));
+  letter-spacing: 0;
+  text-transform: uppercase;
+  overflow: hidden;
+}
+
+/* Row 1 set / # · row 2 subject / GEM MT · row 3 variety / grade (PSA label). */
+.psa-slab__label-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: repeat(3, calc(17.2 * var(--u)));
+  column-gap: calc(6 * var(--u));
+  align-items: baseline;
+}
+
+.psa-slab__label-left,
+.psa-slab__label-right {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.psa-slab__label-left {
+  text-align: left;
+}
+
+.psa-slab__label-right {
+  text-align: right;
+  padding-left: calc(2 * var(--u));
+}
+
+/* Bottom row: barcode left, PSA tag centre. The cert number slot (right) stays empty. */
+.psa-slab__barcode {
+  position: absolute;
+  top: calc(63 * var(--u));
+  left: calc(5.5 * var(--u));
+  width: calc(90 * var(--u));
+  height: calc(16 * var(--u));
+  color: var(--psa-ink);
+}
+
+/* Holographic PSA tag — straddles the bottom red rule */
+.psa-slab__tag {
+  position: absolute;
+  top: calc(61.5 * var(--u));
+  left: calc(143 * var(--u));
+  width: calc(48 * var(--u));
+  height: calc(31 * var(--u));
+  background: linear-gradient(
+    125deg,
+    #c3c6cc 0%,
+    #eceef1 30%,
+    #d4d7dd 48%,
+    #f4f5f7 62%,
+    #bfc3ca 100%
+  );
+  box-shadow: inset 0 0 0 max(1px, calc(0.8 * var(--u))) rgba(0, 0, 0, 0.12);
+}
+
+.psa-slab__tag-logo {
+  position: absolute;
+  top: calc(4 * var(--u));
+  left: calc(3 * var(--u));
+  width: calc(42 * var(--u));
+  height: auto;
+  display: block;
+}
+
+/* ── Card chamber: double moulded ridge ───────────────────────────────── */
+
+.psa-slab__chamber {
+  position: absolute;
+  top: calc(150 * var(--u));
+  left: calc(16 * var(--u));
+  width: calc(384 * var(--u));
+  height: calc(532 * var(--u));
+  box-sizing: border-box;
+  border: max(1px, calc(2.5 * var(--u))) solid var(--psa-frame-line);
+  border-radius: calc(3 * var(--u));
+  pointer-events: none;
+}
+
+.psa-slab__chamber::before {
+  content: "";
+  position: absolute;
+  inset: calc(4 * var(--u));
+  border: max(1px, calc(2.5 * var(--u))) solid var(--psa-frame-line-inner);
+  border-radius: calc(2 * var(--u));
+}
+
+.psa-slab__card {
+  position: absolute;
+  top: calc(188.5 * var(--u));
+  left: calc(44 * var(--u));
+  width: calc(325 * var(--u));
+  height: calc(453.5 * var(--u));
+  overflow: hidden;
+  background: #111113;
+  box-shadow: 0 calc(1 * var(--u)) calc(3 * var(--u)) rgba(0, 0, 0, 0.18);
+}
+
+/* Match CollectionCoverFrame: absolute inset + object-fit (fill in grids, contain on detail hero). */
+.psa-slab__card-img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-position: center;
+}
+
+.psa-slab__card-img--fill {
+  object-fit: fill;
+}
+
+.psa-slab__card-img--contain {
+  object-fit: contain;
+}
+
+.psa-slab__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  text-align: center;
+  font-size: 10px;
+  color: #71717a;
+}
+
+.psa-slab__placeholder--load {
+  background: rgba(24, 24, 27, 0.75);
+}
+
+/* ── Inside CollectibleCard / listing grids ───────────────────────────── */
+
+.markets-grid .card-wrap:has(.psa-slab-frame),
+.watchlist-grid .card-wrap:has(.psa-slab-frame) {
+  height: auto;
+  overflow: visible;
+}
+
+/*
+ * PSA listing cards — one layout at every viewport (no 769px toggle).
+ * `.card__img` height from aspect-ratio; slab frame fills via absolute inset.
+ */
+.markets-grid .card:has(> .card__img > .psa-slab-frame),
+.watchlist-grid .card:has(> .card__img > .psa-slab-frame),
+.home-page .markets-grid .card:has(> .card__img > .psa-slab-frame),
+.home-page .markets-grid > a.card:has(> .card__img > .psa-slab-frame) {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: stretch;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-height: var(--listing-card-shell-h);
+  padding: var(--listing-card-shell-pad);
+  gap: var(--card-list-media-gap);
+  overflow: visible;
+}
+
+.markets-grid .card:has(> .card__img > .psa-slab-frame) .card__img,
+.watchlist-grid .card:has(> .card__img > .psa-slab-frame) .card__img,
+.home-page .markets-grid .card:has(> .card__img > .psa-slab-frame) .card__img,
+.home-page .markets-grid > a.card:has(> .card__img > .psa-slab-frame) .card__img,
+.card__img:has(> .psa-slab-frame) {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 416 / 700;
+  background: transparent;
+  overflow: visible;
+  border-radius: 0;
+}
+
+.markets-grid .card:has(> .card__img > .psa-slab-frame) .card__img > .psa-slab-frame,
+.watchlist-grid .card:has(> .card__img > .psa-slab-frame) .card__img > .psa-slab-frame,
+.home-page .markets-grid .card:has(> .card__img > .psa-slab-frame) .card__img > .psa-slab-frame,
+.home-page .markets-grid > a.card:has(> .card__img > .psa-slab-frame) .card__img > .psa-slab-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.markets-grid .card:has(> .card__img > .psa-slab-frame) .psa-slab,
+.watchlist-grid .card:has(> .card__img > .psa-slab-frame) .psa-slab,
+.home-page .markets-grid .card:has(> .card__img > .psa-slab-frame) .psa-slab,
+.home-page .markets-grid > a.card:has(> .card__img > .psa-slab-frame) .psa-slab {
+  width: 100%;
+  height: 100%;
+  aspect-ratio: auto;
+}
+
+.markets-grid .card:has(> .card__img > .psa-slab-frame) .card__body,
+.watchlist-grid .card:has(> .card__img > .psa-slab-frame) .card__body,
+.home-page .markets-grid .card:has(> .card__img > .psa-slab-frame) .card__body,
+.home-page .markets-grid > a.card:has(> .card__img > .psa-slab-frame) .card__body {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  padding-inline: 0;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
+
+/* Parent card rules stretch every img. Keep the label logo and chamber art intact. */
+/* Undo global `.card__img img { object-fit: fill }` — chamber classes set fit explicitly. */
+.card__img .psa-slab__card-img,
+.gnb-search-item__thumb .psa-slab__card-img,
+.cd-si-card__media .psa-slab__card-img,
+.cd-hero-bar .psa-slab__card-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+}
+
+.card__img .psa-slab__tag-logo,
+.gnb-search-item__thumb .psa-slab__tag-logo,
+.cd-si-card__media .psa-slab__tag-logo,
+.cd-hero-bar .psa-slab__tag-logo {
+  position: absolute;
+  inset: auto;
+  top: calc(4 * var(--u));
+  left: calc(3 * var(--u));
+  width: calc(42 * var(--u));
+  height: auto;
+  object-fit: contain;
+  filter: none;
+}
+
+/* Slab is its own chrome — skip the glass sweep on the image area. */
+.card__img:has(> .psa-slab-frame)::before {
+  display: none;
+}
+
+/*
+ * Watchlist heart on PSA listings — anchor to label top-right (416×700), positioned on
+ * `.card` so the control can sit in card padding (not clipped by `.card__img`).
+ * Keep --psa-label-w-sync aligned with .psa-slab { --psa-label-w }.
+ */
+.card:has(> .card__img > .psa-slab-frame) {
+  container-type: inline-size;
+  --card-shell-pad: 8px;
+  --psa-label-w-sync: 378;
+}
+
+.card:has(> .card__img > .psa-slab-frame) > .fav {
+  --slab-w: calc(100cqw - 2 * var(--card-shell-pad));
+  top: calc(var(--card-shell-pad) + 29 / 416 * var(--slab-w)) !important;
+  right: calc((416 - var(--psa-label-w-sync)) / 2 / 416 * var(--slab-w)) !important;
+  left: auto !important;
+  width: auto !important;
+  height: auto !important;
+  transform: translate(0, -50%) !important;
+  z-index: 20;
+}
+
+.markets-grid .card-wrap:has(.psa-slab-frame),
+.watchlist-grid .card-wrap:has(.psa-slab-frame),
+.home-page .markets-grid > a.card:has(.psa-slab-frame) {
+  position: relative;
+  z-index: 1;
+}
+
+.markets-grid .card-wrap:has(.psa-slab-frame):hover,
+.watchlist-grid .card-wrap:has(.psa-slab-frame):hover,
+.home-page .markets-grid > a.card:has(.psa-slab-frame):hover {
+  z-index: 3;
+}
+
+/* Collection detail hero — drop legacy 0.72 thumb shell; slab sets its own aspect. */
+.cd-hero-bar__thumb-btn:has(> .psa-slab-frame),
+.cd-hero-bar--embed .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+  flex: 0 0 auto !important;
+  width: 150px !important;
+  max-width: 150px !important;
+  min-width: 0 !important;
+  height: auto !important;
+  aspect-ratio: 416 / 700 !important;
+  background: transparent !important;
+  border-radius: 0 !important;
+  overflow: visible !important;
+  filter: none !important;
+  padding: 0;
+  line-height: 0;
+}
+
+@media (min-width: 1141px) {
+  .cd-hero-bar--embed .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+    width: 128px !important;
+    max-width: 128px !important;
+  }
+}
+
+.cd-hero-bar__thumb-btn:has(> .psa-slab-frame) > .psa-slab-frame {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 1140px) {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb-btn:has(> .psa-slab-frame),
+  .collection-detail-page
+    .cd-hero-bar:not(.is-stuck):not(.cd-hero-bar--embed)
+    .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+    width: calc(210px * 416 / 700) !important;
+    max-width: calc(210px * 416 / 700) !important;
+    height: auto !important;
+    aspect-ratio: 416 / 700 !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+    width: min(122px, 100%) !important;
+    max-width: 122px !important;
+    height: auto !important;
+    aspect-ratio: 416 / 700 !important;
+  }
+}
+
+.cd-hero-bar.is-stuck .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
+  width: auto !important;
+  height: 36px !important;
+  max-width: none !important;
+  aspect-ratio: 416 / 700 !important;
+}

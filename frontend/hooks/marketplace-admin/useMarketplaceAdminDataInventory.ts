@@ -1,0 +1,78 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  getAdminDataInventory,
+  getAdminDataInventorySchema,
+  getAdminDataInventoryTableRows,
+  getAdminResetTargets,
+  postAdminPruneChainResidue,
+  postAdminResetForNewContract,
+  rq,
+} from "@/lib/core";
+
+export function useMarketplaceAdminDataInventory() {
+  return useQuery({
+    queryKey: rq.adminDataInventory(),
+    queryFn: getAdminDataInventory,
+  });
+}
+
+const SCHEMA_STALE_MS = 5 * 60 * 1000;
+
+export function useMarketplaceAdminDataInventorySchema(enabled = true) {
+  return useQuery({
+    queryKey: [...rq.adminDataInventory(), "schema"] as const,
+    queryFn: getAdminDataInventorySchema,
+    enabled,
+    staleTime: SCHEMA_STALE_MS,
+    gcTime: 30 * 60 * 1000,
+  });
+}
+
+export function useMarketplaceAdminDataInventoryRows(
+  table: string | null,
+  page: number,
+  pageSize: number,
+  enabled: boolean,
+  compact = false,
+) {
+  return useQuery({
+    queryKey: [
+      ...rq.adminDataInventory(),
+      "rows",
+      table,
+      page,
+      pageSize,
+      compact,
+    ],
+    queryFn: () =>
+      getAdminDataInventoryTableRows(table!, page, pageSize, compact),
+    enabled: Boolean(enabled && table),
+  });
+}
+
+export function useMarketplaceAdminResetTargets() {
+  return useQuery({
+    queryKey: [...rq.adminDataInventory(), "reset-targets"] as const,
+    queryFn: getAdminResetTargets,
+  });
+}
+
+export function useMarketplaceAdminResetForNewContract() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: postAdminResetForNewContract,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: rq.adminDataInventory() });
+    },
+  });
+}
+
+export function useMarketplaceAdminPruneChainResidue() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: postAdminPruneChainResidue,
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: rq.adminDataInventory() });
+    },
+  });
+}

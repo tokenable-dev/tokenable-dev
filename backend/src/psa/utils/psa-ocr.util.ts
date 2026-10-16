@@ -128,6 +128,7 @@ export function varietyHintsForSearch(varietyHint?: string): string[] {
       /^(basketball|baseball|football|hockey|soccer)\s+/i,
       '',
     )
+    .replace(/\s*\/\s*\d+\s*$/i, '')
     .trim();
   const primary = cleaned.length > 0 ? cleaned : v;
   const out: string[] = [primary];
@@ -140,6 +141,26 @@ export function varietyHintsForSearch(varietyHint?: string): string[] {
     for (const alias of ['Precious Metal Gems', 'PMG']) {
       if (!out.some((x) => x.toLowerCase() === alias.toLowerCase())) {
         out.push(alias);
+      }
+    }
+  }
+  // PSA `VARIATION-GREEN REFRACTOR` ↔ Cardhedger often files as `Variation Green Refractor`
+  // or (`Base - Variation` for the flagship image variation).
+  if (/\bvariation\b/i.test(primary)) {
+    const spaced = primary.replace(/variation\s*[-_]?\s*/i, 'Variation ').trim();
+    if (
+      spaced &&
+      !out.some((x) => x.toLowerCase() === spaced.toLowerCase())
+    ) {
+      out.push(spaced);
+    }
+    if (!out.some((x) => x.toLowerCase() === 'variation')) {
+      out.push('Variation');
+    }
+    // Spec taxonomy VARIATION-REFRACTOR; Cardhedger often uses a jersey/SP photo name.
+    if (/^variation[\s-]*refractor$/i.test(primary)) {
+      if (!out.some((x) => x.toLowerCase() === 'jersey refractor')) {
+        out.push('Jersey Refractor');
       }
     }
   }
