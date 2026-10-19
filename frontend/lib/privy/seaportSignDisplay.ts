@@ -6,7 +6,7 @@
 
 type SignTree = Record<string, unknown>;
 
-const USDC_BASE = 1_000_000n;
+const USDC_BASE = BigInt(1_000_000);
 
 function formatUsdcUnits(raw: unknown): string | null {
   const text = typeof raw === "bigint" ? raw.toString() : String(raw ?? "").trim();
@@ -15,7 +15,7 @@ function formatUsdcUnits(raw: unknown): string | null {
   const whole = units / USDC_BASE;
   const frac = units % USDC_BASE;
   const wholeLabel = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  if (frac === 0n) return `${wholeLabel} USDC`;
+  if (frac === BigInt(0)) return `${wholeLabel} USDC`;
   const fracLabel = frac.toString().padStart(6, "0").replace(/0+$/, "");
   return `${wholeLabel}.${fracLabel} USDC`;
 }
@@ -55,8 +55,8 @@ export function formatSeaportSignDisplay(data: unknown): unknown {
 }
 
 function sumErc20Start(items: unknown): bigint {
-  if (!Array.isArray(items)) return 0n;
-  let sum = 0n;
+  if (!Array.isArray(items)) return BigInt(0);
+  let sum = BigInt(0);
   for (const item of items) {
     if (!item || typeof item !== "object") continue;
     const row = item as SignTree;
@@ -73,7 +73,7 @@ export function seaportSignAmountLabel(
   side: "bid" | "list",
 ): string | null {
   const units = sumErc20Start(side === "bid" ? message.offer : message.consideration);
-  if (units <= 0n) return null;
+  if (units <= BigInt(0)) return null;
   const formatted = formatUsdcUnits(units);
   if (!formatted) return null;
   return side === "bid" ? `Bid ${formatted}` : `List for ${formatted}`;
