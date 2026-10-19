@@ -326,7 +326,7 @@ function LayoutB({
       <div className="vault-card-box vault-lm-list-box">
         <div className="vault-lm-list">
           {filtered.map((card) => {
-            const { line1, listLine2 } = vaultDetailCardLines(card);
+            const { line1, listLine2, certLine } = vaultDetailCardLines(card);
             return (
               <div key={card.id} className={cn("vault-lm-row", card.status)}>
                 <div className={cn("vault-lm-row__thumb", card.status === "rejected" && "dim")}>
@@ -337,7 +337,12 @@ function LayoutB({
                     <span className="vault-lm-row__name">{line1}</span>
                     {cardStatusLabel(card)}
                   </div>
-                  <div className="vault-lm-row__subline mono">{listLine2}</div>
+                  {listLine2 ? (
+                    <div className="vault-lm-row__subline mono">{listLine2}</div>
+                  ) : null}
+                  {certLine ? (
+                    <div className="mono vault-lm-row__cert-line">{certLine}</div>
+                  ) : null}
                   {card.status === "completed" ? (
                     <div className="vault-lm-row__under">
                       <span className="vault-lm-row__listing">View listing →</span>

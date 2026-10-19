@@ -6043,10 +6043,12 @@
 
 .vault-detail-package__cert-m {
   display: none;
-  margin-top: 4px;
+  margin-top: 6px;
   font-family: var(--font-mono);
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.8);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .vault-detail-package__grade {
@@ -6342,6 +6344,16 @@
   font-size: 13px;
   line-height: 1.45;
   color: rgba(255, 255, 255, 0.7);
+}
+
+.vault-lm-row__cert-line {
+  margin-top: 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .vault-lm-row__status-pill {
@@ -7025,6 +7037,16 @@
   text-overflow: ellipsis;
 }
 
+.vault-dash-sb__cert {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.82);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .vault-dash-pill {
   grid-area: p;
   justify-self: end;
@@ -7282,7 +7304,8 @@
   }
 
   .vault-dash-sb__title,
-  .vault-dash-sb__meta {
+  .vault-dash-sb__meta,
+  .vault-dash-sb__cert {
     white-space: normal;
     overflow: visible;
     text-overflow: clip;
@@ -7291,6 +7314,14 @@
 
   .vault-dash-sb__title {
     line-height: 1.3;
+  }
+
+  .vault-dash-sb__cert {
+    margin-top: 2px;
+  }
+
+  .vault-page--detail .vault-lm-row__cert-line {
+    font-size: 13.5px;
   }
 
   .vault-dash-bot {

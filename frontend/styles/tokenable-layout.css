@@ -1442,6 +1442,20 @@ body.gnb-drawer-open .mobile-page-root {
   overflow: hidden !important;
 }
 
+/* TkDialog open — same shell lock as drawer (sell agreement, etc.) */
+html.tk-dialog-open,
+body.tk-dialog-open {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
+body.tk-dialog-open .tk-shell-scroll,
+body.tk-dialog-open .mobile-page-root {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
 /* ── Footer (tk-footer.js) ────────────────────────────────────────────── */
 
 .tk-footer {

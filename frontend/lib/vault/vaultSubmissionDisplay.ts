@@ -1,21 +1,21 @@
 import type { VaultSubmissionApiItem } from "@/lib/core/api/vault-submissions";
-import { joinCardDisplaySegments } from "@/lib/marketplace/cardDisplayName";
 import {
   formatSellCardDisplay,
   normalizeSellCardDisplaySource,
   type SellCardDisplaySource,
 } from "@/lib/sell/sellFlowDraft";
 
-/** Vault-Detail.html list + panel titles (SSOT line 1 / provenance + cert). */
+/** Vault detail list lines — cert is its own row (important on mobile). */
 export function vaultDetailCardLines(
   card: SellCardDisplaySource & { cert: string },
-): { line1: string; listLine2: string } {
+): { line1: string; listLine2: string; certLine: string } {
   const { line1, line2 } = formatSellCardDisplay(card);
   const cert = card.cert.trim();
-  const listLine2 = line2
-    ? joinCardDisplaySegments([line2, `Cert #${cert}`])
-    : `Cert #${cert}`;
-  return { line1, listLine2 };
+  return {
+    line1,
+    listLine2: line2 ?? "",
+    certLine: cert ? `Cert #${cert}` : "",
+  };
 }
 
 export function vaultSubmissionItemDisplaySource(

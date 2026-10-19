@@ -331,6 +331,8 @@ export type VaultHubPackage = {
   id: string;
   title: string;
   meta: string;
+  /** Own line under meta on mobile (e.g. Cert #123). */
+  certLine?: string;
   status: VaultHubVState;
   eta: string[];
   vaultedCount: number;
@@ -433,11 +435,11 @@ export function buildVaultHubPackages(
       cards.length === 1 && first
         ? first.title
         : `Submission · ${formatDay(s.createdAt) ?? "package"}`;
+    const certLine =
+      cards.length === 1 && first?.cert ? `Cert #${first.cert}` : undefined;
     const meta =
       cards.length === 1 && first
-        ? ["1 card", firstDisplay?.line2, first.cert ? `Cert #${first.cert}` : ""]
-            .filter(Boolean)
-            .join(" · ")
+        ? ["1 card", firstDisplay?.line2].filter(Boolean).join(" · ")
         : `${cards.length} cards`;
     const tracked = hasShipmentTracking(s);
     const trackUrl = trackingHref(s);
@@ -467,6 +469,7 @@ export function buildVaultHubPackages(
       id: s.publicId,
       title,
       meta,
+      certLine,
       status,
       eta: packageEta(s, status, rejectLabel),
       vaultedCount: cards.filter((c) => c.state === "vaulted").length,

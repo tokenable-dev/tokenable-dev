@@ -101,6 +101,9 @@ function PackageRow({
       <div className="vault-dash-sb__t">
         <div className="vault-dash-sb__title">{pkg.title}</div>
         <div className="vault-dash-sb__meta">{pkg.meta}</div>
+        {pkg.certLine ? (
+          <div className="mono vault-dash-sb__cert">{pkg.certLine}</div>
+        ) : null}
       </div>
       <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{PILL[pkg.status]}</span>
       <div className="vault-dash-bot">

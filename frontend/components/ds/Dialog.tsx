@@ -54,11 +54,13 @@ export function TkDialog({
       if (e.key === "Escape" && dismissible) onClose();
     };
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    // Lock shell scroll too — body overflow alone does not stop .tk-shell-scroll on mobile.
+    document.documentElement.classList.add("tk-dialog-open");
+    document.body.classList.add("tk-dialog-open");
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
+      document.documentElement.classList.remove("tk-dialog-open");
+      document.body.classList.remove("tk-dialog-open");
     };
   }, [open, onClose, dismissible]);
 

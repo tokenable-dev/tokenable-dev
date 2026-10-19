@@ -3928,8 +3928,19 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b;
 }
 
+.sell-flow-choice__agree > span {
+  /* Keep "I agree to the Vaulting Agreement" on one line (button must stay inline). */
+  white-space: nowrap;
+  min-width: 0;
+}
+
 .sell-flow-choice__agree label {
   cursor: pointer;
+}
+
+.sell-flow-choice__agree .sell-flow-link {
+  display: inline;
+  vertical-align: baseline;
 }
 
 .sell-flow-choice__agree input {
@@ -3941,13 +3952,23 @@ button.sell-ship-step--btn:focus-visible {
   cursor: pointer;
 }
 
+@media (max-width: 400px) {
+  .sell-flow-choice__agree {
+    font-size: 13.5px;
+    gap: 8px;
+  }
+}
+
 .tk-dialog__overlay:has(.sell-flow-agreement) {
   background: rgba(24, 24, 27, 0.45);
+  overscroll-behavior: none;
+  /* Keep backdrop from scrolling the page; dialog body re-enables pan. */
+  touch-action: none;
 }
 
 .sell-flow-agreement.tk-dialog {
   max-width: 520px;
-  max-height: min(84vh, 720px);
+  max-height: min(58vh, 420px);
   padding: 0;
   gap: 0;
   overflow: hidden;
@@ -3957,9 +3978,11 @@ button.sell-ship-step--btn:focus-visible {
   clip-path: none;
   box-shadow: 0 18px 50px rgba(0, 0, 0, 0.22);
   animation: tk-dialog-rise var(--duration-base) var(--ease-standard);
+  touch-action: auto;
 }
 
 .sell-flow-agreement .tk-dialog__head {
+  flex: 0 0 auto;
   padding: 22px 64px 16px 24px;
   border-bottom: 1px solid #ececef;
 }
@@ -3975,13 +3998,30 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-agreement .tk-dialog__head + .tk-dialog__body {
   margin-top: 0;
-  padding: 20px 24px 28px;
-  overflow: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px 24px 20px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
   color: var(--color-grey-26, #3f3f46);
   font-family: Inter, var(--font-sans);
   font-size: 14px;
   font-weight: 400;
   line-height: 23.1px;
+}
+
+@media (max-width: 640px) {
+  .tk-dialog__overlay:has(.sell-flow-agreement) {
+    padding: 16px;
+    align-items: center;
+  }
+
+  .sell-flow-agreement.tk-dialog {
+    max-height: min(52vh, 380px);
+  }
 }
 
 .sell-flow-agreement .tk-dialog__close {
@@ -5105,7 +5145,8 @@ button.sell-ship-step--btn:focus-visible {
   border: 2px solid rgba(17, 17, 17, 0.12);
   background: #fff;
   font-family: ui-monospace, "SF Mono", Menlo, monospace;
-  font-size: 15px;
+  /* ≥16px — iOS Safari zooms focused inputs under 16px */
+  font-size: 16px;
   color: #18181b;
   outline: none;
 }
