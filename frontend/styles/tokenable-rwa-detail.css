@@ -570,6 +570,7 @@
   transform: translateY(-50%);
   display: flex;
   gap: 6px;
+  z-index: 1;
 }
 
 .tk-price__step {

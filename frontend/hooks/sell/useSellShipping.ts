@@ -267,7 +267,7 @@ export function useSellShipping() {
             draftCardsFromSubmissionItems(sub.items),
           );
           if (packageCards.length === 0) {
-            router.replace("/sell/flow");
+            router.replace("/vault");
             return;
           }
 
@@ -398,7 +398,7 @@ export function useSellShipping() {
 
       const packageCards = confirmedSellCards(localCards);
       if (packageCards.length === 0) {
-        router.replace("/sell/flow");
+        router.replace("/vault");
         return;
       }
 
@@ -571,14 +571,13 @@ export function useSellShipping() {
       setCards(nextPackage);
       packageCardsRef.current = nextPackage;
 
-      // Keep unconfirmed local cards for Add-cards; drop this cert from full draft.
       const fullLocal = readSellFlowDraftCards().filter(
         (c) => c.cert !== removed.cert,
       );
       writeSellFlowDraftCards(fullLocal);
 
       if (confirmedSellCards(nextPackage).length === 0) {
-        writeSellFlowProgress({ step: "cards" });
+        markSellFlowResumeCards();
         router.push("/sell/flow");
         return;
       }
@@ -654,7 +653,7 @@ export function useSellShipping() {
         returnAddress,
         vaultChoice: "psa",
       });
-      router.push(`/vault/submissions/${encodeURIComponent(publicId)}`);
+      router.push("/vault");
       return true;
     } catch (err) {
       setPackageSyncError(syncErrorMessage(err));
@@ -725,6 +724,8 @@ export function useSellShipping() {
     confirming,
     bannerLabel,
     shipSublabel,
+    submissionPublicId: readSellSubmissionPublicId(),
+    markReturnTouched: () => setReturnTouched(true),
     trackingPreview: trackingNumber.replace(/\s+/g, "").toUpperCase(),
     toggleCheck,
     copyAddress,
@@ -740,7 +741,6 @@ export function useSellShipping() {
         router.push(editReturnPath);
         return;
       }
-      writeSellFlowProgress({ step: "cards", vaultChoice: "psa" });
       markSellFlowResumeCards();
       router.push("/sell/flow");
     },

@@ -39,26 +39,26 @@ Includes `scenario` (`A`–`H`) for Vault-Detail UI, plus `items[]` and shipment
 
 ### Draft resume (frontend)
 
-Sell-flow **Add cards** is **local-only** (`localStorage`) — it does **not** create `vault_submissions` rows with `status=draft`. Browser drafts are cleared when the configured RWA address changes (`tk_sell_flow_contract`). Shipping upserts stamp `token_contract` from `x-tokenable-chain-id`.
+Sell entry is the choose-vault screen (`SellFlowChooseVault`) on an empty `/vault`, and again at `/sell/flow` from the hub **+ Sell a Card** button. Continue on that screen is not wired yet. KYC, seller-terms, and add-cards screens are not part of this entry.
+
+`/sell/shipping` still upserts a package the browser already has in `localStorage` (`tk_sell_flow_draft`) as `awaiting_shipment`. It does not create `status=draft` rows. Browser drafts are cleared when the configured RWA address changes (`tk_sell_flow_contract`). Shipping upserts stamp `token_contract` from `x-tokenable-chain-id`.
 
 | Layer | What |
 |-------|------|
-| `localStorage` (`tk_sell_flow_draft`) | Card list (cert, confirm flags). Written only by **Save as draft**, Continue to shipping, or post-mint cleanup — not on slab upload / lookup / confirm / remove. |
-| `localStorage` (`tk_sell_flow_progress`) | Step (`register` / `vault` / `cards` / `shipping-pack` / `shipping-track`), packing slip downloaded flag, tracking form |
+| `localStorage` (`tk_sell_flow_draft`) | Card list used by shipping when a package is already in the browser. The choose-vault screen does not edit this list. |
+| `localStorage` (`tk_sell_flow_progress`) | Shipping step (`shipping-pack` / `shipping-track`), packing slip downloaded flag, tracking form. Older step names (`register`, `vault`, `cards`) still parse. |
 | Account API on `/sell/shipping` mount | **First durable write** — upsert confirmed cards → `awaiting_shipment` (retry UI if fail). Tracking confirm upserts again then `POST …/tracking` → `in_transit`. Return address prefills from Settings **default** (`GET /user/shipping-addresses`, `isDefault` else first), else Partner **Origin** (`GET /marketplace/partners/me` `companyAddress`). User can edit for this shipment. If neither exists, local progress is the fallback (not yet sent to PSA intake APIs). |
-| Change Tracking | Vault Detail → `/sell/shipping?submission=<publicId>`. Loads the `in_transit` package, prefills carrier + number, confirms the number in a modal, and calls `POST …/tracking` only (no draft upsert). |
+| Change Tracking | Vault Detail → `/sell/shipping?submission=<publicId>`. Loads the `in_transit` package, prefills carrier + number, and **Done** calls `POST …/tracking` only (no draft upsert). |
 
-**Register / seller consents:** `/sell/flow` always opens on the register screen. Consents are session-only and must be re-accepted each visit. Draft cards may still resume after Continue. Optional `?vault=self` (Partner Add Cards) prefills Partner vault so Continue skips Choose vault.
+**Partner vault mint queue:** the add-cards UI that minted one cert at a time is removed. `POST /api/rwa/mint` with `deliveryMode: "direct"` is unchanged for other callers.
 
-**Partner vault mint queue:** confirmed cards mint **one at a time**. Cert availability (`GET /api/rwa/cert-availability`) is checked when adding a cert and again before each mint. A per-card failure (already minted cert, PSA shipment block, missing image, PSA lookup error, etc.) **skips that card and continues**. The result modal lists registered token IDs and skip reasons. Succeeded certs are removed from the local list; skipped certs stay for retry. Partner-eligibility errors (no company address / not a partner) stop the remaining queue.
+**PSA vault:** `/sell/shipping` still refuses to open with an empty confirmed card list and returns to `/vault`.
 
-**PSA vault:** the same cert-availability check runs on add-cert and before Continue to shipping so an already-minted cert cannot enter a new shipment.
-
-Vault hub (`/vault`) active view mirrors `Tokenable-with design system-22/Vault-Dashboard-Active.html`: **All · In transit · Verifying · Vaulted · Rejected** plus a per-card stepper (not package ip-cards). `in_transit` / `awaiting_shipment` → In transit (Add tracking still works before a number is set). `psa_reviewing` open items → Verifying. Item `completed` → Vaulted (green note + Portfolio link). Rejected / failed items (and scenario `F` / `H` without per-item flags) → Rejected with reason copy; primary CTA opens the existing submission detail (or carrier track for “not received”). Partner-vault holdings are **not** listed here (Portfolio only). Pre-ship drafts do not appear — resume Add cards via `/sell/flow`. After tracking confirm, local draft keys are cleared.
+Vault hub (`/vault`) active view mirrors `Vault-Dashboard-Active.html`: **Sell**, a **Sell cards** tile, then **Vaulting progress** with **All · Shipped · Verifying · Vaulted · Rejected**. Each row is one submission (stacked thumbs, status pill, card count, shipping line, action). `in_transit` / `awaiting_shipment` → Shipped (**Add tracking** until a number exists, then **Track**). `psa_reviewing` → Verifying. Completed packages → Vaulted (**View** opens Portfolio). Rejected packages → **Contact support**. Partner-vault holdings are **not** listed here. **Done** on `/sell/shipping` registers tracking and opens this hub. Local draft keys are cleared.
 
 **Legacy cleanup:** `backend/sql/maintenance/cancel_legacy_vault_submission_drafts.sql` sets orphan `status=draft` packages (no tracking) to `cancelled`.
 
-Users can move freely before shipment confirm: clickable **Submit / Ship / Portfolio** indicators, Back buttons (register ↔ cards ↔ pack ↔ track), and add/remove of PSA cards on Add Cards or the shipping package list.
+Users can still pack and track an existing shipment: Back from shipping returns to `/vault`, and cards can be removed from the package list.
 
 ### Mint bridge
 
@@ -74,8 +74,10 @@ Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` 
 
 ### Sell flow vault choice
 
-`/sell/flow` → **PSA vault** uses this submissions + shipping pipeline (mint later lands in custody; admin delivers).  
-**Self vault** reuses the same Add-cards UI, then mints via `POST /api/rwa/upload` + `POST /api/rwa/mint` with `deliveryMode: "direct"` so the NFT goes straight to the minter's linked wallet / portfolio (no admin Custody deliver).
+Empty `/vault` and `/sell/flow` show **Sell your cards** / **Choose a vault** (PSA Vault and Approved Partners). **Vaulting Agreement** opens a draft terms modal. Continue opens PSA add-cards (then `/sell/shipping`) or the partner mint screen when the account is an appointed partner with a company address. Vault mint does not require KYC during POC. Redeem still does.
+
+**PSA vault** Continue opens add-cards, then `/sell/shipping` (mint later lands in custody; admin delivers).  
+**Approved Partners** Continue opens the partner add-cards screen, which mints with `deliveryMode: "direct"`. Non-partners and partners without a company address cannot continue on that choice.
 
 **Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Open `awaiting_shipment` packages are still editable via ship upsert; rejected/failed/completed items do not block self vault.
 

@@ -81,6 +81,35 @@ export function stripTrailingRawGradeLabel(raw: string | null | undefined): stri
     .trim();
 }
 
+/**
+ * Stored titles often already end in the grade (`Name · PSA 10`).
+ * Line 1 appends grade itself, and some surfaces draw that grade on the next row.
+ */
+export function stripTrailingDisplayGrade(
+  raw: string | null | undefined,
+  grade?: string | null,
+): string {
+  let s = stripTrailingRawGradeLabel(raw);
+  if (!s) return "";
+
+  const exact = (grade ?? "").trim();
+  if (exact && !isCardDisplayRawGrade(exact)) {
+    const escaped = exact.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    s = s
+      .replace(new RegExp(`(?:\\s*[·•]\\s*|\\s+)${escaped}\\s*$`, "i"), "")
+      .trim();
+  }
+
+  const grader =
+    "(?:PSA|BGS|SGC|CGC)(?:\\s+(?:GEM\\s*MT|GEM\\s*MINT|MINT|NM[-\\s]*MT))?\\s+(?:\\d{1,2}(?:\\.\\d+)?|AUTH(?:ENTIC)?)";
+  s = s
+    .replace(new RegExp(`\\s*[·•]\\s*${grader}\\s*$`, "i"), "")
+    .replace(new RegExp(`\\s+${grader}\\s*$`, "i"), "")
+    .trim();
+
+  return s;
+}
+
 /** Details KV — Card.html uses full names (`English`), not short codes. */
 export function formatCardDisplayLanguageLong(
   raw: string | null | undefined,
@@ -706,7 +735,8 @@ export function formatCardDisplayLine1(
   parts: CardDisplayNameParts,
   opts?: { abbrev?: boolean; omitGrade?: boolean },
 ): string {
-  const name = stripTrailingRawGradeLabel(parts.cardName) || "";
+  const name =
+    stripTrailingDisplayGrade(parts.cardName, parts.grade) || "";
   const number =
     splitTcgCollectorNumber(parts.cardNumber).number ??
     formatHeadlineCardNumber(parts.cardNumber) ??

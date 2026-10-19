@@ -3,13 +3,14 @@ import {
   Controller,
   HttpCode,
   Post,
+  Req,
   Res,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ConfigService } from '@nestjs/config';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { resolveCookieSecure } from '../auth/auth-session.util';
 import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
@@ -17,7 +18,9 @@ import { VerifySiteAccessDto } from './dto/verify-site-access.dto';
 import {
   SITE_ACCESS_COOKIE,
   issueSiteAccessToken,
+  isSiteAccessRequired,
   readSiteAccessConfig,
+  siteAccessHostFromRequest,
 } from './site-access.util';
 
 @ApiTags('site-access')
@@ -38,11 +41,12 @@ export class SiteAccessController {
     apiBodyDefault(VerifySiteAccessDto, SWAGGER_BODY_EXAMPLES.siteAccessVerify),
   )
   verify(
+    @Req() req: Request,
     @Body() body: VerifySiteAccessDto,
     @Res({ passthrough: true }) res: Response,
   ): { ok: true; expiresIn: number } {
     const cfg = readSiteAccessConfig(process.env);
-    if (!cfg.enabled) {
+    if (!isSiteAccessRequired(cfg, siteAccessHostFromRequest(req))) {
       return { ok: true, expiresIn: cfg.sessionSeconds };
     }
 

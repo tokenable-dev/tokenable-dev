@@ -180,6 +180,14 @@
   object-fit: fill;
 }
 
+/* Similar items / listing grids: keep chamber stretch even if a parent img rule sets contain. */
+.cd-si-card__media .psa-slab__card-img--fill,
+.card__img .psa-slab__card-img--fill,
+.markets-grid .psa-slab__card-img--fill,
+.watchlist-grid .psa-slab__card-img--fill {
+  object-fit: fill !important;
+}
+
 .psa-slab__card-img--contain {
   object-fit: contain;
 }

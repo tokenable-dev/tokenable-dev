@@ -21,7 +21,7 @@ Committed CSS source for the Azure / pixel UI. Latest Figma export lives at repo
 
 **Collection (v2 Phase 4):** Set-level **Place a Bid** banner; listing rows **Buy-only**; softer vault / buyer-protection copy in listing detail + checkout.
 
-**Sell flow (v2):** Hub **+ Sell a Card** → `/sell/flow` (`Sell-Flow.html`) → `/sell/shipping` (`PSA-Shipping.html`) → `/vault/submissions/[id]?scenario=C` (`Vault-Detail.html`). Personal mint remains at `/vault/submit` (`/vault/submit/mint` redirects there).
+**Sell flow:** Header Sell and an empty hub open the choose-vault screen. Hub **+ Sell a Card** opens the same screen at `/sell/flow`. PSA shipping for an existing package stays at `/sell/shipping`. Personal mint remains at `/vault/submit` (`/vault/submit/mint` redirects there).
 
 **Designer handoff import:**
 
@@ -182,8 +182,7 @@ All 29 components exposed on `window.TokenableDesignSystem_8d023b`. Styles in `c
 | `Redeem.html` | Portfolio redeem (pay-first) | `app/portfolio/redeem/page.tsx` | ds-5 |
 | `Watchlist.html` | Watchlist | `app/watchlist/page.tsx` | 7 |
 | `Sell.html` | Sell entry router | `app/sell/page.tsx` | 2 (ds-v2) |
-| `Sell-Flow.html` | KYC + vault choice + add cards (PSA ship / self mint) | `app/sell/flow/page.tsx` | ds-v2 |
-| `Choose-Vault.html` | Vault choice (standalone) | `SellFlowChooseVault` in `/sell/flow` | ds-v2 |
+| `Choose-Vault-Individual.html` | Sell your cards / choose a vault | `SellFlowChooseVault` on `/vault` (empty) and `/sell/flow` | ds-v2 |
 | `PSA-Shipping.html` | Pack and tracking | `app/sell/shipping/page.tsx` | ds-v2 |
 | `Vault.html` | Vault landing | `app/vault/page.tsx` | 8 |
 | `Vault-Dashboard.html` / `Vault-Dashboard-Active.html` | Sell hub (ds-22 active: per-card In transit / Verifying / Vaulted / Rejected) | `app/vault/page.tsx` | 8 / ds-v2 Phase 2+7 |
@@ -435,7 +434,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | Route | React target |
 |-------|--------------|
 | `/sell` | `SellRouterView` — loader then → `/vault` (partner branch Phase 8) |
-| `/sell/flow` | `SellFlowView` — Sell-Flow.html (KYC + consents → choose vault → add cards via PSA cert lookup) |
+| `/sell/flow` | `SellFlowView` — choose a vault (`SellFlowChooseVault`) |
 | `/sell/shipping` | `SellShippingView` — PSA-Shipping.html (progress: Submit → Ship → PSA → Live; pack checklist → tracking) |
 | `/vault` | `VaultHubView` — landing / empty / **vaulting cards** (`VaultActiveDashboardView`, ds-22 Vault-Dashboard-Active.html) |
 | `/vault/submit` | `MintForm`, `useMintForm` (PSA → IPFS → backend mint) |
@@ -507,7 +506,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 | HTML | Route | React |
 |------|-------|-------|
 | `Partner-Portfolio.html` | `/partner/portfolio` | `PortfolioPageView` variant=partner — Redeem requests (`tkl-view-all`) in `PortfolioValuePanel`; tabs: My Assets / Active Bids / Transaction History only + **Redeem** toolbar btn; GNB is Markets / Portfolio / Sell only; redeem queue also in account menu / mobile drawer for active partners; `/portfolio` redirects here |
-| `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/sell/flow` with `vaultChoice=self` |
+| `Partner-Add-Cards.html` | `/partner/add-cards` | redirects to `/vault` |
 | `Partner-Shipments.html` | `/partner/shipments` | `PartnerShipmentsView` — **Carrier** / **Tracking** same as collector transit (`formatCarrierLabel`, `buildCarrierTrackingUrl`); tracking via `PATCH …/redeems/batches/:id/tracking` |
 | `Partner-Shipping-Origin.html` | Settings `#partner-origin` | existing Origin modal + Settings section |
 
@@ -515,7 +514,7 @@ Primary chrome label is **Sell** → `/sell` (design system-2 `Sell.html` router
 **API:** `GET/PATCH …/partners/me/redeems…` (writes same `vault_redemptions` tracking as admin)  
 **Admin Origin:** `/marketplace/admin/users/:id` → 파트너 vault panel (`AdminPartnerOriginPanel`) uses admin GET/PUT company-address  
 **CSS:** `tokenable-partner.css` (underline tabs + ≤1100 card meta; ≤640 stack CTAs + bottom-sheet modal)  
-**Sell router:** partners → `/partner/add-cards` via `resolveSellRouterDestinationAsync`
+**Sell router:** `/sell` and `/partner/add-cards` both land on `/vault`.
 
 ---
 

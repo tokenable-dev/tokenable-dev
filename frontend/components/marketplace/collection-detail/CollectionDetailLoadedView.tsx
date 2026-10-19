@@ -14,7 +14,6 @@ import { CollectionOverviewBoard } from "@/components/marketplace/collection-ove
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
 import { CollectionChooseCopyModal } from "./CollectionChooseCopyModal";
-import { CollectionChooseOwnedModal } from "./CollectionChooseOwnedModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -165,14 +164,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     },
   });
 
-  const [listPricePreset, setListPricePreset] = useState<string | null>(null);
-  const [chooseOwnedOpen, setChooseOwnedOpen] = useState(false);
   const [mobileTradeSheetOpen, setMobileTradeSheetOpen] = useState(false);
   const [tradeFocus, setTradeFocus] = useState<{
     seq: number;
     tab: CollectionDetailTradeTab;
     buyTokenId?: number | null;
-    sellTokenId?: number | null;
     bidUsd?: number | null;
   }>({ seq: 0, tab: "buy" });
 
@@ -180,30 +176,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     (next: {
       tab: CollectionDetailTradeTab;
       buyTokenId?: number | null;
-      sellTokenId?: number | null;
       bidUsd?: number | null;
     }) => {
       setTradeFocus((prev) => ({ ...next, seq: prev.seq + 1 }));
     },
     [],
-  );
-
-  const listedOwnedIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const o of asks) {
-      if (o.status !== "active") continue;
-      const tid = Number(o.tokenId);
-      if (Number.isFinite(tid) && tid >= 0) ids.add(tid);
-    }
-    for (const [tid, o] of listings.askMap) {
-      if (o.status === "active") ids.add(tid);
-    }
-    return ids;
-  }, [asks, listings.askMap]);
-
-  const listableOwnedRows = useMemo(
-    () => owned.rows.filter((row) => !listedOwnedIds.has(row.tokenId)),
-    [owned.rows, listedOwnedIds],
   );
 
   const pathname = usePathname();
@@ -222,9 +199,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     const tokenId = /^\d+$/.test(listingQuery) ? Number(listingQuery) : null;
     if (checkoutQuery === "bid") {
       focusTrade({ tab: "bid", buyTokenId: tokenId });
-    } else if (checkoutQuery === "list") {
-      focusTrade({ tab: "sell", sellTokenId: tokenId });
-    } else {
+    } else if (checkoutQuery !== "list") {
       focusTrade({ tab: "buy", buyTokenId: tokenId });
     }
     router.replace(pathname || `/marketplace/collections/${collectionKey}`);
@@ -283,21 +258,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [runTradeAccessGate, tradeDirect.placeBid],
   );
 
-  const handleTradeSell = useCallback(
-    (tokenId: number, priceUsd: number) => {
-      if (!(priceUsd > 0)) return;
-      if (listedOwnedIds.has(tokenId)) return;
-      runTradeAccessGate(() => {
-        void tradeDirect.listForSale(tokenId, priceUsd);
-      });
-    },
-    [
-      listedOwnedIds,
-      runTradeAccessGate,
-      tradeDirect.listForSale,
-    ],
-  );
-
   /**
    * Order-book ask click: 1 copy → Privy fulfill; 2+ → choose-copy, then fulfill.
    */
@@ -320,43 +280,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [handleTradeBuy, setOrderBookAskPicker],
   );
 
-  const openListFlow = useCallback(
-    (priceUsd: number | null, tokenId?: number | null) => {
-      const preset =
-        priceUsd != null && priceUsd > 0 ? String(Math.round(priceUsd)) : null;
-      setListPricePreset(preset);
-      if (tokenId != null && tokenId >= 0) {
-        if (preset) {
-          handleTradeSell(tokenId, Number(preset));
-          setListPricePreset(null);
-          return;
-        }
-        focusTrade({ tab: "sell", sellTokenId: tokenId });
-        return;
-      }
-      const rows = listableOwnedRows;
-      if (rows.length === 0) {
-        if (owned.rows.length === 0) router.push("/sell");
-        return;
-      }
-      if (rows.length === 1) {
-        if (preset) {
-          handleTradeSell(rows[0]!.tokenId, Number(preset));
-          setListPricePreset(null);
-          return;
-        }
-        focusTrade({ tab: "sell", sellTokenId: rows[0]!.tokenId });
-        return;
-      }
-      if (preset) {
-        setChooseOwnedOpen(true);
-        return;
-      }
-      focusTrade({ tab: "sell" });
-    },
-    [listableOwnedRows, owned.rows.length, router, focusTrade, handleTradeSell],
-  );
-
   const handleOrderBookSelectLevel = useCallback(
     (sel: BookRowSelection) => {
       if (sel.side === "ask" && sel.orders.length >= 1) {
@@ -366,33 +289,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       collectionOrderBookProps?.onSelectLevel?.(sel);
     },
     [collectionOrderBookProps, openBuyForAskOrders],
-  );
-
-  const orderBookPropsWithActions = useMemo(
-    () => ({
-      ...collectionOrderBookProps,
-      onSelectLevel: handleOrderBookSelectLevel,
-      onPlaceBid: () => {
-        focusTrade({ tab: "bid" });
-      },
-      onListYours: () => {
-        runTradeAccessGate(() => {
-          focusTrade({ tab: "sell" });
-        });
-      },
-      listingAlertActive,
-      listingAlertPending,
-      onToggleListingAlert: handleToggleListingAlert,
-    }),
-    [
-      collectionOrderBookProps,
-      handleOrderBookSelectLevel,
-      focusTrade,
-      listingAlertActive,
-      listingAlertPending,
-      handleToggleListingAlert,
-      runTradeAccessGate,
-    ],
   );
 
   const highestBidUsd = useMemo(
@@ -422,13 +318,41 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       focusTrade({
         tab,
         buyTokenId: null,
-        sellTokenId: null,
         bidUsd:
           tab === "bid" && defaultMobileBidUsd > 0 ? defaultMobileBidUsd : null,
       });
       setMobileTradeSheetOpen(true);
     },
     [focusTrade, defaultMobileBidUsd],
+  );
+
+  const orderBookPropsWithActions = useMemo(
+    () => ({
+      ...collectionOrderBookProps,
+      onSelectLevel: handleOrderBookSelectLevel,
+      onPlaceBid: () => {
+        const mobile =
+          typeof window !== "undefined" &&
+          window.matchMedia("(max-width: 1140px)").matches;
+        if (mobile) {
+          openMobileTradeSheet("bid");
+          return;
+        }
+        focusTrade({ tab: "bid" });
+      },
+      listingAlertActive,
+      listingAlertPending,
+      onToggleListingAlert: handleToggleListingAlert,
+    }),
+    [
+      collectionOrderBookProps,
+      handleOrderBookSelectLevel,
+      focusTrade,
+      openMobileTradeSheet,
+      listingAlertActive,
+      listingAlertPending,
+      handleToggleListingAlert,
+    ],
   );
 
   const closeMobileTradeSheet = useCallback(() => {
@@ -453,43 +377,26 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     });
   }, [asks, listingsBatchMetadata]);
 
-  const tradeOwnedItems = useMemo((): CollectionTradeCertItem[] => {
-    return listableOwnedRows.map((row) => ({
-      tokenId: row.tokenId,
-      label: `${row.certLabel} · ${row.vaultLabel}`,
-    }));
-  }, [listableOwnedRows]);
-
   const tradePanel = (
     <CollectionDetailTradePanel
       buyItems={tradeBuyItems}
-      ownedItems={tradeOwnedItems}
       lowestAskUsd={lowestAskUsd}
       highestBidUsd={highestBidUsd}
-      lastSaleUsd={market.gradeAwareExternalUsd}
       askCount={asks.length}
       bidCount={collectionBids.length}
       onBuy={handleTradeBuy}
       onBid={handleTradeBid}
-      onSell={handleTradeSell}
       buyDisabled={
         asks.length === 0 ||
         tradeDirect.busy != null ||
         tradeWalletNotReady
       }
       bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
-      sellDisabled={
-        listableOwnedRows.length === 0 ||
-        tradeDirect.busy != null ||
-        tradeWalletNotReady
-      }
       buyBusy={tradeDirect.busy === "buy"}
       bidBusy={tradeDirect.busy === "bid"}
-      sellBusy={tradeDirect.busy === "sell"}
       focusSeq={tradeFocus.seq}
       focusTab={tradeFocus.tab}
       focusBuyTokenId={tradeFocus.buyTokenId}
-      focusSellTokenId={tradeFocus.sellTokenId}
       focusBidUsd={tradeFocus.bidUsd}
     />
   );
@@ -497,10 +404,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const mobileSheetTradePanel = (
     <CollectionDetailTradePanel
       buyItems={tradeBuyItems}
-      ownedItems={tradeOwnedItems}
       lowestAskUsd={lowestAskUsd}
       highestBidUsd={highestBidUsd}
-      lastSaleUsd={market.gradeAwareExternalUsd}
       askCount={asks.length}
       bidCount={collectionBids.length}
       onBuy={(tokenId) => {
@@ -511,28 +416,17 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         closeMobileTradeSheet();
         handleTradeBid(priceUsd);
       }}
-      onSell={(tokenId, priceUsd) => {
-        closeMobileTradeSheet();
-        handleTradeSell(tokenId, priceUsd);
-      }}
       buyDisabled={
         asks.length === 0 ||
         tradeDirect.busy != null ||
         tradeWalletNotReady
       }
       bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
-      sellDisabled={
-        listableOwnedRows.length === 0 ||
-        tradeDirect.busy != null ||
-        tradeWalletNotReady
-      }
       buyBusy={tradeDirect.busy === "buy"}
       bidBusy={tradeDirect.busy === "bid"}
-      sellBusy={tradeDirect.busy === "sell"}
       focusSeq={tradeFocus.seq}
       focusTab={tradeFocus.tab}
       focusBuyTokenId={tradeFocus.buyTokenId}
-      focusSellTokenId={tradeFocus.sellTokenId}
       focusBidUsd={tradeFocus.bidUsd}
     />
   );
@@ -541,9 +435,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     formatAssetDetailLine1(headline.collectionHeadlineParts, {
       grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
     }) || headline.collectionHeadlineDisplayTitle;
-  const chooseCopyTitle =
-    formatAssetDetailLine1(headline.collectionHeadlineParts, { omitGrade: true }) ||
-    headline.collectionHeadlineDisplayTitle;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -650,10 +541,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         lowestAskUsd={lowestAskUsd}
         onBuy={() => openMobileTradeSheet("buy")}
         onBid={() => openMobileTradeSheet("bid")}
-        onSell={() => openMobileTradeSheet("sell")}
         buyDisabled={tradeDirect.busy != null || tradeWalletNotReady}
         bidDisabled={tradeDirect.busy != null || tradeWalletNotReady}
-        sellDisabled={tradeDirect.busy != null || tradeWalletNotReady}
       />
 
       <CollectionMobileTradeSheet
@@ -681,24 +570,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         onConfirm={(tokenId) => {
           setOrderBookAskPicker(null);
           handleTradeBuy(tokenId);
-        }}
-      />
-
-      <CollectionChooseOwnedModal
-        open={chooseOwnedOpen}
-        onClose={() => setChooseOwnedOpen(false)}
-        collectionTitle={chooseCopyTitle}
-        rows={listableOwnedRows}
-        onConfirm={(tokenId) => {
-          setChooseOwnedOpen(false);
-          const preset = listPricePreset != null ? Number(listPricePreset) : NaN;
-          if (Number.isFinite(preset) && preset > 0) {
-            setListPricePreset(null);
-            handleTradeSell(tokenId, preset);
-            return;
-          }
-          setListPricePreset(null);
-          focusTrade({ tab: "sell", sellTokenId: tokenId });
         }}
       />
     </div>

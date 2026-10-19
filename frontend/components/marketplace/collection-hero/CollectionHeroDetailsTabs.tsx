@@ -4,8 +4,7 @@ import { useState, type ReactNode } from "react";
 
 type SidebarTab = "details" | "psa";
 
-const TAB_BASE =
-  "cd-ob-tab shrink-0 transition-colors duration-200";
+const TAB_BASE = "cd-ob-tab transition-colors duration-200";
 const TAB_ACTIVE = "cd-ob-tab--active";
 const TAB_INACTIVE = "";
 
@@ -49,11 +48,11 @@ export function CollectionHeroDetailsTabs({
   return (
     <div className="cd-sidebar-tabs w-full min-w-0 max-w-full">
       <div
-        className="cd-ob-tabs relative flex w-full shrink-0 items-end border-b border-white/[0.08] bg-transparent"
+        className="cd-ob-tabs relative flex w-full shrink-0 bg-transparent"
         role="tablist"
         aria-label="Collection information"
       >
-        <div className="flex shrink-0 justify-start gap-0">
+        <div className="flex min-w-0 w-full flex-1 gap-0">
           <SidebarTabButton
             id="details"
             label="Details"

@@ -227,6 +227,22 @@ export function PrivySessionBridge() {
             claimGuestKbwStage1ForAccount(syncedUser.id, syncedUser.email);
           }
 
+          // MetaMask links the wallet after login. Do not wait for that catch-up
+          // before leaving the page — a wallet update cancels this effect mid-sleep.
+          if (
+            !returnToHandled.current &&
+            !isKbwStage2Pending()
+          ) {
+            const returnTo = useAuthUiStore.getState().consumeReturnTo();
+            if (returnTo) {
+              returnToHandled.current = true;
+              const targetPath = returnTo.split("?")[0] || returnTo;
+              if (pathname !== targetPath) {
+                router.push(returnTo);
+              }
+            }
+          }
+
           if (userHasLinkedWallet(syncedUser)) {
             catchupAttempt.current = 0;
           } else {

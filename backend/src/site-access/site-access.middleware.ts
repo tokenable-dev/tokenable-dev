@@ -6,7 +6,9 @@ import {
 import type { NextFunction, Request, Response } from 'express';
 import {
   SITE_ACCESS_COOKIE,
+  isSiteAccessRequired,
   readSiteAccessConfig,
+  siteAccessHostFromRequest,
   verifySiteAccessToken,
 } from './site-access.util';
 import { isAuthPublicApiPath } from '../auth/auth-public-api.util';
@@ -23,7 +25,7 @@ function normalizeRequestPath(path: string): string {
 export class SiteAccessMiddleware implements NestMiddleware {
   use(req: Request, _res: Response, next: NextFunction): void {
     const cfg = readSiteAccessConfig(process.env);
-    if (!cfg.enabled) {
+    if (!isSiteAccessRequired(cfg, siteAccessHostFromRequest(req))) {
       next();
       return;
     }

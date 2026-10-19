@@ -219,21 +219,10 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__row {
-    height: 34.5px;
-    align-items: flex-start;
+    height: auto;
+    align-items: start;
   }
 
-  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__lbl {
-    font-size: 11px;
-    margin-bottom: 2px;
-    line-height: normal;
-  }
-
-  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val,
-  .collection-detail-page .cd-mobile-scroll__chart .cd-hero-md-panel__val.mono {
-    font-size: 13px;
-    line-height: normal;
-  }
 
   .collection-detail-page .cd-mobile-scroll__book.cd-notch {
     background: #191919;
@@ -290,21 +279,18 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs {
-    padding: 0 16px !important;
+    padding: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
-    height: 52px;
     box-sizing: border-box;
     display: flex;
     align-items: stretch;
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs .cd-ob-tab {
-    display: inline-flex;
+    display: flex;
     align-items: center;
-    height: 100%;
-    padding-top: 0;
-    padding-bottom: 0;
+    justify-content: center;
   }
 
   /* Card.html — Details / PSA directly under trades rail */
@@ -319,7 +305,7 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs {
-    padding: 0 16px !important;
+    padding: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   }
 
@@ -757,6 +743,12 @@
   color: inherit;
 }
 
+/* Mobile chart hero shows this under the subtitle. Desktop keeps grade on the title. */
+.cd-hero-bar__grade,
+#hero-grade {
+  display: none;
+}
+
 .cd-hero-bar--embed .cd-hero-bar__priceblock,
 .cd-hero-bar--embed #hero-priceblock {
   justify-content: flex-start;
@@ -1144,30 +1136,46 @@
 }
 
 .cd-hero-md-panel__row {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  display: grid;
+  /* Equal tracks so a long dollar amount does not shift the next label.
+     Order: Mkt cap, Vol 1Yr, Velocity / Pop, Gem rate. */
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 10px;
+  row-gap: 16px;
+  align-items: start;
+  justify-items: start;
 }
 
-/* Figma ui/caption — Mkt cap, Vol 1Yr, … */
+.cd-hero-md-panel__row .cd-hero-stats__cell {
+  flex: none;
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  text-align: left;
+  justify-self: start;
+}
+
+/* Mobile chart stats — same key names as the desktop hero. */
 .cd-hero-md-panel__lbl {
-  font-family: var(--font-sans);
-  font-size: 11px;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  color: var(--color-grey-69, #a8adb7);
+  font-family: Inter, var(--font-sans);
+  font-size: 12px;
   font-style: normal;
   font-weight: 400;
   line-height: normal;
-  color: rgba(255, 255, 255, 0.7);
-  margin-bottom: 4px;
 }
 
 .cd-hero-md-panel__val,
 .cd-hero-md-panel__val.mono {
-  font-family: var(--font-sans);
-  font-size: 13px;
+  white-space: nowrap;
+  color: var(--global-color-white-100, #fff);
+  font-family: var(--title-page-font-family, Inter);
+  font-size: var(--font-size-15, 15px);
   font-style: normal;
-  font-weight: 700;
+  font-weight: var(--weight-bold, 700);
   line-height: normal;
-  color: #fff;
 }
 
 /* Card.html `#hero-stats-grid`: content-sized cells, not five equal columns.
@@ -1727,18 +1735,25 @@
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__head,
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-head {
-    max-height: 57.91px;
-    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+    max-height: none;
+    overflow: visible;
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__copy,
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-copy {
-    gap: 12px !important;
+    /* Tighten title / subtitle / price cluster; vertically center vs slab. */
+    gap: 10px !important;
+    align-self: center !important;
+    justify-content: center !important;
   }
 
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed .cd-hero-bar__priceblock,
   .collection-detail-page .cd-mobile-scroll__chart .cd-hero-bar--embed #hero-priceblock {
-    gap: 8px !important;
+    gap: 4px !important;
     margin-top: 0 !important;
   }
 
@@ -1775,8 +1790,8 @@
     display: flex !important;
     flex-direction: column !important;
     align-items: flex-start !important;
-    justify-content: flex-start !important;
-    align-self: start !important;
+    justify-content: center !important;
+    align-self: center !important;
     justify-self: stretch !important;
     width: 100%;
     min-width: 0;
@@ -1785,7 +1800,9 @@
 
   .cd-hero-bar--embed .cd-hero-bar__copy,
   .cd-hero-bar--embed #hero-copy {
-    gap: 12px !important;
+    gap: 10px !important;
+    align-self: center !important;
+    justify-content: center !important;
   }
 
   /* Card.html: title sits beside image (not full-width above). */
@@ -1865,7 +1882,7 @@
     align-items: flex-start !important;
     justify-content: flex-start !important;
     text-align: left !important;
-    gap: 8px !important;
+    gap: 4px !important;
     padding: 0 !important;
     min-width: 0 !important;
     margin-top: 0 !important;
@@ -1898,9 +1915,9 @@
   .cd-hero-bar--embed #hero-priceblock .cd-hero-bar__price-row {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: wrap !important;
-    align-items: baseline !important;
-    gap: 6px !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    gap: 8px !important;
     width: 100%;
     min-width: 0;
     margin-top: 0 !important;
@@ -1925,49 +1942,88 @@
     min-width: 0;
   }
 
-  /* Figma ~390 — embed hero typography (mobile chart-card) */
+  /* Mobile: line1 name · number (ellipsis), line2 PSA grade (full), then subtitle. */
+  .cd-hero-bar--embed .cd-hero-bar__head,
+  .cd-hero-bar--embed #hero-head {
+    gap: 0;
+    min-width: 0;
+    width: 100%;
+  }
+
   .cd-hero-bar--embed .cd-hero-bar__title,
   .cd-hero-bar--embed #hero-title {
-    margin: 0 0 4px;
+    margin: 0;
+    max-width: 100%;
+    min-width: 0;
     font-family: var(--font-sans);
-    font-size: 15.1px;
+    font-size: 17px;
     font-style: normal;
-    line-height: 18.88px;
-    letter-spacing: -0.302px;
-    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 800;
     color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Grade lives on #hero-grade — keep title to name · number only. */
+  .cd-hero-bar--embed .cd-hero-bar__title > span:has(> .cd-hero-bar__title-grade) {
+    display: none;
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__grade,
+  .cd-hero-bar--embed #hero-grade {
+    display: block;
+    margin: 2px 0 0;
+    max-width: 100%;
+    color: #fff;
+    font-family: var(--font-sans);
+    font-size: 17px;
+    font-style: normal;
+    font-weight: 800;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: visible;
   }
 
   .cd-hero-bar--embed .cd-hero-bar__meta,
   .cd-hero-bar--embed #hero-meta {
+    margin-top: 4px;
+    max-width: 100%;
+    min-width: 0;
     font-family: var(--font-sans);
-    font-size: 12px;
+    font-size: 14px;
     font-style: normal;
-    line-height: 16.2px;
-    letter-spacing: 0.12px;
+    line-height: 1.35;
+    letter-spacing: 0;
     font-weight: 400;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.55);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .cd-hero-bar--embed .cd-hero-bar__lastlbl,
   .cd-hero-bar--embed #hero-lastlbl {
     font-family: var(--font-sans);
-    font-size: 12px;
+    font-size: 13px;
     font-style: normal;
-    line-height: 14.4px;
-    letter-spacing: 0.48px;
+    line-height: 1.2;
+    letter-spacing: 0.08em;
     font-weight: 600;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.7);
+    color: rgba(255, 255, 255, 0.55);
   }
 
   .cd-hero-bar--embed .cd-hero-bar__price-row {
-    --cd-hero-price-line-fs: 22.3px;
-    --cd-hero-price-line-lh: 22.31px;
-    --cd-hero-price-line-ls: -0.669px;
-    --cd-hero-chg-line-fs: 15.4px;
-    --cd-hero-chg-line-lh: 15.44px;
-    --cd-hero-chg-line-ls: -0.309px;
+    --cd-hero-price-line-fs: 24px;
+    --cd-hero-price-line-lh: 1.15;
+    --cd-hero-price-line-ls: -0.02em;
+    --cd-hero-chg-line-fs: 17px;
+    --cd-hero-chg-line-lh: 1.15;
+    --cd-hero-chg-line-ls: -0.02em;
     margin-top: 0;
     gap: 6px;
   }
@@ -2016,13 +2072,19 @@
   }
 
   .cd-hero-bar--embed .cd-hero-bar__price-row .cd-hero-bar__period {
-    font-family: inherit;
-    font-size: inherit;
+    font-family: var(--font-sans);
+    font-size: 17px;
     font-style: normal;
-    line-height: inherit;
-    letter-spacing: inherit;
-    font-weight: inherit;
-    color: inherit;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+  }
+
+  .cd-hero-bar--embed .cd-hero-bar__price-row .cd-chg-glyph {
+    font-size: 17px;
+    font-weight: 500;
+    line-height: 1;
   }
 
   .cd-hero-bar__secondary,
@@ -2168,7 +2230,9 @@
   }
 
   .cd-hero-bar.is-stuck .cd-hero-bar__meta,
-  .cd-hero-bar.is-stuck #hero-meta {
+  .cd-hero-bar.is-stuck #hero-meta,
+  .cd-hero-bar.is-stuck .cd-hero-bar__grade,
+  .cd-hero-bar.is-stuck #hero-grade {
     display: none !important;
   }
 
@@ -2828,7 +2892,7 @@
   overflow: hidden;
 }
 
-/* Figma — Buy / Bid / Sell use Inter, not JetBrains. */
+/* Figma — Buy / Bid use Inter, not JetBrains. */
 .cd-trade-panel .mono {
   font-family: var(--font-sans);
 }
@@ -2850,8 +2914,10 @@
   font-family: var(--font-sans);
   font-weight: 600;
   font-size: var(--tk-ui-fs-section);
+  line-height: var(--tk-ui-lh-section);
   color: var(--t3);
-  padding: 9px 0;
+  /* Card.html `#tk-trade-tabs` — padding:14px 0 */
+  padding: 14px 0;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
@@ -3082,6 +3148,7 @@
   cursor: pointer;
   flex-shrink: 0;
   padding: 0 8px;
+  touch-action: manipulation;
 }
 
 .cd-trade-panel__adj-btn:first-of-type {
@@ -3371,52 +3438,43 @@
   border-radius: 16px;
   padding: 20px 18px;
   overflow: hidden;
+  position: relative;
+  z-index: 0;
 }
 
-/* Mobile stack still needs breathing room above Similar. */
 @media (max-width: 1140px) {
   .cd-similar-items {
-    margin-top: 20px;
+    margin-top: 24px;
   }
 }
 
 .cd-similar-items__head {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
-  margin-bottom: 16px;
+  margin-bottom: 18px;
 }
 
 .cd-similar-items__title {
   margin: 0;
   font-family: var(--font-sans);
   font-weight: 700;
-  font-size: var(--tk-ui-fs-title);
+  font-size: 16px;
   color: #fff;
 }
 
-/* Card.html `#similar-row`: 5-up on desktop, 2-up at ≤1140px. */
+/* Card.html `#similar-row`: 5-up desktop, 3-up pad, 2-up phone. */
 .cd-similar-items__grid {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 20px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 1140px) {
   .cd-similar-items__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-/* Phone — two equal halves; 132px card centered in each half. */
-@media (max-width: 600px) {
-  .collection-detail-page .cd-similar-items__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    justify-items: center;
-    column-gap: 0;
-    row-gap: 18px;
   }
 }
 
@@ -3425,20 +3483,11 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
   }
-
-  .collection-detail-page .cd-similar-items__grid {
-    grid-template-columns: repeat(auto-fill, var(--cd-si-card-w));
-    justify-content: start;
-    column-gap: 16px;
-    row-gap: 20px;
-  }
 }
 
-@media (min-width: 1141px) {
-  .collection-detail-page .cd-similar-items__grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
-    justify-content: stretch;
-    gap: 20px;
+@media (max-width: 560px) {
+  .cd-similar-items__grid {
+    grid-template-columns: 1fr 1fr !important;
   }
 }
 
@@ -3455,8 +3504,8 @@
   text-decoration: none;
   display: flex;
   flex-direction: column;
-  height: 100%;
   min-width: 0;
+  width: 100%;
   transition: transform 0.14s;
   cursor: pointer;
   color: inherit;
@@ -3466,131 +3515,42 @@
   transform: translateY(-4px);
 }
 
-/* Phone 150×200. Wider viewports scale the slab (markets tile is ~214px wide). */
-.collection-detail-page {
-  --cd-si-card-w: 150px;
-  --cd-si-slab-h: 200px;
-}
-
-@media (min-width: 601px) {
-  .collection-detail-page {
-    --cd-si-card-w: 200px;
-    --cd-si-slab-h: 267px;
-  }
-}
-
-@media (min-width: 1141px) {
-  .collection-detail-page {
-    --cd-si-card-w: 214px;
-    --cd-si-slab-h: 286px;
-  }
-}
-
-.collection-detail-page .cd-si-card {
-  width: var(--cd-si-card-w);
-  max-width: 100%;
-  align-self: start;
-}
-
-.collection-detail-page .cd-si-card__media {
+/*
+ * Media uses PSA slab (not Card.html's flat 0.72 PNG).
+ * Fill the grid cell width; keep slab aspect.
+ */
+.cd-si-card__media {
   position: relative;
-  width: var(--cd-si-card-w);
-  max-width: 100%;
-  height: var(--cd-si-slab-h);
-  min-height: var(--cd-si-slab-h);
-  max-height: var(--cd-si-slab-h);
-  aspect-ratio: auto;
-  flex: 0 0 var(--cd-si-slab-h);
+  width: 100%;
+  aspect-ratio: 416 / 700;
+  flex: 0 0 auto;
   border-radius: 10px;
   overflow: hidden;
-  background: #111113;
+  background: #0e0e10;
   contain: layout style;
   isolation: isolate;
 }
 
-.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) {
+.cd-si-card__media:has(> .psa-slab-frame) {
   background: transparent;
   border-radius: 0;
-  overflow: hidden;
 }
 
-.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
+.cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
   position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(var(--cd-si-slab-h) * 416 / 700);
-  max-width: 100%;
-  height: var(--cd-si-slab-h);
+  inset: 0;
+  width: 100%;
+  height: 100%;
   display: block;
 }
 
-.collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) .psa-slab {
+.cd-si-card__media:has(> .psa-slab-frame) .psa-slab {
   width: 100%;
   height: 100%;
   aspect-ratio: auto;
   box-shadow: none;
 }
 
-@media (max-width: 600px) {
-  .collection-detail-page .cd-si-card {
-    width: 132px;
-  }
-
-  .collection-detail-page .cd-si-card__media {
-    width: 132px;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    aspect-ratio: 416 / 700;
-    flex: 0 0 auto;
-  }
-
-  .collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
-    left: 0;
-    transform: none;
-    width: 100%;
-    height: 100%;
-  }
-}
-
-@media (min-width: 1141px) {
-  .collection-detail-page .cd-si-card {
-    width: 100%;
-    max-width: none;
-  }
-
-  .collection-detail-page .cd-si-card__media {
-    width: 100%;
-    height: auto;
-    min-height: 0;
-    max-height: none;
-    aspect-ratio: 416 / 700;
-    flex: 0 0 auto;
-  }
-
-  .collection-detail-page .cd-si-card__media:has(> .psa-slab-frame) > .psa-slab-frame {
-    left: 0;
-    transform: none;
-    width: 100%;
-    height: 100%;
-  }
-}
-
-/* Non–collection-detail fallbacks (if reused elsewhere). */
-.cd-si-card__media {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 0.72;
-  flex: 0 0 auto;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #111113;
-  contain: layout style;
-  isolation: isolate;
-}
-
-/* CollectionCoverFrame (flat) — pin shell to the fixed frame. */
 .cd-si-card__media > .collection-cover-flat-shell {
   position: absolute;
   inset: 0;
@@ -3600,14 +3560,23 @@
   max-height: 100%;
 }
 
-.cd-si-card__media img {
+/*
+ * Do NOT set object-fit on all media imgs — that resets PSA chamber fill
+ * every time Similar is restyled. Chamber art uses --fill; logo stays contain.
+ */
+.cd-si-card__media .psa-slab__card-img,
+.cd-si-card__media .psa-slab__card-img--fill {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
-  object-fit: fill;
+  max-width: none;
+  object-fit: fill !important;
   object-position: center;
-  filter: saturate(1.05) contrast(1.04);
+}
+
+.cd-si-card__media .psa-slab__tag-logo {
+  object-fit: contain;
 }
 
 .cd-si-card__media-empty {
@@ -3620,7 +3589,7 @@
   flex: 0 0 auto;
   width: 100%;
   box-sizing: border-box;
-  padding: var(--card-list-media-gap) 5px 5px;
+  padding: 11px 5px 5px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -3632,78 +3601,67 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-height: calc(16.9px * 2 + 2px);
   min-width: 0;
 }
 
-/* Similar tiles — fixed type at all breakpoints (not listing `--card-list-*` vars). */
+/* Line 1: name · number (ellipsis). Line 2: PSA grade (full). */
 .cd-si-card__title {
   font-family: var(--font-sans);
   font-size: 13px;
-  font-style: normal;
   font-weight: 600;
   color: #fff;
-  line-height: 16.9px;
+  line-height: 1.35;
   min-width: 0;
-  overflow: hidden;
   white-space: nowrap;
+  overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.cd-si-card__grade-line {
-  min-width: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.cd-si-card__grade {
   font-family: var(--font-sans);
   font-size: 13px;
-  font-style: normal;
   font-weight: 600;
-  line-height: 16.9px;
-  color: rgba(255, 255, 255, 0.85);
+  color: #fff;
+  line-height: 1.35;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: visible;
 }
 
 .cd-si-card__price-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: flex-start;
-  gap: var(--card-list-price-row-gap);
-  flex-wrap: nowrap;
-  overflow: hidden;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .cd-si-card__price {
   font-family: var(--font-sans);
   font-size: 14px;
-  font-style: normal;
-  font-weight: 600;
+  font-weight: 700;
   color: #fff;
-  letter-spacing: -0.28px;
+  letter-spacing: -0.02em;
   line-height: normal;
   white-space: nowrap;
-  min-width: 0;
-  flex: 0 1 auto;
 }
 
 .cd-si-card .card__sub,
 .cd-si-card .card__sub-pct,
-.cd-si-card .card__per {
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: -0.11px;
-  line-height: normal;
-}
-
+.cd-si-card .card__per,
 .cd-si-card .card__sub-glyph {
+  font-family: var(--font-sans, Inter, system-ui, sans-serif);
   font-size: 11px;
-  font-weight: 500;
-  letter-spacing: -0.11px;
+  font-weight: 700;
+  letter-spacing: normal;
   line-height: normal;
+  white-space: nowrap;
 }
 
 .cd-si-card .card__per {
   margin-left: 2px;
   color: rgba(255, 255, 255, 0.55);
+  font-weight: 600;
 }
 
 
@@ -4203,26 +4161,28 @@
   width: 100%;
 }
 
-/* Card.html #ob-bottom-bar:
- *   Buy  flex:1      #1A6FFF / #fff
- *   Bid  flex:0 26%  #12305e / #fff
- *   Sell flex:0 26%  #fff / #1A6FFF
- *   height 52 · font 15/700 · gap 10
- */
+/* Buy and Bid each take half the row. height 52 · font 15/700 · gap 10 */
 .cd-mobile-trade-bar__buy.tk-btn,
-.cd-mobile-trade-bar__buy {
+.cd-mobile-trade-bar__buy,
+.cd-mobile-trade-bar__bid.tk-btn,
+.cd-mobile-trade-bar__bid {
   flex: 1 1 0;
   width: auto !important;
   min-width: 0;
+  max-width: none;
   height: 52px !important;
   font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 700 !important;
-  background: #1a6fff !important;
-  color: #fff !important;
   box-shadow: none !important;
   transform: none !important;
   filter: none !important;
+}
+
+.cd-mobile-trade-bar__buy.tk-btn,
+.cd-mobile-trade-bar__buy {
+  background: #1a6fff !important;
+  color: #fff !important;
 }
 
 .cd-mobile-trade-bar__buy.tk-btn:hover,
@@ -4235,48 +4195,14 @@
 
 .cd-mobile-trade-bar__bid.tk-btn,
 .cd-mobile-trade-bar__bid {
-  flex: 0 0 26%;
-  width: auto !important;
-  min-width: 0;
-  height: 52px !important;
-  font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-section) !important;
-  font-weight: 700 !important;
   background: #12305e !important;
   color: #fff !important;
-  box-shadow: none !important;
-  transform: none !important;
-  filter: none !important;
 }
 
 .cd-mobile-trade-bar__bid.tk-btn:hover,
 .cd-mobile-trade-bar__bid:hover {
   background: #1a3f78 !important;
   color: #fff !important;
-  box-shadow: none !important;
-  transform: none !important;
-}
-
-.cd-mobile-trade-bar__sell.tk-btn,
-.cd-mobile-trade-bar__sell {
-  flex: 0 0 26%;
-  width: auto !important;
-  min-width: 0;
-  height: 52px !important;
-  font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-section) !important;
-  font-weight: 700 !important;
-  background: #fff !important;
-  color: #1a6fff !important;
-  box-shadow: none !important;
-  transform: none !important;
-  filter: none !important;
-}
-
-.cd-mobile-trade-bar__sell.tk-btn:hover,
-.cd-mobile-trade-bar__sell:hover {
-  background: #f2f2f2 !important;
-  color: #1a6fff !important;
   box-shadow: none !important;
   transform: none !important;
 }
@@ -4713,48 +4639,56 @@
   line-height: 1;
 }
 
-/* Tabs — Card.html trades/listings header */
+/* Tabs — same chrome as Buy / Bid (`.cd-trade-panel__tab`) */
 .collection-detail-page .cd-ob-tabs {
-  padding: 0 16px !important;
+  /* Full-bleed rail (panels have no 18px pad) so azure underline spans each half. */
+  padding: 0 !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   background: transparent;
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .collection-detail-page .cd-sidebar-details .cd-ob-tabs {
-  padding: 0 16px !important;
+  padding: 0 !important;
 }
 
-.collection-detail-page .cd-sidebar-details #collection-sidebar-tab-psa {
-  min-width: 88px;
-  padding-left: 22px;
-  padding-right: 22px;
-}
-
-.collection-detail-page .cd-ob-tabs .cd-ob-tab {
-  padding: 16px;
+.collection-detail-page .cd-ob-tabs > [role="tablist"],
+.collection-detail-page .cd-ob-tabs > .flex {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 0;
+  align-items: stretch;
+  flex: 1 1 auto;
 }
 
 .collection-detail-page .cd-ob-tab {
+  /* Match Buy / Bid (`.cd-trade-panel__tab`) box + type */
   position: relative;
-  margin-bottom: 0;
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  margin-bottom: -1px;
   border: 0;
-  border-bottom: none;
+  border-bottom: 2px solid transparent;
+  padding: 14px 0;
   font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-section);
   font-weight: 600;
+  line-height: var(--tk-ui-lh-section);
   color: var(--t3);
-  line-height: 1;
+  text-align: center;
   cursor: pointer;
-  flex: none;
-  width: auto;
   background: transparent;
 }
 
 .collection-detail-page .cd-ob-tab--active {
-  margin-bottom: -1px;
   font-weight: 700;
   color: #fff;
-  border-bottom: 2px solid var(--brand-500);
+  border-bottom-color: var(--azure, #1a6fff);
 }
 
 .collection-detail-page .cd-ob-tab:not(.cd-ob-tab--active) {
@@ -5304,7 +5238,7 @@
   filter: none !important;
 }
 
-/* Listings empty — Bid / subtle Sell (not hero purple neutral) */
+/* Listings empty — Bid (not hero purple neutral) */
 .collection-detail-page .cd-ob-empty__mbtn.tk-btn--neutral,
 .collection-detail-page .cd-ob-empty__mbtn.tk-btn.tk-btn--neutral {
   background: #414042 !important;

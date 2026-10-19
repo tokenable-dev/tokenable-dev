@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { TkButton } from "@/components/ds";
 import { sanitizeTokenBidPriceInput } from "@/hooks/token-offer/useTokenOffer";
+import { bumpWholeDollarByOnePercent } from "@/lib/marketplace/wholeDollarPercent";
 
-export type CollectionDetailTradeTab = "buy" | "bid" | "sell";
+export type CollectionDetailTradeTab = "buy" | "bid";
 
-/** One selectable copy in Buy / Sell cert carousels (Card.html `#tk-trade`). */
+/** One selectable copy in the Buy cert carousel (Card.html `#tk-trade`). */
 export type CollectionTradeCertItem = {
   tokenId: number;
   /** e.g. `Cert. 64950960 · TOKN Vault` */
@@ -36,13 +37,6 @@ function usdFromRaw(raw: string): number {
 function rawFromUsd(n: number): string {
   if (!(n > 0) || !Number.isFinite(n)) return "";
   return String(Math.round(n));
-}
-
-/** Whole dollars only. Below $100 step $1; $100+ step 1%. */
-function bumpWholeUsd(current: number, direction: 1 | -1): number {
-  const base = Math.max(0, Math.round(Number.isFinite(current) ? current : 0));
-  if (base < 100) return Math.max(0, base + direction);
-  return Math.max(0, Math.round(base * (1 + direction * 0.01)));
 }
 
 function rawFromWholeUsd(n: number): string {
@@ -130,77 +124,57 @@ function CertCarousel({
 }
 
 /**
- * Card.html `#tk-trade` — Buy | Bid | Sell ticket on the detail rail.
+ * Card.html `#tk-trade` — Buy | Bid ticket on the detail rail.
  * Inactive tabs are taken out of flow so loading copy cannot stretch the box.
  */
 export function CollectionDetailTradePanel({
   buyItems = [],
-  ownedItems = [],
   lowestAskUsd,
   highestBidUsd,
-  lastSaleUsd,
   askCount = 0,
   bidCount = 0,
   onBuy,
   onBid,
-  onSell,
   buyDisabled,
   bidDisabled,
-  sellDisabled,
   buyBusy = false,
   bidBusy = false,
-  sellBusy = false,
   initialTab = "buy",
   focusSeq = 0,
   focusTab,
   focusBuyTokenId,
-  focusSellTokenId,
   focusBidUsd,
 }: {
   /** Active asks (lowest first) — Buy cert carousel. */
   buyItems?: CollectionTradeCertItem[];
-  /** Wallet-owned copies — Sell cert carousel. */
-  ownedItems?: CollectionTradeCertItem[];
   /** Market floor ask (Buy tab + Bid ≥ this → Buy now, Card.html `ASK`). */
   lowestAskUsd?: number | null;
   highestBidUsd?: number | null;
-  lastSaleUsd?: number | null;
   askCount?: number;
   bidCount?: number;
   onBuy: (tokenId: number) => void;
   onBid: (priceUsd: number) => void;
-  onSell: (tokenId: number, priceUsd: number) => void;
   buyDisabled?: boolean;
   bidDisabled?: boolean;
-  sellDisabled?: boolean;
   buyBusy?: boolean;
   bidBusy?: boolean;
-  sellBusy?: boolean;
   initialTab?: CollectionDetailTradeTab;
   /** Bump to apply deep-link / order-book focus. */
   focusSeq?: number;
   focusTab?: CollectionDetailTradeTab;
   focusBuyTokenId?: number | null;
-  focusSellTokenId?: number | null;
   focusBidUsd?: number | null;
 }) {
   const [tab, setTab] = useState<CollectionDetailTradeTab>(initialTab);
   const [buyIndex, setBuyIndex] = useState(0);
-  const [sellIndex, setSellIndex] = useState(0);
 
   useEffect(() => {
     setBuyIndex((i) =>
       buyItems.length === 0 ? 0 : Math.min(i, buyItems.length - 1),
     );
   }, [buyItems.length]);
-  useEffect(() => {
-    setSellIndex((i) =>
-      ownedItems.length === 0 ? 0 : Math.min(i, ownedItems.length - 1),
-    );
-  }, [ownedItems.length]);
 
   const selectedBuy = buyItems[buyIndex] ?? null;
-  const selectedOwned = ownedItems[sellIndex] ?? null;
 
   const payUsd =
     selectedBuy?.priceUsd != null && selectedBuy.priceUsd > 0
@@ -214,27 +188,8 @@ export function CollectionDetailTradePanel({
         : 0;
   const topBid =
     highestBidUsd != null && highestBidUsd > 0 ? highestBidUsd : 0;
-  const last =
-    lastSaleUsd != null && lastSaleUsd > 0
-      ? lastSaleUsd
-      : floorAsk > 0
-        ? floorAsk
-        : topBid;
-
-  const defaultSell = useMemo(
-    () =>
-      floorAsk > 0
-        ? Math.round(floorAsk * 0.99)
-        : last > 0
-          ? Math.round(last)
-          : 0,
-    [floorAsk, last],
-  );
-
   const [bidTouched, setBidTouched] = useState(false);
   const [bidRaw, setBidRaw] = useState("0");
-  const [sellRaw, setSellRaw] = useState(() => rawFromUsd(defaultSell));
-  const [sellTouched, setSellTouched] = useState(false);
 
   useEffect(() => {
     if (focusSeq < 1) return;
@@ -243,23 +198,13 @@ export function CollectionDetailTradePanel({
       const i = buyItems.findIndex((x) => x.tokenId === focusBuyTokenId);
       if (i >= 0) setBuyIndex(i);
     }
-    if (focusSellTokenId != null && focusSellTokenId >= 0) {
-      const i = ownedItems.findIndex((x) => x.tokenId === focusSellTokenId);
-      if (i >= 0) setSellIndex(i);
-    }
     if (focusBidUsd != null && focusBidUsd > 0) {
       setBidTouched(true);
       setBidRaw(rawFromUsd(focusBidUsd));
     }
   }, [focusSeq]);
 
-  useEffect(() => {
-    if (sellTouched) return;
-    setSellRaw(rawFromUsd(defaultSell));
-  }, [defaultSell, sellTouched]);
-
   const bidUsd = usdFromRaw(bidRaw);
-  const sellUsd = usdFromRaw(sellRaw);
   // Card.html `#tk-trade`: `bid >= ASK` (collection live floor, same $ as Buy tab).
   const bidCrossesAsk = floorAsk > 0 && bidUsd >= Math.round(floorAsk);
 
@@ -271,15 +216,10 @@ export function CollectionDetailTradePanel({
   const bumpBid = (direction: 1 | -1) => {
     setBidTouched(true);
     if (direction === 1 && !(bidUsd > 0) && topBid > 0) {
-      setBidRaw(rawFromWholeUsd(bumpWholeUsd(topBid, 1)));
+      setBidRaw(rawFromWholeUsd(bumpWholeDollarByOnePercent(topBid, 1)));
       return;
     }
-    setBidRaw(rawFromWholeUsd(bumpWholeUsd(bidUsd, direction)));
-  };
-  const bumpSell = (direction: 1 | -1) => {
-    setSellTouched(true);
-    const base = sellUsd > 0 ? sellUsd : defaultSell || 0;
-    setSellRaw(rawFromWholeUsd(bumpWholeUsd(base, direction)));
+    setBidRaw(rawFromWholeUsd(bumpWholeDollarByOnePercent(bidUsd, direction)));
   };
 
   const hasAsk = payUsd > 0 && selectedBuy != null;
@@ -297,8 +237,6 @@ export function CollectionDetailTradePanel({
         ? "Highest · Bid"
         : "No bids";
 
-  const hasOwned = selectedOwned != null;
-
   return (
     <div className="cd-trade-panel cd-notch" id="tk-trade">
       <div className="cd-trade-panel__tabs" id="tk-trade-tabs" role="tablist">
@@ -306,7 +244,6 @@ export function CollectionDetailTradePanel({
           [
             ["buy", "Buy"],
             ["bid", "Bid"],
-            ["sell", "Sell"],
           ] as const
         ).map(([id, label]) => {
           const on = tab === id;
@@ -394,6 +331,7 @@ export function CollectionDetailTradePanel({
               aria-label="Decrease bid by 1%"
               disabled={tab !== "bid" || !(bidUsd > 0)}
               tabIndex={tab === "bid" ? 0 : -1}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => bumpBid(-1)}
             >
               −1%
@@ -423,6 +361,7 @@ export function CollectionDetailTradePanel({
               aria-label="Increase bid by 1%"
               disabled={tab !== "bid"}
               tabIndex={tab === "bid" ? 0 : -1}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => bumpBid(1)}
             >
               +1%
@@ -453,87 +392,6 @@ export function CollectionDetailTradePanel({
                 : bidBusy
                   ? "Placing bid…"
                   : "Place bid"}
-            </TkButton>
-          </div>
-        </div>
-
-        <div
-          className={`cd-trade-panel__body${tab === "sell" ? "" : " cd-trade-panel__body--off"}`}
-          data-ttp="sell"
-          role="tabpanel"
-          aria-hidden={tab !== "sell"}
-        >
-          <CertCarousel
-            items={ownedItems}
-            index={sellIndex}
-            onIndexChange={setSellIndex}
-            emptyLabel=""
-          />
-          <div className="cd-trade-panel__adj">
-            <span className="cd-trade-panel__field-lbl">Your price</span>
-            <button
-              type="button"
-              className="cd-trade-panel__adj-btn"
-              aria-label="Decrease price by 1%"
-              disabled={tab !== "sell" || !(sellUsd > 0)}
-              tabIndex={tab === "sell" ? 0 : -1}
-              onClick={() => bumpSell(-1)}
-            >
-              −1%
-            </button>
-            <input
-              id="tt-sell-v"
-              className="cd-trade-panel__adj-input"
-              type="text"
-              inputMode="numeric"
-              autoComplete="off"
-              autoCorrect="off"
-              spellCheck={false}
-              name="tk-ask-amount"
-              aria-label="Your asking price"
-              placeholder={defaultSell > 0 ? moneyRound(defaultSell) : "$0"}
-              value={sellRaw ? `$${formatAdjDisplay(sellRaw)}` : ""}
-              disabled={tab !== "sell"}
-              tabIndex={tab === "sell" ? 0 : -1}
-              onChange={(e) => {
-                setSellTouched(true);
-                setSellRaw(sanitizeTokenBidPriceInput(e.target.value));
-              }}
-            />
-            <button
-              type="button"
-              className="cd-trade-panel__adj-btn"
-              aria-label="Increase price by 1%"
-              disabled={tab !== "sell"}
-              tabIndex={tab === "sell" ? 0 : -1}
-              onClick={() => bumpSell(1)}
-            >
-              +1%
-            </button>
-          </div>
-          <div className="cd-trade-panel__foot">
-            <div className="cd-trade-panel__meta">
-              <span className="cd-trade-panel__meta-muted">{buyMeta}</span>
-              <span className="cd-trade-panel__meta-end" aria-hidden="true" />
-            </div>
-            <TkButton
-              type="button"
-              variant="primary"
-              className="cd-trade-panel__cta"
-              disabled={
-                tab !== "sell" ||
-                sellDisabled ||
-                !hasOwned ||
-                !(sellUsd > 0) ||
-                sellBusy
-              }
-              tabIndex={tab === "sell" ? 0 : -1}
-              onClick={() => {
-                if (!selectedOwned || !(sellUsd > 0)) return;
-                onSell(selectedOwned.tokenId, sellUsd);
-              }}
-            >
-              {sellBusy ? "Listing…" : "List for sale"}
             </TkButton>
           </div>
         </div>

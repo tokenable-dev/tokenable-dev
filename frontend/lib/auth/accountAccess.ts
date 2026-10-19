@@ -52,13 +52,6 @@ export function canUseAppChainSwitcher(user: AuthUser | null | undefined): boole
   return isInternalDevUser(user);
 }
 
-/** Sell-flow add-cards: cert# direct lookup (alongside slab upload / OCR). */
-export function canUseSellCertDirectInput(
-  _user: AuthUser | null | undefined,
-): boolean {
-  return true;
-}
-
 /** KYC Level 2 — Sumsub `approved` on reconciled session (see GET /api/kyc/status). */
 export function isKycComplete(user: AuthUser | null | undefined): boolean {
   return user?.kycStatus === "approved";

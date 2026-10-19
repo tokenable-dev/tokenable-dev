@@ -5,32 +5,27 @@ import { createPortal } from "react-dom";
 import { TkButton } from "@/components/ds";
 
 /**
- * Card.html `#ob-bottom-bar` — viewport-fixed Buy / Bid / Sell strip
+ * Card.html `#ob-bottom-bar` — viewport-fixed Buy / Bid strip
  * (ported to body so `isolation` on `.mobile-page-root` cannot offset
  * `position: fixed`).
  *
- * Layout (Card.html `#ob-bottom-bar` inline):
- *   Buy  flex:1      #1A6FFF / white · label `Buy $9,000`
- *   Bid  flex:0 26%  #12305e / white
- *   Sell flex:0 26%  #fff / #1A6FFF
+ * Layout: Buy and Bid each take half the row.
+ *   Buy  #1A6FFF / white · label `Buy $9,000`
+ *   Bid  #12305e / white
  *   height 52 · font 15/700 · gap 10
  */
 export function CollectionMobileTradeBar({
   lowestAskUsd,
   onBuy,
   onBid,
-  onSell,
   buyDisabled,
   bidDisabled,
-  sellDisabled,
 }: {
   lowestAskUsd?: number | null;
   onBuy: () => void;
   onBid: () => void;
-  onSell: () => void;
   buyDisabled?: boolean;
   bidDisabled?: boolean;
-  sellDisabled?: boolean;
 }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -70,15 +65,6 @@ export function CollectionMobileTradeBar({
           onClick={onBid}
         >
           Bid
-        </TkButton>
-        <TkButton
-          type="button"
-          variant="primary"
-          className="cd-mobile-trade-bar__sell"
-          disabled={sellDisabled}
-          onClick={onSell}
-        >
-          Sell
         </TkButton>
       </div>
     </div>,

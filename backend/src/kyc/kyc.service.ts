@@ -123,7 +123,8 @@ export class KycService {
   }
 
   async assertApprovedForCustody(user: User): Promise<void> {
-    const synced = await this.reconcileUser(user);
+    const partnerApproved = await this.users.approveKycIfActivePartner(user);
+    const synced = await this.reconcileUser(partnerApproved);
     if (!this.sumsub.isConfigured()) {
       assertKycApprovedForCustody(synced);
       return;
@@ -132,7 +133,8 @@ export class KycService {
   }
 
   async getStatus(user: User) {
-    const synced = await this.reconcileUser(user);
+    const partnerApproved = await this.users.approveKycIfActivePartner(user);
+    const synced = await this.reconcileUser(partnerApproved);
     return {
       status: synced.kycStatus,
       provider: synced.kycProvider,

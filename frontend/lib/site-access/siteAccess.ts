@@ -3,6 +3,32 @@ export const SITE_ACCESS_COOKIE = "site_access";
 /** Default gate password when SITE_ACCESS_PASSWORD is unset (local + deploy parity). */
 export const DEFAULT_SITE_ACCESS_PASSWORD = "717171";
 
+/** Public app hostname. Always password-gated, even when SITE_ACCESS_ENABLED=false. */
+export const APP_TOKENABLE_HOST = "app.tokenable.io";
+
+export function requestHostname(header: string | null | undefined): string {
+  const first = header?.split(",")[0]?.trim().toLowerCase() ?? "";
+  return first.replace(/:\d+$/, "");
+}
+
+export function isAppTokenableHost(hostname: string | null | undefined): boolean {
+  return requestHostname(hostname) === APP_TOKENABLE_HOST;
+}
+
+/** Env flag, or a request whose host is app.tokenable.io. */
+export function isSiteAccessRequired(
+  cfg: SiteAccessConfig,
+  hostHeader: string | null | undefined,
+): boolean {
+  return cfg.enabled || isAppTokenableHost(hostHeader);
+}
+
+export function siteAccessHostHeader(request: {
+  headers: { get(name: string): string | null };
+}): string | null {
+  return request.headers.get("x-forwarded-host") ?? request.headers.get("host");
+}
+
 export type SiteAccessConfig = {
   enabled: boolean;
   password: string;

@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import {
   SITE_ACCESS_COOKIE,
   issueSiteAccessToken,
+  isSiteAccessRequired,
   readSiteAccessConfig,
+  siteAccessHostHeader,
 } from "@/lib/site-access/siteAccess";
 
 export async function POST(request: Request) {
   const cfg = readSiteAccessConfig();
-  if (!cfg.enabled) {
+  if (!isSiteAccessRequired(cfg, siteAccessHostHeader(request))) {
     return NextResponse.json({ ok: true, expiresIn: cfg.sessionSeconds });
   }
 

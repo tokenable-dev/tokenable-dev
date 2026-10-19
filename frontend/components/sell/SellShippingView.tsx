@@ -1,137 +1,103 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
-import { TkDialog } from "@/components/ds/Dialog";
+import { useEffect, useRef, useState } from "react";
+import { TkButton } from "@/components/ds";
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
-import { useIsMobileViewport } from "@/hooks/ui/useIsMobileViewport";
 import { useSellShipping } from "@/hooks/sell/useSellShipping";
-import { PSA_SHIP_TO, type SellCarrier } from "@/lib/sell/sellFlowDraft";
-import { cn } from "@/lib/ds/cn";
+import type { SellCarrier, SellReturnAddressDraft } from "@/lib/sell/sellFlowDraft";
 import { SellFlowProgressSteps } from "./SellFlowProgressSteps";
 
-const CARRIER_OPTIONS: { value: SellCarrier; label: string }[] = [
-  { value: "fedex", label: "FedEx International Priority — recommended" },
-  { value: "dhl", label: "DHL Express — recommended" },
-  { value: "ups", label: "UPS Worldwide" },
+const CARRIERS: { value: SellCarrier; label: string }[] = [
+  { value: "fedex", label: "FedEx" },
+  { value: "ups", label: "UPS" },
+  { value: "dhl", label: "DHL" },
 ];
 
-function SellCarrierField({
-  value,
-  onChange,
-  disabled,
-}: {
-  value: SellCarrier;
-  onChange: (next: SellCarrier) => void;
-  disabled?: boolean;
-}) {
-  const isMobile = useIsMobileViewport(768);
-  const [open, setOpen] = useState(false);
-  const label = CARRIER_OPTIONS.find((o) => o.value === value)?.label ?? value;
+const COUNTRIES: { value: string; label: string }[] = [
+  { value: "us", label: "United States" },
+  { value: "ca", label: "Canada" },
+  { value: "gb", label: "United Kingdom" },
+  { value: "de", label: "Germany" },
+  { value: "jp", label: "Japan" },
+  { value: "kr", label: "South Korea" },
+  { value: "intl", label: "Other" },
+];
 
-  if (!isMobile) {
-    return (
-      <TkField label="Carrier" htmlFor="sell-ship-carrier">
-        <TkSelect
-          id="sell-ship-carrier"
-          value={value}
-          disabled={disabled}
-          onChange={(e) => onChange(e.target.value as SellCarrier)}
-        >
-          {CARRIER_OPTIONS.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </TkSelect>
-      </TkField>
-    );
-  }
+const PACK_NOTES = [
+  "Put the packing slip inside the box. PSA uses it to match the card to your Tokenable account.",
+  "Sleeve the slab and pack it in a bubble mailer or sturdy box.",
+  "Ship with a tracked carrier.",
+];
 
+function CheckIcon() {
   return (
-    <>
-      <TkField label="Carrier" htmlFor="sell-ship-carrier-trigger">
-        <button
-          id="sell-ship-carrier-trigger"
-          type="button"
-          className="sell-ship-carrier-trigger"
-          disabled={disabled}
-          aria-haspopup="listbox"
-          aria-expanded={open}
-          onClick={() => setOpen(true)}
-        >
-          <span>{label}</span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-            <polyline points="6 9 12 15 18 9" />
-          </svg>
-        </button>
-      </TkField>
-      {open ? (
-        <>
-          <button
-            type="button"
-            className="sell-ship-sheet-overlay open"
-            aria-label="Close carrier picker"
-            onClick={() => setOpen(false)}
-          />
-          <div className="sell-ship-carrier-sheet open" role="listbox" aria-label="Carrier">
-            <div className="sell-ship-carrier-sheet__handle" aria-hidden />
-            {CARRIER_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                role="option"
-                aria-selected={opt.value === value}
-                className={cn(
-                  "sell-ship-carrier-sheet__row",
-                  opt.value === value && "sell-ship-carrier-sheet__row--on",
-                )}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
-    </>
-  );
-}
-
-function CheckIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" aria-hidden>
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1A6FFF" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
 }
 
-function ArrowRightIcon() {
+function DownloadIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <line x1="5" y1="12" x2="19" y2="12" />
-      <polyline points="12 5 19 12 12 19" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }
 
-function BackChevron() {
+function CopyIcon() {
   return (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
-      <polyline points="15 18 9 12 15 6" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
+  );
+}
+
+function countryLabel(code: string) {
+  return COUNTRIES.find((c) => c.value === code)?.label ?? code;
+}
+
+function ReturnSummary({ addr }: { addr: SellReturnAddressDraft }) {
+  const street = [addr.line1.trim(), addr.line2.trim()].filter(Boolean).join(", ");
+  const place = [addr.city.trim(), addr.region.trim()].filter(Boolean).join(", ");
+  return (
+    <div className="psa-ship-return__text">
+      {addr.name.trim()}
+      <br />
+      {street}
+      {street && place ? ", " : null}
+      {place}
+      {addr.postal.trim() ? (
+        <>
+          {" "}
+          <span className="psa-ship-mono">{addr.postal.trim()}</span>
+        </>
+      ) : null}
+      {addr.country.trim() ? `, ${countryLabel(addr.country)}` : null}
+    </div>
   );
 }
 
 export function SellShippingView() {
   const ship = useSellShipping();
-  const router = useRouter();
-  const [trackingConfirmOpen, setTrackingConfirmOpen] = useState(false);
+  const [returnOpen, setReturnOpen] = useState(false);
+  const [trackingAdded, setTrackingAdded] = useState(false);
+  const trackingSeeded = useRef(false);
+
+  useEffect(() => {
+    if (ship.ready && !ship.returnComplete) setReturnOpen(true);
+  }, [ship.ready, ship.returnComplete]);
+
+  useEffect(() => {
+    if (trackingSeeded.current || !ship.ready || !ship.isTrackingEdit) return;
+    if (!ship.trackingNumber.trim()) return;
+    trackingSeeded.current = true;
+    setTrackingAdded(true);
+  }, [ship.ready, ship.isTrackingEdit, ship.trackingNumber]);
 
   if (!ship.ready) {
     return (
@@ -146,595 +112,311 @@ export function SellShippingView() {
     );
   }
 
+  const carrierLabel = CARRIERS.find((c) => c.value === ship.carrier)?.label ?? "FedEx";
+  const trackingReady = ship.trackingNumber.trim().length > 0 && !ship.trackingErr;
+  const doneDisabled = !trackingAdded || !ship.canConfirm || ship.confirming;
+
   return (
     <VaultAuthGate>
       <div className="sell-flow-page">
-        <div className="sell-ship-banner">
-          <div className="sell-ship-banner__inner">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" aria-hidden>
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span className="sell-ship-banner__title">
-              {ship.isTrackingEdit
-                ? "Update tracking — keep your PSA shipment linked"
-                : "Ready to ship — send it directly to PSA"}
-            </span>
-            <span className="sell-ship-banner__dot" aria-hidden />
-            <span className="sell-ship-banner__card">{ship.bannerLabel}</span>
-          </div>
-        </div>
-
-        <section className="sell-ship-section">
-          <nav className="sell-ship-crumb" aria-label="Breadcrumb">
+        <section className="psa-ship">
+          <nav className="psa-ship-crumb" aria-label="Breadcrumb">
             <Link href="/vault">Sell</Link>
-            <span className="sell-ship-crumb__sep">›</span>
-            <Link href="/sell/flow">Submit Card</Link>
-            <span className="sell-ship-crumb__sep">›</span>
-            <span className="sell-ship-crumb__here">Shipping</span>
+            <span className="psa-ship-crumb__sep">›</span>
+            <button type="button" onClick={ship.backToCards}>
+              Submit Card
+            </button>
+            <span className="psa-ship-crumb__sep">›</span>
+            <span className="psa-ship-crumb__here">Shipping</span>
           </nav>
 
-          <div className="sell-ship-header">
-            {ship.panel === "track" ? null : (
-              <div className="sell-flow-eyebrow">Ship to PSA</div>
-            )}
-            <h1 className="sell-flow-h1">Ship to PSA</h1>
-            <p className="sell-flow-sub">
-              After intake, cards are stored at PSA Vault and appear in your portfolio.
-            </p>
-          </div>
+          <h1 className="psa-ship__title">Ship to PSA</h1>
+          {ship.submissionPublicId ? (
+            <div className="psa-ship__subid">
+              Submission <span className="psa-ship-mono">{ship.submissionPublicId}</span>
+            </div>
+          ) : (
+            <div className="psa-ship__subid">Submission</div>
+          )}
 
           <SellFlowProgressSteps
             phase="ship"
             submitDone
-            shipInTransit={ship.confirmed}
-            shipSublabel={ship.shipSublabel}
+            shipSublabel={trackingAdded ? "In transit" : "Pending"}
             canGoSubmit={!ship.confirmed && !ship.isTrackingEdit}
-            canGoShip={!ship.confirmed && ship.panel === "track" && !ship.isTrackingEdit}
-            canGoLive={ship.confirmed}
             onSubmit={ship.backToCards}
-            onShip={ship.goToPack}
-            onLive={() => router.push("/portfolio")}
           />
 
           {ship.packageSyncError ? (
-            <div className="sell-ship-package-sync sell-ship-package-sync--err" role="alert">
-              <div className="sell-ship-package-sync__body">
-                <p className="sell-ship-package-sync__title">Couldn&rsquo;t save package</p>
-                <p className="sell-ship-package-sync__copy">{ship.packageSyncError}</p>
+            <div className="psa-ship-sync" role="alert">
+              <div>
+                <p className="psa-ship-sync__title">Couldn&rsquo;t save package</p>
+                <p className="psa-ship-sync__copy">{ship.packageSyncError}</p>
               </div>
               <TkButton
                 type="button"
                 variant="primary"
                 size="sm"
-                className="sell-ship-package-sync__retry"
                 disabled={ship.packageSyncing}
                 onClick={ship.retryPackageSync}
               >
-                {ship.packageSyncing ? (
-                  <>
-                    <span className="sell-flow-spinner" aria-hidden />
-                    Saving…
-                  </>
-                ) : (
-                  "Retry save"
-                )}
+                {ship.packageSyncing ? "Saving…" : "Retry save"}
               </TkButton>
             </div>
           ) : null}
 
-          {ship.panel === "pack" ? (
-            <div className="sell-ship-panel">
-              <div className="sell-ship-panel__eyebrow">Step 2a · Pack and prepare</div>
-
-              <div className="sell-ship-danger-banner" role="note">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="12" />
-                  <line x1="12" y1="16" x2="12.01" y2="16" />
-                </svg>
-                <span>
-                  The Packing Slip must be inside the box. PSA cannot match your card to your Tokenable
-                  account without it.
-                </span>
+          <article className="psa-ship-card">
+            <h2>
+              <span>1</span>Pack and ship
+            </h2>
+            <div className="psa-ship-addr">
+              <div className="psa-ship-addr__k">Ship to</div>
+              <div className="psa-ship-addr__v">
+                TOKENABLE LIMITED (<span className="psa-ship-mono">107038975</span>)
+                <br />
+                600 Ships Landing Way
+                <br />
+                New Castle, DE <span className="psa-ship-mono">19720</span>, United States
               </div>
+            </div>
+            <ul className="psa-ship-notes">
+              {PACK_NOTES.map((note) => (
+                <li key={note}>
+                  <CheckIcon />
+                  <span>{note}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="psa-ship-actions">
+              <button type="button" className="psa-ship-chip" onClick={ship.onDownloadSlip}>
+                <DownloadIcon />
+                {ship.slipDownloaded ? "Downloaded" : "Download packing slip"}
+              </button>
+              <button type="button" className="psa-ship-chip" onClick={ship.copyAddress}>
+                <CopyIcon />
+                {ship.addrCopied ? "Copied" : "Copy address"}
+              </button>
+            </div>
+          </article>
 
-              <div className="sell-ship-box sell-ship-box--accent">
-                <span className="sell-ship-label">Ship To</span>
-                <div className="sell-ship-addr-name">{PSA_SHIP_TO.name}</div>
-                <div className="sell-ship-addr-row">
-                  <div className="sell-ship-addr-lines">
-                    {PSA_SHIP_TO.lines.map((line) => (
-                      <div key={line}>{line}</div>
-                    ))}
-                  </div>
+          <article className="psa-ship-card">
+            <h2>
+              <span>2</span>Return address
+            </h2>
+            {returnOpen ? (
+              <div className="psa-ship-return-form">
+                <label className="psa-ship-field">
+                  <span>Sender name</span>
+                  <input
+                    value={ship.returnAddress.name}
+                    disabled={ship.confirmed}
+                    autoComplete="name"
+                    onChange={(e) => ship.setReturnAddressField("name", e.target.value)}
+                  />
+                </label>
+                <label className="psa-ship-field">
+                  <span>Address line 1</span>
+                  <input
+                    value={ship.returnAddress.line1}
+                    disabled={ship.confirmed}
+                    autoComplete="address-line1"
+                    onChange={(e) => ship.setReturnAddressField("line1", e.target.value)}
+                  />
+                </label>
+                <label className="psa-ship-field">
+                  <span>Address line 2 (optional)</span>
+                  <input
+                    value={ship.returnAddress.line2}
+                    disabled={ship.confirmed}
+                    autoComplete="address-line2"
+                    onChange={(e) => ship.setReturnAddressField("line2", e.target.value)}
+                  />
+                </label>
+                <div className="psa-ship-field-row">
+                  <label className="psa-ship-field">
+                    <span>City</span>
+                    <input
+                      value={ship.returnAddress.city}
+                      disabled={ship.confirmed}
+                      autoComplete="address-level2"
+                      onChange={(e) => ship.setReturnAddressField("city", e.target.value)}
+                    />
+                  </label>
+                  <label className="psa-ship-field">
+                    <span>State / region</span>
+                    <input
+                      value={ship.returnAddress.region}
+                      disabled={ship.confirmed}
+                      autoComplete="address-level1"
+                      onChange={(e) => ship.setReturnAddressField("region", e.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="psa-ship-field-row">
+                  <label className="psa-ship-field">
+                    <span>Postal code</span>
+                    <input
+                      value={ship.returnAddress.postal}
+                      disabled={ship.confirmed}
+                      autoComplete="postal-code"
+                      onChange={(e) => ship.setReturnAddressField("postal", e.target.value)}
+                    />
+                  </label>
+                  <label className="psa-ship-field">
+                    <span>Country</span>
+                    <select
+                      value={ship.returnAddress.country}
+                      disabled={ship.confirmed}
+                      onChange={(e) => ship.setReturnAddressField("country", e.target.value)}
+                    >
+                      <option value="">Select a country</option>
+                      {COUNTRIES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label className="psa-ship-field">
+                  <span>Phone</span>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    value={ship.returnAddress.phone}
+                    disabled={ship.confirmed}
+                    autoComplete="tel"
+                    onChange={(e) => ship.setReturnAddressField("phone", e.target.value)}
+                  />
+                </label>
+                {ship.returnTouched && !ship.returnComplete ? (
+                  <p className="psa-ship-hint" role="alert">
+                    Fill in the return address so PSA can send the card back if intake fails.
+                  </p>
+                ) : null}
+                <div className="psa-ship-return-form__actions">
+                  {ship.returnComplete ? (
+                    <button type="button" className="psa-ship-chip" onClick={() => setReturnOpen(false)}>
+                      Cancel
+                    </button>
+                  ) : null}
                   <button
                     type="button"
-                    className={`sell-ship-copy-icon${ship.addrCopied ? " sell-ship-copy-icon--ok" : ""}`}
-                    aria-label="Copy address"
-                    title="Copy address"
-                    onClick={ship.copyAddress}
+                    className="psa-ship-chip psa-ship-chip--primary"
+                    onClick={() => {
+                      ship.markReturnTouched();
+                      if (ship.returnComplete) setReturnOpen(false);
+                    }}
                   >
-                    {ship.addrCopied ? (
-                      <CheckIcon size={15} />
-                    ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <rect x="9" y="9" width="13" height="13" rx="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
-                    )}
+                    Save
                   </button>
                 </div>
-                <div className="sell-ship-divider" />
+              </div>
+            ) : (
+              <div className="psa-ship-return">
+                <ReturnSummary addr={ship.returnAddress} />
+                <button type="button" className="psa-ship-link" disabled={ship.confirmed} onClick={() => setReturnOpen(true)}>
+                  Change
+                </button>
+              </div>
+            )}
+            <p className="psa-ship-note">PSA sends the card here if it can&rsquo;t be vaulted.</p>
+          </article>
+
+          <article className="psa-ship-card">
+            <h2>
+              <span>3</span>Add tracking
+            </h2>
+            {trackingAdded ? (
+              <div className="psa-ship-track-done">
+                <CheckIcon />
+                <div>
+                  In transit · {carrierLabel}{" "}
+                  <span className="psa-ship-mono psa-ship-track-done__num">
+                    {ship.trackingPreview}
+                  </span>
+                </div>
                 <button
                   type="button"
-                  className={`sell-ship-slip-btn${ship.slipDownloaded ? " sell-ship-slip-btn--done" : ""}`}
-                  onClick={ship.onDownloadSlip}
+                  className="psa-ship-link"
+                  disabled={ship.confirmed || ship.confirming}
+                  onClick={() => setTrackingAdded(false)}
                 >
-                  {ship.slipDownloaded ? (
-                    <>
-                      <CheckIcon /> Downloaded
-                    </>
-                  ) : (
-                    <>
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                      </svg>
-                      Download packing slip
-                    </>
-                  )}
+                  Edit
                 </button>
-                <p className="sell-ship-slip-hint">
-                  You can print or download the packing slip any time — before, during, or after packing.
-                </p>
               </div>
-
-              <div className="sell-ship-howto">
-                <h2 className="sell-ship-howto__title">Shipping instructions</h2>
-                <p className="sell-ship-howto__sub">
-                  Label the box with the address above. Keep the packing slip inside the box so PSA can match your cards to your account.
-                </p>
-                <div className="sell-ship-howto__grid">
-                  <article className="sell-ship-howto__card">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/assets/sell/Firefly.png"
-                      alt="Gloved hands sleeving graded slabs"
-                      className="sell-ship-howto__img"
-                    />
-                    <div className="sell-ship-howto__body">
-                      <div className="sell-ship-howto__step">Step 1</div>
-                      <div className="sell-ship-howto__name">Prepare your cards</div>
-                      <p className="sell-ship-howto__copy">
-                        Sleeve each slab on its own. Remove stickers, price tags and team bags before
-                        packing.
-                      </p>
-                    </div>
-                  </article>
-                  <article className="sell-ship-howto__card">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src="/assets/sell/Firefly_seed123449.png"
-                      alt="Card packed in bubble wrap inside a padded box"
-                      className="sell-ship-howto__img"
-                    />
-                    <div className="sell-ship-howto__body">
-                      <div className="sell-ship-howto__step">Step 2</div>
-                      <div className="sell-ship-howto__name">Pack it</div>
-                      <ul className="sell-ship-howto__list">
-                        <li>Cardboard on both sides of each card, held with a rubber band</li>
-                        <li>Two to three layers of bubble wrap around each card</li>
-                        <li>Fill empty space so nothing shifts</li>
-                        <li>Packing slip inside the box — required</li>
-                      </ul>
-                    </div>
-                  </article>
-                  <article className="sell-ship-howto__card">
-                    <div className="sell-ship-howto__img sell-ship-howto__img--contain">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src="/assets/sell/carriers-ce5c67aa.png" alt="UPS · DHL · FedEx" />
-                    </div>
-                    <div className="sell-ship-howto__body">
-                      <div className="sell-ship-howto__step">Step 3</div>
-                      <div className="sell-ship-howto__name">Mail it</div>
-                      <p className="sell-ship-howto__copy">
-                        Send it with any major carrier to the address above, then register the tracking
-                        number here.
-                      </p>
-                    </div>
-                  </article>
-                </div>
-              </div>
-
-              <TkButton
-                type="button"
-                variant="primary"
-                className="sell-ship-continue"
-                disabled={!ship.canContinuePack}
-                onClick={ship.goToTrack}
-              >
-                Register tracking number <ArrowRightIcon />
-              </TkButton>
-              {!ship.canContinuePack ? (
-                <p className="sell-ship-gate-hint sell-ship-gate-hint--busy">
-                  {ship.packageSyncError ? (
-                    "Save your package (retry above) before continuing."
-                  ) : (
-                    <>
-                      <span className="sell-flow-spinner" aria-hidden />
-                      Saving your package…
-                    </>
-                  )}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <div className="sell-ship-panel">
-              <div className="sell-ship-track-top">
-                <button
-                  type="button"
-                  className="sell-flow-btn-back sell-ship-track-back"
-                  onClick={ship.goToPack}
-                  disabled={ship.confirmed}
-                >
-                  <BackChevron />
-                  Back
-                </button>
-                <span className="sell-ship-panel__eyebrow sell-ship-panel__eyebrow--inline">
-                  Step 2b · Register tracking
-                </span>
-              </div>
-
-              <div className="sell-ship-return">
-                <span className="sell-ship-label">Return Address</span>
-                <div className="sell-ship-box">
-                  <p className="sell-ship-return__copy">
-                    Where PSA returns the card if it fails intake. Saved for next time.
-                  </p>
-
-                  {!ship.returnEditing && ship.returnComplete ? (
-                    <div className="sell-ship-return__saved">
-                      <span className="sell-ship-return__saved-text">
-                        {ship.returnSummary || "Saved return address on file."}
-                      </span>
-                      <button
-                        type="button"
-                        className="sell-ship-outline-btn sell-ship-outline-btn--sm"
-                        disabled={ship.confirmed}
-                        onClick={ship.editReturnAddress}
-                      >
-                        Use a different one
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="sell-ship-return__fields">
-                      <TkField
-                        label="Sender name"
-                        htmlFor="sell-ret-name"
-                        error={
-                          ship.returnTouched && !ship.returnAddress.name.trim()
-                            ? "Required"
-                            : undefined
-                        }
-                      >
-                        <TkInput
-                          id="sell-ret-name"
-                          type="text"
-                          placeholder="Full name or company"
-                          autoComplete="name"
-                          value={ship.returnAddress.name}
-                          disabled={ship.confirmed}
-                          hasError={
-                            ship.returnTouched && !ship.returnAddress.name.trim()
-                          }
-                          onChange={(e) =>
-                            ship.setReturnAddressField("name", e.target.value)
-                          }
-                        />
-                      </TkField>
-                      <TkField
-                        label="Address line 1"
-                        htmlFor="sell-ret-a1"
-                        error={
-                          ship.returnTouched && !ship.returnAddress.line1.trim()
-                            ? "Required"
-                            : undefined
-                        }
-                      >
-                        <TkInput
-                          id="sell-ret-a1"
-                          type="text"
-                          placeholder="Street address"
-                          autoComplete="address-line1"
-                          value={ship.returnAddress.line1}
-                          disabled={ship.confirmed}
-                          hasError={
-                            ship.returnTouched && !ship.returnAddress.line1.trim()
-                          }
-                          onChange={(e) =>
-                            ship.setReturnAddressField("line1", e.target.value)
-                          }
-                        />
-                      </TkField>
-                      <TkField label="Address line 2 (optional)" htmlFor="sell-ret-a2">
-                        <TkInput
-                          id="sell-ret-a2"
-                          type="text"
-                          placeholder="Suite, unit, floor"
-                          autoComplete="address-line2"
-                          value={ship.returnAddress.line2}
-                          disabled={ship.confirmed}
-                          onChange={(e) =>
-                            ship.setReturnAddressField("line2", e.target.value)
-                          }
-                        />
-                      </TkField>
-                      <div className="sell-ship-track-grid">
-                        <TkField
-                          label="City"
-                          htmlFor="sell-ret-city"
-                          error={
-                            ship.returnTouched && !ship.returnAddress.city.trim()
-                              ? "Required"
-                              : undefined
-                          }
-                        >
-                          <TkInput
-                            id="sell-ret-city"
-                            type="text"
-                            placeholder="City"
-                            autoComplete="address-level2"
-                            value={ship.returnAddress.city}
-                            disabled={ship.confirmed}
-                            hasError={
-                              ship.returnTouched && !ship.returnAddress.city.trim()
-                            }
-                            onChange={(e) =>
-                              ship.setReturnAddressField("city", e.target.value)
-                            }
-                          />
-                        </TkField>
-                        <TkField
-                          label="State / region"
-                          htmlFor="sell-ret-state"
-                          error={
-                            ship.returnTouched && !ship.returnAddress.region.trim()
-                              ? "Required"
-                              : undefined
-                          }
-                        >
-                          <TkInput
-                            id="sell-ret-state"
-                            type="text"
-                            placeholder="State or region"
-                            autoComplete="address-level1"
-                            value={ship.returnAddress.region}
-                            disabled={ship.confirmed}
-                            hasError={
-                              ship.returnTouched &&
-                              !ship.returnAddress.region.trim()
-                            }
-                            onChange={(e) =>
-                              ship.setReturnAddressField("region", e.target.value)
-                            }
-                          />
-                        </TkField>
-                      </div>
-                      <div className="sell-ship-track-grid">
-                        <TkField
-                          label="Postal code"
-                          htmlFor="sell-ret-zip"
-                          error={
-                            ship.returnTouched && !ship.returnAddress.postal.trim()
-                              ? "Required"
-                              : undefined
-                          }
-                        >
-                          <TkInput
-                            id="sell-ret-zip"
-                            type="text"
-                            placeholder="Postal code"
-                            autoComplete="postal-code"
-                            value={ship.returnAddress.postal}
-                            disabled={ship.confirmed}
-                            hasError={
-                              ship.returnTouched &&
-                              !ship.returnAddress.postal.trim()
-                            }
-                            onChange={(e) =>
-                              ship.setReturnAddressField("postal", e.target.value)
-                            }
-                          />
-                        </TkField>
-                        <TkField
-                          label="Country"
-                          htmlFor="sell-ret-country"
-                          error={
-                            ship.returnTouched && !ship.returnAddress.country.trim()
-                              ? "Required"
-                              : undefined
-                          }
-                        >
-                          <TkSelect
-                            id="sell-ret-country"
-                            value={ship.returnAddress.country}
-                            disabled={ship.confirmed}
-                            hasError={
-                              ship.returnTouched &&
-                              !ship.returnAddress.country.trim()
-                            }
-                            onChange={(e) =>
-                              ship.setReturnAddressField("country", e.target.value)
-                            }
-                          >
-                            <option value="">Select a country</option>
-                            <option value="us">United States</option>
-                            <option value="ca">Canada</option>
-                            <option value="gb">United Kingdom</option>
-                            <option value="de">Germany</option>
-                            <option value="jp">Japan</option>
-                            <option value="kr">South Korea</option>
-                            <option value="intl">Other international</option>
-                          </TkSelect>
-                        </TkField>
-                      </div>
-                      <TkField
-                        label="Phone"
-                        htmlFor="sell-ret-phone"
-                        error={
-                          ship.returnTouched && !ship.returnAddress.phone.trim()
-                            ? "Required"
-                            : undefined
-                        }
-                      >
-                        <TkInput
-                          id="sell-ret-phone"
-                          type="tel"
-                          inputMode="numeric"
-                          placeholder="Reachable during business hours"
-                          autoComplete="tel"
-                          value={ship.returnAddress.phone}
-                          disabled={ship.confirmed}
-                          hasError={
-                            ship.returnTouched && !ship.returnAddress.phone.trim()
-                          }
-                          onChange={(e) =>
-                            ship.setReturnAddressField("phone", e.target.value)
-                          }
-                        />
-                      </TkField>
-                    </div>
-                  )}
-
-                  {ship.returnTouched && !ship.returnComplete ? (
-                    <p className="sell-ship-gate-hint" role="alert">
-                      Fill in the return address so PSA can send the card back if intake fails.
-                    </p>
-                  ) : null}
-                </div>
-              </div>
-
-              <span className="sell-ship-label">Register Tracking</span>
-              <div className="sell-ship-box sell-ship-track-box">
-                <div className="sell-ship-track-head">
-                  <span>Tracking details</span>
-                </div>
-
-                <div className="sell-ship-track-grid">
-                  <SellCarrierField
-                    value={ship.carrier}
-                    disabled={ship.confirmed}
-                    onChange={ship.setCarrier}
-                  />
-                  <TkField label="Shipping date" htmlFor="sell-ship-date">
-                    <TkInput
-                      id="sell-ship-date"
-                      type="date"
-                      value={ship.shipDate}
+            ) : (
+              <div>
+                <div className="psa-ship-carriers" role="group" aria-label="Carrier">
+                  {CARRIERS.map((c) => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      aria-pressed={ship.carrier === c.value}
                       disabled={ship.confirmed}
-                      onChange={(e) => ship.setShipDate(e.target.value)}
-                    />
-                  </TkField>
+                      onClick={() => ship.setCarrier(c.value)}
+                    >
+                      {c.label}
+                    </button>
+                  ))}
                 </div>
-
-                <p className="sell-ship-track-note">
-                  Untracked mail isn&rsquo;t supported — we confirm delivery through carrier tracking.
-                </p>
-
-                <TkField
-                  className="sell-ship-track-num"
-                  label="Tracking number"
-                  htmlFor="sell-ship-tracking"
-                  error={ship.trackingErr || undefined}
-                >
-                  <TkInput
-                    id="sell-ship-tracking"
+                <div className="psa-ship-track">
+                  <input
                     type="text"
-                    placeholder="e.g. 7489 2345 6789"
+                    autoComplete="off"
+                    placeholder="Tracking number"
                     value={ship.trackingNumber}
                     disabled={ship.confirmed}
-                    hasError={Boolean(ship.trackingErr)}
+                    aria-invalid={Boolean(ship.trackingErr)}
                     onChange={(e) => ship.setTrackingNumber(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && trackingReady) {
+                        e.preventDefault();
+                        setTrackingAdded(true);
+                      }
+                    }}
                   />
-                </TkField>
-
-                <TkButton
-                  type="button"
-                  variant="primary"
-                  className="sell-ship-confirm"
-                  disabled={!ship.canConfirm}
-                  onClick={() => {
-                    if (ship.beginConfirm()) setTrackingConfirmOpen(true);
-                  }}
-                >
-                  {ship.isTrackingEdit ? "Update tracking" : "Confirm shipment"}{" "}
-                  <ArrowRightIcon />
-                </TkButton>
-                {!ship.packageReady && !ship.confirmed ? (
-                  <p className="sell-ship-gate-hint">
-                    Save your package before confirming tracking.
+                  <button
+                    type="button"
+                    className="psa-ship-add"
+                    disabled={!trackingReady || ship.confirmed}
+                    onClick={() => setTrackingAdded(true)}
+                  >
+                    Add
+                  </button>
+                </div>
+                {ship.trackingErr ? (
+                  <p className="psa-ship-hint" role="alert">
+                    {ship.trackingErr}
                   </p>
                 ) : null}
               </div>
+            )}
+          </article>
 
-              <div className="sell-ship-warn">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                  <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                  <line x1="12" y1="9" x2="12" y2="13" />
-                  <line x1="12" y1="17" x2="12.01" y2="17" />
-                </svg>
-                <span>
-                  Shipping damage or loss is the sender&rsquo;s responsibility.
-                  Insurance recommended for cards over $500.
-                </span>
-              </div>
-
-              <div className="sell-ship-proc">
-                Processing takes{" "}
-                <strong>14–16 business days after your card arrives at PSA</strong>.
-                Customs clearance may add several days and is outside our control.
-              </div>
-
-            </div>
-          )}
+          <button
+            type="button"
+            className="psa-ship-done"
+            disabled={doneDisabled}
+            onClick={() => {
+              if (!ship.beginConfirm()) {
+                setReturnOpen(true);
+                return;
+              }
+              void ship.confirmShipment();
+            }}
+          >
+            {ship.confirming ? "Saving…" : "Done"}
+          </button>
+          {!ship.packageReady && !ship.packageSyncError ? (
+            <p className="psa-ship-hint psa-ship-hint--muted">Saving your package…</p>
+          ) : !trackingAdded ? (
+            <p className="psa-ship-hint psa-ship-hint--muted">Add a tracking number to finish.</p>
+          ) : !ship.returnComplete ? (
+            <p className="psa-ship-hint psa-ship-hint--muted">Save a return address to finish.</p>
+          ) : null}
         </section>
       </div>
-      <TkDialog
-        open={trackingConfirmOpen}
-        dismissible={!ship.confirming}
-        onClose={() => {
-          if (!ship.confirming) setTrackingConfirmOpen(false);
-        }}
-        title="Confirm tracking number?"
-        description={`Is ${ship.trackingPreview} the correct tracking number?`}
-        footer={
-          <div className="flex flex-col gap-2 w-full">
-            <TkButton
-              variant="primary"
-              size="sm"
-              className="w-full justify-center"
-              disabled={ship.confirming || !ship.trackingPreview}
-              onClick={() => {
-                void ship.confirmShipment().then((ok) => {
-                  if (ok === false) setTrackingConfirmOpen(false);
-                });
-              }}
-            >
-              {ship.confirming ? "Confirming…" : "Yes, that's correct"}
-            </TkButton>
-            <TkButton
-              variant="ghost"
-              size="sm"
-              className="w-full justify-center"
-              disabled={ship.confirming}
-              onClick={() => setTrackingConfirmOpen(false)}
-            >
-              Cancel
-            </TkButton>
-          </div>
-        }
-      />
     </VaultAuthGate>
   );
 }

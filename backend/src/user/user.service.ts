@@ -1,11 +1,13 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { getAddress } from 'ethers';
 import { InjectRepository } from '@nestjs/typeorm';
-import { IsNull, QueryFailedError, Repository } from 'typeorm';
+import { In, IsNull, QueryFailedError, Repository } from 'typeorm';
+import { MarketplacePartner } from '../marketplace/entities/marketplace-partner.entity';
 import type { ParsedAuthProvider, ParsedWalletLink } from '../auth/privy/privy.types';
 import { isWalletOnlyPlaceholderEmail } from '../auth/privy/privy-user.parser';
 import type { UpdateProfileDto } from '../auth/dto/update-profile.dto';
@@ -78,8 +80,12 @@ function isUsersPrivyIdUniqueViolation(err: unknown): boolean {
   );
 }
 
+const ETH_ADDR = /^0x[a-fA-F0-9]{40}$/;
+
 @Injectable()
 export class UserService {
+  private readonly logger = new Logger(UserService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly users: Repository<User>,
@@ -91,7 +97,44 @@ export class UserService {
     private readonly kycEvents: Repository<UserKycEvent>,
     @InjectRepository(UserShippingAddress)
     private readonly shippingAddresses: Repository<UserShippingAddress>,
+    @InjectRepository(MarketplacePartner)
+    private readonly partners: Repository<MarketplacePartner>,
   ) {}
+
+  /**
+   * Active partner appointment is an admin KYC approval.
+   * Writes `kyc_status=approved` when a linked wallet matches an active partner
+   * so vault/sell/redeem gates pass without a separate Sumsub review.
+   */
+  async approveKycIfActivePartner(user: User): Promise<User> {
+    if (user.kycStatus === 'approved') return user;
+    const wallets = await this.listWalletsForUser(user.id);
+    const candidates = new Set<string>();
+    for (const w of wallets) {
+      const addr = w.walletAddress?.trim().toLowerCase();
+      if (addr && ETH_ADDR.test(addr)) candidates.add(addr);
+    }
+    const legacy = user.walletAddress?.trim().toLowerCase();
+    if (legacy && ETH_ADDR.test(legacy)) candidates.add(legacy);
+    if (!candidates.size) return user;
+
+    const partner = await this.partners.findOne({
+      where: { walletAddress: In([...candidates]), isActive: true },
+      select: ['id'],
+    });
+    if (!partner) return user;
+
+    const updated = await this.updateKycStatus(user.id, {
+      status: 'approved',
+      provider: 'admin',
+      externalId: user.kycExternalId,
+      payload: { source: 'admin_partner_vault_grant' },
+    });
+    this.logger.log(
+      `KYC approved for active partner user=${user.id} partner=${partner.id}`,
+    );
+    return updated;
+  }
 
   async findById(id: string): Promise<User | null> {
     return this.users.findOne({ where: { id } });

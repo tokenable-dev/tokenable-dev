@@ -23,7 +23,7 @@ export function OrderBookTabHeader({
     },
   ];
   const tabBase = collectionDetail
-    ? "cd-ob-tab shrink-0 transition-colors duration-200"
+    ? "cd-ob-tab transition-colors duration-200"
     : flush
       ? `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent pb-1.5 text-center transition-colors duration-200`
       : `${orderBookTabLabelCls} min-w-0 flex-1 border-b-2 border-transparent px-2 pb-2.5 pt-2 text-center transition-colors duration-200`;
@@ -36,10 +36,10 @@ export function OrderBookTabHeader({
 
   return (
     <div
-      className={`relative flex w-full shrink-0 items-end border-b ${
+      className={`relative flex w-full shrink-0 ${
         collectionDetail
-          ? "cd-ob-tabs border-white/[0.08] bg-transparent"
-          : `border-zinc-800/70 bg-black ${
+          ? "cd-ob-tabs bg-transparent"
+          : `items-end border-b border-zinc-800/70 bg-black ${
               flush
                 ? `${COLLECTION_ORDER_BOOK_FLUSH_INSET} pb-0`
                 : "px-2.5 sm:px-3 max-lg:px-2.5 max-lg:pb-0 max-lg:pt-2"
@@ -47,7 +47,7 @@ export function OrderBookTabHeader({
       }`}
     >
       <div
-        className={`flex shrink-0 ${collectionDetail ? "justify-start gap-0" : "min-w-0 w-full gap-3 sm:gap-4"}`}
+        className={`flex ${collectionDetail ? "min-w-0 w-full flex-1 gap-0" : "min-w-0 w-full gap-3 sm:gap-4"}`}
         role="tablist"
       >
         {tabs.map((t) => (

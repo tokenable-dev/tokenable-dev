@@ -135,7 +135,7 @@ Admin ops: `/api/marketplace/admin/vault-submissions` + UI `/marketplace/admin/v
 
 **PSA → Live:** Gmail **Items Vaulted** (“now secured in your PSA Vault”, same subject as arrival) → `PsaVaultedMailService` auto mint & deliver (`vault_psa_vaulted_reviews`, `minted_via = auto`). Ops can also use **Mint queue** manual **Mint & deliver**. Incomplete/unmatched mail stays **Pending** on Mint queue for retry; partial mint retries preserve prior successful certs in `mint_results`. Item → `completed` (Live in portfolio).
 
-**Sell-flow draft resume:** Add-cards progress is **localStorage only** (no `status=draft` package rows). The card list is written when **Save as draft** is clicked (or when continuing to shipping / after a partner mint) — slab upload, cert lookup, confirm, and remove stay in memory until then. Entering `/sell/shipping` **upserts confirmed cards** as `awaiting_shipment` (first durable write; Hub shows Add tracking). Confirm tracking asks in a modal whether the entered number is correct, then registers → `in_transit` and opens the submission page (no inline success flash). A fresh `/sell/flow` visit always opens seller terms. Back from shipping reopens add-cards once; Back from add-cards returns to vault choice (same step, not a skip). Back from vault clears the saved choice so the next Continue does not jump to add-cards.
+**Sell entry:** an empty hub shows choose-vault. `/sell/shipping` is one page (pack, return address, tracking) and upserts confirmed cards already in the browser as `awaiting_shipment`. **Done** registers tracking → `in_transit` and opens the Sell hub. Back from the breadcrumb returns to the card step.
 
 ---
 

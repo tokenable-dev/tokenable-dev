@@ -1,27 +1,43 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { usePrivy } from "@privy-io/react-auth";
+import { SellFlowView } from "@/components/sell/SellFlowView";
+import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
-import { VaultEmptyDashboardView } from "@/components/vault/hub/VaultEmptyDashboardView";
 import { VaultHubHeader } from "@/components/vault/hub/VaultHubHeader";
 import {
+  useVaultHubSubmissions,
   useVaultHubViewState,
   VaultActiveDashboardView,
-  VaultHubActivityLoading,
 } from "@/components/vault/hub/VaultActiveDashboardView";
-import { VaultLandingView } from "@/components/vault/hub/VaultLandingViews";
+
+function VaultHubPending() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center">
+      <div
+        className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--azure)]/30 border-t-[var(--azure)]"
+        aria-label="Loading"
+      />
+    </div>
+  );
+}
 
 export function VaultHubView() {
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
+  const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
+  const submissionsQ = useVaultHubSubmissions();
   const viewState = useVaultHubViewState();
   const { ready, authenticated } = usePrivy();
   const [sessionWaitTimedOut, setSessionWaitTimedOut] = useState(false);
+  const promptedSignIn = useRef(false);
+  const promptedWallet = useRef(false);
   const sessionCatchingUp = ready && authenticated && !user && !sessionWaitTimedOut;
+  const hasWallet = userHasLinkedWallet(user);
 
   useEffect(() => {
     if (!ready || !authenticated || user) {
@@ -32,27 +48,59 @@ export function VaultHubView() {
     return () => window.clearTimeout(t);
   }, [ready, authenticated, user]);
 
-  if (!initialized || loading || sessionCatchingUp) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center">
-        <div
-          className="h-7 w-7 animate-spin rounded-full border-2 border-[var(--azure)]/30 border-t-[var(--azure)]"
-          aria-label="Loading"
-        />
-      </div>
-    );
+  useEffect(() => {
+    if (user) promptedSignIn.current = false;
+  }, [user]);
+
+  useEffect(() => {
+    if (hasWallet) promptedWallet.current = false;
+  }, [hasWallet]);
+
+  useEffect(() => {
+    if (!initialized || loading || !ready || sessionCatchingUp || user || authenticated) return;
+    if (promptedSignIn.current) return;
+    promptedSignIn.current = true;
+    openSignIn({ returnTo: "/vault" });
+  }, [authenticated, initialized, loading, openSignIn, ready, sessionCatchingUp, user]);
+
+  useEffect(() => {
+    if (!initialized || loading || !ready || sessionCatchingUp || !user || hasWallet) return;
+    if (promptedWallet.current) return;
+    promptedWallet.current = true;
+    openConnectWallet({ returnTo: "/vault" });
+  }, [
+    hasWallet,
+    initialized,
+    loading,
+    openConnectWallet,
+    ready,
+    sessionCatchingUp,
+    user,
+  ]);
+
+  if (
+    !initialized ||
+    loading ||
+    sessionCatchingUp ||
+    !user ||
+    !hasWallet ||
+    viewState === "loading"
+  ) {
+    return <VaultHubPending />;
   }
 
-  if (!user) {
-    return <VaultLandingView onSignIn={() => openSignIn({ returnTo: "/vault" })} />;
+  if (viewState === "empty" && !submissionsQ.isError) {
+    return (
+      <Suspense fallback={<VaultHubPending />}>
+        <SellFlowView />
+      </Suspense>
+    );
   }
 
   return (
     <>
-      <VaultHubHeader showSubmitCta={viewState === "active"} />
-      {viewState === "loading" ? <VaultHubActivityLoading /> : null}
-      {viewState === "empty" ? <VaultEmptyDashboardView /> : null}
-      {viewState === "active" ? <VaultActiveDashboardView /> : null}
+      <VaultHubHeader />
+      <VaultActiveDashboardView />
     </>
   );
 }

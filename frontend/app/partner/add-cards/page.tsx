@@ -3,10 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-/**
- * Partner Add Cards — reuses Sell flow self-vault mint (Partner vault).
- * Lands on register (seller terms), with vault=self so Continue skips to cards.
- */
+/** Old partner add-cards deep link. Sell now starts on the vault hub. */
 export default function PartnerAddCardsPage() {
   const router = useRouter();
 
@@ -16,7 +13,7 @@ export default function PartnerAddCardsPage() {
 
   return (
     <div className="partner-gate partner-gate--loading" role="status">
-      Opening Partner vault add cards…
+      Opening Sell…
     </div>
   );
 }

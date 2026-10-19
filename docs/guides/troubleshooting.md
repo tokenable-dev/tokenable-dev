@@ -390,6 +390,8 @@ Setup: [privy-wallet-funding.md](privy-wallet-funding.md).
 
 **Details · US$0.00 hidden for ERC-20:** `frontend/scripts/patch-privy-isactive.mjs` (runs on `pnpm install`) patches Privy’s `TransactionDetails` so the collapsed USD next to **Details** is omitted when `tx.value === 0` (USDC redeem fee). ETH gas still appears after expanding **Details**. Re-run `node frontend/scripts/patch-privy-isactive.mjs` after upgrading `@privy-io/react-auth` if the patch no-ops. External wallets (MetaMask, etc.) use their own UI.
 
+**Bid / list signature shows 500000000:** Seaport signs USDC in 6-decimal base units (500 USDC = 500000000). The signed payload stays in base units. The Privy sign modal subtitle states the USDC amount, and the same patch rewrites the visible tree (`startAmount` / `endAmount` on ERC-20 lines) to `500 USDC`. Restart the frontend after `pnpm install` so the patched Privy bundle loads.
+
 ---
 
 ## Cardhedger routes return errors
@@ -471,7 +473,7 @@ curl -s --max-time 3 http://127.0.0.1:4000/api/health
 
 **Also:** `ECONNREFUSED 127.0.0.1:4100` means Nest was down or restarting (e.g. `start:dev` recompile) — wait for `Found 0 errors` and retry.
 
-**Partner vault logs (harmless):** `attachCycleForCert: no open submission item` and skipped `markItemCompletedForCycle` are expected when minting from partner add-cards (no PSA shipment row). `Direct mint: no mark USD` (debug) only means cost-basis seed skipped until a market price exists.
+**Partner vault logs (harmless):** `attachCycleForCert: no open submission item` and skipped `markItemCompletedForCycle` are expected when a direct mint has no PSA shipment row. `Direct mint: no mark USD` (debug) only means cost-basis seed skipped until a market price exists.
 
 **UI still says “On-chain mint: [HTTP 504] fetch failed” but Nest logged token #N:** The mint often **succeeded**; only the dev proxy response was lost. The partner flow now polls `GET /api/rwa/cert-mint-outcome/:cert` for up to ~2 minutes and treats a minted cert as success. Restart `pnpm dev` after pulling. If the card is already in portfolio, use Set price — do not mint the same cert again.
 

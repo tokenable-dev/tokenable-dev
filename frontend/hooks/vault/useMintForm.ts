@@ -35,7 +35,7 @@ export function useMintForm() {
     useAccountWalletSession();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
   const { chainId } = useAppChain();
-  const { runAccessGate } = useAccessGate(2, "/vault/submit");
+  const { runAccessGate } = useAccessGate(1, "/vault/submit");
   const refresh = useAppStore(selectRefresh);
   const queryClient = useQueryClient();
 

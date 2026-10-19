@@ -3,10 +3,17 @@ import type { Address } from "viem";
 import type { SupportedChainId } from "@/lib/chains";
 import { buildSeaportOrderTypedData } from "@/lib/seaport/buildSeaportTypedData";
 import type { SignSeaportOrderFn } from "@/lib/seaport/signSeaportOrder";
+import {
+  installSeaportSignDisplay,
+  seaportSignAmountLabel,
+} from "@/lib/privy/seaportSignDisplay";
 
 export type PrivySignTypedDataFn = (
   input: SignTypedDataParams,
-  options?: { address?: string; uiOptions?: { title?: string; buttonText?: string } },
+  options?: {
+    address?: string;
+    uiOptions?: { title?: string; description?: string; buttonText?: string };
+  },
 ) => Promise<{ signature: string }>;
 
 function seaportItemType(
@@ -21,18 +28,24 @@ function seaportItemType(
 /** Privy modal copy — inferred from the Seaport payload, not the call site. */
 function privySeaportSignUi(message: Record<string, unknown>): {
   title: string;
+  description?: string;
   buttonText: string;
 } {
   const offerType = seaportItemType(message.offer);
   const consType = seaportItemType(message.consideration);
   if (offerType === 2 && consType === 1) {
-    return { title: "Sign listing", buttonText: "Sign and list" };
+    return {
+      title: "Sign listing",
+      description: seaportSignAmountLabel(message, "list") ?? undefined,
+      buttonText: "Sign and list",
+    };
   }
-  if (offerType === 1 && consType === 4) {
-    return { title: "Sign collection bid", buttonText: "Sign and continue" };
-  }
-  if (offerType === 1 && consType === 2) {
-    return { title: "Sign offer", buttonText: "Sign and continue" };
+  if (offerType === 1 && (consType === 4 || consType === 2)) {
+    return {
+      title: consType === 4 ? "Sign collection bid" : "Sign offer",
+      description: seaportSignAmountLabel(message, "bid") ?? undefined,
+      buttonText: "Sign and continue",
+    };
   }
   return { title: "Sign order", buttonText: "Sign and continue" };
 }
@@ -47,6 +60,7 @@ export function createPrivySeaportSigner(
   chainId: SupportedChainId,
 ): SignSeaportOrderFn {
   return async (message) => {
+    installSeaportSignDisplay();
     const typedData = buildSeaportOrderTypedData(message, chainId);
     const { signature } = await privySignTypedData(typedData, {
       address,

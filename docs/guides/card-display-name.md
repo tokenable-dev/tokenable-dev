@@ -66,12 +66,13 @@ Charizard ex · 199/165
 
 | Surface | Shows | Notes |
 | --- | --- | --- |
-| Markets / list row | Line 1 only | Variant on Line 2 / meta only (§3). |
-| Card detail header | Line 1 (with grade) + Line 2 | `{Name} · {Number} · {Grade}` then `{Year} · {Set} {Language} · {Variant}`. |
+| Markets / home / similar tiles | Line 1 (no grade) + grade row | `{Name} · {Number}` then `PSA 10` on the next row. Do not also leave the grade on Line 1. |
+| Card detail header | Desktop: Line 1 (with grade) + Line 2. Mobile: title, subtitle, then grade | Desktop `{Name} · {Number} · {Grade}` then `{Year} · {Set} {Language} · {Variant}`. Mobile title omits the grade; `PSA 10` is its own line under the subtitle. |
 | Certificate of Ownership | Line 1 (no grade) + Line 2 | `{Name} · {Number}` then provenance. Grade + cert chips below. |
 | Search results | Line 1 + compact Line 2 | Global scope — keep Line 2. |
-| Watchlist | Line 1 only | Variant on Line 2 / meta only (§3). |
-| Portfolio / holdings | Line 1 only | Grade always present. |
+| Watchlist | Line 1 (no grade) + grade row | Same split as Markets tiles. |
+| Portfolio table | Line 1 only | `{Name} · {Number} · {Grade}` on one line. |
+| Portfolio gallery | Line 1 (no grade) + grade row | `{Name} · {Number}` then the grade. |
 | Order book / trade history | Line 1 (abbrev ok) | Tight: `{Name} · {Grade}`. |
 | Checkout / Redeem / modals | Line 1 | `{Name} · {Number} · {Grade}` on every card row. Vault chip + cert are meta, not a grade badge. |
 | Partner Redeem requests | Line 1 (no grade) + cert line | Title: `{Name} · {Number}` (`partnerRedeemCardTitle`, `omitGrade`). Secondary: `{Grade} · {cert}` (`partnerCardCertLine`) — Partner-Shipments.html `.cname` / `.cid`. |
@@ -83,8 +84,7 @@ Use `formatCardDisplayName({ parts, mode })` — never hand-join segments at cal
 
 ## 3. List surfaces (Line 1 only)
 
-Markets / watchlist / portfolio list rows show **Line 1 only** on the main title:
-`{Name} · {Number} · {Grade}`.
+Markets, home, watchlist, similar-item, and portfolio gallery tiles show **`{Name} · {Number}`** on the title and the grade on the next row. Portfolio table rows still show **Line 1** as `{Name} · {Number} · {Grade}` on one line.
 
 **Variant, set, year, and language belong on Line 2 (subtitle / meta)** — never append variant to Line 1.
 
@@ -211,11 +211,12 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 
 | Surface | Mode | Implementation |
 | --- | --- | --- |
-| Markets / home grid | Line 1 with grade | `CollectibleCard` — name · number · grade |
-| Watchlist | Line 1 with grade | `WatchlistCollectibleCard` |
+| Markets / home grid | Line 1 name+number, grade on the next row | `CollectibleCard` — `splitGradeToSecondLine` |
+| Watchlist | Line 1 name+number, grade on the next row | `WatchlistCollectibleCard` |
 | Collection detail similar | Line 1 + grade row | `splitGradeToSecondLine: true` in title builder only |
 | GNB search collections | Line 1 + Line 2 meta | `buildMarketsCollectionSearchMeta` |
-| Portfolio holdings | Line 1 only | `resolvePortfolioHoldingsDisplayNames` |
+| Portfolio table | Line 1 with grade | `resolvePortfolioHoldingsDisplayNames` |
+| Portfolio gallery | Line 1 name+number, grade on the next row | `nameLine` + `.pf-gtile__title-grade` |
 | Collection detail | Line 1 name+number+grade + full Line 2 | Grade on hero title |
 | Portfolio certificate | Line 1 name+number + full Line 2 | Grade below title |
 | Order book listing rows | No grade chip | grade on collection Line 1 context |
@@ -230,12 +231,12 @@ Use when validating a release after display-name work.
 | # | Check | Pass? |
 | --- | --- | --- |
 | 1 | Collection breadcrumb is `Markets / {Category} / {SetCode} {SetName} ({Lang})` — no year / card number | |
-| 2 | Collection / Markets Line 1 is name + number + grade | |
+| 2 | Markets / watchlist / similar / portfolio gallery: Line 1 is name + number, and the grade row is the only place the grade appears | |
 | 3 | Certificate of Ownership Line 1 is name + number only; grade is below | |
 | 4 | List Line 1 uses ` · ` between name, number, grade | |
 | 5 | No dangling `·` or empty segments in formatted strings | |
 | 6 | Language shows as `EN` / `JP` when known; omitted when unknown | |
-| 7 | Markets list row shows Line 1 only (no set line under title) | |
+| 7 | Markets tile shows name + number, then the grade row (no second copy of the grade, no set line under the title) | |
 | 8 | Search / notification copy is self-contained (full Line 2 when no breadcrumb) | |
 | 9 | Line 1 never includes variant — variant only on Line 2 / meta | |
 | 10 | One Piece OP13 sample matches §4 example after Phase 3–4 | |

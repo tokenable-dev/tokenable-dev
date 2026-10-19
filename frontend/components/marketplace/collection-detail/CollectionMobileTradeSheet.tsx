@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 
 /**
  * Card.html `#tt-sheet` — mobile bottom sheet that hosts `#tk-trade`
- * (Buy / Bid / Sell) when the fixed `#ob-bottom-bar` opens a tab.
+ * (Buy / Bid) when the fixed `#ob-bottom-bar` opens a tab.
  */
 export function CollectionMobileTradeSheet({
   open,

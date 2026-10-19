@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/authStore";
 
 /**
- * `/sell` router — everyone lands on `/vault` (Vault-Dashboard-Active.html).
- * Guests see the signed-out landing; signed-in users see the sell hub dashboard.
+ * `/sell` router — `/vault` decides dashboard vs first-time sell flow.
+ * Guests are sent through the Privy modal from the hub, not a connect-wallet page.
  */
 export function SellRouterView() {
   const router = useRouter();

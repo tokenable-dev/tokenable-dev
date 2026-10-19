@@ -1,9 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { SellCardNameBlock } from "@/components/sell/SellCardNameBlock";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
 import { listVaultSubmissions } from "@/lib/core/api/vault-submissions";
@@ -11,12 +10,12 @@ import { rq } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { useAuthStore } from "@/store/authStore";
 import {
-  buildVaultHubRowsFromSubmissions,
-  countVaultHubByState,
-  hasVaultHubActivityFromSubmissions,
+  buildVaultHubPackages,
+  countVaultHubPackages,
+  packageMatchesTab,
+  type VaultHubPackage,
 } from "@/lib/vault/buildVaultHubRows";
-import type { VaultHubRow, VaultHubVState } from "@/lib/vault/vaultHubTypes";
-import { TkStepper } from "@/components/ds";
+import type { VaultHubVState } from "@/lib/vault/vaultHubTypes";
 import { cn } from "@/lib/ds/cn";
 
 type TabFilter = "all" | VaultHubVState;
@@ -29,196 +28,159 @@ const TABS: { id: TabFilter; label: string }[] = [
   { id: "reject", label: "Rejected" },
 ];
 
-const STEP_IDX: Record<Exclude<VaultHubVState, "reject">, number> = {
-  transit: 0,
-  verify: 1,
-  vaulted: 2,
+const PILL: Record<VaultHubVState, string> = {
+  transit: "Shipped",
+  verify: "Verifying",
+  vaulted: "Vaulted",
+  reject: "Rejected",
 };
 
-function RejectChip() {
+function Chevron({ open }: { open: boolean }) {
   return (
-    <span className="vault-v-chip vault-v-chip--reject">
-      <span className="vault-v-chip__dot" />
-      Rejected
-    </span>
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points={open ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
+    </svg>
   );
 }
 
-function hubStepperSteps(status: Exclude<VaultHubVState, "reject">) {
-  const labels = ["Shipped", "Verifying", "Vaulted"] as const;
-  const idx = STEP_IDX[status];
-  return labels.map((label, i) => ({
-    label,
-    state:
-      i < idx
-        ? ("done" as const)
-        : i === idx
-          ? ("current" as const)
-          : ("todo" as const),
-  }));
-}
-
-function HubCardAction({ item }: { item: VaultHubRow }) {
-  const s = "vault-v-side-btn";
-  if (item.vstate === "reject") return null;
-
-  if (item.vstate === "transit") {
-    if (item.addTrackingHref) {
-      return (
-        <Link href={item.addTrackingHref} className={`tk-btn tk-btn--primary ${s}`}>
-          Add tracking
-        </Link>
-      );
-    }
-    if (item.trackingUrl) {
-      return (
-        <a
-          href={item.trackingUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={`tk-btn tk-btn--subtle ${s}`}
-        >
-          Track →
-        </a>
-      );
-    }
-    return null;
-  }
-
-  if (item.vstate === "verify" && item.detailHref) {
+function PackageAction({ pkg }: { pkg: VaultHubPackage }) {
+  const className = cn(
+    "vault-dash-btn",
+    pkg.actionTone === "primary" ? "vault-dash-btn--primary" : "vault-dash-btn--subtle",
+  );
+  if (pkg.actionExternal || pkg.actionHref.startsWith("mailto:")) {
     return (
-      <Link href={item.detailHref} className={`tk-btn tk-btn--subtle ${s}`}>
-        View
-      </Link>
+      <a
+        href={pkg.actionHref}
+        className={className}
+        {...(pkg.actionExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+      >
+        {pkg.actionLabel}
+      </a>
     );
   }
-
-  if (item.vstate === "vaulted") {
-    return (
-      <Link href="/portfolio" className={`tk-btn tk-btn--subtle ${s}`}>
-        View in collection
-      </Link>
-    );
-  }
-
-  return null;
-}
-
-function HubCard({ item }: { item: VaultHubRow }) {
-  const reject = item.vstate === "reject" && item.reject;
   return (
-    <div className={cn("vault-v-card", reject && "vault-v-card--reject")}>
-      <div className="vault-v-card__body">
-        <div className="vault-v-thumb">
-          <VaultThumb src={item.imageUrl} width={64} height={90} />
-        </div>
-        <div className="vault-v-info">
-          <div className="vault-v-name-row">
-            <div className="vault-v-name-block">
-              <SellCardNameBlock
-                card={item}
-                certOnLine2
-                line1ClassName="vault-v-name"
-                line2ClassName="vault-v-cert"
-              />
-            </div>
-            <div className="vault-v-card__side">
-              {reject ? <RejectChip /> : <HubCardAction item={item} />}
-              {reject ? (
-                <>
-                  <Link href={item.reject!.actionHref} className="tk-btn tk-btn--primary vault-v-side-btn vault-v-side-btn--sm">
-                    {item.reject!.actionLabel}
-                  </Link>
-                  <a href="mailto:dev@tokenable.io" className="tk-btn tk-btn--subtle vault-v-side-btn vault-v-side-btn--sm">
-                    Contact support
-                  </a>
-                </>
-              ) : null}
-            </div>
-          </div>
-          {reject ? (
-            <div className="vault-v-reject-box">
-              <span className="vault-v-reason-tag">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
-                  <circle cx="12" cy="12" r="10" />
-                  <line x1="12" y1="8" x2="12" y2="13" />
-                  <line x1="12" y1="16.5" x2="12" y2="16.5" />
-                </svg>
-                Reason · {item.reject!.label}
+    <Link href={pkg.actionHref} className={className}>
+      {pkg.actionLabel}
+    </Link>
+  );
+}
+
+function PackageRow({
+  pkg,
+  open,
+  onToggle,
+}: {
+  pkg: VaultHubPackage;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const shown = pkg.cards.slice(0, 4);
+  const more = pkg.cards.length - shown.length;
+
+  return (
+    <article className={cn("vault-dash-sb", open && "vault-dash-sb--open")}>
+      <span className="vault-dash-stack" aria-hidden>
+        {pkg.cards.slice(0, 3).map((card, i) => (
+          <span key={card.id} className="vault-dash-stack__slot" style={{ "--i": i } as CSSProperties}>
+            <VaultThumb src={card.imageUrl} width={44} height={64} className="vault-dash-stack__img" alt="" />
+          </span>
+        ))}
+      </span>
+      <div className="vault-dash-sb__t">
+        <div className="vault-dash-sb__title">{pkg.title}</div>
+        <div className="vault-dash-sb__meta">{pkg.meta}</div>
+      </div>
+      <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{PILL[pkg.status]}</span>
+      <div className="vault-dash-bot">
+        {pkg.cards.length > 1 ? (
+          <button type="button" className="vault-dash-tog" aria-expanded={open} onClick={onToggle}>
+            <span className="vault-dash-mono">{pkg.cards.length}</span> cards <Chevron open={open} />
+          </button>
+        ) : (
+          <span className="vault-dash-one">
+            <span className="vault-dash-mono">1</span> card
+          </span>
+        )}
+        {pkg.vaultedCount > 0 || pkg.rejectedCount > 0 ? (
+          <div className="vault-dash-sum">
+            {pkg.vaultedCount > 0 ? (
+              <span>
+                <b>{pkg.vaultedCount}</b> vaulted
               </span>
-              <p className="vault-v-reason-exp">{item.reject!.exp}</p>
-            </div>
-          ) : (
-            <>
-              <div className="vault-v-stepper">
-                <TkStepper
-                  theme="dark"
-                  size="sm"
-                  aria-label="Vaulting progress"
-                  steps={hubStepperSteps(item.vstate as Exclude<VaultHubVState, "reject">)}
-                />
-              </div>
-              {item.vstate === "vaulted" ? (
-                <div className="vault-v-note">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                  <span>
-                    Token minted to your{" "}
-                    <Link href="/portfolio">Collection</Link>.
-                  </span>
-                </div>
-              ) : item.eta ? (
-                <div className="vault-v-eta">{item.eta}</div>
-              ) : null}
-            </>
-          )}
+            ) : null}
+            {pkg.vaultedCount > 0 && pkg.rejectedCount > 0 ? <span> · </span> : null}
+            {pkg.rejectedCount > 0 ? (
+              <span>
+                <b className="vault-dash-sum__neg">{pkg.rejectedCount}</b> rejected
+              </span>
+            ) : null}
+          </div>
+        ) : null}
+        <div className="vault-dash-eta">
+          {pkg.eta.filter(Boolean).map((part) => (
+            <span key={part}>{part}</span>
+          ))}
+        </div>
+        <div className="vault-dash-act">
+          <PackageAction pkg={pkg} />
         </div>
       </div>
-    </div>
+      {open && pkg.cards.length > 1 ? (
+        <div className="vault-dash-list">
+          {shown.map((card) => (
+            <div key={card.id} className="vault-dash-c">
+              <VaultThumb src={card.imageUrl} width={28} height={40} className="vault-dash-c__img" alt="" />
+              <span className="vault-dash-c__name">{card.title}</span>
+              <span className="vault-dash-c__cert">{card.cert ? `Cert #${card.cert}` : ""}</span>
+              <span className={cn("vault-dash-c__st", `vault-dash-c__st--${card.state}`)}>{card.statusLabel}</span>
+            </div>
+          ))}
+          {more > 0 ? (
+            <Link href={pkg.detailHref} className="vault-dash-more">
+              + {more} more · View all {pkg.cards.length}
+            </Link>
+          ) : null}
+        </div>
+      ) : null}
+    </article>
   );
 }
 
 export function VaultHubActivityLoading() {
   return (
-    <div className="vault-hub-active vault-hub-active--loading" aria-busy>
-      <div className="vault-hub-active__skel" />
-      <div className="vault-hub-active__skel" />
+    <div className="vault-dash vault-dash--loading" aria-busy>
+      <div className="vault-dash-skel" />
+      <div className="vault-dash-skel" />
     </div>
   );
 }
 
-/** Vault-Dashboard-Active.html — status tabs + per-card list. */
+/** Vault-Dashboard-Active.html — status tabs + submission rows. */
 export function VaultActiveDashboardView() {
   const [filter, setFilter] = useState<TabFilter>("all");
-
+  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const submissionsQ = useVaultHubSubmissions();
-
   const submissions = submissionsQ.data ?? [];
-
   const submissionItems = useMemo(
     () => submissions.flatMap((s) => s.items),
     [submissions],
   );
-
   const displayByCert = useVaultSubmissionDisplayByCert(submissionItems);
-
-  const allRows = useMemo(
-    () => buildVaultHubRowsFromSubmissions(submissions, displayByCert),
+  const packages = useMemo(
+    () => buildVaultHubPackages(submissions, displayByCert),
     [submissions, displayByCert],
   );
+  const counts = useMemo(() => countVaultHubPackages(packages), [packages]);
+  const visible = packages.filter((pkg) => packageMatchesTab(pkg, filter));
 
-  const counts = useMemo(() => countVaultHubByState(allRows), [allRows]);
-
-  const visible = filter === "all" ? allRows : allRows.filter((r) => r.vstate === filter);
-
-  if (submissionsQ.isPending && allRows.length === 0) {
+  if (submissionsQ.isPending && packages.length === 0) {
     return <VaultHubActivityLoading />;
   }
 
   return (
-    <div className="vault-hub-active">
-      <div className="vault-vtabs" role="tablist" aria-label="Vaulting status">
+    <div className="vault-dash">
+      <div className="vault-dash-tabs" role="tablist" aria-label="Vaulting status">
         {TABS.map((t) => {
           const on = filter === t.id;
           return (
@@ -227,24 +189,27 @@ export function VaultActiveDashboardView() {
               type="button"
               role="tab"
               aria-selected={on}
-              className={cn("vault-vtab", on && "vault-vtab--on")}
+              className={cn("vault-dash-tab", on && "vault-dash-tab--on")}
               onClick={() => setFilter(t.id)}
             >
-              {t.label}
-              <span className="vault-vtab__n">{counts[t.id]}</span>
+              {t.label} <span className="vault-dash-tab__n">{counts[t.id]}</span>
             </button>
           );
         })}
       </div>
-
       {visible.length > 0 ? (
-        <div className="vault-v-list">
-          {visible.map((item) => (
-            <HubCard key={item.id} item={item} />
+        <div className="vault-dash-list-wrap">
+          {visible.map((pkg) => (
+            <PackageRow
+              key={pkg.id}
+              pkg={pkg}
+              open={Boolean(openIds[pkg.id])}
+              onToggle={() => setOpenIds((prev) => ({ ...prev, [pkg.id]: !prev[pkg.id] }))}
+            />
           ))}
         </div>
       ) : (
-        <div className="vault-v-empty">Nothing in this state right now.</div>
+        <div className="vault-dash-empty">Nothing in this state right now.</div>
       )}
     </div>
   );
@@ -268,7 +233,9 @@ export function useVaultHubViewState(): VaultHubViewState {
 
   if (submissionsQ.isPending) return "loading";
 
-  return hasVaultHubActivityFromSubmissions(submissionsQ.data ?? []) ? "active" : "empty";
+  return (submissionsQ.data ?? []).some((s) => s.status !== "cancelled" && s.status !== "draft")
+    ? "active"
+    : "empty";
 }
 
 /** True when the signed-in user has any PSA vaulting activity on this hub. */

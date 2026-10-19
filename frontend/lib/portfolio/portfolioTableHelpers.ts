@@ -51,7 +51,10 @@ export function formatRedeemCardLine1FromDraft(card: {
 export type PortfolioHoldingsHeadline = {
   parts: AssetDetailHeadlineParts;
   grade: string;
+  /** Table / single-line title — `{Name} · {Number} · {Grade}`. */
   line1: string;
+  /** Gallery name row — `{Name} · {Number}`. Grade renders on the next row. */
+  nameLine: string;
   /** Year · set · variant — shown under Line 1 on table-row hover. */
   line2: string;
   hover: string;
@@ -67,15 +70,17 @@ export function listPriceSheetIdentity(
   const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
   const grade =
     formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
-  const line1 =
-    formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(parts, grade)) ||
-    fallback;
+  const displayParts = cardDisplayPartsFromAssetDetail(parts, grade);
+  const line1 = formatCardDisplayLine1(displayParts) || fallback;
+  const nameLine =
+    formatCardDisplayLine1(displayParts, { omitGrade: true }) || line1;
   const hover = formatCardDisplayHoverTitle(parts, { grade });
   const line2 = formatCardDisplayMeta(parts);
   return {
     parts,
     grade,
     line1,
+    nameLine,
     line2,
     hover: hover || line1,
   };
@@ -107,10 +112,21 @@ export function resolvePortfolioHoldingsHeadlines(
   }
 
   const collided = resolveCardDisplayLine1Collisions(collisionItems);
+  const nameCollided = resolveCardDisplayLine1Collisions(collisionItems, {
+    omitGrade: true,
+  });
   for (const row of rows) {
     const next = collided.get(String(row.tokenId));
+    const nameNext = nameCollided.get(String(row.tokenId));
     const cur = out.get(row.tokenId);
-    if (next && cur) out.set(row.tokenId, { ...cur, line1: next });
+    if (!cur) continue;
+    if (next || nameNext) {
+      out.set(row.tokenId, {
+        ...cur,
+        line1: next || cur.line1,
+        nameLine: nameNext || cur.nameLine,
+      });
+    }
   }
   return out;
 }

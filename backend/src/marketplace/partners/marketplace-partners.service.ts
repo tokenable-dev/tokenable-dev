@@ -130,26 +130,20 @@ export class MarketplacePartnersService {
   }
 
   /**
-   * Demo/staging: partner vault is ops-approved — KYC + Origin for sell-flow.
-   * Audit via `user_kyc_events` (`source: admin_partner_vault_grant`).
+   * Partner appointment is an admin KYC approval.
+   * Always sets the linked user's KYC to approved (audit: admin_partner_vault_grant).
+   * Demo Origin seeding stays behind `marketplace.partnerGrantAutoKyc`.
    */
   private async maybeApproveKycForPartnerGrant(
     walletAddress: string,
     platformUserId?: string | null,
   ): Promise<void> {
-    if (!this.partnerGrantAutoKycEnabled()) {
-      this.logger.warn(
-        'Partner grant auto-KYC skipped (MARKETPLACE_PARTNER_GRANT_AUTO_KYC=false and NODE_ENV=production)',
-      );
-      return;
-    }
-
     const explicit = platformUserId?.trim();
     let partner = await this.findActiveByWallet(walletAddress);
     if (!partner && explicit) {
       partner = await this.findActivePartnerForUser(explicit);
     }
-    if (partner) {
+    if (partner && this.partnerGrantAutoKycEnabled()) {
       await this.ensureDemoPartnerOriginIfMissing(
         partner.id,
         partner.displayName,
@@ -556,7 +550,6 @@ export class MarketplacePartnersService {
     dto: UpdateMarketplacePartnerDto,
   ): Promise<MarketplacePartnerPublic> {
     const partner = await this.getOrThrow(id);
-    const wasInactive = !partner.isActive;
     if (dto.displayName !== undefined) {
       partner.displayName = dto.displayName.trim();
     }
@@ -584,8 +577,7 @@ export class MarketplacePartnersService {
       }
     }
     const saved = await this.partnerRepo.save(partner);
-    const reactivated = dto.isActive === true && wasInactive && saved.isActive;
-    if (saved.isActive && (reactivated || dto.platformUserId)) {
+    if (saved.isActive) {
       await this.maybeApproveKycForPartnerGrant(
         saved.walletAddress,
         dto.platformUserId,

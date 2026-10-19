@@ -17,7 +17,7 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 | `/markets` | `app/markets/page.tsx` | **Markets** — collection list, batch snapshots, category filter, trending |
 | `/vault` | `app/vault/page.tsx` | **Sell hub** — signed-out landing / empty dashboard (zero tabs, send-a-card + browse markets) / **vaulting list** (tabs: All · Shipped · Verifying · Vaulted · Rejected; `Vault-Dashboard-Active.html`) |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
-| `/sell/flow` | `app/sell/flow/page.tsx` | Seller verification → choose vault → add cards (PSA → ship, or self → custody mint) |
+| `/sell/flow` | `app/sell/flow/page.tsx` | Choose a vault (Sell your cards). Same screen as an empty `/vault`. Continue is not wired yet. |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack and tracking (PSA Shipping) |
 | `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Redirects to `/vault/submit` |

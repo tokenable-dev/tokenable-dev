@@ -229,7 +229,9 @@ Register company wallets for **Self vault** eligibility and optional partner bul
 
 Ops can also approve a user as partner from **Users → detail → 파트너 승인** (same `POST` create; wallet must be unique). Revoke uses `PATCH isActive: false`.
 
-When `MARKETPLACE_PARTNER_GRANT_AUTO_KYC=true` (default **on** when `NODE_ENV≠production`), creating an active partner or reactivating (`PATCH isActive: true`) sets KYC to `approved` for `platformUserId` when sent from **Users → detail**, else resolves by partner `walletAddress` on `user_wallets` / `users.wallet_address`. Also seeds a **demo FedEx Origin** on the partner row when missing (unlocks sell-flow **Tokenable Vault**). `PATCH` with `platformUserId` only re-runs the grant (fix-up). Audit: `user_kyc_events.payload.source=admin_partner_vault_grant`. On EC2 (`NODE_ENV=production`) set `MARKETPLACE_PARTNER_GRANT_AUTO_KYC=true` explicitly for demo/staging.
+Creating or updating an **active** partner always sets KYC to `approved` for `platformUserId` when sent from **Users → detail**, else resolves by partner `walletAddress` on `user_wallets` / `users.wallet_address`. An already-appointed account is approved on the next session or vault/KYC check when a linked wallet matches the active partner row (no second admin click). Audit: `user_kyc_events.payload.source=admin_partner_vault_grant`. Sumsub reconcile does not downgrade `provider=admin`.
+
+`MARKETPLACE_PARTNER_GRANT_AUTO_KYC=true` (default **on** when `NODE_ENV≠production`) only seeds a **demo FedEx Origin** when the partner has none. On EC2 set it explicitly if you want that placeholder address. KYC approval does not depend on it.
 
 | Env | Required | Purpose |
 |-----|----------|---------|

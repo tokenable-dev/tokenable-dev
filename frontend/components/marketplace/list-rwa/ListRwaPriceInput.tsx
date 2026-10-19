@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/ds/cn";
+import { bumpWholeDollarByOnePercent } from "@/lib/marketplace/wholeDollarPercent";
 import { useListRwaPriceSuggestions } from "@/hooks/list-rwa/useListRwaPriceSuggestions";
 
 const ADJUST_PCTS = [-20, -10, 0, 10, 20] as const;
@@ -131,7 +132,7 @@ export function ListRwaPriceInput({
 
   function stepByPercent(dir: -1 | 1) {
     const current = value || highBid || market || 0;
-    const next = Math.max(1, Math.round(current * (1 + dir / 100)));
+    const next = Math.max(1, bumpWholeDollarByOnePercent(current, dir));
     setPick(null);
     onPriceChange(applyPrice(next));
   }
@@ -236,6 +237,7 @@ export function ListRwaPriceInput({
               className="tk-price__step"
               aria-label="Decrease 1%"
               disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => stepByPercent(-1)}
             >
               −
@@ -245,6 +247,7 @@ export function ListRwaPriceInput({
               className="tk-price__step"
               aria-label="Increase 1%"
               disabled={disabled}
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => stepByPercent(1)}
             >
               +

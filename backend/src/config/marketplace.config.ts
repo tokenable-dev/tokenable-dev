@@ -23,7 +23,10 @@ export default registerAs('marketplace', () => {
   const adminAllowContractResetInProduction = envTruthy(
     process.env.MARKETPLACE_ADMIN_ALLOW_CONTRACT_RESET_IN_PRODUCTION,
   );
-  /** When true, admin partner create/reactivate sets linked user KYC to approved (demo/staging). */
+  /**
+   * Demo Origin seed on partner grant. KYC approval itself always runs —
+   * partner appointment is an admin action.
+   */
   const partnerGrantAutoKyc =
     envTruthy(process.env.MARKETPLACE_PARTNER_GRANT_AUTO_KYC) ||
     process.env.NODE_ENV !== 'production';

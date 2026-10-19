@@ -25,6 +25,9 @@ function ChangeChip({ pct }: { pct: number | null }) {
 }
 
 function SimilarCard({ item }: { item: SimilarCollectionItem }) {
+  const name = item.displayLabel.trim();
+  const grade = item.gradeLabel.trim();
+  const alt = grade ? `${name} · ${grade}` : name;
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(item.collectionKey)}`}
@@ -34,7 +37,7 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
         {item.imageUrl ? (
           <CollectionPsaSlabFrame
             imageUrl={item.imageUrl}
-            alt={item.displayLabel}
+            alt={alt}
             comp={parseCollectionComponents(item.components)}
             displayLabel={item.catalogLabel}
             collectionKey={item.collectionKey}
@@ -45,8 +48,8 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
       </div>
       <div className="cd-si-card__body">
         <div className="cd-si-card__headlines">
-          <div className="cd-si-card__title">{item.displayLabel}</div>
-          <div className="cd-si-card__grade-line">{item.gradeLabel}</div>
+          <div className="cd-si-card__title">{name}</div>
+          {grade ? <div className="cd-si-card__grade">{grade}</div> : null}
         </div>
         <div className="cd-si-card__price-row">
           <span className="cd-si-card__price">

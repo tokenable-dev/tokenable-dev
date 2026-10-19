@@ -3,18 +3,20 @@ import type { NextRequest } from "next/server";
 import {
   SITE_ACCESS_COOKIE,
   isPrivyOAuthCallbackSearch,
-  isSiteAccessEnabled,
   isSiteAccessPublicPath,
+  isSiteAccessRequired,
+  readSiteAccessConfig,
+  siteAccessHostHeader,
   verifySiteAccessCookie,
 } from "@/lib/site-access/siteAccess";
 
 /**
  * Next.js 16+ `proxy.ts` (replaces deprecated `middleware.ts`).
- * Staging password gate when SITE_ACCESS_ENABLED=true.
+ * Password gate when SITE_ACCESS_ENABLED=true, and always on app.tokenable.io.
  * Dev CSP is set via `next.config` headers — not here — so this layer stays cheap.
  */
 export async function proxy(request: NextRequest) {
-  if (!isSiteAccessEnabled()) {
+  if (!isSiteAccessRequired(readSiteAccessConfig(), siteAccessHostHeader(request))) {
     return NextResponse.next();
   }
 

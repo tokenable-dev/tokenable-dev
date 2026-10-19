@@ -202,7 +202,7 @@ Privy's mobile WalletConnect path uses `separateConnectAndSign`: connect and SIW
 |-------|-------------|----------|
 | 0 | None | Browse markets |
 | 1 | Signed in + linked wallet | Trade (`useTradeAccessGate`) |
-| 2 | Level 1 + KYC approved | Sell / vault (`useSellAccessGate`) |
+| 2 | Level 1 + KYC approved | Physical redeem. Sell / vault does not open KYC during POC. |
 
 Gates open modals in sequence: sign-in → connect-wallet → KYC.
 
@@ -224,7 +224,7 @@ User-facing flow:
 - `POST /api/kyc/access-token` — JWT; creates applicant + WebSDK token
 - Frontend `/kyc` — Sumsub WebSDK 2.0
 
-Product gates (Level 2): vault ship / mint and physical redeem require `kyc_status = approved`. Signup, Markets buy/bid, and list-for-sale do not. Server enforces KYC on mint + `POST /api/rwa/redeem-batch`.
+Product gates (Level 2): physical redeem requires `kyc_status = approved`. Signup, Markets buy/bid, list-for-sale, and vault ship / mint do not during POC. Server enforces KYC on `POST /api/rwa/redeem-batch`. Vault mint checks stay behind `VAULT_MINT_REQUIRES_KYC`.
 
 See [guides/sumsub-kyc.md](../guides/sumsub-kyc.md).
 

@@ -8,6 +8,7 @@
  * 5. TransactionErrorView `styled.text` → `styled.span` (React crash: unrecognized <text> tag).
  * 6. usePrivyEventSubscription: hooks after `if (!callbacks) return` (React #300 after approve).
  * 7. TransactionDetails accordion: hide collapsed USD when `tx.value` is 0 (ERC-20 / USDC).
+ * 8. Sign typed-data tree: show USDC amounts via `window.__tkFormatSeaportSignDisplay` (base units stay in the signed payload).
  *
  * Re-run safe after `pnpm install` — idempotent.
  */
@@ -346,6 +347,41 @@ function patchEventSubscriptionHookOrder() {
   return patched;
 }
 
+const SIGN_DISPLAY_ESM_NEEDLE = "e(A,{data:a})";
+const SIGN_DISPLAY_ESM_REPLACEMENT =
+  'e(A,{data:typeof window<"u"&&window.__tkFormatSeaportSignDisplay?window.__tkFormatSeaportSignDisplay(a):a})';
+const SIGN_DISPLAY_CJS_NEEDLE = "e.jsx(T,{data:o})";
+const SIGN_DISPLAY_CJS_REPLACEMENT =
+  'e.jsx(T,{data:typeof window<"u"&&window.__tkFormatSeaportSignDisplay?window.__tkFormatSeaportSignDisplay(o):o})';
+
+/** Seaport USDC amounts are uint256 base units. Format the visible tree only. */
+function patchSeaportSignDisplay() {
+  let patched = 0;
+  const targets = [
+    ["esm", "SignRequestScreen-", SIGN_DISPLAY_ESM_NEEDLE, SIGN_DISPLAY_ESM_REPLACEMENT],
+    ["cjs", "SignRequestScreen-", SIGN_DISPLAY_CJS_NEEDLE, SIGN_DISPLAY_CJS_REPLACEMENT],
+  ];
+  for (const [sub, prefix, needle, replacement] of targets) {
+    const dir = path.join(PRIVY_DIST, sub);
+    if (!fs.existsSync(dir)) continue;
+    for (const name of fs.readdirSync(dir)) {
+      if (!name.startsWith(prefix)) continue;
+      const fp = path.join(dir, name);
+      if (
+        patchFile(fp, (content) =>
+          content.includes(needle) ? content.replace(needle, replacement) : null,
+        )
+      ) {
+        patched += 1;
+        console.log(
+          `[patch-privy-sdk] USDC sign display → ${path.relative(process.cwd(), fp)}`,
+        );
+      }
+    }
+  }
+  return patched;
+}
+
 function main() {
   if (!fs.existsSync(PRIVY_DIST)) return;
 
@@ -356,6 +392,7 @@ function main() {
   const styledText = patchStyledTextOutsideSvg();
   const eventHooks = patchEventSubscriptionHookOrder();
   const txDetailsHeader = patchTransactionDetailsZeroValueHeader();
+  const signDisplay = patchSeaportSignDisplay();
 
   if (
     isActive +
@@ -364,7 +401,8 @@ function main() {
       chainFallback +
       styledText +
       eventHooks +
-      txDetailsHeader ===
+      txDetailsHeader +
+      signDisplay ===
     0
   ) {
     console.log("[patch-privy-sdk] nothing to patch (already patched or version changed)");

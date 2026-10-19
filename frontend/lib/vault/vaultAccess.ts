@@ -56,8 +56,9 @@ export function isSellPrimaryNavActive(pathname: string | null | undefined): boo
 }
 
 /**
- * `/sell` router — all signed-in users land on the sell hub dashboard (`/vault`).
- * Partner bulk add-cards stays at `/partner/add-cards` (deep link only).
+ * `/sell` router — signed-in users land on `/vault`.
+ * The hub shows the dashboard when submissions exist, and the choose-vault screen when none do.
+ * Guests get the Privy modal instead of a connect-wallet page.
  */
 export function resolveSellRouterDestination(): string {
   return SELL_COLLECTOR_HUB_PATH;

@@ -3,6 +3,12 @@ import { isWalletOnlyPlaceholderEmail } from '../../auth/privy/privy-user.parser
 import type { User } from '../../user/entities/user.entity';
 
 /**
+ * POC: vault deposit and mint do not block on KYC.
+ * Redeem still calls `assertApprovedForCustody`. Set `true` to enforce vault KYC again.
+ */
+export const VAULT_MINT_REQUIRES_KYC = false;
+
+/**
  * Internal staging bypass — keep in sync with
  * `frontend/lib/auth/accountAccess.ts` (remove before mainnet).
  */

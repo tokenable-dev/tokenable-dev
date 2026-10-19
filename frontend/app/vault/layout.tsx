@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { AppPageState } from "@/components/ui/AppPageState";
 import { isVaultPathAccessible } from "@/lib/vault/vaultAccess";
 import "@/styles/tokenable-vault.css";
+import "@/styles/tokenable-sell-flow.css";
 
 export default function VaultLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();

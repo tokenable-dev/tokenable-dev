@@ -296,17 +296,19 @@ function resolveHeroStatCells(input: {
     input.marketCapUsd == null
       ? "—"
       : formatVelocityPercent(input.velocityPct);
-  return buildHeroStatCells({
-    formatMarketCap: input.formatMarketCap,
-    marketCapUsd: input.marketCapUsd,
-    volumeDisplay,
-    velocityDisplay,
-    popValue,
-    gemRateLabel,
-  });
+  return buildHeroStatCells(
+    {
+      formatMarketCap: input.formatMarketCap,
+      marketCapUsd: input.marketCapUsd,
+      volumeDisplay,
+      velocityDisplay,
+      popValue,
+      gemRateLabel,
+    },
+  );
 }
 
-/** Card.html `#md-panel` — 5 stats under the chart on ≤1140px. */
+/** Mobile chart stats — same keys as desktop, three per row. */
 export function CollectionHeroMdPanel({
   tradeVolumeUsdc,
   tradeVolumeLoading,
@@ -470,6 +472,11 @@ export function CollectionDetailStatMain({
                   {title}
                 </h1>
               )}
+              {resolveCardDisplayGrade(gradeLabel) ? (
+                <div className="cd-hero-bar__grade" id="hero-grade">
+                  {resolveCardDisplayGrade(gradeLabel)}
+                </div>
+              ) : null}
               <HeroMeta
                 parts={headlineParts}
                 meta={meta}
@@ -484,7 +491,7 @@ export function CollectionDetailStatMain({
             <div className="cd-hero-bar__metrics hero-actionsrow">
               <div className="cd-hero-bar__priceblock" id="hero-priceblock">
                 <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
-                  Last price
+                  Last Price
                 </div>
                 <div className="cd-hero-bar__price-row">
                   {priceLoading && priceUsd == null ? (

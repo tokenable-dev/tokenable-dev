@@ -2,6 +2,7 @@ import type { VaultSubmissionApi, VaultSubmissionApiItem } from "@/lib/core/api/
 import {
   CARRIER_LABELS,
   CARRIER_TRACK_URLS,
+  formatSellCardDisplay,
   sellSubmissionAddTrackingHref,
   type SellCardDisplaySource,
   type SellCarrier,
@@ -315,6 +316,183 @@ export function hasVaultHubActivityFromSubmissions(
   submissions: VaultSubmissionApi[],
 ): boolean {
   return submissions.some((s) => s.status !== "cancelled");
+}
+
+export type VaultHubPackageCard = {
+  id: string;
+  imageUrl: string;
+  title: string;
+  cert: string;
+  state: VaultHubVState;
+  statusLabel: string;
+};
+
+export type VaultHubPackage = {
+  id: string;
+  title: string;
+  meta: string;
+  status: VaultHubVState;
+  eta: string[];
+  vaultedCount: number;
+  rejectedCount: number;
+  cards: VaultHubPackageCard[];
+  actionLabel: string;
+  actionHref: string;
+  actionTone: "primary" | "subtle";
+  actionExternal: boolean;
+  detailHref: string;
+  createdAt: string;
+};
+
+const PACKAGE_STATUS_LABEL: Record<VaultHubVState, string> = {
+  transit: "Shipped",
+  verify: "Verifying",
+  vaulted: "Vaulted",
+  reject: "Rejected",
+};
+
+function packageStatus(s: VaultSubmissionApi): VaultHubVState {
+  if (s.status === "awaiting_shipment" || s.status === "in_transit") return "transit";
+  if (s.status === "psa_reviewing") return "verify";
+  const rejected = s.items.filter((item) => isIssueItem(item)).length;
+  const completed = s.items.filter((item) => itemStatus(item) === "completed").length;
+  if (s.items.length > 0 && rejected === s.items.length) return "reject";
+  if ((s.scenario === "F" || s.scenario === "H") && completed === 0) return "reject";
+  if (s.status === "completed" || completed > 0) return "vaulted";
+  if (rejected > 0) return "reject";
+  return "verify";
+}
+
+function cardState(item: VaultSubmissionApiItem, pkg: VaultHubVState): VaultHubVState {
+  if (isIssueItem(item)) return "reject";
+  if (itemStatus(item) === "completed") return "vaulted";
+  if (pkg === "transit") return "transit";
+  if (pkg === "reject") return "reject";
+  return "verify";
+}
+
+function packageEta(s: VaultSubmissionApi, status: VaultHubVState, rejectLabel: string): string[] {
+  if (status === "transit") {
+    const shipped = formatDay(s.shipDate) || formatDay(s.shippedAt) || formatDay(s.createdAt);
+    const tracking = s.trackingNumber?.trim();
+    if (tracking) {
+      const carrier = s.carrier
+        ? (CARRIER_LABELS[s.carrier as SellCarrier] ?? s.carrier)
+        : null;
+      return [
+        shipped ? `Shipped ${shipped}` : "Shipped",
+        carrier ? `${carrier} · ${tracking}` : tracking,
+      ];
+    }
+    return [shipped ? `Packed ${shipped}` : "Ready to ship", "Add tracking"];
+  }
+  if (status === "verify") {
+    const arrived = formatDay(s.updatedAt) || formatDay(s.shippedAt);
+    return [arrived ? `Arrived ${arrived}` : "At PSA", "~14–16 business days"];
+  }
+  if (status === "vaulted") {
+    const day = formatDay(s.updatedAt);
+    return [day ? `Vaulted ${day}` : "Vaulted", "Tokens minted to Collection"];
+  }
+  return ["Rejected", rejectLabel || "Needs attention"];
+}
+
+/** One row per submission — Vault-Dashboard-Active.html. */
+export function buildVaultHubPackages(
+  submissions: VaultSubmissionApi[],
+  enrichment?: Map<string, SellCardDisplaySource>,
+): VaultHubPackage[] {
+  const packages: VaultHubPackage[] = [];
+
+  for (const s of submissions) {
+    if (s.status === "cancelled" || s.status === "draft") continue;
+    const status = packageStatus(s);
+    const href = detailHref(s.publicId);
+    const cards: VaultHubPackageCard[] = s.items.map((item) => {
+      const display = itemMeta(item, enrichment);
+      const { line1 } = formatSellCardDisplay(display);
+      const state = cardState(item, status);
+      const reject =
+        state === "reject" ? resolveReject(item.rejectionReason, itemStatus(item) === "failed", s) : null;
+      return {
+        id: item.id,
+        imageUrl: display.imageUrl,
+        title: line1 || display.name,
+        cert: display.cert,
+        state,
+        statusLabel: reject?.label ?? PACKAGE_STATUS_LABEL[state],
+      };
+    });
+    const first = cards[0];
+    const firstDisplay = s.items[0] ? formatSellCardDisplay(itemMeta(s.items[0], enrichment)) : null;
+    const title =
+      cards.length === 1 && first
+        ? first.title
+        : `Submission · ${formatDay(s.createdAt) ?? "package"}`;
+    const meta =
+      cards.length === 1 && first
+        ? ["1 card", firstDisplay?.line2, first.cert ? `Cert #${first.cert}` : ""]
+            .filter(Boolean)
+            .join(" · ")
+        : `${cards.length} cards`;
+    const tracked = hasShipmentTracking(s);
+    const trackUrl = trackingHref(s);
+    const rejectLabel = cards.find((c) => c.state === "reject")?.statusLabel ?? "";
+    let actionLabel = "View";
+    let actionHref = href;
+    let actionTone: VaultHubPackage["actionTone"] = "subtle";
+    let actionExternal = false;
+    if (status === "transit" && !tracked) {
+      actionLabel = "Add tracking";
+      actionHref = sellSubmissionAddTrackingHref(s.publicId);
+      actionTone = "primary";
+    } else if (status === "transit" && trackUrl) {
+      actionLabel = "Track →";
+      actionHref = trackUrl;
+      actionExternal = true;
+    } else if (status === "vaulted") {
+      actionHref = "/portfolio";
+    } else if (status === "reject") {
+      actionLabel = "Contact support";
+      actionHref = "mailto:dev@tokenable.io";
+      actionTone = "primary";
+    }
+
+    packages.push({
+      id: s.publicId,
+      title,
+      meta,
+      status,
+      eta: packageEta(s, status, rejectLabel),
+      vaultedCount: cards.filter((c) => c.state === "vaulted").length,
+      rejectedCount: cards.filter((c) => c.state === "reject").length,
+      cards,
+      actionLabel,
+      actionHref,
+      actionTone,
+      actionExternal,
+      detailHref: href,
+      createdAt: s.createdAt,
+    });
+  }
+
+  return packages.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+}
+
+export function packageMatchesTab(
+  pkg: VaultHubPackage,
+  tab: "all" | VaultHubVState,
+): boolean {
+  if (tab === "all") return true;
+  if (tab === "reject") return pkg.status === "reject" || pkg.rejectedCount > 0;
+  return pkg.status === tab;
+}
+
+export function countVaultHubPackages(packages: VaultHubPackage[]) {
+  const tabs = ["all", "transit", "verify", "vaulted", "reject"] as const;
+  return Object.fromEntries(
+    tabs.map((tab) => [tab, packages.filter((pkg) => packageMatchesTab(pkg, tab)).length]),
+  ) as Record<(typeof tabs)[number], number>;
 }
 
 export function countVaultHubByState(rows: VaultHubRow[]) {

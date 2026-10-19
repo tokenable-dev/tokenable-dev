@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { SupportedChainId } from '../../blockchain/chain-config.service';
 import { KycService } from '../../kyc/kyc.service';
+import { VAULT_MINT_REQUIRES_KYC } from '../../kyc/utils/kyc-gate.util';
 import { CollectionCoverService } from '../../marketplace/collections/collection-cover.service';
 import { NotificationsService } from '../../marketplace/notifications/notifications.service';
 import { PsaService } from '../../psa/psa.service';
@@ -82,7 +83,9 @@ export class VaultSubmissionAdminMintService {
     }
 
     const user = await this.users.findByIdOrFail(detail.userId);
-    await this.kyc.assertApprovedForCustody(user);
+    if (VAULT_MINT_REQUIRES_KYC) {
+      await this.kyc.assertApprovedForCustody(user);
+    }
 
     const wallets = await this.users.listWalletsForUser(user.id);
     const primary =

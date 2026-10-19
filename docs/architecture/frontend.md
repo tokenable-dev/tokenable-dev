@@ -17,7 +17,7 @@ Marketplace UI is organized into **feature folders** with matching `hooks/` and 
 | Home grids | `home/` (`HomeTicker`, Top movers, Just vaulted) | `hooks/home/useHomeMarketplaceGrids` → `GET /marketplace/collections/home-feed` with **host default chain** (`platformDefaultChainId`), not the header network picker |
 | Charts & metrics | `collection-dual-price-chart/`, `price-metrics-strip/` | `hooks/collection-dual-price-chart/`, `hooks/price-metrics-strip/` |
 | Order book | `unified-order-book/` | `hooks/unified-order-book/`, `lib/marketplace/unified-order-book/` |
-| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid/Sell) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` — catalog-only collections accept Place Bid (sentinel merkle); fill after first mint + buyer re-sign |
+| Trading | `collection-trading/` (change/rebid), `collection-detail/` (trade panel Buy/Bid) | `hooks/token-offer/`, `lib/marketplace/collection-trading/` — catalog-only collections accept Place Bid (sentinel merkle); fill after first mint + buyer re-sign |
 | RWA listing (portfolio Set/Edit price) | `list-rwa/` (`ListRwaModalHost` + modal) | `useRwaDetailMetadata`, `lib/marketplace/rwa-detail/` |
 | Listing flow | `list-rwa/` | `hooks/list-rwa/`, `lib/seaport/listing/` |
 | Portfolio | `portfolio/` | `hooks/portfolio/`, `lib/portfolio/` |

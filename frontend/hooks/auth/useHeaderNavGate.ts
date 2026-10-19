@@ -13,6 +13,7 @@ import { refreshPrivyAuthSession } from "@/lib/privy/session";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { resolveWalletSessionGate } from "@/lib/auth/walletSessionGate";
 import {
+  isVaultHubPath,
   isVaultPathAccessible,
   isVaultPublicPath,
   notifyVaultComingSoon,
@@ -42,6 +43,10 @@ export function useHeaderNavGate() {
         const gate = resolveHeaderNavGate(subject, minLevel, href);
         switch (gate.action) {
           case "allow":
+            if (isVaultHubPath(href) && !subject) {
+              openSignIn({ returnTo: href });
+              return;
+            }
             if (minLevel >= 1) {
               const sessionGate = resolveWalletSessionGate(subject, {
                 address,

@@ -91,6 +91,22 @@ describe("cardDisplayName SSOT", () => {
     ).toBe("Charizard ex · 199/165");
   });
 
+  it("strips a grade already stored on the card name so it is not repeated", () => {
+    const parts = {
+      cardName: "Charizard ex · PSA 10",
+      cardNumber: "199/165",
+      grade: "PSA 10",
+      year: "2023",
+      setName: "151",
+      language: "EN",
+      variant: null,
+    };
+    expect(formatCardDisplayLine1(parts)).toBe("Charizard ex · 199/165 · PSA 10");
+    expect(formatCardDisplayLine1(parts, { omitGrade: true })).toBe(
+      "Charizard ex · 199/165",
+    );
+  });
+
   it("extracts collector number from a listing title", () => {
     expect(
       extractCardNumberFromDisplayText(

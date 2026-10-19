@@ -49,7 +49,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { extractBearerToken } from './privy';
 import { apiBodyDefault } from '../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../swagger/examples';
-import { maybeRefreshSiteAccessCookie } from '../site-access/site-access.util';
+import { maybeRefreshSiteAccessCookie, siteAccessHostFromRequest } from '../site-access/site-access.util';
 
 /** Privy-only auth — session cookie issued after `POST /auth/privy/session`. */
 @ApiTags('privy-auth')
@@ -64,6 +64,14 @@ export class AuthController {
     private readonly catalogCoverS3: CatalogCoverS3Service,
     private readonly welcomeEmail: WelcomeEmailService,
   ) {}
+
+  /** Session JSON. Active partners are KYC-approved before the client reads status. */
+  private async sessionBody(user: User) {
+    const synced = await this.users.approveKycIfActivePartner(user);
+    const wallets = await this.users.listWalletsForUser(synced.id);
+    const authProviders = await this.users.listAuthProvidersForUser(synced.id);
+    return { user: serializeAuthUser(synced, wallets, authProviders) };
+  }
 
   @Get('session')
   @ApiOkResponse({ type: AuthSessionResponseDto })
@@ -82,9 +90,7 @@ export class AuthController {
       clearAccessTokenCookie(res, this.config);
       return { user: null };
     }
-    const wallets = await this.users.listWalletsForUser(u.id);
-    const authProviders = await this.users.listAuthProvidersForUser(u.id);
-    return { user: serializeAuthUser(u, wallets, authProviders) };
+    return this.sessionBody(u);
   }
 
   @Post('privy/session')
@@ -118,10 +124,9 @@ export class AuthController {
       res,
       process.env,
       resolveCookieSecure(this.config, front),
+      siteAccessHostFromRequest(req),
     );
-    const wallets = await this.users.listWalletsForUser(user.id);
-    const authProviders = await this.users.listAuthProvidersForUser(user.id);
-    return { user: serializeAuthUser(user, wallets, authProviders) };
+    return this.sessionBody(user);
   }
 
   @Post('logout')
@@ -159,9 +164,7 @@ export class AuthController {
           );
         });
     }
-    const wallets = await this.users.listWalletsForUser(user.id);
-    const authProviders = await this.users.listAuthProvidersForUser(user.id);
-    return { user: serializeAuthUser(user, wallets, authProviders) };
+    return this.sessionBody(user);
   }
 
   @Post('avatar')
@@ -220,9 +223,7 @@ export class AuthController {
       // Cache-bust overwrite so clients refresh the same object key immediately.
       const pictureUrl = `${publicUrl}?v=${Date.now()}`;
       const user = await this.users.updatePictureUrl(req.user.id, pictureUrl);
-      const wallets = await this.users.listWalletsForUser(user.id);
-      const authProviders = await this.users.listAuthProvidersForUser(user.id);
-      return { user: serializeAuthUser(user, wallets, authProviders) };
+      return this.sessionBody(user);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {

@@ -132,7 +132,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
 }) {
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const titleHover = headline?.hover ?? row.name;
-  const titleLabel = headline?.line1 ?? row.name;
+  const titleLabel = headline?.nameLine?.trim() || headline?.line1 || row.name;
   const gradeLabel = headline?.grade?.trim() || "";
   void cost;
   void valuesPending;

@@ -8,15 +8,15 @@ Tokenable uses [Sumsub WebSDK 2.0](https://docs.sumsub.com/docs/get-started-with
 |-------|--------------|---------|
 | 0 | Signed out / no wallet | Markets browse |
 | 1 | Privy session + linked wallet | Buy Now, Bid, list for sale, open Vault UI |
-| 2 | KYC `approved` | Ship card to vault (deposit), redeem physical card |
+| 2 | KYC `approved` | Redeem physical card. Vault deposit / mint skips this check during POC (`VAULT_MINT_REQUIRES_KYC`). |
 
 KYC is **not** triggered at signup. Investor Profile (investment qualification) is a separate future flow.
 
 ### Trigger points (Level 2)
 
-1. **Vault design flow** — before “Continue to Shipping” / “Mark as shipped”
-2. **Real mint** — `POST` mint via backend (`useMintForm` + `RwaMintService`)
-3. **Physical redeem** — `POST /api/rwa/redeem-batch` (API gated; portfolio Redeem UI)
+1. **Physical redeem** — `POST /api/rwa/redeem-batch` (API gated; portfolio Redeem UI)
+
+Vault ship and mint do not open KYC during POC. The Sumsub page, admin override, and `assertApprovedForCustody` stay in place. Set `VAULT_MINT_REQUIRES_KYC` to enforce mint again.
 
 Optional Fractional first-purchase KYC is deferred.
 
@@ -90,7 +90,7 @@ MetaMask-only Privy accounts store a synthetic DB email (`{checksummedAddress}@p
 
 Custody enforcement (server):
 
-- `RwaMintService.mintForUser` — requires KYC approved
+- `RwaMintService.mintForUser` — KYC check is off while `VAULT_MINT_REQUIRES_KYC` is false
 - `RwaRedeemService.requestRedemptionBatch` — requires KYC approved
 
 ## Frontend
@@ -98,7 +98,7 @@ Custody enforcement (server):
 - Page: `/kyc` — `@sumsub/websdk-react`; when the completion copy appears, auto-returns (~1.2s) to the path that launched KYC (`tk_kyc_return_to` / `pendingReturnTo`, fallback `/vault`). Continue is still available if auto-return is interrupted.
 - While Sumsub is open, the page polls `GET /api/kyc/status` (Sumsub reconcile) so UI moves `pending` → `approved` without a full reload
 - `KycRequiredModal` — Start Verification / pending / rejected copy; remembers return path before `/kyc`
-- Gates: vault submit & shipping design CTAs, mint form; sell/list stays Level 1
+- Gates: physical redeem stays Level 2. Sell flow and vault mint stay Level 1 during POC (no KYC screen).
 
 SDK completion events are UI hints only; final status comes from webhooks.
 

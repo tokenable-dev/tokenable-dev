@@ -13,6 +13,7 @@ import {
   type SupportedChainId,
 } from '../blockchain/chain-config.service';
 import { KycService } from '../kyc/kyc.service';
+import { VAULT_MINT_REQUIRES_KYC } from '../kyc/utils/kyc-gate.util';
 import { PortfolioDailySnapshotService } from '../marketplace/portfolio/portfolio-daily-snapshot.service';
 import { PortfolioHoldingService } from '../marketplace/portfolio/portfolio-holding.service';
 import { VaultService } from '../vault/vault.service';
@@ -79,7 +80,9 @@ export class RwaMintService {
     recipientAddress: string,
     chainId: SupportedChainId,
   ): Promise<void> {
-    await this.kyc.assertApprovedForCustody(user);
+    if (VAULT_MINT_REQUIRES_KYC) {
+      await this.kyc.assertApprovedForCustody(user);
+    }
     const recipient = recipientAddress.trim().toLowerCase();
     const wallets = await this.users.listWalletsForUser(user.id);
     const linked = wallets.some(
@@ -106,8 +109,11 @@ export class RwaMintService {
     const deliveryMode: MintDeliveryMode =
       dto.deliveryMode === 'direct' ? 'direct' : 'custody';
 
-    if (!jobPreflightDone) {
+    if (!jobPreflightDone && VAULT_MINT_REQUIRES_KYC) {
       await this.kyc.assertApprovedForCustody(user);
+    }
+
+    if (!jobPreflightDone) {
 
       const wallets = await this.users.listWalletsForUser(user.id);
       const linked = wallets.some(
@@ -329,7 +335,9 @@ export class RwaMintService {
       alreadyWithUser: boolean;
     }
   > {
-    await this.kyc.assertApprovedForCustody(user);
+    if (VAULT_MINT_REQUIRES_KYC) {
+      await this.kyc.assertApprovedForCustody(user);
+    }
 
     const recipient = params.recipientAddress.trim().toLowerCase();
     const wallets = await this.users.listWalletsForUser(user.id);

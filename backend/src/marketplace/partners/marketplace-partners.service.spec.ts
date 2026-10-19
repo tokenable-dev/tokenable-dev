@@ -34,7 +34,7 @@ describe('MarketplacePartnersService company address', () => {
   const config = {
     get: jest.fn((key: string) => {
       if (key === 'PARTNER_WALLET_ENCRYPTION_KEY') return 'a'.repeat(64);
-      if (key === 'marketplace.partnerGrantAutoKyc') return true;
+      if (key === 'marketplace.partnerGrantAutoKyc') return false;
       return undefined;
     }),
   };

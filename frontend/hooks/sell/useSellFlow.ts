@@ -27,10 +27,7 @@ import { fetchAuthMe } from "@/lib/auth";
 import { fetchKycStatus } from "@/lib/kyc/api";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
 import type { KycStatus } from "@/lib/auth";
-import {
-  canUseSellCertDirectInput,
-  isKycComplete,
-} from "@/lib/auth/accountAccess";
+import { isKycComplete } from "@/lib/auth/accountAccess";
 import {
   formatPsaAnalyzeError,
   isPsaRateLimitError,
@@ -189,11 +186,11 @@ export function useSellFlow() {
   const setUser = useAuthStore((s) => s.setUser);
   const { chainId } = useAppChain();
   const ensureAccountWalletReady = useEnsureAccountWalletReady();
-  const { runAccessGate } = useAccessGate(2, "/sell/flow");
+  const { runAccessGate } = useAccessGate(1, "/sell/flow");
   const queryClient = useQueryClient();
 
-  const [screen, setScreen] = useState<SellFlowScreen>("register");
-  const [vaultChoice, setVaultChoice] = useState<SellVaultChoice | null>(null);
+  const [screen, setScreen] = useState<SellFlowScreen>("vault");
+  const [vaultChoice, setVaultChoice] = useState<SellVaultChoice | null>("psa");
   const [hydrated, setHydrated] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
   const [kycStatus, setKycStatus] = useState<KycStatus | undefined>(
@@ -243,8 +240,8 @@ export function useSellFlow() {
     localHydrateDoneRef.current = false;
   }, [authInitialized, user?.id]);
 
-  // Local restore — draft cards only. Always open register (seller terms each
-  // visit). Optional `?vault=self|psa` prefills vault after Continue.
+  // Local restore. Choose-vault is the entry. `?vault=self|psa` only prefills
+  // the choice. A shipping Back can resume the card list once.
   useEffect(() => {
     if (!authInitialized) return;
     if (localHydrateDoneRef.current) return;
@@ -264,11 +261,12 @@ export function useSellFlow() {
       setScreen("cards");
       writeSellFlowProgress({ step: "cards", vaultChoice: choice });
     } else {
-      setVaultChoice(prefillsVault);
-      setScreen("register");
+      const choice = prefillsVault ?? "psa";
+      setVaultChoice(choice);
+      setScreen("vault");
       writeSellFlowProgress({
-        step: "register",
-        vaultChoice: prefillsVault,
+        step: "vault",
+        vaultChoice: choice,
       });
     }
     setConsents({ ...EMPTY_CONSENTS });
@@ -1027,7 +1025,7 @@ export function useSellFlow() {
     vaultChoice,
     cards,
     maxCards: MAX_CARDS,
-    showCertDirectInput: canUseSellCertDirectInput(user),
+    showCertDirectInput: true,
     certInput,
     setCertInput,
     certError,

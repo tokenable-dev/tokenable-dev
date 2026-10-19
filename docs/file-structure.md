@@ -216,7 +216,7 @@ frontend/
 │   ├── portfolio/
 │   ├── privy/              # PrivyUserPill
 │   ├── ui/                 # Shared UI primitives
-│   ├── sell/               # SellFlow*, SellShipping*, SellRouterView
+│   ├── sell/               # Choose-vault entry, PSA shipping, sell router
 │   └── vault/              # hub/, detail/, mint-form/, VaultShell, VaultStepper
 │
 ├── hooks/                  # Custom React hooks
@@ -226,7 +226,7 @@ frontend/
 │   ├── portfolio/
 │   ├── rwa-detail/         # buy-flow + metadata (collection checkout / cert)
 │   ├── unified-order-book/
-│   ├── sell/               # useSellFlow, useSellShipping
+│   ├── sell/               # useSellShipping
 │   ├── vault/              # useMintForm
 │   └── ...
 │
@@ -237,7 +237,7 @@ frontend/
 │   │   └── invalidation.ts # Centralized cache invalidation after mutations
 │   ├── auth/               # accountAccess.ts (access gates)
 │   ├── marketplace/        # Market data helpers
-│   ├── sell/               # sellFlowDraft (local cards + progress; package id after ship)
+│   ├── sell/               # sellFlowDraft (shipping package draft + progress)
 │   ├── vault/              # mint helpers, vaultAccess, vaultDetailScenarios, vaultHubTypes
 │   ├── portfolio/          # Portfolio type definitions
 │   ├── privy/              # Privy config, session bridge, signing
