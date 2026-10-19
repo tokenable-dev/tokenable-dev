@@ -89,6 +89,9 @@ export function PrivySessionBridge() {
   const walletAddresses = wallets.map((w) => w.address.toLowerCase()).join(",");
   const privyWalletHint =
     pickPrivyUserEthereumWalletAddress(privyUser)?.toLowerCase() ?? "";
+  /** Avoid effect churn from Privy user object identity changes. */
+  const privyUserRef = useRef(privyUser);
+  privyUserRef.current = privyUser;
 
   useEffect(() => {
     registerPrivySignOut(privyLogout);
@@ -190,7 +193,10 @@ export function PrivySessionBridge() {
       do {
         syncPending.current = false;
         syncInFlight.current = true;
-        setPrivySessionSyncing(true);
+        // Only block GNB/inbox while establishing a session — not on every
+        // wallet catch-up / Privy identity refresh after the user is already in.
+        const blockUiForSync = !useAuthStore.getState().user?.id;
+        if (blockUiForSync) setPrivySessionSyncing(true);
         try {
           let syncedUser: Awaited<ReturnType<typeof syncPrivySession>> | null = null;
 
@@ -253,7 +259,9 @@ export function PrivySessionBridge() {
             const hasWalletHint =
               clientWalletCount > 0 ||
               Boolean(privyWalletHint) ||
-              Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
+              Boolean(
+                pickPrivyUserEthereumWalletAddress(privyUserRef.current),
+              );
             const attempt = catchupAttempt.current;
             const shouldRetry =
               attempt < WALLET_CATCHUP_DELAYS_MS.length &&
@@ -273,7 +281,7 @@ export function PrivySessionBridge() {
           if (!cancelled && !returnToHandled.current && isKbwStage2Pending()) {
             const wallet =
               getPrimaryWalletAddress(syncedUser) ??
-              pickPrivyUserEthereumWalletAddress(privyUser) ??
+              pickPrivyUserEthereumWalletAddress(privyUserRef.current) ??
               privyWalletHint ??
               null;
             const ui = useAuthUiStore.getState();
@@ -295,7 +303,9 @@ export function PrivySessionBridge() {
               const hasWalletHint =
                 clientWalletCount > 0 ||
                 Boolean(privyWalletHint) ||
-                Boolean(pickPrivyUserEthereumWalletAddress(privyUser));
+                Boolean(
+                  pickPrivyUserEthereumWalletAddress(privyUserRef.current),
+                );
               const shouldRetry =
                 attempt < WALLET_CATCHUP_DELAYS_MS.length &&
                 (hasWalletHint || attempt < 3);
@@ -353,7 +363,6 @@ export function PrivySessionBridge() {
     router,
     walletAddresses,
     privyWalletHint,
-    privyUser,
     loginSyncNonce,
     setPrivySessionSyncing,
   ]);

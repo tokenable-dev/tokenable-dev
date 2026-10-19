@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -65,7 +65,6 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
   const signedIn = useTokenableSessionActive();
-  /** Keep badge/cache visible while Privy briefly re-syncs; only fetch when fully active. */
   const hasAccount = Boolean(userId);
   const { chainId, chainReady } = useAppChain();
   const queryClient = useQueryClient();
@@ -86,13 +85,26 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     refetchOnMount: false,
     refetchInterval: enabled ? 30_000 : false,
     refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev,
     retry: marketplaceRqPolicy.apiQueryRetry,
     retryDelay: marketplaceApiRetryDelay,
   });
 
   const items = hasAccount ? (query.data?.items ?? []).map(toDrawerItem) : [];
-  const unreadCount = hasAccount
+  const liveUnread = hasAccount
     ? items.reduce((n, item) => n + (item.unread ? 1 : 0), 0)
+    : 0;
+  /** Keep last known badge while RQ briefly has no rows (key/enable churn). */
+  const stickyUnreadRef = useRef(0);
+  if (!hasAccount) {
+    stickyUnreadRef.current = 0;
+  } else if (query.data != null) {
+    stickyUnreadRef.current = liveUnread;
+  }
+  const unreadCount = hasAccount
+    ? query.data != null
+      ? liveUnread
+      : stickyUnreadRef.current
     : 0;
 
   const markRead = useMutation({
