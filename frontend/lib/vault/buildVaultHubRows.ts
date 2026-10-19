@@ -343,6 +343,8 @@ export type VaultHubPackage = {
   /** Pre-ship only — owner can drop the package from Sell dashboard. */
   canCancel: boolean;
   detailHref: string;
+  /** Carrier tracking page — linked from the eta tracking line (not the Track CTA). */
+  trackingUrl?: string;
   createdAt: string;
 };
 
@@ -448,10 +450,11 @@ export function buildVaultHubPackages(
       actionLabel = "Add tracking";
       actionHref = sellSubmissionAddTrackingHref(s.publicId);
       actionTone = "primary";
-    } else if (status === "transit" && trackUrl) {
+    } else if (status === "transit" && tracked) {
+      // Track CTA → submission detail (In Transit). Carrier link lives on the eta line.
       actionLabel = "Track →";
-      actionHref = trackUrl;
-      actionExternal = true;
+      actionHref = href;
+      actionExternal = false;
     } else if (status === "vaulted") {
       actionHref = "/portfolio";
     } else if (status === "reject") {
@@ -475,6 +478,7 @@ export function buildVaultHubPackages(
       actionTone,
       actionExternal,
       detailHref: href,
+      trackingUrl: status === "transit" ? trackUrl : undefined,
       createdAt: s.createdAt,
     });
   }

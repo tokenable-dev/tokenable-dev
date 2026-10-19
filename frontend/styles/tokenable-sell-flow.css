@@ -5243,10 +5243,26 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 @media (max-width: 640px) {
-  .psa-ship-field-row,
-  .psa-ship-track {
+  .psa-ship-field-row {
     grid-template-columns: 1fr;
     display: grid;
+  }
+
+  /* Keep tracking input + Add on one row (Vault-Detail / PSA-Shipping). */
+  .psa-ship-track {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .psa-ship-track input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .psa-ship-add {
+    flex: 0 0 auto;
   }
 
   .psa-ship-done {

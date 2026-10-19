@@ -32,7 +32,6 @@ export type VaultDetailScenario = {
   key: VaultDetailScenarioKey;
   layout: "A" | "B";
   stage?: "vault" | "mint";
-  pillCols?: 2 | 3;
   hero: {
     tone: VaultDetailHeroTone;
     icon: "draft" | "clock" | "spin" | "check" | "x";
@@ -41,7 +40,6 @@ export type VaultDetailScenario = {
   };
   steps: VaultStepDef[];
   ship?: "pending" | "intransit" | null;
-  notif: string;
   cta: { label: string; href: string; primary?: boolean }[];
 };
 
@@ -51,7 +49,12 @@ const AZ = "azure" as const;
 const NEG = "neg" as const;
 const DIM = "dim" as const;
 
-/** Vault detail A~H presentation map (API `scenario` field). Copy only — no demo cards. */
+/**
+ * Vault-Detail.html A~H — all keys are produced by
+ * `VaultSubmissionService.resolveScenario` (draft→A … mint fail→H).
+ * Copy/layout aligned to the design HTML; routes stay app paths.
+ * Hidden-in-HTML bits (lm-pills, notifBanner) are intentionally omitted.
+ */
 export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "early">, VaultDetailScenario> = {
   A: {
     key: "A",
@@ -60,19 +63,15 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       tone: "muted",
       icon: "draft",
       title: "Draft Submission",
-      sub: "Saved — not submitted yet. Continue when you're ready.",
+      sub: "These items have not been submitted yet.",
     },
     steps: [
-      { label: "Submit", state: "active", sub: "DRAFT", subColor: DIM },
+      { label: "Submit to PSA vault", state: "active", sub: "DRAFT", subColor: DIM },
       { label: "Ship", state: P },
-      { label: "PSA", state: P },
-      { label: "Live", state: P },
+      { label: "Received", state: P },
+      { label: "Complete", state: P },
     ],
-    notif: "We'll save your progress until you submit.",
-    cta: [
-      { label: "Continue Submission →", href: "/sell/flow", primary: true },
-      { label: "Back to Sell", href: "/vault" },
-    ],
+    cta: [{ label: "Continue", href: "/sell/flow", primary: true }],
   },
   B: {
     key: "B",
@@ -84,14 +83,13 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "Register a tracking number to move your submission forward.",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "SUBMITTED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "SUBMITTED", subColor: POS },
       { label: "Ship", state: "active", sub: "PENDING", subColor: DIM },
-      { label: "PSA", state: P },
-      { label: "Live", state: P },
+      { label: "Received", state: P },
+      { label: "Complete", state: P },
     ],
     ship: "pending",
-    notif: "We'll notify you by email once we receive your package.",
-    cta: [{ label: "Back to Sell", href: "/vault" }],
+    cta: [],
   },
   C: {
     key: "C",
@@ -103,20 +101,18 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "Your package is on the way to PSA.",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "SUBMITTED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "SUBMITTED", subColor: POS },
       { label: "Ship", state: "active", sub: "IN TRANSIT", subColor: AZ },
-      { label: "PSA", state: P },
-      { label: "Live", state: P },
+      { label: "Received", state: P },
+      { label: "Complete", state: P },
     ],
     ship: "intransit",
-    notif: "We'll notify you by email when your package arrives.",
-    cta: [{ label: "Back to Sell", href: "/vault" }],
+    cta: [],
   },
   D: {
     key: "D",
     layout: "B",
     stage: "vault",
-    pillCols: 3,
     hero: {
       tone: "info",
       icon: "spin",
@@ -124,42 +120,38 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "PSA is authenticating your cards",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "active", sub: "REVIEWING", subColor: AZ },
-      { label: "Live", state: P },
+      { label: "Received", state: "active", sub: "REVIEWING", subColor: AZ },
+      { label: "Complete", state: P },
     ],
-    notif: "We'll notify you by email as each card is verified.",
-    cta: [{ label: "Back to Sell", href: "/vault" }],
+    cta: [],
   },
   E: {
     key: "E",
     layout: "B",
     stage: "vault",
-    pillCols: 3,
     hero: {
       tone: "success",
       icon: "check",
-      title: "Cards approved & stored",
+      title: "Cards approved and stored",
       sub: "Verified and insured",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Live", state: "active", sub: "QUEUED", subColor: AZ, spin: true },
+      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Complete", state: "active", sub: "QUEUED", subColor: AZ, spin: true },
     ],
-    notif: "Your listings will go live shortly.",
     cta: [
-      { label: "View in Collection →", href: "/portfolio", primary: true },
-      { label: "Submit Another Card →", href: "/sell/flow" },
+      { label: "View in Collection", href: "/portfolio", primary: true },
+      { label: "Submit Another Card", href: "/sell/flow" },
     ],
   },
   F: {
     key: "F",
     layout: "B",
     stage: "vault",
-    pillCols: 3,
     hero: {
       tone: "danger",
       icon: "x",
@@ -167,22 +159,20 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "Cards did not meet our requirements",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "failed", sub: "REJECTED", subColor: NEG },
-      { label: "Live", state: P },
+      { label: "Received", state: "failed", sub: "REJECTED", subColor: NEG },
+      { label: "Complete", state: P },
     ],
-    notif: "Rejected cards will be returned at your expense.",
     cta: [
-      { label: "Contact Support →", href: "#", primary: true },
-      { label: "Submit Another Card →", href: "/sell/flow" },
+      { label: "Contact Support", href: "/faq", primary: true },
+      { label: "Submit Another Card", href: "/sell/flow" },
     ],
   },
   G: {
     key: "G",
     layout: "B",
     stage: "mint",
-    pillCols: 2,
     hero: {
       tone: "success",
       icon: "check",
@@ -190,22 +180,20 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "Now in your portfolio",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Live", state: "done", sub: "LISTED", subColor: POS },
+      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Complete", state: "done", sub: "LISTED", subColor: POS },
     ],
-    notif: "All your cards are now visible in your Portfolio.",
     cta: [
-      { label: "View in Collection →", href: "/portfolio", primary: true },
-      { label: "Submit Another Card →", href: "/sell/flow" },
+      { label: "View in Collection", href: "/portfolio", primary: true },
+      { label: "Submit Another Card", href: "/sell/flow" },
     ],
   },
   H: {
     key: "H",
     layout: "B",
     stage: "mint",
-    pillCols: 2,
     hero: {
       tone: "danger",
       icon: "x",
@@ -213,15 +201,14 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
       sub: "Some cards couldn't be listed",
     },
     steps: [
-      { label: "Submit", state: "done", sub: "VERIFIED", subColor: POS },
+      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
       { label: "Ship", state: "done" },
-      { label: "PSA", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Live", state: "failed", sub: "FAILED", subColor: NEG },
+      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
+      { label: "Complete", state: "failed", sub: "FAILED", subColor: NEG },
     ],
-    notif: "We're retrying automatically.",
     cta: [
-      { label: "Contact Support →", href: "#", primary: true },
-      { label: "Submit Another Card →", href: "/sell/flow" },
+      { label: "Contact Support", href: "/faq", primary: true },
+      { label: "Submit Another Card", href: "/sell/flow" },
     ],
   },
 };
@@ -265,10 +252,16 @@ export function withLiveHero(
       sub = `${n} ${word} did not meet our requirements`;
       break;
     case "G":
-      sub = `${n} ${word} are now in your collection`;
+      sub =
+        n === 1
+          ? "1 card is now in your collection"
+          : `${n} ${word} are now in your collection`;
       break;
     case "H":
-      sub = `Some of ${n} ${word} couldn't be listed`;
+      sub =
+        n === 1
+          ? "1 card couldn't be listed"
+          : `Some of ${n} ${word} couldn't be listed`;
       break;
     default:
       break;

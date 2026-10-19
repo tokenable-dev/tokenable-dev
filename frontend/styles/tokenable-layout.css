@@ -1442,23 +1442,6 @@ body.gnb-drawer-open .mobile-page-root {
   overflow: hidden !important;
 }
 
-/* Vault detail card sheet — lock page scroll, hide site footer (sibling of tk-shell-scroll) */
-html.vault-lb-sheet-open,
-body.vault-lb-sheet-open {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-}
-
-body.vault-lb-sheet-open .tk-shell-scroll,
-body.vault-lb-sheet-open .mobile-page-root {
-  overflow: hidden !important;
-  overscroll-behavior: none;
-}
-
-body.vault-lb-sheet-open .tk-app-shell > .tk-footer {
-  display: none !important;
-}
-
 /* ── Footer (tk-footer.js) ────────────────────────────────────────────── */
 
 .tk-footer {

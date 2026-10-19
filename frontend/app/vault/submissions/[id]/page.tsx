@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { VaultShell } from "@/components/vault/VaultShell";
 import { VaultDetailDesignView } from "@/components/vault/detail/VaultDetailDesignView";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
@@ -14,11 +14,73 @@ import { getVaultSubmission, type VaultSubmissionApi } from "@/lib/core/api/vaul
 import {
   mapApiItemStatus,
   resolveDetailScenarioKey,
+  type VaultDetailScenarioKey,
   type VaultPackageCard,
+  type VaultPackageCardStatus,
 } from "@/lib/vault/vaultDetailScenarios";
 import { vaultSubmissionItemDisplaySource } from "@/lib/vault/vaultSubmissionDisplay";
 
-function VaultSubmissionDetailBody() {
+const PREVIEW_KEYS = new Set(["A", "B", "C", "D", "E", "F", "G", "H"]);
+
+function previewCards(scenario: string): VaultPackageCard[] {
+  const base = [
+    {
+      id: 0,
+      name: "Charizard Holo · #4 · PSA 10",
+      imageUrl: "",
+      grade: "PSA 10",
+      cert: "12345678",
+      year: "1999",
+      setName: "Base Set 1st Ed.",
+      variant: "Holo",
+    },
+    {
+      id: 1,
+      name: "Pikachu Van Gogh · #085 · PSA 9",
+      imageUrl: "",
+      grade: "PSA 9",
+      cert: "22938102",
+      year: "2023",
+      setName: "SVP Promo",
+      variant: "Van Gogh",
+    },
+    {
+      id: 2,
+      name: "LeBron James · #111 · PSA 10",
+      imageUrl: "",
+      grade: "PSA 10",
+      cert: "55501248",
+      year: "2003",
+      setName: "Topps Chrome",
+      variant: "Rookie",
+    },
+  ];
+  const statusFor = (i: number): VaultPackageCardStatus => {
+    if (scenario === "D") return "reviewing";
+    if (scenario === "E") return "approved";
+    if (scenario === "F") return "rejected";
+    if (scenario === "G") return "completed";
+    if (scenario === "H") return i < 2 ? "completed" : "failed";
+    return "reviewing";
+  };
+  const reasons = [
+    "Holder shows signs of tampering",
+    "Card doesn't match the cert number",
+    "Doesn't meet PSA Vault terms",
+  ];
+  return base.map((c, i) => ({
+    ...c,
+    status: statusFor(i),
+    reason: scenario === "F" ? reasons[i] : undefined,
+    token: scenario === "G" || (scenario === "H" && i < 2) ? `#0${421 + i}` : undefined,
+  }));
+}
+
+function VaultSubmissionDetailBody({
+  previewScenario,
+}: {
+  previewScenario: Exclude<VaultDetailScenarioKey, "early"> | null;
+}) {
   const params = useParams<{ id: string }>();
   const paramId = typeof params.id === "string" ? decodeURIComponent(params.id) : "";
 
@@ -26,6 +88,10 @@ function VaultSubmissionDetailBody() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
+    if (previewScenario) {
+      setLoaded(true);
+      return;
+    }
     if (!paramId) {
       setLoaded(true);
       return;
@@ -44,11 +110,12 @@ function VaultSubmissionDetailBody() {
     return () => {
       cancelled = true;
     };
-  }, [paramId]);
+  }, [paramId, previewScenario]);
 
   const displayByCert = useVaultSubmissionDisplayByCert(apiSub?.items ?? []);
 
   const livePackageCards = useMemo((): VaultPackageCard[] => {
+    if (previewScenario) return previewCards(previewScenario);
     if (!apiSub?.items?.length) return [];
     return apiSub.items.map((c, i) => {
       const display = vaultSubmissionItemDisplaySource(
@@ -71,16 +138,31 @@ function VaultSubmissionDetailBody() {
         token: c.vaultCycleId ? `#${c.vaultCycleId.slice(0, 6)}` : undefined,
       };
     });
-  }, [apiSub, displayByCert]);
+  }, [apiSub, displayByCert, previewScenario]);
 
   const tracking = useMemo(() => {
+    if (previewScenario === "C") {
+      return { label: "FedEx · FX123456789", url: "#" };
+    }
     if (!apiSub?.carrier || !apiSub.trackingNumber) return null;
     const carrier = apiSub.carrier as SellCarrier;
     return {
       label: `${CARRIER_LABELS[carrier] ?? apiSub.carrier} · ${apiSub.trackingNumber}`,
       url: `${CARRIER_TRACK_URLS[carrier] ?? ""}${encodeURIComponent(apiSub.trackingNumber)}`,
     };
-  }, [apiSub]);
+  }, [apiSub, previewScenario]);
+
+  if (previewScenario) {
+    return (
+      <VaultDetailDesignView
+        initialScenario={previewScenario}
+        submissionId="SUB-20260616-00421"
+        livePackageCards={livePackageCards}
+        tracking={tracking}
+        submittedAt="2026-06-10T12:00:00.000Z"
+      />
+    );
+  }
 
   if (!loaded) {
     return <div className="text-sm text-white/40 py-16 text-center">Loading submission…</div>;
@@ -105,12 +187,27 @@ function VaultSubmissionDetailBody() {
   );
 }
 
-export default function VaultSubmissionDetailPage() {
+function VaultSubmissionDetailPageInner() {
+  const searchParams = useSearchParams();
+  const raw = (searchParams.get("preview") ?? "").toUpperCase();
+  const previewScenario =
+    process.env.NODE_ENV === "development" && PREVIEW_KEYS.has(raw)
+      ? (raw as Exclude<VaultDetailScenarioKey, "early">)
+      : null;
+
   return (
-    <VaultShell wide className="vault-page--detail">
+    <VaultShell wide className="vault-page--detail" ungated={previewScenario != null}>
       <Suspense fallback={null}>
-        <VaultSubmissionDetailBody />
+        <VaultSubmissionDetailBody previewScenario={previewScenario} />
       </Suspense>
     </VaultShell>
+  );
+}
+
+export default function VaultSubmissionDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <VaultSubmissionDetailPageInner />
+    </Suspense>
   );
 }

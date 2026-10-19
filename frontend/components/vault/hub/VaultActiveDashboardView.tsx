@@ -129,9 +129,24 @@ function PackageRow({
           </div>
         ) : null}
         <div className="vault-dash-eta">
-          {pkg.eta.filter(Boolean).map((part) => (
-            <span key={part}>{part}</span>
-          ))}
+          {pkg.eta.filter(Boolean).map((part, i, parts) => {
+            const isCarrierLine =
+              Boolean(pkg.trackingUrl) && pkg.status === "transit" && i === parts.length - 1;
+            if (isCarrierLine && pkg.trackingUrl) {
+              return (
+                <a
+                  key={part}
+                  href={pkg.trackingUrl}
+                  className="vault-dash-eta__track"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {part}
+                </a>
+              );
+            }
+            return <span key={part}>{part}</span>;
+          })}
         </div>
         <div className="vault-dash-act">
           {pkg.canCancel && onCancel ? (
