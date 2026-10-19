@@ -1263,12 +1263,24 @@
 }
 
 .gnb-search-overlay__dropdown .gnb-search-results-scroll {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
+  /* ~5 rows visible; finger-scroll for the rest of the preview pool. */
+  max-height: min(22.5rem, calc(100vh - 160px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
 }
 
 .gnb-search-overlay__dropdown .gnb-search-view-all {
   flex-shrink: 0;
+  margin-top: 12px;
+  padding: 14px 0 max(4px, env(safe-area-inset-bottom, 0px));
+  font-size: var(--tk-ui-fs-body-sm);
+  letter-spacing: 0.06em;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .gnb-search-overlay__dropdown h4 {

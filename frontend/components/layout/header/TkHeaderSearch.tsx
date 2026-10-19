@@ -47,6 +47,12 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
 const SEARCH_PLACEHOLDER = "Search cards by name";
 
+/**
+ * Mobile / overlay typeahead fetch size. The scroll viewport shows ~5 rows;
+ * extra hits scroll under a sticky “View all results”. Full set is on /search.
+ */
+export const GNB_SEARCH_PREVIEW_LIMIT = 12;
+
 /** Markets slim bar (≤820px) — open the same overlay as the GNB magnifier. */
 export const GNB_SEARCH_OPEN_EVENT = "tokenable:gnb-search-open";
 
@@ -345,8 +351,8 @@ export function TkHeaderSearch({
     isSearching,
   } = useMarketplaceCatalogSearch(query, {
     enabled: showResultsPanel,
-    cardLimit: 8,
-    collectionLimit: 8,
+    cardLimit: useOverlay ? GNB_SEARCH_PREVIEW_LIMIT : 8,
+    collectionLimit: useOverlay ? GNB_SEARCH_PREVIEW_LIMIT : 8,
   });
 
   const hits: SearchHit[] = useMemo(
@@ -470,7 +476,7 @@ export function TkHeaderSearch({
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (highlightIdx >= 0 && highlightIdx < hits.length) {
-      navigateHit(hits[highlightIdx]);
+      void navigateHit(hits[highlightIdx]);
       return;
     }
     goToSearchPage();
@@ -578,22 +584,24 @@ export function TkHeaderSearch({
                 </div>
               ) : (
                 <>
-                <SearchResultsList
-                  hits={hits}
-                  highlightIdx={highlightIdx}
-                  onHighlight={setHighlightIdx}
-                  onSelect={navigateHit}
-                  isSearching={isSearching}
-                  coverUrlMap={coverUrlMap}
-                  snapshotByKey={snapshotByKey}
-                />
-                <button
-                  type="button"
-                  className="gnb-search-view-all"
-                  onClick={goToSearchPage}
-                >
-                  View all results
-                </button>
+                  <SearchResultsList
+                    hits={hits}
+                    highlightIdx={highlightIdx}
+                    onHighlight={setHighlightIdx}
+                    onSelect={navigateHit}
+                    isSearching={isSearching}
+                    coverUrlMap={coverUrlMap}
+                    snapshotByKey={snapshotByKey}
+                  />
+                  {hits.length > 0 ? (
+                    <button
+                      type="button"
+                      className="gnb-search-view-all"
+                      onClick={goToSearchPage}
+                    >
+                      View all results
+                    </button>
+                  ) : null}
                 </>
               )}
             </div>
@@ -647,13 +655,15 @@ export function TkHeaderSearch({
               coverUrlMap={coverUrlMap}
               snapshotByKey={snapshotByKey}
             />
-            <button
-              type="button"
-              className="gnb-search-view-all"
-              onClick={goToSearchPage}
-            >
-              View all results
-            </button>
+            {hits.length > 0 ? (
+              <button
+                type="button"
+                className="gnb-search-view-all"
+                onClick={goToSearchPage}
+              >
+                View all results
+              </button>
+            ) : null}
           </div>
         </form>
       ) : null}

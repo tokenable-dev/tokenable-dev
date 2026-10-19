@@ -4020,7 +4020,7 @@ button.sell-ship-step--btn:focus-visible {
   }
 
   .sell-flow-agreement.tk-dialog {
-    max-height: min(52vh, 380px);
+    max-height: min(64vh, 480px);
   }
 }
 

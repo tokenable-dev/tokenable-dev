@@ -33,6 +33,7 @@ import {
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import {
+  GNB_SEARCH_PREVIEW_LIMIT,
   SearchResultsList,
   isImeKeyEvent,
 } from "@/components/layout/header/TkHeaderSearch";
@@ -80,14 +81,17 @@ export function HomeHeroSearch() {
     isSearching,
   } = useMarketplaceCatalogSearch(query, {
     enabled: showDropdown,
-    cardLimit: 8,
-    collectionLimit: 8,
+    cardLimit: heroMobile ? GNB_SEARCH_PREVIEW_LIMIT : 8,
+    collectionLimit: heroMobile ? GNB_SEARCH_PREVIEW_LIMIT : 8,
   });
 
   const hits: SearchHit[] = useMemo(
     () => [
       ...cards.map((card) => ({ kind: "card" as const, card })),
-      ...filtered.map((collection) => ({ kind: "collection" as const, collection })),
+      ...filtered.map((collection) => ({
+        kind: "collection" as const,
+        collection,
+      })),
     ],
     [cards, filtered],
   );
