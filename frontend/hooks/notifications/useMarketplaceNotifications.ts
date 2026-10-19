@@ -65,6 +65,8 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
   const userId = user?.id ?? "";
   const signedIn = useTokenableSessionActive();
+  /** Keep badge/cache visible while Privy briefly re-syncs; only fetch when fully active. */
+  const hasAccount = Boolean(userId);
   const { chainId, chainReady } = useAppChain();
   const queryClient = useQueryClient();
   const pathname = usePathname();
@@ -88,8 +90,8 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     retryDelay: marketplaceApiRetryDelay,
   });
 
-  const items = signedIn ? (query.data?.items ?? []).map(toDrawerItem) : [];
-  const unreadCount = signedIn
+  const items = hasAccount ? (query.data?.items ?? []).map(toDrawerItem) : [];
+  const unreadCount = hasAccount
     ? items.reduce((n, item) => n + (item.unread ? 1 : 0), 0)
     : 0;
 

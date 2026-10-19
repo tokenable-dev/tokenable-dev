@@ -12,7 +12,8 @@ import {
 
 /**
  * Next.js 16+ `proxy.ts` (replaces deprecated `middleware.ts`).
- * Password gate when SITE_ACCESS_ENABLED=true, and always on app.tokenable.io.
+ * Password gate when SITE_ACCESS_ENABLED=true, and always on
+ * app.tokenable.io / tokenable-dev.com (www included).
  * Dev CSP is set via `next.config` headers — not here — so this layer stays cheap.
  */
 export async function proxy(request: NextRequest) {

@@ -5,8 +5,21 @@ export const SITE_ACCESS_COOKIE = 'site_access';
 /** Default gate password when SITE_ACCESS_PASSWORD is unset (local + deploy parity). */
 export const DEFAULT_SITE_ACCESS_PASSWORD = '717171';
 
-/** Public app hostname. Always password-gated, even when SITE_ACCESS_ENABLED=false. */
+/** Public app hostname (always gated). */
 export const APP_TOKENABLE_HOST = 'app.tokenable.io';
+
+/** Staging hostname (always gated). */
+export const STAGING_TOKENABLE_HOST = 'tokenable-dev.com';
+
+/**
+ * Hosts that always require the shared password gate, even when
+ * `SITE_ACCESS_ENABLED=false` (mis-set deploy env must not open staging/prod).
+ */
+export const ALWAYS_SITE_ACCESS_HOSTS = new Set([
+  APP_TOKENABLE_HOST,
+  STAGING_TOKENABLE_HOST,
+  `www.${STAGING_TOKENABLE_HOST}`,
+]);
 
 export function requestHostname(header: string | null | undefined): string {
   const first = header?.split(',')[0]?.trim().toLowerCase() ?? '';
@@ -17,12 +30,18 @@ export function isAppTokenableHost(hostname: string | null | undefined): boolean
   return requestHostname(hostname) === APP_TOKENABLE_HOST;
 }
 
-/** Env flag, or a request whose host is app.tokenable.io. */
+export function isAlwaysSiteAccessHost(
+  hostname: string | null | undefined,
+): boolean {
+  return ALWAYS_SITE_ACCESS_HOSTS.has(requestHostname(hostname));
+}
+
+/** Env flag, or a request on an always-gated host (app + staging). */
 export function isSiteAccessRequired(
   cfg: SiteAccessConfig,
   hostHeader: string | null | undefined,
 ): boolean {
-  return cfg.enabled || isAppTokenableHost(hostHeader);
+  return cfg.enabled || isAlwaysSiteAccessHost(hostHeader);
 }
 
 export function siteAccessHostFromRequest(req: {

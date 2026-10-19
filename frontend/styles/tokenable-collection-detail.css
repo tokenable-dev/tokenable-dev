@@ -157,6 +157,9 @@
     display: flex;
     flex-direction: column;
     gap: 0;
+    /* Avoid accidental overflow-x layers that streak hairlines on iOS scroll. */
+    overflow-x: hidden;
+    overflow-y: visible;
   }
 
   .collection-detail-page .cd-mobile-scroll__stat .cd-metrics-strip {
@@ -367,6 +370,47 @@
     min-height: 0;
     padding: 4px 8px;
     font-size: var(--tk-ui-fs-body-sm);
+  }
+
+  /*
+   * iOS/WebKit: dense 1px borders streak as horizontal flashes during momentum
+   * scroll. Prefer inset shadows (same look, less subpixel seam flicker).
+   */
+  .collection-detail-page .cd-ask-notch__head,
+  .collection-detail-page .cd-ask-row,
+  .collection-detail-page .cd-listing-orderbook__row {
+    border-bottom-color: transparent;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .collection-detail-page .cd-ask-row--lowest {
+    box-shadow:
+      inset 2px 0 0 var(--azure, #1a6fff),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  .collection-detail-page .cd-ask-row:last-child,
+  .collection-detail-page .cd-listing-orderbook__row:last-child {
+    box-shadow: none;
+  }
+
+  .collection-detail-page .cd-ask-row--lowest:last-child {
+    box-shadow: inset 2px 0 0 var(--azure, #1a6fff);
+  }
+
+  .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs,
+  .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs,
+  .collection-detail-page .cd-ob-tabs {
+    border-bottom-color: transparent !important;
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+  }
+
+  .collection-detail-page .cd-ob-book-center__strip {
+    border-top-color: transparent;
+    border-bottom-color: transparent;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.07),
+      inset 0 -1px 0 rgba(255, 255, 255, 0.07);
   }
 }
 
@@ -4151,12 +4195,11 @@
   padding: 12px 16px calc(env(safe-area-inset-bottom, 0px) + 12px);
   padding-left: max(16px, env(safe-area-inset-left, 0px));
   padding-right: max(16px, env(safe-area-inset-right, 0px));
-  background: rgba(14, 14, 14, 0.96);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  /* Solid fill — backdrop-filter under scrolling content streaks hairlines on iOS. */
+  background: #0e0e0e;
+  border-top: 0;
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.1);
   transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
-  will-change: transform;
 }
 
 .cd-mobile-trade-bar.is-hidden {

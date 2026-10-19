@@ -26,7 +26,7 @@ flowchart TB
 ## Request Flow
 
 1. **Browser** calls same-origin `/api/*` through Nginx (no hard-coded API host in production).
-2. **Site access gate**: `SITE_ACCESS_ENABLED=true` (including local) returns `401 SITE_ACCESS_REQUIRED` until the visitor enters the shared password. `app.tokenable.io` stays gated even if the flag is off. The KBW event window does not skip it. Public exceptions: health, auth, site-access verify, Cardhedger webhooks. See [site-access.md](../api/site-access.md).
+2. **Site access gate**: `SITE_ACCESS_ENABLED=true` (including local) returns `401 SITE_ACCESS_REQUIRED` until the visitor enters the shared password. `app.tokenable.io` and `tokenable-dev.com` stay gated even if the flag is off. The KBW event window does not skip it. Public exceptions: health, auth, site-access verify, Cardhedger webhooks. See [site-access.md](../api/site-access.md).
 3. **NestJS** validates via `ValidationPipe`, applies JWT auth where required, and routes to the appropriate module.
 4. **PostgreSQL** (TypeORM) persists **22+ application tables** — see [database.md](./database.md).
 5. **Ethereum / Polygon RPC** (Sepolia, mainnet, or Polygon) provides read-only contract data. On-chain mint/burn is executed by the platform backend wallet; Seaport trading uses wallet-signed transactions in the browser.

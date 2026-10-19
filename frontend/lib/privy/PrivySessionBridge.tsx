@@ -46,6 +46,9 @@ function sleep(ms: number): Promise<void> {
 export function PrivySessionBridge() {
   const router = useRouter();
   const pathname = usePathname();
+  /** Read in sync effect — do not put pathname in effect deps (re-sync flashes GNB). */
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
   const catchupAttempt = useRef(0);
   const [loginSyncNonce, setLoginSyncNonce] = useState(0);
   useLogin({
@@ -237,7 +240,7 @@ export function PrivySessionBridge() {
             if (returnTo) {
               returnToHandled.current = true;
               const targetPath = returnTo.split("?")[0] || returnTo;
-              if (pathname !== targetPath) {
+              if (pathnameRef.current !== targetPath) {
                 router.push(returnTo);
               }
             }
@@ -277,7 +280,7 @@ export function PrivySessionBridge() {
             const result = await completeKbwStage2Session({
               user: syncedUser,
               walletAddress: wallet,
-              pathname,
+              pathname: pathnameRef.current,
               push: (path) => router.push(path),
               armKbwOffer: () => ui.armKbwOffer(),
               clearKbwOffer: () => ui.clearKbwOffer(),
@@ -302,7 +305,7 @@ export function PrivySessionBridge() {
                 const fallback = await completeKbwStage2Session({
                   user: syncedUser,
                   walletAddress: null,
-                  pathname,
+                  pathname: pathnameRef.current,
                   push: (path) => router.push(path),
                   armKbwOffer: () => ui.armKbwOffer(),
                   clearKbwOffer: () => ui.clearKbwOffer(),
@@ -324,7 +327,7 @@ export function PrivySessionBridge() {
             if (returnTo) {
               returnToHandled.current = true;
               const targetPath = returnTo.split("?")[0] || returnTo;
-              if (pathname !== targetPath) {
+              if (pathnameRef.current !== targetPath) {
                 router.push(returnTo);
               }
             }
@@ -348,7 +351,6 @@ export function PrivySessionBridge() {
     getAccessToken,
     hydrateFromSession,
     router,
-    pathname,
     walletAddresses,
     privyWalletHint,
     privyUser,
