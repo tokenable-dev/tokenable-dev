@@ -155,6 +155,13 @@
   justify-content: center;
 }
 
+/* Decorative Buy CTA — no DS bevel / drop shadow on the card. */
+.watchlist-card-actions__btn.tk-btn--primary,
+.watchlist-card-actions .tk-btn.tk-btn--primary {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
 .watchlist-empty {
   display: flex;
   flex-direction: column;

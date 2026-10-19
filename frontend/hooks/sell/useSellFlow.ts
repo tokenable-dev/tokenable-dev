@@ -204,7 +204,6 @@ export function useSellFlow() {
   const [certInput, setCertInput] = useState("");
   const [certError, setCertError] = useState<string | null>(null);
   const [lookupBusy, setLookupBusy] = useState(false);
-  const [draftSavedFlash, setDraftSavedFlash] = useState(false);
   const [mintBusy, setMintBusy] = useState(false);
   const [mintStatus, setMintStatus] = useState<string | null>(null);
   const [mintError, setMintError] = useState<string | null>(null);
@@ -782,18 +781,20 @@ export function useSellFlow() {
     });
   }, []);
 
-  /** Local-only — does not create vault_submissions rows. */
-  const saveDraft = useCallback(() => {
+  /** Persist OCR list locally as cards change (no vault_submissions until shipping). */
+  useEffect(() => {
+    if (!hydrated || !user?.id) return;
+    if (screen !== "cards" && cards.length === 0) return;
     writeSellFlowDraftCards(cards);
-    writeSellFlowProgress({
-      step: "cards",
-      ...(vaultChoice === "self" || vaultChoice === "psa"
-        ? { vaultChoice }
-        : {}),
-    });
-    setDraftSavedFlash(true);
-    window.setTimeout(() => setDraftSavedFlash(false), 1800);
-  }, [cards, vaultChoice]);
+    if (screen === "cards") {
+      writeSellFlowProgress({
+        step: "cards",
+        ...(vaultChoice === "self" || vaultChoice === "psa"
+          ? { vaultChoice }
+          : {}),
+      });
+    }
+  }, [cards, hydrated, screen, user?.id, vaultChoice]);
 
   const continueToShipping = useCallback(async () => {
     if (!canContinueShipping) return;
@@ -1030,7 +1031,6 @@ export function useSellFlow() {
     setCertInput,
     certError,
     lookupBusy,
-    draftSavedFlash,
     mintBusy,
     mintStatus,
     mintError,
@@ -1054,7 +1054,6 @@ export function useSellFlow() {
     toggleConfirm,
     setAllConfirmed,
     removeCard,
-    saveDraft,
     continueToShipping,
     continueToSelfMint,
     resetPartnerAddCards,

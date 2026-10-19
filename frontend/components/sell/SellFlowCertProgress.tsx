@@ -124,9 +124,6 @@ export function SellFlowCertProgress({ active, tone = "dark" }: Props) {
           style={{ width }}
         />
       </div>
-      <div className="sell-flow-cert-progress__hint tkl-mono">
-        PSA lookups can take a few seconds.
-      </div>
     </div>
   );
 }

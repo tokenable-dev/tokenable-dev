@@ -6,7 +6,7 @@ import { useAuthStore } from "@/store/authStore";
 
 /**
  * `/sell` router — `/vault` decides dashboard vs first-time sell flow.
- * Guests are sent through the Privy modal from the hub, not a connect-wallet page.
+ * Guests on the hub are redirected home; use header Sell for Privy → `/vault`.
  */
 export function SellRouterView() {
   const router = useRouter();

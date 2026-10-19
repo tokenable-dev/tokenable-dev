@@ -13,9 +13,6 @@
   --tk-radius-input: 12px;
   --tk-radius-search: 12px;
   --tk-radius-iconbtn: 10px;
-  --tk-shadow-button-primary: 4px 4px 0 0 rgba(26, 111, 255, 0.55);
-  --tk-shadow-button-primary-hover: 5px 5px 0 0 rgba(26, 111, 255, 0.65);
-  --tk-shadow-button-primary-active: 2px 2px 0 0 rgba(26, 111, 255, 0.45);
   /* Legacy pixel chamfers — feature CSS only; DS controls use border-radius. */
   --pixel-notch-lg: polygon(0 8px, 4px 8px, 4px 4px, 8px 4px, 8px 0, calc(100% - 8px) 0, calc(100% - 8px) 4px, calc(100% - 4px) 4px, calc(100% - 4px) 8px, 100% 8px, 100% calc(100% - 8px), calc(100% - 4px) calc(100% - 8px), calc(100% - 4px) calc(100% - 4px), calc(100% - 8px) calc(100% - 4px), calc(100% - 8px) 100%, 8px 100%, 8px calc(100% - 4px), 4px calc(100% - 4px), 4px calc(100% - 8px), 0 calc(100% - 8px)); /* @kind other */
   --pixel-notch-md: polygon(0 6px, 3px 6px, 3px 3px, 6px 3px, 6px 0, calc(100% - 6px) 0, calc(100% - 6px) 3px, calc(100% - 3px) 3px, calc(100% - 3px) 6px, 100% 6px, 100% calc(100% - 6px), calc(100% - 3px) calc(100% - 6px), calc(100% - 3px) calc(100% - 3px), calc(100% - 6px) calc(100% - 3px), calc(100% - 6px) 100%, 6px 100%, 6px calc(100% - 3px), 3px calc(100% - 3px), 3px calc(100% - 6px), 0 calc(100% - 6px)); /* @kind other */
@@ -46,11 +43,11 @@
 /* Primary — Bold Blue #1A6FFF */
 .tk-btn--primary{
   color:#fff;background:#1A6FFF;
-  box-shadow:var(--tk-shadow-button-primary);
+  box-shadow:none;
   filter:none;
 }
-.tk-btn--primary:hover{background:#2255FF;box-shadow:var(--tk-shadow-button-primary-hover)}
-.tk-btn--primary:active{background:#0028DD;box-shadow:var(--tk-shadow-button-primary-active)}
+.tk-btn--primary:hover{background:#2255FF;box-shadow:none}
+.tk-btn--primary:active{background:#0028DD;box-shadow:none}
 
 /* Neutral/Secondary — Light Violet #977DFF */
 .tk-btn--neutral{color:#fff;background:#977DFF;box-shadow:none;filter:none}

@@ -109,3 +109,18 @@ export async function registerVaultSubmissionTracking(
   }
   return res.json();
 }
+
+/** Cancel pre-ship package (`awaiting_shipment`). Fails after tracking is registered. */
+export async function cancelVaultSubmission(
+  idOrPublicId: string,
+): Promise<VaultSubmissionApi> {
+  const res = await backendFetch(
+    `${getApiUrl()}/vault/submissions/${encodeURIComponent(idOrPublicId)}/cancel`,
+    { method: "POST", credentials: "include" },
+  );
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(text || `cancelVaultSubmission failed: ${res.status}`);
+  }
+  return res.json();
+}

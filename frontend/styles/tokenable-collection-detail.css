@@ -1373,18 +1373,24 @@
 .cd-listing-prov .tk-btn--primary,
 .cd-listing-checkout .tk-btn--primary {
   background: #1A6FFF;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .collection-detail-page .tk-btn--primary:hover,
 .cd-listing-prov .tk-btn--primary:hover,
 .cd-listing-checkout .tk-btn--primary:hover {
   background: #2255ff;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .collection-detail-page .tk-btn--primary:active,
 .cd-listing-prov .tk-btn--primary:active,
 .cd-listing-checkout .tk-btn--primary:active {
   background: #0028dd;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .cd-hero-bar__buy-btn.tk-btn,
@@ -1396,6 +1402,8 @@
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600 !important;
   white-space: nowrap;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Card.html hero Bid — #12305e / white (not the generic .bid-btn slate) */
@@ -3201,6 +3209,8 @@
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 700 !important;
   cursor: pointer;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Card.html `#tk-chartwrap` */
@@ -4776,7 +4786,8 @@
 .collection-detail-page .cd-ob-trades-source,
 .collection-detail-page .cd-ob-trades-source__label,
 .collection-detail-page .cd-ob-trades-time {
-  font-family: var(--font-mono);
+  /* Card.html trades tape — Inter, not JetBrains mono */
+  font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-body);
   font-weight: 400 !important;
   min-width: 0;
@@ -5685,13 +5696,13 @@
   border-radius: 0;
   background: #191919;
   clip-path: var(--pixel-notch-lg);
-  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7));
+  filter: none;
   font-size: var(--tk-ui-fs-heading);
 }
 
 .cd-listing-checkout--sheet .cd-listing-checkout__close:hover {
   background: #191919;
-  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7)) brightness(1.08);
+  filter: brightness(1.08);
 }
 
 .cd-listing-prov__title,
@@ -5722,7 +5733,7 @@
   font-size: var(--tk-ui-fs-heading);
   line-height: 1;
   cursor: pointer;
-  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7));
+  filter: none;
   border-radius: 0;
   clip-path: var(--pixel-notch-lg);
 }
@@ -6119,6 +6130,8 @@ button.cd-listing-orderbook__thumb-link {
 .cd-listing-prov__btn {
   flex: 1;
   justify-content: center;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .cd-listing-prov__btn--buy {
@@ -6268,6 +6281,8 @@ button.cd-listing-orderbook__thumb-link {
   height: 54px;
   justify-content: center;
   font-size: var(--tk-ui-fs-section);
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .cd-listing-checkout__fine {
@@ -6612,6 +6627,8 @@ button.cd-listing-orderbook__thumb-link {
   font-size: var(--tk-ui-fs-body-lg) !important;
   font-weight: 600 !important;
   justify-content: center;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .cd-listing-checkout__done-secondary.tk-btn,
@@ -6629,7 +6646,7 @@ button.cd-listing-orderbook__thumb-link {
   font-weight: 600 !important;
   cursor: pointer;
   box-shadow: none !important;
-  filter: drop-shadow(4px 4px 0 rgba(5, 10, 30, 0.7));
+  filter: none !important;
   clip-path: var(--pixel-notch-lg);
   transform: none !important;
   justify-content: center;
@@ -6950,6 +6967,8 @@ button.cd-listing-orderbook__thumb-link {
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600 !important;
   justify-content: center;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 @media (max-width: 520px) {

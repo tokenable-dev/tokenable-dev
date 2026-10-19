@@ -724,3 +724,50 @@ describe('Pokemon Center Special Box SV-P — PSA SPECIAL BOX PC {city}', () => 
     ).toBe(true);
   });
 });
+
+describe('cardhedgerRowMatchesPsaVariety — Pokémon RGB Rare channel lines', () => {
+  const mewRgbRed = {
+    card_id: '1789712844142x754962610754496600',
+    description: 'Mew 2026 Pokemon 30th Celebration Red',
+    player: 'Mew',
+    set: '2026 Pokemon 30th Celebration',
+    number: 'R/RGB',
+    variant: 'Red',
+    category: 'Pokemon',
+  };
+
+  it('accepts Cardhedger Red + R/RGB for PSA RGB RARE (cert 178464163)', () => {
+    expect(cardhedgerRowMatchesPsaVariety(mewRgbRed, 'RGB RARE')).toBe(true);
+    expect(cardhedgerCertRowUsableForPsaVariety(mewRgbRed, 'RGB RARE')).toBe(
+      true,
+    );
+  });
+
+  it('rejects wrong RGB channel color for the same checklist letter', () => {
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        { ...mewRgbRed, variant: 'Green' },
+        'RGB RARE',
+      ),
+    ).toBe(false);
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        { ...mewRgbRed, number: 'G/RGB', variant: 'Red' },
+        'RGB RARE',
+      ),
+    ).toBe(false);
+  });
+
+  it('does not treat a plain Red sports parallel as RGB without R/RGB number', () => {
+    expect(
+      cardhedgerRowMatchesPsaVariety(
+        {
+          variant: 'Red',
+          description: 'Ohtani Red Refractor',
+          number: '150',
+        },
+        'RGB RARE',
+      ),
+    ).toBe(false);
+  });
+});

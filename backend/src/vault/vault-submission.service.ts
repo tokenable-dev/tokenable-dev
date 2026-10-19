@@ -32,6 +32,7 @@ import {
   VaultPsaVaultedReview,
   type VaultPsaVaultedReviewStatus,
 } from './entities/vault-psa-vaulted-review.entity';
+import { VaultService } from './vault.service';
 
 export type VaultSubmissionScenario = 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G' | 'H';
 
@@ -62,6 +63,7 @@ export class VaultSubmissionService {
     private readonly vaultedReviews: Repository<VaultPsaVaultedReview>,
     private readonly notifications: NotificationsService,
     private readonly chainConfig: ChainConfigService,
+    private readonly vault: VaultService,
   ) {}
 
   private scope(chainHeader?: string): {
@@ -479,6 +481,70 @@ export class VaultSubmissionService {
     return this.getForUser(userId, sub.id, chainHeader);
   }
 
+  /**
+   * Owner cancel for pre-ship packages (`awaiting_shipment` / legacy `draft`).
+   * Once tracking is registered the physical path has started — cancel is blocked.
+   */
+  async cancelPreShipPackage(
+    userId: string,
+    idOrPublicId: string,
+    chainHeader?: string,
+  ) {
+    const sub = await this.findOwned(userId, idOrPublicId, chainHeader);
+    if (!['draft', 'awaiting_shipment'].includes(sub.status)) {
+      throw new BadRequestException(
+        `Cannot remove this package while status is ${sub.status}. ` +
+          'Contact support if you need help after shipping.',
+      );
+    }
+    if (sub.trackingNumber?.trim()) {
+      throw new BadRequestException(
+        'This package already has tracking. Contact support to cancel.',
+      );
+    }
+    sub.status = 'cancelled';
+    await this.submissions.save(sub);
+    this.logger.log(
+      `Cancelled pre-ship package ${sub.publicId} for user=${userId}`,
+    );
+    return this.toDto(sub);
+  }
+
+  /**
+   * After a cert is minted (partner direct), drop any open pre-ship PSA packages
+   * that still list it — otherwise Sell dashboard keeps a stale “Ready to ship” row.
+   */
+  async cancelPreShipPackagesForCert(
+    certNumber: string,
+    chainId?: number,
+  ): Promise<number> {
+    const cert = VaultSubmissionService.normalizeCert(certNumber);
+    if (!cert) return 0;
+    const tokenContract = this.chainConfig.getRwaAddress(
+      this.chainConfig.resolveChainId(
+        chainId != null ? String(chainId) : undefined,
+      ),
+    );
+
+    const rows = await this.submissions
+      .createQueryBuilder('s')
+      .innerJoin('s.items', 'i')
+      .where('i.cert_number = :cert', { cert })
+      .andWhere("s.status IN ('draft', 'awaiting_shipment')")
+      .andWhere('lower(s.token_contract) = :tokenContract', { tokenContract })
+      .getMany();
+
+    if (rows.length === 0) return 0;
+    for (const sub of rows) {
+      sub.status = 'cancelled';
+    }
+    await this.submissions.save(rows);
+    this.logger.log(
+      `Cancelled ${rows.length} pre-ship package(s) for cert=${cert} after mint`,
+    );
+    return rows.length;
+  }
+
   async registerTracking(
     userId: string,
     idOrPublicId: string,
@@ -496,6 +562,20 @@ export class VaultSubmissionService {
     }
     if (!items.every((it) => it.status === 'confirmed' || it.status === 'in_transit')) {
       throw new BadRequestException('Confirm all cards before registering tracking');
+    }
+
+    const { chainId } = this.scope(chainHeader);
+    for (const it of items) {
+      const cert = VaultSubmissionService.normalizeCert(it.certNumber);
+      if (!cert) continue;
+      const cycleCheck = await this.vault.checkAvailableForNewCycle(cert, chainId);
+      if (!cycleCheck.available) {
+        throw new BadRequestException(
+          cycleCheck.message ??
+            `PSA cert #${cert} is already minted on this network. ` +
+              'Remove this package from Sell and start again if needed.',
+        );
+      }
     }
 
     const cleaned = dto.trackingNumber.replace(/\s+/g, '').toUpperCase();
@@ -535,7 +615,9 @@ export class VaultSubmissionService {
       .innerJoin('i.submission', 's')
       .where('s.user_id = :userId', { userId: params.userId })
       .andWhere('i.cert_number = :cert', { cert })
-      .andWhere("s.status NOT IN ('cancelled')")
+      // Only attach to packages that already shipped / are at PSA — never hijack
+      // a pre-ship (awaiting_shipment) row when partner-minting the same cert.
+      .andWhere("s.status IN ('in_transit', 'psa_reviewing')")
       .andWhere("i.status NOT IN ('completed', 'rejected', 'failed')")
       .andWhere('lower(s.token_contract) = :tokenContract', {
         tokenContract: this.chainConfig.getRwaAddress(
@@ -562,7 +644,7 @@ export class VaultSubmissionService {
       relations: { items: true },
     });
     if (!sub) return true;
-    if (sub.status === 'in_transit' || sub.status === 'awaiting_shipment') {
+    if (sub.status === 'in_transit') {
       sub.status = 'psa_reviewing';
       await this.submissions.save(sub);
     }

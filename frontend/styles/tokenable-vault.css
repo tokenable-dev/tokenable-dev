@@ -7428,6 +7428,16 @@
 .vault-dash-act {
   flex: none;
   margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.vault-dash-act .vault-dash-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
 .vault-dash-btn {

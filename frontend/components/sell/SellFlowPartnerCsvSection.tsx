@@ -46,11 +46,14 @@ type Props = {
   mintError: string | null;
   canMint: boolean;
   onMint: () => void;
-  onSaveDraft: () => void;
-  draftSavedFlash: boolean;
   onRemoveCert?: (cert: string) => void;
-  /** `picker` = drop zone inside glass; `workspace` = list + mint below glass. */
+  /** `picker` = drop zone inside glass; `workspace` = list + action below glass. */
   section: "picker" | "workspace";
+  /**
+   * Partner vault mints immediately; PSA vault continues to shipping.
+   * Default `mint`.
+   */
+  submitKind?: "mint" | "continue";
 };
 
 function UploadArrowIcon() {
@@ -77,10 +80,9 @@ export function SellFlowPartnerCsvSection({
   mintError,
   canMint,
   onMint,
-  onSaveDraft,
-  draftSavedFlash,
   onRemoveCert,
   section,
+  submitKind = "mint",
 }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragOver, setDragOver] = useState(false);
@@ -299,10 +301,6 @@ export function SellFlowPartnerCsvSection({
             <div className="sell-flow-csv-drop__t">
               Drop your CSV here or{" "}
               <span className="sell-flow-csv-drop__browse">browse</span>
-            </div>
-            <div className="sell-flow-csv-drop__d">
-              One cert number per row, up to{" "}
-              <span className="tkl-mono">{maxCards}</span>.
             </div>
             <button
               type="button"
@@ -545,8 +543,9 @@ export function SellFlowPartnerCsvSection({
           <div className="sell-flow-csv-strip" role="status">
             <span>
               <span className="tkl-mono">{errorCount}</span> card
-              {errorCount === 1 ? "" : "s"} won&apos;t mint. Fix them in your file
-              or remove them.
+              {errorCount === 1 ? "" : "s"} won&apos;t{" "}
+              {submitKind === "continue" ? "ship" : "mint"}. Fix them in your
+              file or remove them.
             </span>
             <button
               type="button"
@@ -564,42 +563,26 @@ export function SellFlowPartnerCsvSection({
         <p className="sell-flow-mint-error" role="alert">{mintError}</p>
       ) : null}
 
-      {draftSavedFlash ? (
-        <p className="sell-flow-csv-toast" role="status">
-          Draft saved. {cards.length} cert numbers kept.
-        </p>
-      ) : null}
-
-      <div className="sell-flow-partner-cta sell-flow-partner-cta--csv">
-        <TkButton
-          type="button"
-          variant="subtle"
-          className="sell-flow-partner-btn--ghost sell-flow-csv-draft-btn"
-          disabled={mintBusy || csvRows.length === 0}
-          onClick={onSaveDraft}
-        >
-          {draftSavedFlash ? "Saved" : "Save as draft"}
-        </TkButton>
+      <div className="sell-flow-cards-cta sell-flow-partner-cta--csv">
         <TkButton
           type="button"
           variant="primary"
-          className="sell-flow-partner-register sell-flow-partner-btn--primary sell-flow-csv-mint-btn"
+          className="sell-flow-ship-btn sell-flow-csv-mint-btn"
           disabled={!canMint || mintBusy || csvLookupBusy}
           onClick={onMint}
         >
-          {mintBusy ? (
+          {submitKind === "continue" ? (
+            <>Continue</>
+          ) : mintBusy ? (
             <>
               <span className="sell-flow-spinner" aria-hidden /> Minting…
             </>
           ) : validCount > 0 ? (
             <>
-              Mint <span className="tkl-mono">{validCount}</span> to collection{" "}
-              <span aria-hidden>→</span>
+              Mint <span className="tkl-mono">{validCount}</span> to collection
             </>
           ) : (
-            <>
-              Mint to collection <span aria-hidden>→</span>
-            </>
+            <>Mint to collection</>
           )}
         </TkButton>
       </div>

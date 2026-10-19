@@ -408,13 +408,6 @@ export function SellShippingView() {
           >
             {ship.confirming ? "Saving…" : "Done"}
           </button>
-          {!ship.packageReady && !ship.packageSyncError ? (
-            <p className="psa-ship-hint psa-ship-hint--muted">Saving your package…</p>
-          ) : !trackingAdded ? (
-            <p className="psa-ship-hint psa-ship-hint--muted">Add a tracking number to finish.</p>
-          ) : !ship.returnComplete ? (
-            <p className="psa-ship-hint psa-ship-hint--muted">Save a return address to finish.</p>
-          ) : null}
         </section>
       </div>
     </VaultAuthGate>

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
@@ -20,7 +19,15 @@ import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 type Flow = ReturnType<typeof useSellFlow>;
 type AddMode = "single" | "csv";
 
-/** Partner-Add-Cards.html — partner vault bulk upload + mint. */
+function BackChevron() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden>
+      <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+/** Choose-Vault-Individual.html partner path + CSV bulk (Partner-Add-Cards). */
 export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
   const {
     cards,
@@ -40,13 +47,9 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     lookupCertByNumber,
     onSlabFile,
     uploadSlabPhotos,
-    toggleConfirm,
-    setAllConfirmed,
     removeCard,
     continueToSelfMint,
     goBackToVaultChoice,
-    saveDraft,
-    draftSavedFlash,
   } = flow;
 
   const [addMode, setAddMode] = useState<AddMode>("single");
@@ -61,7 +64,6 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
   }, [mintBusy]);
 
   const busy = lookupBusy || mintBusy || csvLookupBusy;
-  const allConfirmed = cards.length > 0 && cards.every((c) => c.confirmed);
   const confirmedCount = cards.filter((c) => c.confirmed).length;
 
   const csvCanMint = useMemo(() => {
@@ -79,12 +81,6 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     if (!m) return { done: 0, total: mintTotal };
     return { done: Number(m[1]), total: Number(m[2]) };
   }, [mintBusy, mintStatus, mintTotal]);
-
-  const registerLabel = useMemo(() => {
-    const n = confirmedCount || cards.length;
-    if (!n) return "Add to my vault";
-    return `Add ${n} card${n === 1 ? "" : "s"} to my vault`;
-  }, [cards.length, confirmedCount]);
 
   const removeCertFromList = (cert: string) => {
     const i = cards.findIndex((c) => c.cert === cert);
@@ -107,8 +103,6 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     mintError,
     canMint: csvCanMint,
     onMint: () => void continueToSelfMint(),
-    onSaveDraft: () => saveDraft(),
-    draftSavedFlash,
     onRemoveCert: removeCertFromList,
   };
 
@@ -116,25 +110,18 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     <>
       <section className="sell-flow-screen sell-flow-screen--partner">
         <div className="sell-flow-col sell-flow-col--partner">
-          <nav
-            className="sell-flow-partner-crumb sell-ship-crumb"
-            aria-label="Breadcrumb"
+          <button
+            type="button"
+            className="sell-flow-btn-back"
+            onClick={goBackToVaultChoice}
+            disabled={mintBusy || csvLookupBusy}
           >
-            <Link href="/sell">Sell</Link>
-            <span className="sell-ship-crumb__sep" aria-hidden>/</span>
-            <button
-              type="button"
-              className="sell-flow-partner-crumb__mid"
-              onClick={goBackToVaultChoice}
-            >
-              Choose a vault
-            </button>
-            <span className="sell-ship-crumb__sep" aria-hidden>/</span>
-            <span className="sell-flow-partner-crumb__here">Partner vault</span>
-          </nav>
+            <BackChevron />
+            Back
+          </button>
 
           <div className="sell-flow-eyebrow">Partner vault</div>
-          <h1 className="sell-flow-h1">Add your cards</h1>
+          <h1 className="sell-flow-h1">Enter card info</h1>
 
           <div className="sell-flow-glass sell-flow-glass--partner-input">
             <div
@@ -192,6 +179,33 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
                     {certError}
                   </p>
                 ) : null}
+
+                <SellFlowYourCardsSection
+                  cards={cards}
+                  maxCards={maxCards}
+                  onRemove={removeCard}
+                  embedded
+                />
+
+                {cards.length > 0 ? (
+                  <div className="sell-flow-cards-cta">
+                    <TkButton
+                      type="button"
+                      variant="primary"
+                      className="sell-flow-ship-btn"
+                      disabled={!canContinueShipping || mintBusy}
+                      onClick={() => void continueToSelfMint()}
+                    >
+                      {mintBusy ? (
+                        <>
+                          <span className="sell-flow-spinner" aria-hidden /> Minting…
+                        </>
+                      ) : (
+                        <>Mint to collection</>
+                      )}
+                    </TkButton>
+                  </div>
+                ) : null}
               </div>
             ) : (
               <SellFlowPartnerCsvSection section="picker" {...csvSectionProps} />
@@ -200,59 +214,17 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
 
           {addMode === "single" ? (
             <>
-              <SellFlowYourCardsSection
-                variant="partner"
-                cards={cards}
-                maxCards={maxCards}
-                allConfirmed={allConfirmed}
-                onToggleConfirm={toggleConfirm}
-                onToggleAllConfirmed={setAllConfirmed}
-                onRemove={removeCard}
-                allowCertDirectInput
-              />
-
               {mintError ? (
                 <p className="sell-flow-mint-error" role="alert">
                   {mintError}
                 </p>
               ) : null}
-
-              <div className="sell-flow-partner-cta sell-flow-partner-cta--single">
-                <TkButton
-                  type="button"
-                  variant="subtle"
-                  className="sell-flow-partner-back sell-flow-partner-btn--ghost"
-                  disabled={mintBusy}
-                  onClick={goBackToVaultChoice}
-                >
-                  Back
-                </TkButton>
-                <TkButton
-                  type="button"
-                  variant="primary"
-                  className="sell-flow-partner-register sell-flow-partner-btn--primary"
-                  disabled={!canContinueShipping || mintBusy}
-                  onClick={() => void continueToSelfMint()}
-                >
-                  {mintBusy ? (
-                    <>
-                      <span className="sell-flow-spinner" aria-hidden /> Minting…
-                    </>
-                  ) : (
-                    registerLabel
-                  )}
-                </TkButton>
-              </div>
               <SellFlowPartnerMintBackground
                 visible={mintBusy && mintProgressHidden}
                 done={mintProgress.done}
                 total={mintProgress.total}
                 onShow={() => setMintProgressHidden(false)}
               />
-
-              <p className="sell-flow-partner-footnote">
-                Cards appear in your collection right away. Set prices there to put them up for sale.
-              </p>
             </>
           ) : (
             <>

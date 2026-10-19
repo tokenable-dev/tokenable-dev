@@ -2,12 +2,19 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
-import { listVaultSubmissions } from "@/lib/core/api/vault-submissions";
+import {
+  cancelVaultSubmission,
+  listVaultSubmissions,
+} from "@/lib/core/api/vault-submissions";
 import { rq } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
+import {
+  clearAllSellLocalState,
+  readSellSubmissionPublicId,
+} from "@/lib/sell/sellFlowDraft";
 import { useAuthStore } from "@/store/authStore";
 import {
   buildVaultHubPackages,
@@ -70,10 +77,14 @@ function PackageRow({
   pkg,
   open,
   onToggle,
+  onCancel,
+  cancelling,
 }: {
   pkg: VaultHubPackage;
   open: boolean;
   onToggle: () => void;
+  onCancel?: () => void;
+  cancelling?: boolean;
 }) {
   const shown = pkg.cards.slice(0, 4);
   const more = pkg.cards.length - shown.length;
@@ -123,6 +134,16 @@ function PackageRow({
           ))}
         </div>
         <div className="vault-dash-act">
+          {pkg.canCancel && onCancel ? (
+            <button
+              type="button"
+              className="vault-dash-btn vault-dash-btn--subtle"
+              disabled={cancelling}
+              onClick={onCancel}
+            >
+              {cancelling ? "Removing…" : "Remove"}
+            </button>
+          ) : null}
           <PackageAction pkg={pkg} />
         </div>
       </div>
@@ -160,6 +181,7 @@ export function VaultHubActivityLoading() {
 export function VaultActiveDashboardView() {
   const [filter, setFilter] = useState<TabFilter>("all");
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  const queryClient = useQueryClient();
   const submissionsQ = useVaultHubSubmissions();
   const submissions = submissionsQ.data ?? [];
   const submissionItems = useMemo(
@@ -173,6 +195,18 @@ export function VaultActiveDashboardView() {
   );
   const counts = useMemo(() => countVaultHubPackages(packages), [packages]);
   const visible = packages.filter((pkg) => packageMatchesTab(pkg, filter));
+
+  const cancelMut = useMutation({
+    mutationFn: (publicId: string) => cancelVaultSubmission(publicId),
+    onSuccess: (_data, publicId) => {
+      if (readSellSubmissionPublicId() === publicId) {
+        clearAllSellLocalState();
+      }
+      void queryClient.invalidateQueries({
+        queryKey: rq.vaultSubmissions(activeRqChainId()),
+      });
+    },
+  });
 
   if (submissionsQ.isPending && packages.length === 0) {
     return <VaultHubActivityLoading />;
@@ -205,6 +239,21 @@ export function VaultActiveDashboardView() {
               pkg={pkg}
               open={Boolean(openIds[pkg.id])}
               onToggle={() => setOpenIds((prev) => ({ ...prev, [pkg.id]: !prev[pkg.id] }))}
+              onCancel={
+                pkg.canCancel
+                  ? () => {
+                      if (
+                        !window.confirm(
+                          "Remove this package? You can start again from Sell anytime.",
+                        )
+                      ) {
+                        return;
+                      }
+                      cancelMut.mutate(pkg.id);
+                    }
+                  : undefined
+              }
+              cancelling={cancelMut.isPending && cancelMut.variables === pkg.id}
             />
           ))}
         </div>

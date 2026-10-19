@@ -1,8 +1,10 @@
 "use client";
 
 import { Suspense, useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { SellFlowView } from "@/components/sell/SellFlowView";
+import { redirectGuestFromProtectedRoute } from "@/lib/auth/redirectGuestFromProtectedRoute";
 import { userHasLinkedWallet } from "@/lib/auth/wallets";
 import { useAuthStore } from "@/store/authStore";
 import { useAuthUiStore } from "@/store/authUiStore";
@@ -25,16 +27,16 @@ function VaultHubPending() {
 }
 
 export function VaultHubView() {
+  const router = useRouter();
+  const pathname = usePathname();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
   const loading = useAuthStore((s) => s.loading);
-  const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const openConnectWallet = useAuthUiStore((s) => s.openConnectWallet);
   const submissionsQ = useVaultHubSubmissions();
   const viewState = useVaultHubViewState();
   const { ready, authenticated } = usePrivy();
   const [sessionWaitTimedOut, setSessionWaitTimedOut] = useState(false);
-  const promptedSignIn = useRef(false);
   const promptedWallet = useRef(false);
   const sessionCatchingUp = ready && authenticated && !user && !sessionWaitTimedOut;
   const hasWallet = userHasLinkedWallet(user);
@@ -49,19 +51,27 @@ export function VaultHubView() {
   }, [ready, authenticated, user]);
 
   useEffect(() => {
-    if (user) promptedSignIn.current = false;
-  }, [user]);
-
-  useEffect(() => {
     if (hasWallet) promptedWallet.current = false;
   }, [hasWallet]);
 
+  // Guests leave to landing — Sell nav opens Privy with returnTo=/vault instead.
   useEffect(() => {
-    if (!initialized || loading || !ready || sessionCatchingUp || user || authenticated) return;
-    if (promptedSignIn.current) return;
-    promptedSignIn.current = true;
-    openSignIn({ returnTo: "/vault" });
-  }, [authenticated, initialized, loading, openSignIn, ready, sessionCatchingUp, user]);
+    if (!initialized || loading || !ready || sessionCatchingUp || user || authenticated) {
+      return;
+    }
+    if (!redirectGuestFromProtectedRoute(router, pathname || "/vault")) {
+      router.replace("/");
+    }
+  }, [
+    authenticated,
+    initialized,
+    loading,
+    pathname,
+    ready,
+    router,
+    sessionCatchingUp,
+    user,
+  ]);
 
   useEffect(() => {
     if (!initialized || loading || !ready || sessionCatchingUp || !user || hasWallet) return;

@@ -12,7 +12,8 @@ Sell-flow package tracking (local cards → ship package → PSA → mint link).
 | `POST` | `/draft` | Upsert **shipping package** (`{ publicId?, cards[] }` all `confirmed: true`) → `awaiting_shipment`. Does **not** create `status=draft` rows. |
 | `PATCH` | `/:idOrPublicId/draft` | Same upsert with pinned public id |
 | `POST` | `/:idOrPublicId/packing-slip` | Mark packing slip downloaded |
-| `POST` | `/:idOrPublicId/tracking` | Register or **update** carrier + tracking → `in_transit` (allowed from `awaiting_shipment` or `in_transit`) |
+| `POST` | `/:idOrPublicId/tracking` | Register or **update** carrier + tracking → `in_transit` (allowed from `awaiting_shipment` or `in_transit`). Refuses if any cert is already minted. |
+| `POST` | `/:idOrPublicId/cancel` | Owner cancel for **pre-ship** only (`awaiting_shipment` / legacy `draft`, no tracking). Hub **Remove** uses this. |
 
 ### Card payload
 
@@ -54,7 +55,9 @@ Sell entry is the choose-vault screen (`SellFlowChooseVault`) on an empty `/vaul
 
 **PSA vault:** `/sell/shipping` still refuses to open with an empty confirmed card list and returns to `/vault`.
 
-Vault hub (`/vault`) active view mirrors `Vault-Dashboard-Active.html`: **Sell**, a **Sell cards** tile, then **Vaulting progress** with **All · Shipped · Verifying · Vaulted · Rejected**. Each row is one submission (stacked thumbs, status pill, card count, shipping line, action). `in_transit` / `awaiting_shipment` → Shipped (**Add tracking** until a number exists, then **Track**). `psa_reviewing` → Verifying. Completed packages → Vaulted (**View** opens Portfolio). Rejected packages → **Contact support**. Partner-vault holdings are **not** listed here. **Done** on `/sell/shipping` registers tracking and opens this hub. Local draft keys are cleared.
+Vault hub (`/vault`) active view mirrors `Vault-Dashboard-Active.html`: **Sell**, a **Sell cards** tile, then **Vaulting progress** with **All · Shipped · Verifying · Vaulted · Rejected**. Each row is one submission (stacked thumbs, status pill, card count, shipping line, action). `in_transit` / `awaiting_shipment` → Shipped (**Add tracking** until a number exists, then **Track**; **Remove** cancels pre-ship `awaiting_shipment` only). `psa_reviewing` → Verifying. Completed packages → Vaulted (**View** opens Portfolio). Rejected packages → **Contact support**. Partner-vault holdings are **not** listed here. **Done** on `/sell/shipping` registers tracking and opens this hub. Local draft keys are cleared.
+
+**Partner mint vs open PSA package:** `awaiting_shipment` does **not** block `deliveryMode=direct` (user may abandon PSA prep and mint via partner). After a successful partner mint, any pre-ship packages on that chain that still list the cert are auto-cancelled. Partner mint does not attach cycles to `awaiting_shipment` rows.
 
 **Legacy cleanup:** `backend/sql/maintenance/cancel_legacy_vault_submission_drafts.sql` sets orphan `status=draft` packages (no tracking) to `cancelled`.
 
@@ -76,10 +79,10 @@ Marketplace admin session (not JWT): `/api/marketplace/admin/vault-submissions` 
 
 Empty `/vault` and `/sell/flow` show **Sell your cards** / **Choose a vault** (PSA Vault and Approved Partners). **Vaulting Agreement** opens a draft terms modal. Continue opens PSA add-cards (then `/sell/shipping`) or the partner mint screen when the account is an appointed partner with a company address. Vault mint does not require KYC during POC. Redeem still does.
 
-**PSA vault** Continue opens add-cards, then `/sell/shipping` (mint later lands in custody; admin delivers).  
-**Approved Partners** Continue opens the partner add-cards screen, which mints with `deliveryMode: "direct"`. Non-partners and partners without a company address cannot continue on that choice.
+**PSA vault** Continue opens add-cards (**Add individually** or **Upload CSV**, same chrome as partner), then `/sell/shipping` (mint later lands in custody; admin delivers).  
+**Approved Partners** Continue opens the partner add-cards screen (same tabs), which mints with `deliveryMode: "direct"`. Non-partners and partners without a company address cannot continue on that choice.
 
-**Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Open `awaiting_shipment` packages are still editable via ship upsert; rejected/failed/completed items do not block self vault.
+**Self vault lock after ship:** once a package has finished the ship step (`tracking` → `in_transit`) — or is further along (`psa_reviewing`, item `reviewing` / `approved` / `minting`) — that cert **cannot** be minted with `deliveryMode=direct`. Enforced in `VaultSubmissionService.assertCertAvailableForSelfVault` from `RwaMintService` (global by cert, not only the current user). Open `awaiting_shipment` packages are still editable via ship upsert (or **Remove**/cancel); rejected/failed/completed items do not block self vault.
 
 ### PSA “Items Received” mail → admin review → `psa_reviewing`
 

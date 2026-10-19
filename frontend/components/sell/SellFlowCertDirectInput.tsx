@@ -26,7 +26,7 @@ export function SellFlowCertDirectInput({
         aria-hidden
       >
         <div className="sell-flow-or__line" />
-        <span className="sell-flow-or__label tkl-mono">OR</span>
+        <span className="sell-flow-or__label">OR</span>
         <div className="sell-flow-or__line" />
       </div>
 
@@ -63,7 +63,7 @@ export function SellFlowCertDirectInput({
           disabled={busy || !value.trim()}
           onClick={() => onLookup()}
         >
-          {busy ? "Looking up…" : "Look up"}
+          {busy ? "Checking" : "Check"}
         </TkButton>
       </div>
     </>

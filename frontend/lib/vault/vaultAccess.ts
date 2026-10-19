@@ -58,7 +58,7 @@ export function isSellPrimaryNavActive(pathname: string | null | undefined): boo
 /**
  * `/sell` router — signed-in users land on `/vault`.
  * The hub shows the dashboard when submissions exist, and the choose-vault screen when none do.
- * Guests get the Privy modal instead of a connect-wallet page.
+ * Guests are sent to `/` (header Sell opens Privy with returnTo=/vault).
  */
 export function resolveSellRouterDestination(): string {
   return SELL_COLLECTOR_HUB_PATH;

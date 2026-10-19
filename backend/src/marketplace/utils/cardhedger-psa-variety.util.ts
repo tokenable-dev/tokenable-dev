@@ -6,12 +6,59 @@ import {
 } from '../../psa/psa-variety-catalog.util';
 
 function rowParallelBlob(row: Record<string, unknown>): string {
-  return [row.variant, row.description, row.name, row.set, row.set_type]
+  return [
+    row.variant,
+    row.description,
+    row.name,
+    row.set,
+    row.set_type,
+    // Checklist # often encodes parallel channel (e.g. `R/RGB` for PSA `RGB RARE`).
+    row.number,
+  ]
     .map((x) => String(x ?? ''))
     .join(' ')
     .toLowerCase()
     // Cardhedger OCR/catalog typos for Topps image variations.
     .replace(/\bvatiation\b/g, 'variation');
+}
+
+/**
+ * Pokémon RGB Rare (and siblings): PSA Variety says `RGB RARE` while Cardhedger
+ * files the same print as color `variant` (`Red`/`Green`/`Blue`) + number `R/RGB`.
+ * Do not add per-cert color maps — channel letter on the checklist # is enough.
+ */
+function pokemonRgbChannelFromCardhedgerNumber(
+  number: string | null | undefined,
+): 'red' | 'green' | 'blue' | null {
+  const n = String(number ?? '')
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, '');
+  const m = n.match(/^([RGB])\/RGB\b/);
+  if (!m) return null;
+  if (m[1] === 'R') return 'red';
+  if (m[1] === 'G') return 'green';
+  return 'blue';
+}
+
+function cardhedgerRowMatchesPokemonRgbChannelLine(
+  row: Record<string, unknown>,
+  psaVariety: string,
+): boolean {
+  const pv = normalizePsaVarietyForMatch(psaVariety).toLowerCase();
+  if (!/\brgb\b/.test(pv)) return false;
+  const channel = pokemonRgbChannelFromCardhedgerNumber(
+    String(row.number ?? ''),
+  );
+  if (!channel) return false;
+  const vr = String(row.variant ?? '')
+    .trim()
+    .toLowerCase();
+  if (!vr) return false;
+  if (vr === channel) return true;
+  // `RGB Red` / `Red RGB` catalog labels
+  if (vr.includes('rgb') && vr.includes(channel)) return true;
+  return false;
 }
 
 /**
@@ -327,6 +374,9 @@ export function cardhedgerRowMatchesPsaVariety(
 
   const blob = rowParallelBlob(row);
   if (cardhedgerRowParallelFlavorConflict(pv, blob)) return false;
+
+  // PSA `RGB RARE` ↔ Cardhedger `Red` + `R/RGB` (channel letter on checklist #).
+  if (cardhedgerRowMatchesPokemonRgbChannelLine(row, pv)) return true;
 
   const psaTokens = new Set(varietyMatchChunks(pv));
   const variantTokens = variantFieldTokens(row);

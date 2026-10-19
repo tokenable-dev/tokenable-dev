@@ -1,11 +1,17 @@
 /* Sell entry (choose a vault) and PSA shipping. Add-cards / partner mint styles were removed with those screens. */
 
 .sell-flow-page {
-  min-height: 60vh;
-  color: #fff;
+  /* Match markets/portfolio: fill the main column, never force past the viewport. */
+  flex: 1 0 auto;
+  min-height: 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: clip;
 }
 
 .sell-flow-screen {
+  /* Sole horizontal gutter for choose-vault / add-cards (page shell has none). */
   padding: 56px clamp(16px, 4vw, 40px) 100px;
 }
 
@@ -631,10 +637,11 @@ button.sell-flow-link {
   line-height: 1.5;
 }
 
+/* Upload Photo — Figma: transparent fill + 1px inset stroke (not a drop shadow) */
 .sell-flow-scan-btn {
   width: 100%;
   height: 64px;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -645,10 +652,10 @@ button.sell-flow-link {
   font-weight: 600;
   line-height: 1.3;
   color: #18181b;
-  background: #fff;
+  background: transparent;
   border: 0;
-  border-radius: 12px;
-  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset;
   clip-path: none;
   filter: none;
   transform: none;
@@ -657,7 +664,7 @@ button.sell-flow-link {
 }
 
 .sell-flow-scan-btn:hover:not(:disabled) {
-  background: #f0f0f3;
+  background: rgba(17, 17, 17, 0.04);
 }
 
 .sell-flow-scan-btn:disabled {
@@ -668,10 +675,20 @@ button.sell-flow-link {
 .sell-flow-page .tk-btn.sell-flow-scan-btn {
   width: 100%;
   height: 64px !important;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
   font-size: var(--tk-ui-fs-section) !important;
   font-weight: 600 !important;
   gap: 12px;
+  color: #18181b !important;
+  background: transparent !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset !important;
+  filter: none !important;
+}
+
+.sell-flow-page .tk-btn.sell-flow-scan-btn:hover:not(:disabled) {
+  background: rgba(17, 17, 17, 0.04) !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset !important;
 }
 
 .sell-flow-or {
@@ -693,30 +710,30 @@ button.sell-flow-link {
   letter-spacing: 0.08em;
 }
 
+/* Choose-Vault-Individual.html — cert field with inset Check */
 .sell-flow-cert-row {
+  position: relative;
   display: flex;
-  gap: 10px;
-  align-items: stretch;
+  align-items: center;
 }
 
-/* Sell-Flow.html `#cert-input` — flat gray field (not tk-input pixel chrome) */
 .sell-flow-cert-label {
   display: block;
-  font-size: var(--tk-ui-fs-body);
+  font-size: var(--tk-ui-fs-body-lg);
   font-weight: 600;
-  color: var(--t2);
+  color: #18181b;
   margin-bottom: 8px;
 }
 
 .sell-flow-cert-input {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  height: 52px;
-  padding: 0 16px;
-  background: #f5f5f7;
+  height: 56px;
+  padding: 0 120px 0 16px;
+  background: #fff;
   border: 0;
   border-radius: 12px;
-  box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.12);
+  box-shadow: inset 0 0 0 1.5px rgba(17, 17, 17, 0.14);
   color: #18181b;
   font-size: 16px;
   letter-spacing: 0.04em;
@@ -733,7 +750,9 @@ button.sell-flow-link {
 
 .sell-flow-cert-input:focus,
 .sell-flow-cert-input:focus-visible {
-  box-shadow: inset 0 0 0 1.5px var(--azure);
+  box-shadow:
+    inset 0 0 0 2px #1a6fff,
+    0 0 0 4px rgba(26, 111, 255, 0.15);
 }
 
 .sell-flow-cert-input--error {
@@ -746,15 +765,28 @@ button.sell-flow-link {
 }
 
 .sell-flow-lookup-btn {
-  height: 52px !important;
-  padding: 0 24px !important;
+  position: absolute !important;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 44px !important;
+  min-width: 96px;
+  padding: 0 20px !important;
   font-size: var(--tk-ui-fs-body-lg) !important;
-  min-width: 120px;
+  border-radius: 9px !important;
   display: flex !important;
   align-items: center;
   justify-content: center;
   gap: 8px;
   flex-shrink: 0;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.sell-flow-lookup-btn.tk-btn:hover:not(:disabled),
+.sell-flow-lookup-btn.tk-btn:active:not(:disabled) {
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Sell-Flow.html `#cert-progress` — staged PSA lookup bar */
@@ -796,22 +828,12 @@ button.sell-flow-link {
   transition: width 220ms linear;
 }
 
-.sell-flow-cert-progress__hint {
-  font-size: var(--tk-ui-fs-caption);
-  letter-spacing: 0.05em;
-  margin-top: 8px;
-}
-
 .sell-flow-cert-progress--dark .sell-flow-cert-progress__label {
   color: rgba(255, 255, 255, 0.75);
 }
 
 .sell-flow-cert-progress--dark .sell-flow-cert-progress__track {
   background: rgba(255, 255, 255, 0.09);
-}
-
-.sell-flow-cert-progress--dark .sell-flow-cert-progress__hint {
-  color: rgba(255, 255, 255, 0.35);
 }
 
 .sell-flow-cert-progress--light .sell-flow-cert-progress__label {
@@ -822,10 +844,6 @@ button.sell-flow-link {
   background: rgba(17, 17, 17, 0.09);
 }
 
-.sell-flow-cert-progress--light .sell-flow-cert-progress__hint {
-  color: rgba(17, 17, 17, 0.35);
-}
-
 .sell-flow-cert-error {
   margin-top: 12px;
   font-size: var(--tk-ui-fs-body);
@@ -833,21 +851,22 @@ button.sell-flow-link {
   line-height: 1.5;
 }
 
-.sell-flow-upload-hint {
-  margin: 10px 0 0;
-  font-size: var(--tk-ui-fs-caption);
-  letter-spacing: 0.02em;
-  line-height: 1.4;
-  color: rgba(17, 17, 17, 0.42);
-  text-align: center;
-}
-
-.sell-flow-page .sell-flow-upload-hint {
-  color: rgba(17, 17, 17, 0.42);
-}
-
 .sell-flow-cards-section {
   margin-top: 28px;
+}
+
+/* Inside Enter card info glass — one panel with upload + rows */
+.sell-flow-cards-section--embedded {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.sell-flow-glass .sell-flow-cards-section--embedded .sell-flow-cards-box,
+.sell-flow-page .sell-flow-glass .sell-flow-cards-section--embedded .sell-flow-cards-box {
+  background: transparent !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .sell-flow-cards-header {
@@ -859,64 +878,49 @@ button.sell-flow-link {
 }
 
 .sell-flow-cards-title {
-  font-size: var(--tk-ui-fs-section);
-  font-weight: 800;
-  color: #fff;
-}
-
-.sell-flow-select-all {
-  flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  font-family: inherit;
-  font-size: var(--tk-ui-fs-body-sm);
-  font-weight: 600;
-  color: var(--azure);
-}
-
-.sell-flow-select-all:hover {
-  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  color: #18181b;
 }
 
 .sell-flow-cards-count {
-  font-size: var(--tk-ui-fs-body);
+  font-size: 13px;
   font-weight: 600;
-  color: var(--t3);
+  color: rgba(17, 17, 17, 0.45);
 }
 
 .sell-flow-cards-box {
-  background: #141414;
-  border-radius: 14px;
-  max-height: 480px;
+  background: transparent;
+  border-radius: 0;
+  max-height: 340px;
   overflow-y: auto;
+  box-shadow: none;
 }
 
 .sell-flow-cards-empty {
   padding: 44px 24px;
   text-align: center;
   font-size: var(--tk-ui-fs-body-lg);
-  color: var(--t2);
+  color: rgba(17, 17, 17, 0.55);
   line-height: 1.6;
 }
 
 .sell-flow-cards-list {
   list-style: none;
   margin: 0;
-  padding: 0;
+  /* Avoid overflow:auto on the box clipping the first row’s ascenders */
+  padding: 2px 0 0;
 }
 
 .sell-flow-cardrow {
   display: flex;
-  gap: 16px;
-  align-items: flex-start;
-  padding: 16px 18px;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+  box-shadow: none;
+  background: transparent;
   animation: sell-flow-row-in 0.4s ease;
-}
-
-.sell-flow-cardrow + .sell-flow-cardrow {
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 @keyframes sell-flow-row-in {
@@ -931,12 +935,12 @@ button.sell-flow-link {
 }
 
 .sell-flow-cardrow__thumb {
-  width: 72px;
-  height: 100px;
+  width: 38px;
+  height: 64px;
   object-fit: contain;
   border-radius: 0;
   flex-shrink: 0;
-  background: #0e0e0e;
+  background: #f5f5f7;
 }
 
 .sell-flow-cardrow__thumb--empty {
@@ -949,82 +953,100 @@ button.sell-flow-link {
 }
 
 .sell-flow-cardrow__name {
-  font-size: var(--tk-ui-fs-body-lg);
+  font-size: 13px;
   font-weight: 700;
-  color: #fff;
+  color: #18181b;
   letter-spacing: -0.01em;
-  line-height: 1.3;
+  /* -webkit-box + tight line-height clips Inter bold ascenders */
+  line-height: 1.45;
+  padding-top: 1px;
+  text-transform: uppercase;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
 .sell-flow-cardrow__sub {
-  margin-top: 5px;
-  font-size: var(--tk-ui-fs-body-sm);
-  line-height: 1.4;
-  color: var(--t3);
-}
-
-.sell-flow-cardrow__cert {
-  margin-top: 4px;
-  font-size: var(--tk-ui-fs-caption);
-  color: var(--t3);
-  line-height: 1.4;
-}
-
-.sell-flow-cardrow__cert strong {
-  font-weight: 700;
-  color: var(--t1);
-}
-
-.sell-flow-cardrow__confirm {
-  display: inline-flex;
-  gap: 8px;
-  align-items: center;
-  cursor: pointer;
-  margin-top: 9px;
-  font-size: var(--tk-ui-fs-body-sm);
-  color: var(--t2);
+  margin-top: 6px;
+  font-family: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  color: rgba(17, 17, 17, 0.78);
 }
 
 .sell-flow-cardrow__del {
-  width: 44px;
-  height: 44px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
   border: 0;
   background: transparent;
-  color: var(--t3);
+  color: rgba(17, 17, 17, 0.4);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.sell-flow-cardrow__del:hover {
+  color: #18181b;
 }
 
 .sell-flow-cards-cta {
   display: flex;
-  gap: 14px;
-  margin-top: 32px;
-  align-items: stretch;
-}
-
-.sell-flow-draft-btn {
-  height: 52px !important;
-  padding: 0 24px !important;
-  font-size: var(--tk-ui-fs-section) !important;
-  flex-shrink: 0;
-}
-
-.sell-flow-ship-btn {
-  height: 52px !important;
-  flex: 1 1 0;
-  min-width: 0;
-  padding: 0 20px !important;
-  font-size: var(--tk-ui-fs-section) !important;
   justify-content: center;
+  margin-top: 24px;
+  align-items: center;
+}
+
+/* Inside Enter card info glass — same panel as upload / Your cards */
+.sell-flow-glass .sell-flow-cards-cta {
+  margin-top: 24px;
+  padding-top: 4px;
+}
+
+/*
+ * Enter card info Continue / Mint CTA.
+ * Desktop: design width 240px (do not stretch with the glass).
+ * Mobile: fill the CTA row (parent width) — not a second magic pixel size.
+ */
+.sell-flow-ship-btn.tk-btn,
+.sell-flow-ship-btn {
+  display: flex !important;
+  flex: 0 0 auto !important;
+  box-sizing: border-box;
+  width: 240px !important;
+  max-width: 100%;
+  height: 52px !important;
+  min-width: 0;
+  padding: 0 !important;
+  justify-content: center;
+  align-items: center;
   gap: 8px;
+  border-radius: 12px !important;
+  background: #1a6fff !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  filter: none !important;
+  font-size: var(--tk-ui-fs-section) !important;
   line-height: 1.25;
+}
+
+.sell-flow-ship-btn.tk-btn:hover:not(:disabled),
+.sell-flow-ship-btn:hover:not(:disabled) {
+  background: #1a6fff !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.sell-flow-ship-btn.tk-btn:active:not(:disabled),
+.sell-flow-ship-btn:active:not(:disabled) {
+  background: #1a6fff !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 .sell-flow-ship-btn__icon {
@@ -1054,43 +1076,14 @@ button.sell-flow-link {
   margin: 0 auto;
 }
 
-.sell-flow-partner-crumb {
-  margin-bottom: 18px;
-  font-size: var(--tk-ui-fs-body-sm);
-  color: var(--t3);
-}
-
-.sell-flow-partner-crumb a {
-  color: var(--azure);
-  font-weight: 500;
-  letter-spacing: normal;
-}
-
-.sell-flow-partner-crumb__mid {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  font: inherit;
-  font-size: var(--tk-ui-fs-body-sm);
-  color: rgba(17, 17, 17, 0.45);
-  cursor: pointer;
-}
-
-.sell-flow-partner-crumb__mid:hover {
-  color: #18181b;
-}
-
-.sell-flow-partner-crumb__here {
-  color: #18181b;
-}
-
 .sell-flow-screen--partner .sell-flow-scan-btn.sell-flow-partner-btn--ghost {
-  background: #dfdfe6 !important;
-  box-shadow: none !important;
+  background: transparent !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset !important;
 }
 
 .sell-flow-screen--partner .sell-flow-scan-btn.sell-flow-partner-btn--ghost:hover:not(:disabled) {
-  background: #d2d2db !important;
+  background: rgba(17, 17, 17, 0.04) !important;
 }
 
 .sell-flow-partner-slab-upload {
@@ -1316,13 +1309,6 @@ button.sell-flow-link {
 
 .sell-flow-csv-drop__browse {
   color: var(--azure);
-}
-
-.sell-flow-csv-drop__d {
-  font-size: var(--tk-ui-fs-body);
-  color: var(--t2);
-  line-height: 1.55;
-  max-width: 420px;
 }
 
 .sell-flow-csv-chip {
@@ -1728,8 +1714,8 @@ button.sell-flow-link {
 }
 
 .sell-flow-partner-cta--csv .sell-flow-csv-mint-btn {
-  flex: 1;
-  min-width: 220px;
+  /* Keep desktop 240px; mobile media sets width 100% */
+  flex: 0 0 auto;
 }
 
 .sell-flow-partner-cta--single .sell-flow-partner-register {
@@ -1779,6 +1765,13 @@ button.sell-flow-link {
   --t2: #52525b;
   --t3: #71717a;
   --neg: #dc2626;
+  --pos: #00c864;
+}
+
+.sell-flow-csv-modal__card--done {
+  max-width: 560px;
+  padding: 32px 28px 28px !important;
+  text-align: center;
 }
 
 .sell-flow-csv-modal .sell-flow-csv-pnote {
@@ -1819,11 +1812,6 @@ button.sell-flow-link {
   color: #18181b;
 }
 
-.sell-flow-csv-pill--done {
-  background: rgba(0, 195, 80, 0.12);
-  color: #0a8a3c;
-}
-
 .sell-flow-csv-modal__frac-row {
   display: flex;
   justify-content: flex-end;
@@ -1852,40 +1840,91 @@ button.sell-flow-link {
   font-size: var(--tk-ui-fs-body-lg) !important;
 }
 
-.sell-flow-csv-modal__done-title {
-  margin: 16px 0 0;
-  font-size: var(--tk-ui-fs-section);
+/* Choose-Vault-Individual `#scr-done` — shown as modal, not a full page. */
+.sell-flow-csv-modal__done-icon {
+  width: 72px;
+  height: 72px;
+  margin: 0 auto 20px;
+  border-radius: 50%;
+  background: rgba(0, 200, 100, 0.14);
+  color: var(--pos);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sell-flow-csv-modal__done-h {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.4vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #18181b;
+  line-height: 1.25;
+  text-align: center;
+}
+
+.sell-flow-csv-modal__done-list {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  text-align: left;
+  max-height: min(36vh, 280px);
+  overflow-y: auto;
+}
+
+.sell-flow-csv-modal__done-row {
+  padding: 16px 18px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow:
+    0 1px 2px rgba(17, 17, 17, 0.06),
+    inset 0 0 0 1px rgba(17, 17, 17, 0.08);
+}
+
+.sell-flow-csv-modal__done-name {
+  font-size: 16px;
   font-weight: 700;
   color: #18181b;
-  line-height: 1.4;
+  line-height: 1.35;
+}
+
+.sell-flow-csv-modal__done-meta {
+  margin-top: 5px;
+  font-size: 13px;
+  color: rgba(17, 17, 17, 0.6);
 }
 
 .sell-flow-csv-modal__done-fail {
-  margin: 8px 0 0;
+  margin: 14px 0 0;
   font-size: var(--tk-ui-fs-body);
   color: var(--neg);
   line-height: 1.45;
+  text-align: left;
 }
 
 .sell-flow-csv-modal__done-actions {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-  margin-top: 18px;
+  justify-content: center;
+  margin-top: 24px;
 }
 
 .sell-flow-csv-modal__view {
-  height: 48px !important;
-  flex: 1;
-  min-width: 160px;
-  font-size: var(--tk-ui-fs-body-lg) !important;
+  height: 52px !important;
+  min-width: 140px;
+  padding: 0 28px !important;
+  font-size: 15px !important;
   justify-content: center;
 }
 
 .sell-flow-csv-modal__close {
-  height: 48px !important;
-  padding: 0 18px !important;
-  font-size: var(--tk-ui-fs-body-lg) !important;
+  height: 52px !important;
+  padding: 0 28px !important;
+  font-size: 15px !important;
 }
 
 @media (max-width: 640px) {
@@ -1989,15 +2028,7 @@ button.sell-flow-link {
   opacity: 0.4;
 }
 
-.sell-flow-partner-footnote {
-  font-size: var(--tk-ui-fs-body-sm);
-  color: var(--t3);
-  margin: 14px 0 0;
-  line-height: 1.6;
-  text-align: center;
-}
-
-.sell-flow-page .sell-flow-partner-btn--ghost {
+.sell-flow-page .sell-flow-partner-btn--ghost:not(.sell-flow-scan-btn) {
   background: #dfdfe6 !important;
   color: #18181b !important;
   box-shadow: none !important;
@@ -2006,7 +2037,7 @@ button.sell-flow-link {
   border-radius: 12px !important;
 }
 
-.sell-flow-page .sell-flow-partner-btn--ghost:hover:not(:disabled) {
+.sell-flow-page .sell-flow-partner-btn--ghost:not(.sell-flow-scan-btn):hover:not(:disabled) {
   background: #d2d2db !important;
 }
 
@@ -2015,10 +2046,6 @@ button.sell-flow-link {
   font-size: var(--tk-ui-fs-body);
   line-height: 1.45;
   color: var(--t2);
-}
-
-.sell-flow-page .sell-flow-partner-footnote {
-  color: var(--t3);
 }
 
 
@@ -3180,20 +3207,18 @@ button.sell-ship-step--btn:focus-visible {
 
 @media (max-width: 640px) {
   .sell-flow-cards-cta {
-    flex-direction: column;
-    align-items: stretch;
-  }
-
-  .sell-flow-draft-btn {
+    justify-content: center;
     width: 100%;
-    order: 2;
   }
 
+  .sell-flow-ship-btn.tk-btn,
   .sell-flow-ship-btn {
-    order: 1;
-    width: 100%;
-    flex: none;
+    /* Stretch to the glass content width — fluid, not a fixed 287px */
+    width: 100% !important;
+    max-width: 100%;
+    flex: 1 1 auto !important;
     height: 52px !important;
+    padding: 0 !important;
     font-size: var(--tk-ui-fs-section) !important;
   }
 
@@ -3318,12 +3343,10 @@ button.sell-ship-step--btn:focus-visible {
   font-family: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
   --font-sans: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
-  /* Bleed past page gutters so the shell ink doesn’t frame the flow */
-  margin-left: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px)));
-  margin-right: calc(-1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px)));
-  padding-left: max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px));
-  padding-right: max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px));
-  min-height: calc(100dvh - 64px);
+  /* Full-bleed light canvas inside main — no negative margins (those
+     assumed a tkl-wrap gutter sell never has, and caused overflow). */
+  margin: 0;
+  padding: 0;
 }
 
 .sell-flow-page .sell-flow-h1,
@@ -3363,6 +3386,15 @@ button.sell-ship-step--btn:focus-visible {
   font-weight: 700;
 }
 
+/* Line 2 under name/number/grade — Figma t2-8, not full black */
+.sell-flow-page .sell-flow-cardrow__sub {
+  font-family: var(--font-inter, "Inter"), system-ui, -apple-system, sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: normal;
+  color: rgba(17, 17, 17, 0.78);
+}
+
 .sell-flow-page .sell-flow-sub,
 .sell-flow-page .sell-flow-id-copy,
 .sell-flow-page .sell-flow-id-failed-copy,
@@ -3377,7 +3409,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-vault-sec-p,
 .sell-flow-page .sell-flow-vault-faq p,
 .sell-flow-page .sell-flow-vault-hint,
-.sell-flow-page .sell-flow-partner-footnote,
 .sell-flow-page .sell-ship-header .sell-flow-sub,
 .sell-flow-page .sell-ship-return__copy,
 .sell-flow-page .sell-ship-gate-hint,
@@ -3389,8 +3420,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-howto__copy,
 .sell-flow-page .sell-ship-howto__list,
 .sell-flow-page .sell-ship-proc,
-.sell-flow-page .sell-ship-proc strong,
-.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__hint {
+.sell-flow-page .sell-ship-proc strong {
   font-weight: 400;
 }
 
@@ -3424,6 +3454,20 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .tk-btn--primary,
 .sell-flow-page .sell-flow-ship-btn {
   font-weight: 600;
+}
+
+.sell-flow-page .sell-flow-ship-btn.tk-btn--primary,
+.sell-flow-page .sell-flow-ship-btn {
+  background: #1a6fff !important;
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.sell-flow-page .sell-flow-ship-btn.tk-btn--primary:hover:not(:disabled),
+.sell-flow-page .sell-flow-ship-btn.tk-btn--primary:active:not(:disabled) {
+  background: #1a6fff !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
 /* Light canvas — spinners were styled for dark glass (white ring = invisible here) */
@@ -3474,7 +3518,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-consent-note,
 .sell-flow-page .sell-flow-id-copy,
 .sell-flow-page .sell-flow-id-failed-copy,
-.sell-flow-page .sell-flow-cardrow__sub,
 .sell-flow-page .sell-flow-cardrow__cert,
 .sell-flow-page .sell-flow-cards-count,
 .sell-flow-page .sell-flow-cards-empty,
@@ -3487,7 +3530,6 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-flow-vault-sec-p,
 .sell-flow-page .sell-flow-vault-faq p,
 .sell-flow-page .sell-flow-vault-hint,
-.sell-flow-page .sell-flow-partner-footnote,
 .sell-flow-page .sell-ship-info,
 .sell-flow-page .sell-ship-package-row__meta,
 .sell-flow-page .sell-ship-package-sync__copy,
@@ -3495,8 +3537,7 @@ button.sell-ship-step--btn:focus-visible {
 .sell-flow-page .sell-ship-return__copy,
 .sell-flow-page .sell-ship-gate-hint,
 .sell-flow-page .sell-ship-header .sell-flow-sub,
-.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__label,
-.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__hint {
+.sell-flow-page .sell-flow-cert-progress--light .sell-flow-cert-progress__label {
   color: #18181b;
 }
 
@@ -3676,7 +3717,6 @@ button.sell-ship-step--btn:focus-visible {
 
 .sell-flow-page .sell-flow-vault-opt,
 .sell-flow-page .sell-flow-glass,
-.sell-flow-page .sell-flow-cards-box,
 .sell-flow-page .sell-flow-vault-faq,
 .sell-flow-page .sell-flow-opt,
 .sell-flow-page .sell-ship-box,
@@ -3686,6 +3726,16 @@ button.sell-ship-step--btn:focus-visible {
   box-shadow:
     0 1px 2px rgba(17, 17, 17, 0.06),
     0 0 0 1px rgba(17, 17, 17, 0.07) !important;
+}
+
+.sell-flow-page .sell-flow-cards-box {
+  background: transparent !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+.sell-flow-page .sell-flow-cardrow__thumb {
+  border-radius: 0 !important;
 }
 
 .sell-flow-page .sell-ship-panel {
@@ -3776,7 +3826,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .vault-page--hub:has(.sell-flow-page) {
-  min-height: calc(100dvh - 64px);
+  min-height: 100%;
 }
 
 .vault-page--hub:has(.sell-flow-page) > .vault-page__shell {
@@ -3793,7 +3843,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .vault-page--hub:has(.sell-flow-choice) {
-  min-height: calc(100dvh - 64px);
+  min-height: 100%;
 }
 
 .vault-page--hub:has(.sell-flow-choice) > .vault-page__shell {
@@ -4143,7 +4193,12 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b;
 }
 
-.sell-flow-page .sell-flow-cardrow,
+.sell-flow-page .sell-flow-cardrow {
+  background: transparent;
+  box-shadow: none;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
 .sell-flow-page .sell-ship-package-row {
   background: #fff;
   box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.08);
@@ -4200,22 +4255,17 @@ button.sell-ship-step--btn:focus-visible {
   box-shadow: inset 0 0 0 1.5px var(--azure);
 }
 
-.sell-flow-page .sell-flow-cards-cta {
-  background: linear-gradient(
-    180deg,
-    rgba(245, 245, 247, 0) 0%,
-    #f5f5f7 40%
-  );
-}
+/* CTA lives inside the glass now — no page-level sticky fade. */
 
 .sell-flow-page .sell-flow-scan-btn:not(.tk-btn) {
-  background: #fff;
+  background: transparent;
   color: #18181b;
-  box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.16);
+  border-radius: 10px;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset;
 }
 
 .sell-flow-page .sell-flow-scan-btn:not(.tk-btn):hover:not(:disabled) {
-  background: #f0f0f3;
+  background: rgba(17, 17, 17, 0.04);
 }
 
 .sell-flow-page .tk-btn--subtle,
@@ -4227,6 +4277,21 @@ button.sell-ship-step--btn:focus-visible {
   color: #18181b !important;
   box-shadow: inset 0 0 0 1px rgba(17, 17, 17, 0.16) !important;
   filter: none !important;
+}
+
+/* Upload Photo uses tk-btn--subtle — keep Figma outline, not white fill */
+.sell-flow-page .tk-btn--subtle.sell-flow-scan-btn,
+.sell-flow-page .tk-btn.sell-flow-scan-btn.sell-flow-partner-btn--ghost {
+  background: transparent !important;
+  color: #18181b !important;
+  border-radius: 10px !important;
+  box-shadow: 0 0 0 1px rgba(17, 17, 17, 0.16) inset !important;
+  filter: none !important;
+}
+
+.sell-flow-page .tk-btn--subtle.sell-flow-scan-btn:hover:not(:disabled),
+.sell-flow-page .tk-btn.sell-flow-scan-btn.sell-flow-partner-btn--ghost:hover:not(:disabled) {
+  background: rgba(17, 17, 17, 0.04) !important;
 }
 
 .sell-flow-page .sell-ship-outline-btn.tk-btn:hover,
@@ -4322,12 +4387,8 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .sell-flow-page .sell-ship-banner {
-  margin-left: calc(
-    -1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-left, 0px))
-  );
-  margin-right: calc(
-    -1 * max(clamp(16px, 4vw, 40px), env(safe-area-inset-right, 0px))
-  );
+  margin-left: 0;
+  margin-right: 0;
 }
 
 .sell-flow-page .sell-ship-banner__title {
@@ -4407,7 +4468,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 /* Partner-Add-Cards.html — ghost/flat buttons override .sell-flow-page .tk-btn--subtle */
-.sell-flow-page .tk-btn.sell-flow-partner-btn--ghost {
+.sell-flow-page .tk-btn.sell-flow-partner-btn--ghost:not(.sell-flow-scan-btn) {
   background: #dfdfe6 !important;
   color: #18181b !important;
   box-shadow: none !important;
@@ -4416,12 +4477,25 @@ button.sell-ship-step--btn:focus-visible {
   border-radius: 12px !important;
 }
 
-.sell-flow-page .tk-btn.sell-flow-partner-btn--ghost:hover:not(:disabled) {
+.sell-flow-page .tk-btn.sell-flow-partner-btn--ghost:not(.sell-flow-scan-btn):hover:not(:disabled) {
   background: #d2d2db !important;
 }
 
-.sell-flow-page .sell-flow-draft-btn,
-.sell-flow-page .sell-flow-lookup-btn,
+.sell-flow-page .sell-flow-lookup-btn {
+  clip-path: none !important;
+  border-radius: 9px !important;
+  filter: none !important;
+  box-shadow: none !important;
+  /* Keep inset Check vertically centered in the cert field. */
+  transform: translateY(-50%) !important;
+}
+
+.sell-flow-page .sell-flow-lookup-btn.tk-btn--primary:hover:not(:disabled),
+.sell-flow-page .sell-flow-lookup-btn.tk-btn--primary:active:not(:disabled) {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
 .sell-flow-page .sell-flow-id-cta {
   clip-path: none !important;
   border-radius: 12px !important;
@@ -4433,20 +4507,7 @@ button.sell-ship-step--btn:focus-visible {
   white-space: nowrap;
 }
 
-@media (max-width: 640px) {
-  .sell-flow-page {
-    margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
-    margin-right: calc(-1 * max(14px, env(safe-area-inset-right, 0px)));
-    padding-left: max(14px, env(safe-area-inset-left, 0px));
-    padding-right: max(14px, env(safe-area-inset-right, 0px));
-  }
-
-  .sell-ship-banner,
-  .sell-flow-page .sell-ship-banner {
-    margin-left: calc(-1 * max(14px, env(safe-area-inset-left, 0px)));
-    margin-right: calc(-1 * max(14px, env(safe-area-inset-right, 0px)));
-  }
-}
+/* Mobile gutters live on .sell-flow-screen / .psa-ship — not the page shell. */
 
 /* ── Sell flow mobile (designer: Sell-Flow / PSA-Shipping @768px) ─────────── */
 
@@ -4496,11 +4557,6 @@ button.sell-ship-step--btn:focus-visible {
 
   .sell-flow-page .sell-flow-btn-back {
     margin-bottom: 12px;
-  }
-
-  .sell-flow-ship-btn {
-    height: 52px !important;
-    font-size: var(--tk-ui-fs-section) !important;
   }
 
   .sell-flow-page .sell-ship-header {
@@ -4658,8 +4714,10 @@ button.sell-ship-step--btn:focus-visible {
 .psa-ship {
   max-width: 720px;
   margin: 0 auto;
-  padding: 40px 0 80px;
+  padding: 40px clamp(16px, 4vw, 40px) 80px;
   color: #18181b;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .psa-ship-crumb {
@@ -4700,7 +4758,7 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .psa-ship__subid {
-  margin: 6px 0 0;
+  margin: 6px 0 28px;
   font-size: 14px;
   color: rgba(17, 17, 17, 0.6);
 }
@@ -4714,7 +4772,7 @@ button.sell-ship-step--btn:focus-visible {
   display: flex;
   align-items: flex-start;
   width: 100%;
-  margin: 28px 0 8px;
+  margin: 8px 0 36px;
 }
 
 .psa-ship-step {
@@ -4805,7 +4863,7 @@ button.sell-ship-step--btn:focus-visible {
 .psa-ship-step__line {
   flex: 1;
   height: 2px;
-  margin-top: 15px;
+  margin-top: 16px;
   background: rgba(17, 17, 17, 0.06);
 }
 
@@ -5094,12 +5152,13 @@ button.sell-ship-step--btn:focus-visible {
 }
 
 .psa-ship-done {
-  margin-top: 28px;
-  height: 52px;
-  width: fit-content;
-  min-width: 240px;
-  padding: 0 32px;
   display: flex;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: 100%;
+  height: 52px;
+  margin: 28px auto 0;
+  padding: 0;
   align-items: center;
   justify-content: center;
   border: 0;
@@ -5109,7 +5168,8 @@ button.sell-ship-step--btn:focus-visible {
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 6px 18px rgba(26, 111, 255, 0.28);
+  box-shadow: none;
+  filter: none;
 }
 
 .psa-ship-done:disabled {
@@ -5126,6 +5186,14 @@ button.sell-ship-step--btn:focus-visible {
 
 .psa-ship-hint--muted {
   color: rgba(17, 17, 17, 0.55);
+}
+
+/* Hints directly under Done — match button alignment */
+.psa-ship > .psa-ship-hint {
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 320px;
+  text-align: center;
 }
 
 .psa-ship-sync {
@@ -5182,7 +5250,11 @@ button.sell-ship-step--btn:focus-visible {
   }
 
   .psa-ship-done {
-    width: 100%;
+    width: 240px;
+  }
+
+  .psa-ship > .psa-ship-hint {
+    max-width: 240px;
   }
 
   .psa-ship-return {

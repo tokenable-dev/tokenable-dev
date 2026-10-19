@@ -15,7 +15,7 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 |-------|------------|---------|
 | `/` | `app/page.tsx` | Landing — Market Indexes (Card Ladder) + hero |
 | `/markets` | `app/markets/page.tsx` | **Markets** — collection list, batch snapshots, category filter, trending |
-| `/vault` | `app/vault/page.tsx` | **Sell hub** — signed-out landing / empty dashboard (zero tabs, send-a-card + browse markets) / **vaulting list** (tabs: All · Shipped · Verifying · Vaulted · Rejected; `Vault-Dashboard-Active.html`) |
+| `/vault` | `app/vault/page.tsx` | **Sell hub** (wallet required) — empty → choose-vault sell flow; with submissions → vaulting list. Guests / post-logout → `/` (header Sell opens Privy → return here). |
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
 | `/sell/flow` | `app/sell/flow/page.tsx` | Choose a vault (Sell your cards). Same screen as an empty `/vault`. Continue is not wired yet. |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack and tracking (PSA Shipping) |

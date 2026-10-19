@@ -20,6 +20,24 @@ type Props = {
   onRetryFailed: () => void;
 };
 
+function DoneCheckIcon() {
+  return (
+    <svg
+      width="42"
+      height="42"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
 /** Partner-Add-Cards-standalone — `#csv-progress` + `#csv-done` (light `glass` card, not sell-flow dark glass). */
 export function SellFlowPartnerMintBackground({
   visible,
@@ -84,9 +102,19 @@ export function SellFlowPartnerMintModal({
   const barPct =
     displayTotal > 0 ? Math.min(100, (displayDone / displayTotal) * 100) : 0;
 
-  const okN = result?.succeeded.length ?? 0;
+  const succeeded = result?.succeeded ?? [];
   const failed = result?.skipped ?? [];
+  const okN = succeeded.length;
   const collectionHref = portfolioUrl(PARTNER_PORTFOLIO_PATH, "tab=assets");
+
+  const doneTitle =
+    okN === 1
+      ? "Card vaulted and token minted"
+      : okN > 1
+        ? `${okN} cards vaulted and tokens minted`
+        : failed.length > 0
+          ? "Minting finished with errors"
+          : "Minting finished";
 
   const frac = (
     <>
@@ -102,52 +130,61 @@ export function SellFlowPartnerMintModal({
       aria-modal="true"
       aria-labelledby="partner-mint-modal-title"
     >
-      <div className="sell-flow-csv-modal__card">
-        <div className="sell-flow-csv-modal__head">
-          <div id="partner-mint-modal-title" className="sell-flow-csv-modal__title">
-            Minting your cards
-          </div>
-          <span
-            className={`sell-flow-csv-pill${
-              complete ? " sell-flow-csv-pill--done" : ""
-            }`}
-          >
-            {complete ? "Done" : "Minting"}
-          </span>
-        </div>
-
-        <div className="sell-flow-csv-modal__frac-row">
-          <span className="sell-flow-csv-frac tkl-mono">{frac}</span>
-        </div>
-        <div className="sell-flow-csv-bar" aria-hidden={complete}>
-          <span style={{ width: `${barPct}%` }} />
-        </div>
-
+      <div
+        className={`sell-flow-csv-modal__card${
+          complete ? " sell-flow-csv-modal__card--done" : ""
+        }`}
+      >
         {complete ? (
           <>
-            <p className="sell-flow-csv-modal__done-title">
-              <span className="tkl-mono">{okN}</span> card{okN === 1 ? "" : "s"} minted to your
-              collection
-            </p>
+            {okN > 0 ? (
+              <div className="sell-flow-csv-modal__done-icon" aria-hidden>
+                <DoneCheckIcon />
+              </div>
+            ) : null}
+            <h2
+              id="partner-mint-modal-title"
+              className="sell-flow-csv-modal__done-h"
+            >
+              {doneTitle}
+            </h2>
+
+            {succeeded.length > 0 ? (
+              <ul className="sell-flow-csv-modal__done-list">
+                {succeeded.map((row) => (
+                  <li key={row.cert} className="sell-flow-csv-modal__done-row">
+                    <div className="sell-flow-csv-modal__done-name">{row.name}</div>
+                    <div className="sell-flow-csv-modal__done-meta tkl-mono">
+                      Cert #{row.cert} · token #{row.tokenId}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+
             {failed.length > 0 ? (
-              <p className="sell-flow-csv-modal__done-fail">
+              <p className="sell-flow-csv-modal__done-fail" role="alert">
                 <span className="tkl-mono">{failed.length}</span> failed:{" "}
                 {failed.map((row, i) => (
                   <span key={row.cert}>
                     {i > 0 ? ", " : null}
                     <span className="tkl-mono">{row.cert}</span>
+                    {row.title ? ` (${row.title})` : null}
                   </span>
                 ))}
               </p>
             ) : null}
+
             <div className="sell-flow-csv-modal__done-actions">
-              <TkButton
-                href={collectionHref}
-                variant="primary"
-                className="sell-flow-csv-modal__view"
-              >
-                View in collection
-              </TkButton>
+              {okN > 0 ? (
+                <TkButton
+                  href={collectionHref}
+                  variant="primary"
+                  className="sell-flow-csv-modal__view"
+                >
+                  Set prices
+                </TkButton>
+              ) : null}
               {failed.length > 0 ? (
                 <TkButton
                   type="button"
@@ -160,20 +197,33 @@ export function SellFlowPartnerMintModal({
                 >
                   Retry failed
                 </TkButton>
-              ) : (
-                <TkButton
-                  type="button"
-                  variant="subtle"
-                  className="sell-flow-partner-btn--ghost sell-flow-csv-modal__close"
-                  onClick={onDismissResult}
-                >
-                  Close
-                </TkButton>
-              )}
+              ) : null}
+              <TkButton
+                type="button"
+                variant="subtle"
+                className="sell-flow-partner-btn--ghost sell-flow-csv-modal__close"
+                onClick={onDismissResult}
+              >
+                {okN > 0 ? "Add cards" : "Close"}
+              </TkButton>
             </div>
           </>
         ) : (
           <>
+            <div className="sell-flow-csv-modal__head">
+              <div id="partner-mint-modal-title" className="sell-flow-csv-modal__title">
+                Minting your cards
+              </div>
+              <span className="sell-flow-csv-pill">Minting</span>
+            </div>
+
+            <div className="sell-flow-csv-modal__frac-row">
+              <span className="sell-flow-csv-frac tkl-mono">{frac}</span>
+            </div>
+            <div className="sell-flow-csv-bar">
+              <span style={{ width: `${barPct}%` }} />
+            </div>
+
             <p className="sell-flow-csv-pnote sell-flow-csv-modal__note">
               Each card is minted on-chain one at a time on our servers. You can hide this
               dialog or leave this page — mint keeps running. We&apos;ll notify you in your

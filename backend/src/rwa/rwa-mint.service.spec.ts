@@ -39,6 +39,7 @@ describe('RwaMintService', () => {
     assertCertAvailableForSelfVault: jest.fn().mockResolvedValue(undefined),
     attachCycleForCert: jest.fn().mockResolvedValue(true),
     markItemCompletedForCycle: jest.fn().mockResolvedValue(true),
+    cancelPreShipPackagesForCert: jest.fn().mockResolvedValue(0),
   };
   const mintRecovery = {
     reconcileBlockingOpenCycle: jest.fn().mockResolvedValue(false),

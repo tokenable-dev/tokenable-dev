@@ -18,12 +18,21 @@ export function redirectGuestFromProtectedRoute(
     router.replace("/");
     return true;
   }
+  if (path === "/sell" || path.startsWith("/sell/")) {
+    router.replace("/");
+    return true;
+  }
   if (path.startsWith("/vault/submit") || path.startsWith("/vault/submissions")) {
     router.replace("/markets");
     return true;
   }
   if (path === "/vault/list") {
     router.replace("/markets");
+    return true;
+  }
+  // Collector sell hub (`/vault`) — same as sell; no public guest landing.
+  if (path === "/vault" || path.startsWith("/vault/")) {
+    router.replace("/");
     return true;
   }
   if (path.startsWith("/partner/")) {

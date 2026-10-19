@@ -80,6 +80,23 @@ export class VaultSubmissionsController {
     );
   }
 
+  @Post(':idOrPublicId/cancel')
+  @ApiOperation({
+    summary:
+      'Cancel a pre-ship package (awaiting_shipment / legacy draft). Blocked after tracking.',
+  })
+  cancel(
+    @Req() req: Request & { user: User },
+    @Param('idOrPublicId') idOrPublicId: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
+  ) {
+    return this.submissions.cancelPreShipPackage(
+      req.user.id,
+      idOrPublicId,
+      chainHeader,
+    );
+  }
+
   @Patch(':idOrPublicId/draft')
   @ApiOperation({
     summary: 'Alias of POST /draft with publicId pinned (ship-stage package upsert)',

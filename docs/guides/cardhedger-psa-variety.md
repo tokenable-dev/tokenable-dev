@@ -138,6 +138,12 @@ Tokenable used to treat SAR like a named parallel (Master Ball / Silver Prizm). 
 
 **수정:** `psaVarietyIsSpecialArtRareLabel` — SAR is a Pokémon rarity label (same class as SIR / Art Rare). `marketParallelKey` stays `base`. Do not require “special art” on the Cardhedger row.
 
+### Pokémon `RGB RARE` vs Cardhedger color + `R/RGB` (cert `178464163`)
+
+PSA Variety is often **`RGB RARE`** while Cardhedger files that print as **`variant: "Red"`** (or Green/Blue) with checklist **`number: "R/RGB"`** (channel letter + `/RGB`). Tokenable used to reject the cert `card_id` because `Red` ⊄ PSA tokens `{rgb, rare}`, so admin create-from-cert / snapshot stayed unmatched even when `details-by-certs` and `prices-by-cert` already had sales (~$10k PSA 9).
+
+**수정:** when PSA Variety contains `RGB` and Cardhedger `number` is `{R|G|B}/RGB`, accept the matching chrome-color `variant` (`Red`↔`R`, …). Checklist channel letter is the join key — not a per-cert color map. Ordinary sports `Red Refractor` rows without `/RGB` stay rejected.
+
 ### Pokémon rarity vs Cardhedger `Base` (compound PSA Variety)
 
 Cardhedger usually stores Pokémon **rarity slots** (Full Art, SAR, MUR, SIR, …) as **`variant: "Base"`** plus a unique card number. PSA Variety is often **only the rarity**, but just as often **`RARITY/SUBJECT`** on one line.

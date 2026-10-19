@@ -197,11 +197,9 @@ export function SellFlowPartnerSlabUpload({
         onClick={() => inputRef.current?.click()}
       >
         <ScanIcon />
-        Scan slab
+        Upload Photo
       </TkButton>
-      <p className="sell-flow-slab-upload-hint">
-        {SLAB_UPLOAD_FORMAT_HINT} · one or many at once
-      </p>
+      <p className="sell-flow-slab-upload-hint">{SLAB_UPLOAD_FORMAT_HINT}</p>
 
       {batchBusy ? (
         <div

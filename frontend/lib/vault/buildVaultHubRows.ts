@@ -340,6 +340,8 @@ export type VaultHubPackage = {
   actionHref: string;
   actionTone: "primary" | "subtle";
   actionExternal: boolean;
+  /** Pre-ship only — owner can drop the package from Sell dashboard. */
+  canCancel: boolean;
   detailHref: string;
   createdAt: string;
 };
@@ -467,6 +469,7 @@ export function buildVaultHubPackages(
       vaultedCount: cards.filter((c) => c.state === "vaulted").length,
       rejectedCount: cards.filter((c) => c.state === "reject").length,
       cards,
+      canCancel: s.status === "awaiting_shipment" && !tracked,
       actionLabel,
       actionHref,
       actionTone,

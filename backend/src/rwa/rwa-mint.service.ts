@@ -262,6 +262,14 @@ export class RwaMintService {
     if (submissionLinked) {
       await this.vaultSubmissions.markItemCompletedForCycle(cycle.id);
     }
+    // Partner mint of a cert that was sitting in someone's pre-ship PSA package
+    // must clear those Sell-dashboard orphans (any user on this chain).
+    if (deliveryMode === 'direct') {
+      await this.vaultSubmissions.cancelPreShipPackagesForCert(
+        certNumber,
+        chainId,
+      );
+    }
     // Owner list grows on every mint — drop tokens-by-owner cache before
     // post-mint portfolio snapshot (otherwise rapid multi-mint freezes card_count).
     this.blockchain.invalidateTokensByOwnerCache(mintToAddress, chainId);

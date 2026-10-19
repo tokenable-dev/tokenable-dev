@@ -153,6 +153,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -208,6 +209,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     await service.upsertDraft('user-1', {
@@ -249,6 +251,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     const dto = await service.upsertDraft('user-1', {
@@ -282,6 +285,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
     const fixed = new Date(2026, 7, 5); // local Aug 5, 2026
     const { em } = makeEm({
@@ -300,6 +304,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
     const fixed = new Date(2026, 7, 5);
     const { em } = makeEm({ lastPublicIdRows: [] });
@@ -322,6 +327,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     await expect(service.upsertDraft('user-1', { cards: [] })).rejects.toBeInstanceOf(
@@ -344,6 +350,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     await expect(
@@ -411,6 +418,7 @@ describe('VaultSubmissionService.upsertDraft', () => {
       {} as never,
       {} as never,
       chainConfig as never,
+      { checkAvailableForNewCycle: jest.fn().mockResolvedValue({ available: true, certNumber: "12345678", message: null }) } as never,
     );
 
     const dto = await service.upsertDraft('user-1', { cards: [CONFIRMED_CARD] });

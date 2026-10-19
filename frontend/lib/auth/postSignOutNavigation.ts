@@ -4,9 +4,8 @@ export function pathnameRequiresLeaveAfterSignOut(pathname: string): boolean {
   if (path === "/settings" || path.startsWith("/settings/")) return true;
   if (path === "/kyc") return true;
   if (path.startsWith("/partner/")) return true;
-  if (path.startsWith("/vault/submit") || path.startsWith("/vault/submissions")) {
-    return true;
-  }
-  if (path === "/vault/list") return true;
+  // Sell hub + flow — wallet-gated; leave to landing instead of re-prompting Privy.
+  if (path === "/sell" || path.startsWith("/sell/")) return true;
+  if (path === "/vault" || path.startsWith("/vault/")) return true;
   return false;
 }
