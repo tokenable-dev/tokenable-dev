@@ -20,12 +20,6 @@ export function VaultHubHeader() {
           <polyline points="12 5 19 12 12 19" />
         </svg>
       </Link>
-      <Link href="/sell/catalog" className="vault-dash-add">
-        <span className="vault-dash-add__t">List a catalog item</span>
-      </Link>
-      <Link href="/sell/listings" className="vault-dash-add">
-        <span className="vault-dash-add__t">Your catalog listings</span>
-      </Link>
       <h2 className="vault-dash-sec">Vaulting progress</h2>
     </div>
   );
