@@ -51,6 +51,8 @@ import { CardhedgerPriceDeltaImportRun } from './cardhedger/entities/cardhedger-
 import { PricechartingCatalogSource } from './pricecharting/entities/pricecharting-catalog-source.entity';
 import { PricechartingPriceHistory } from './pricecharting/entities/pricecharting-price-history.entity';
 import { PricechartingImportRun } from './pricecharting/entities/pricecharting-import-run.entity';
+import { PricechartingListingPhoto } from './pricecharting/entities/pricecharting-listing-photo.entity';
+import { PricechartingListing } from './pricecharting/entities/pricecharting-listing.entity';
 import { PricechartingProduct } from './pricecharting/entities/pricecharting-product.entity';
 import { MarketplaceAdmin } from './marketplace/entities/marketplace-admin.entity';
 import { VaultAsset } from './vault/entities/vault-asset.entity';
@@ -159,6 +161,8 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           PricechartingImportRun,
           PricechartingCatalogSource,
           PricechartingPriceHistory,
+          PricechartingListing,
+          PricechartingListingPhoto,
           MarketplaceAdmin,
           MarketplacePartner,
           MarketplacePartnerAddress,

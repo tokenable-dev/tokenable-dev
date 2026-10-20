@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { TkButton, TkDialog } from "@/components/ds";
 
@@ -174,6 +175,15 @@ export function SellFlowChooseVault({
             Continue
           </TkButton>
         </div>
+        <p>
+          <Link href="/sell/catalog" className="sell-flow-link">
+            List a catalog item
+          </Link>
+          {" · "}
+          <Link href="/sell/listings" className="sell-flow-link">
+            Your catalog listings
+          </Link>
+        </p>
       </div>
 
       <TkDialog

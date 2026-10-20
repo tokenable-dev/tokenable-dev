@@ -1,7 +1,7 @@
 /** Home / ticker strip sizes — match frontend `HOME_*_LIMIT`. */
 export const HOME_TOP_MOVERS_LIMIT = 10;
 export const HOME_JUST_VAULTED_LIMIT = 10;
-export const HOME_TICKER_LIMIT = 8;
+export const HOME_TICKER_LIMIT = 15;
 export const HOME_MOVERS_LAG_90D_SEC = 90 * 86_400;
 
 export function pickHomeTopMoverKeys(

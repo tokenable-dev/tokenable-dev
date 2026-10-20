@@ -47,22 +47,31 @@ wait_for_postgres() {
   return 1
 }
 
-run_psql_once() {
+# psql -f, not stdin. \ir is relative to the script file only when psql is given -f.
+# A failed stdin run also consumes the file, so a retry would succeed on empty SQL.
+run_psql_file() {
+  local f="$1"
   if [[ -n "${DATABASE_URL:-}" ]]; then
-    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 "$@"
+    psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f "$f"
     return
   fi
   if postgres_via_docker; then
-    docker exec -i "$POSTGRES_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
+    local dest="/tmp/tokenable-maintenance-sql"
+    docker exec "$POSTGRES_CONTAINER" rm -rf "$dest"
+    docker cp "$ROOT" "$POSTGRES_CONTAINER:$dest"
+    docker exec "$POSTGRES_CONTAINER" \
+      psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 \
+      -f "$dest/maintenance/$(basename "$f")"
     return
   fi
-  psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 "$@"
+  psql -U "$PGUSER" -d "$PGDATABASE" -v ON_ERROR_STOP=1 -f "$f"
 }
 
 run_psql() {
+  local f="$1"
   local attempt=1
   while (( attempt <= PG_ATTEMPTS )); do
-    if run_psql_once "$@"; then
+    if run_psql_file "$f"; then
       return 0
     fi
     echo "apply-deploy-maintenance: psql failed (attempt ${attempt}/${PG_ATTEMPTS})" >&2
@@ -83,8 +92,7 @@ for rel in "${FILES[@]}"; do
     exit 1
   fi
   echo "apply-deploy-maintenance: $(basename "$f")"
-  # stdin so the same path works for docker exec (no host bind-mount of sql/).
-  run_psql < "$f"
+  run_psql "$f"
 done
 
 echo "apply-deploy-maintenance: complete (${#FILES[@]} file(s))"

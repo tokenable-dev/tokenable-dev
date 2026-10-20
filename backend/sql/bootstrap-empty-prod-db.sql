@@ -28,6 +28,7 @@ BEGIN;
 \ir schema/071_pricecharting.sql
 \ir schema/072_pricecharting_sources.sql
 \ir schema/073_pricecharting_price_history.sql
+\ir schema/074_pricecharting_listings.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

@@ -194,6 +194,11 @@ export class CatalogCoverS3Service {
     return this.publicBaseUrl;
   }
 
+  /** Prefix already used by collection covers. Listing photos append their own folder. */
+  getObjectKeyPrefix(): string {
+    return this.prefix;
+  }
+
   assertConfigured(): void {
     if (!this.isConfigured() || !this.client) {
       throw new Error('CATALOG_COVER_S3_NOT_CONFIGURED');

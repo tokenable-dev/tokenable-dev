@@ -60,6 +60,19 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes pricecharting listing tables', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) => r.kind === 'table' && r.name === 'pricecharting_listings',
+      ),
+    ).toBe(true);
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) => r.kind === 'table' && r.name === 'pricecharting_listing_photos',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes partner_vault_mint_jobs (sell-flow mint)', () => {
     expect(
       REQUIRED_SCHEMA.some(

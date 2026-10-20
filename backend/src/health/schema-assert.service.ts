@@ -29,6 +29,16 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     fix: DEPLOY_SYNC_FIX,
   },
   {
+    kind: 'table',
+    name: 'pricecharting_listings',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
+    name: 'pricecharting_listing_photos',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
     kind: 'column',
     table: 'vault_cycles',
     column: 'mint_attempt',

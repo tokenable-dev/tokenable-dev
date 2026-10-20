@@ -1014,14 +1014,6 @@
   }
 }
 
-/* Max 8 tiles per home listing row (ds-23). */
-.home-page #grid-movers > .card:nth-child(n + 9),
-.home-page #grid-movers > a.card:nth-child(n + 9),
-.home-page #grid-vaulted > .card:nth-child(n + 9),
-.home-page #grid-vaulted > a.card:nth-child(n + 9) {
-  display: none;
-}
-
 /* ── Three guarantees band (index.html features section) ───────────────── */
 
 .home-features-band {

@@ -84,6 +84,25 @@ After the database commit succeeds, production (`NODE_ENV=production`) uploads t
 
 The date is the Seoul calendar day. The same guide or set on the same day overwrites that object. A failed import does not upload. If the commit succeeds and the put still fails after three tries, the import stays committed, `pricecharting_import_runs.error_message` records it, and the admin response includes `imported: true` and `archived: false`. Local and any non-production process does not write this bucket. A local download command is a later phase. The bucket stays private: no public ACL and no CloudFront URL. Reuse `AWS_REGION` and the default AWS credential chain (instance role or the existing keys). IAM needs `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::tokenable-pricecharting-raw/pricecharting/raw/*`, plus `s3:ListBucket` on the bucket limited to that prefix. Cover, avatar, and slab permissions stay as they are.
 
-User-facing market prices still read `collection_market_snapshots`. This catalog is not wired into that merge yet.
+User-facing graded-card prices still read `collection_market_snapshots`. Catalog listings are a separate table.
+
+## Catalog listings
+
+Signed-in sellers search `pricecharting_products` locally. These routes do not call PriceCharting.
+
+| | |
+|--|--|
+| One match | `GET /api/pricecharting/catalog/product` — exactly one of `id`, `upc`, `q`. Several matches return `{ match: null, ambiguous: true }`. |
+| Text search | `GET /api/pricecharting/catalog/products?q=` — at most 20, ordered by product id. Tokens are whole words in `product_name` or `console_name`. |
+| UPC | `GET /api/pricecharting/catalog/upc?upc=` — exact string match, leading zeros kept, at most 20. |
+| Draft | `POST /api/pricecharting/listings` `{ pricechartingProductId, clientRequestId }` |
+| Photo | `POST /api/pricecharting/listings/:id/photos` — object key `{prefix}pricecharting-listings/{listingId}/{photoId}` on the existing cover bucket. |
+| Submit | `POST /api/pricecharting/listings/:id/submit` `{ askPriceCents, quantity, sealedStatus, conditionNote? }` |
+| Mine / cancel | `GET /api/pricecharting/listings/mine`, `POST /api/pricecharting/listings/:id/cancel` |
+| Public | `GET /api/pricecharting/listings`, `GET /api/pricecharting/listings/:id` |
+
+`GET /api/pricecharting/listings/:id` adds the stored catalog row: identity fields, every non-null cent column, and `loosePriceHistory` from `pricecharting_price_history`. The list route stays the short listing shape.
+
+The reference price is `loose_price_cents` on the catalog row. The seller's asking price is `ask_price_cents` on the listing. There is no checkout.
 
 Purge stored rows if the subscription ends.

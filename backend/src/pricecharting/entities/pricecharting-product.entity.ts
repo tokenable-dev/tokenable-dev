@@ -99,6 +99,7 @@ export class PricechartingProduct {
   @Column({ name: 'retail_new_sell_cents', type: 'integer', nullable: true })
   retailNewSellCents: number | null;
 
+  @Index('idx_pricecharting_products_upc')
   @Column({ type: 'varchar', length: 32, nullable: true })
   upc: string | null;
 
