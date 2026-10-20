@@ -2,9 +2,19 @@ import type { PsaAnalyzeResult } from "@/lib/core";
 import { isPsaRateLimitError } from "@/lib/psa/psaApiErrors";
 import { sellDraftCardFieldsFromPsaAnalyze } from "@/lib/sell/sellFlowDraft";
 
-/** Sell-flow partner list policy (CSV + slab + cert entry). */
+/** Sell-flow partner list policy (CSV + slab + cert entry). PSA only — no BGS. */
 export const PARTNER_PSA_GRADE_REJECT_MESSAGE =
-  "Only PSA 9 and PSA 10 are accepted right now.";
+  "Grade not accepted. PSA 9 or 10.";
+
+/** Look-up / list errors — product copy (cert entry + CSV hints). */
+export const SELL_CERT_INVALID_FORMAT =
+  "Invalid format. Enter a 7 to 10 digit cert number.";
+export const SELL_CERT_LIST_FULL =
+  "Limit reached. Up to 99 cards per submission.";
+export const SELL_CERT_DUPLICATE =
+  "Duplicate. This card is already in your list.";
+export const SELL_CERT_NOT_FOUND =
+  "Not found. Check the cert number on the slab.";
 
 export type PartnerCsvErrorKind =
   | "invalid_cert"
@@ -38,7 +48,13 @@ export function cardDisplayNameFromPsaAnalyze(r: PsaAnalyzeResult): string {
 export function classifyPartnerCsvLookupError(message: string): PartnerCsvErrorKind {
   const m = message.toLowerCase();
 
-  if (m.includes("only psa 9 and psa 10")) return "grade_not_accepted";
+  if (
+    m.includes("grade not accepted") ||
+    m.includes("only psa 9 and psa 10") ||
+    m.includes("psa 9 or 10")
+  ) {
+    return "grade_not_accepted";
+  }
   if (
     m.includes("already minted") ||
     m.includes("redeem it before") ||
@@ -52,12 +68,23 @@ export function classifyPartnerCsvLookupError(message: string): PartnerCsvErrorK
   ) {
     return "psa_shipment";
   }
-  if (m.includes("already in your list")) return "duplicate";
-  if (m.includes("99 cards per submission") || m.includes("up to 99")) {
+  if (
+    m.includes("already in your list") ||
+    m.startsWith("duplicate.")
+  ) {
+    return "duplicate";
+  }
+  if (
+    m.includes("limit reached") ||
+    m.includes("99 cards per submission") ||
+    m.includes("up to 99")
+  ) {
     return "list_full";
   }
   if (
+    m.includes("invalid format") ||
     m.includes("invalid cert") ||
+    m.includes("7 to 10 digit") ||
     m.includes("7–10 digits") ||
     m.includes("7-10 digits") ||
     m.includes("valid psa cert")
@@ -73,6 +100,7 @@ export function classifyPartnerCsvLookupError(message: string): PartnerCsvErrorK
     return "rate_limit";
   }
   if (
+    m.startsWith("not found.") ||
     m.includes("couldn't find") ||
     m.includes("could not find") ||
     m.includes("not find that cert")
@@ -96,11 +124,11 @@ export function classifyPartnerCsvLookupError(message: string): PartnerCsvErrorK
 export function partnerCsvErrorHint(kind: PartnerCsvErrorKind): string {
   switch (kind) {
     case "invalid_cert":
-      return "Enter a valid PSA cert number (7–10 digits).";
+      return SELL_CERT_INVALID_FORMAT;
     case "duplicate":
-      return "This cert is already on your list.";
+      return SELL_CERT_DUPLICATE;
     case "list_full":
-      return "You can add up to 99 cards per submission.";
+      return SELL_CERT_LIST_FULL;
     case "already_minted":
       return "This cert is already minted on this network. Redeem it before minting again.";
     case "psa_shipment":
@@ -108,7 +136,7 @@ export function partnerCsvErrorHint(kind: PartnerCsvErrorKind): string {
     case "grade_not_accepted":
       return PARTNER_PSA_GRADE_REJECT_MESSAGE;
     case "not_found":
-      return "We could not find that cert number. Check the number on the slab.";
+      return SELL_CERT_NOT_FOUND;
     case "rate_limit":
       return "PSA rate limit reached. Please wait and try again later.";
     case "lookup_failed":

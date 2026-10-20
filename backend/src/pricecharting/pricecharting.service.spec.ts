@@ -1,0 +1,107 @@
+import { HttpException, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import {
+  PRICECHARTING_CSV_COOLDOWN_CODE,
+  PRICECHARTING_CSV_NOT_CONFIGURED_CODE,
+  PRICECHARTING_NOT_CONFIGURED_CODE,
+} from './pricecharting-errors';
+import { PricechartingService } from './pricecharting.service';
+
+function mockConfig(map: Record<string, string | undefined>): ConfigService {
+  return {
+    get: (key: string) => map[key],
+  } as unknown as ConfigService;
+}
+
+describe('PricechartingService', () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+    jest.restoreAllMocks();
+  });
+
+  it('throws when PRICECHARTING_API_TOKEN is missing', async () => {
+    const svc = new PricechartingService(mockConfig({}));
+    try {
+      await svc.forwardJsonGet('/api/product', { id: '6910' });
+      fail('expected throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ServiceUnavailableException);
+      const body = (e as ServiceUnavailableException).getResponse() as {
+        code?: string;
+      };
+      expect(body.code).toBe(PRICECHARTING_NOT_CONFIGURED_CODE);
+    }
+  });
+
+  it('injects t and strips client t on JSON GET', async () => {
+    const seen: string[] = [];
+    globalThis.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return new Response(
+        JSON.stringify({ status: 'success', id: '6910' }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      );
+    }) as unknown as typeof fetch;
+
+    const svc = new PricechartingService(
+      mockConfig({ PRICECHARTING_API_TOKEN: 'server-token-40chars' }),
+    );
+    const out = await svc.forwardJsonGet('/api/product', {
+      id: '6910',
+      t: 'client-should-not-win',
+    });
+
+    expect(out).toEqual({ status: 'success', id: '6910' });
+    expect(seen).toHaveLength(1);
+    const u = new URL(seen[0]!);
+    expect(u.pathname).toBe('/api/product');
+    expect(u.searchParams.get('t')).toBe('server-token-40chars');
+    expect(u.searchParams.get('id')).toBe('6910');
+  });
+
+  it('throws when CSV URL is missing', async () => {
+    const svc = new PricechartingService(
+      mockConfig({ PRICECHARTING_API_TOKEN: 'server-token' }),
+    );
+    try {
+      await svc.forwardCsv();
+      fail('expected throw');
+    } catch (e) {
+      expect(e).toBeInstanceOf(ServiceUnavailableException);
+      const body = (e as ServiceUnavailableException).getResponse() as {
+        code?: string;
+      };
+      expect(body.code).toBe(PRICECHARTING_CSV_NOT_CONFIGURED_CODE);
+    }
+  });
+
+  it('enforces CSV 10-minute cooldown after a successful download', async () => {
+    globalThis.fetch = jest.fn(async () => {
+      return new Response('id,product-name\n1,Test\n', {
+        status: 200,
+        headers: { 'content-type': 'text/csv' },
+      });
+    }) as unknown as typeof fetch;
+
+    const svc = new PricechartingService(
+      mockConfig({
+        PRICECHARTING_API_TOKEN: 'server-token',
+        PRICECHARTING_CSV_URL:
+          'https://www.pricecharting.com/price-guide/download-custom?category=pokemon-cards',
+      }),
+    );
+
+    await svc.forwardCsv();
+    try {
+      await svc.forwardCsv();
+      fail('expected cooldown');
+    } catch (e) {
+      expect(e).toBeInstanceOf(HttpException);
+      expect((e as HttpException).getStatus()).toBe(429);
+      const body = (e as HttpException).getResponse() as { code?: string };
+      expect(body.code).toBe(PRICECHARTING_CSV_COOLDOWN_CODE);
+    }
+  });
+});

@@ -150,6 +150,11 @@ PINATA_GATEWAY=your_gateway.mypinata.cloud
 PSA_PUBLIC_API_TOKENS=token1,token2
 # PSA_PUBLIC_API_UPSTREAM_ENABLED=true
 
+# PriceCharting (Prices API + Legendary CSV — Marketplace not proxied)
+PRICECHARTING_API_TOKEN=your_pricecharting_token
+# PRICECHARTING_CSV_URL=https://www.pricecharting.com/...  # from Subscription → API/Download
+# PRICECHARTING_BASE_URL=https://www.pricecharting.com
+
 # Cardhedger
 CARDHEDGER_API_KEY=your_cardhedger_key
 # Pokémon normalized matcher — observation only (default off).

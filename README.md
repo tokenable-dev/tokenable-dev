@@ -40,6 +40,7 @@ Trading remains non-custodial until settlement; criteria bids cover Merkle-eligi
 - **Node.js 22+** / **TypeScript**
 - **NestJS 11** — REST API, Swagger under `/api/docs`
 - **Cardhedger** — Live card/game pricing, mint previews, `/api/cardhedger/v1/*` proxy (`CARDHEDGER_API_KEY` required)
+- **PriceCharting** — Prices API + Legendary CSV proxy (`/api/pricecharting/*`, `PRICECHARTING_API_TOKEN`; Marketplace not proxied)
 - **PSA Public API** — Cert lookup + slab OCR (`PSA_PUBLIC_API_TOKEN`)
 - **Pinata** — IPFS pinning for RWA metadata/images
 - **PostgreSQL + TypeORM** — 17 entities / ~17 tables ([docs/architecture/database.md](docs/architecture/database.md))

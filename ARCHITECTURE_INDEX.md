@@ -145,6 +145,22 @@ Key facts:
 
 ---
 
+### PriceCharting Integration (Prices + CSV)
+
+| | |
+|---|---|
+| **Documentation** | `docs/api/pricecharting.md` |
+| **Implementation** | `backend/src/pricecharting/` |
+| **Required reading before changes** | `docs/api/pricecharting.md` |
+
+Key facts:
+- Proxies Prices API only (`/api/product`, `/api/products`) + Legendary CSV download
+- Marketplace upstream (offer publish/ship/refund) is **not** exposed — unrelated to Tokenable
+- Server injects `PRICECHARTING_API_TOKEN` as `t`; JSON ≤1 req/sec; CSV once / 10 min
+- DB ingest from CSV is a follow-on step — this module is the Swagger-testable proxy
+
+---
+
 ### Portfolio
 
 | | |

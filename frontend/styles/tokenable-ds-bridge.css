@@ -1,4 +1,4 @@
-/* Maps next/font variables into DS token stacks + prototype layout aliases. */
+/* Maps next/font (local) CSS variables into DS token stacks + prototype layout aliases. */
 
 :root:root {
   /* Match index.html — out-specify design-system/tokens/base.css regardless of load order. */

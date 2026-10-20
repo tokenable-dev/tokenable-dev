@@ -19,6 +19,7 @@ import { BlockchainModule } from './blockchain/blockchain.module';
 import { MarketplaceModule } from './marketplace/marketplace.module';
 import { CardhedgerModule } from './cardhedger/cardhedger.module';
 import { CardhedgerPriceInfraModule } from './cardhedger/cardhedger-price-infra.module';
+import { PricechartingModule } from './pricecharting/pricecharting.module';
 import {
   isCardhedgerPriceInfraEnabled,
   readCardhedgerFeatureFlags,
@@ -196,6 +197,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
     ...(isCardhedgerPriceInfraEnabled(readCardhedgerFeatureFlags())
       ? [CardhedgerPriceInfraModule]
       : []),
+    PricechartingModule,
     CardladderModule,
     PsaModule,
     MarketplaceModule,

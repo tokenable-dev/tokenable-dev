@@ -8,6 +8,10 @@ import {
   classifyPartnerCsvLookupError,
   PARTNER_PSA_GRADE_REJECT_MESSAGE,
   partnerCsvLookupErrorFromUnknown,
+  SELL_CERT_DUPLICATE,
+  SELL_CERT_INVALID_FORMAT,
+  SELL_CERT_LIST_FULL,
+  SELL_CERT_NOT_FOUND,
   type PartnerCsvErrorKind,
 } from "@/lib/sell/partnerCsvLookup";
 import {
@@ -487,13 +491,13 @@ export function useSellFlow() {
       const current = cardsRef.current;
       if (current.length >= MAX_CARDS) {
         if (!opts?.silent) {
-          setCertError("You can add up to 99 cards per submission.");
+          setCertError(SELL_CERT_LIST_FULL);
         }
         return false;
       }
       if (current.some((c) => c.cert === built.cert)) {
         if (!opts?.silent) {
-          setCertError("That card is already in your list.");
+          setCertError(SELL_CERT_DUPLICATE);
         }
         return false;
       }
@@ -527,7 +531,7 @@ export function useSellFlow() {
         return {
           ok: false,
           fileName,
-          error: "You can add up to 99 cards per submission.",
+          error: SELL_CERT_LIST_FULL,
         };
       }
       try {
@@ -557,7 +561,7 @@ export function useSellFlow() {
         });
         if (!added) {
           if (cardsRef.current.some((c) => c.cert === preview.cert)) {
-            return { ok: false, fileName, error: "Already in your list." };
+            return { ok: false, fileName, error: SELL_CERT_DUPLICATE };
           }
           return {
             ok: false,
@@ -589,15 +593,15 @@ export function useSellFlow() {
     const cert = certInput.trim();
     setCertError(null);
     if (!/^\d{7,10}$/.test(cert)) {
-      setCertError("Enter a valid PSA cert number (7–10 digits).");
+      setCertError(SELL_CERT_INVALID_FORMAT);
       return;
     }
     if (cards.length >= MAX_CARDS) {
-      setCertError("You can add up to 99 cards per submission.");
+      setCertError(SELL_CERT_LIST_FULL);
       return;
     }
     if (cards.some((c) => c.cert === cert)) {
-      setCertError("That card is already in your list.");
+      setCertError(SELL_CERT_DUPLICATE);
       return;
     }
     lookupLockRef.current = true;
@@ -616,10 +620,10 @@ export function useSellFlow() {
           "PSA rate limit reached. Please wait and try again later.",
         );
       } else {
+        const raw = e instanceof Error ? e.message : "";
+        const kind = classifyPartnerCsvLookupError(raw || SELL_CERT_NOT_FOUND);
         setCertError(
-          e instanceof Error
-            ? e.message
-            : "We couldn’t find that cert number. Check the number on the slab.",
+          kind === "not_found" || !raw ? SELL_CERT_NOT_FOUND : raw,
         );
       }
     } finally {
@@ -699,7 +703,7 @@ export function useSellFlow() {
       if (!file) return;
       setCertError(null);
       if (cardsRef.current.length >= MAX_CARDS) {
-        setCertError("You can add up to 99 cards per submission.");
+        setCertError(SELL_CERT_LIST_FULL);
         return;
       }
       lookupLockRef.current = true;
@@ -737,7 +741,7 @@ export function useSellFlow() {
             outcomes.push({
               ok: false,
               fileName,
-              error: "You can add up to 99 cards per submission.",
+              error: SELL_CERT_LIST_FULL,
             });
             continue;
           }

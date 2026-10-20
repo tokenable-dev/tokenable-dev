@@ -148,6 +148,8 @@ Frontend perf toggle uses `localStorage` keys (`PERF_LOG`, `PERF_THRESHOLD_MS`).
 | Variable | Service | Purpose |
 |----------|---------|---------|
 | `CARDHEDGER_API_KEY` | backend | Cardhedger upstream |
+| `PRICECHARTING_API_TOKEN` | backend | PriceCharting Prices API + CSV (`t` injected server-side) |
+| `PRICECHARTING_CSV_URL` | backend | Legendary CSV download URL (optional until configured) |
 | `PSA_PUBLIC_API_TOKENS` | backend | PSA cert lookup — comma-separated multi-token pool |
 | `MARKET_SNAPSHOT_*` | backend | Collection market snapshot worker tuning |
 | `REDIS_URL` | backend | Identity cache L2 (optional) |
