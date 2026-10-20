@@ -109,6 +109,17 @@ export const DATA_STORE_CATALOG: DataStoreCatalogEntry[] = [
     adminPagePath: '/marketplace/admin/collections',
   },
   {
+    id: 'pricecharting_products',
+    table: 'pricecharting_products',
+    domain: 'markets',
+    label: 'PriceCharting 카탈로그',
+    description:
+      'PriceCharting·SportsCardsPro CSV 적재. collection 시세 스냅샷과 별개. 가격은 센트 정수. PSA 10 = manual_only_price_cents.',
+    howAccumulated:
+      'Admin PriceCharting 페이지에서 CSV 업로드. 같은 product id는 가격만 갱신.',
+    adminPagePath: '/marketplace/admin/pricecharting',
+  },
+  {
     id: 'cardhedger_price_delta_import_runs',
     table: 'cardhedger_price_delta_import_runs',
     domain: 'markets',

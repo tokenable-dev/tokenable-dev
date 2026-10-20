@@ -130,6 +130,13 @@ export const ADMIN_NAV_SECTIONS: AdminNavSection[] = [
         prefix: "/marketplace/admin/price-webhooks",
         description: "Cardhedger delta import",
       },
+      {
+        href: "/marketplace/admin/pricecharting",
+        label: "PriceCharting",
+        icon: "files",
+        prefix: "/marketplace/admin/pricecharting",
+        description: "CSV catalog upload (Pokemon, One Piece, sports sets)",
+      },
     ],
   },
   {

@@ -24,6 +24,9 @@ build
 # EC2 manual TLS backups (do not commit; deploy removes these)
 nginx/nginx.tls.conf.bak.*
 
+# PriceCharting guide archives (one CSV per guide per Seoul date)
+backend/var/
+
 # 기타
 .DS_Store
 *.log

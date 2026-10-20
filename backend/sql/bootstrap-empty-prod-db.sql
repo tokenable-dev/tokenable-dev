@@ -25,6 +25,9 @@ BEGIN;
 \ir schema/066_marketplace_partner_addresses.sql
 \ir schema/067_partner_vault_mint.sql
 \ir schema/070_cardhedger.sql
+\ir schema/071_pricecharting.sql
+\ir schema/072_pricecharting_sources.sql
+\ir schema/073_pricecharting_price_history.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

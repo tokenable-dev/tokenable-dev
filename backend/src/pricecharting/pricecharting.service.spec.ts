@@ -5,13 +5,36 @@ import {
   PRICECHARTING_CSV_NOT_CONFIGURED_CODE,
   PRICECHARTING_NOT_CONFIGURED_CODE,
 } from './pricecharting-errors';
-import { PricechartingService } from './pricecharting.service';
+import {
+  buildCatalogDownloadUrl,
+  normalizeCatalogSourceUrl,
+  PricechartingService,
+} from './pricecharting.service';
 
 function mockConfig(map: Record<string, string | undefined>): ConfigService {
   return {
     get: (key: string) => map[key],
   } as unknown as ConfigService;
 }
+
+describe('catalog CSV urls', () => {
+  it('strips the token before storing and injects the server token for download', () => {
+    const raw =
+      'https://www.pricecharting.com/price-guide/download-custom?t=secret-token&category=pokemon';
+    expect(normalizeCatalogSourceUrl(raw)).toBe(
+      'https://www.pricecharting.com/price-guide/download-custom?category=pokemon',
+    );
+    const download = buildCatalogDownloadUrl(raw, 'server-token');
+    expect(download.searchParams.get('t')).toBe('server-token');
+    expect(download.searchParams.get('category')).toBe('pokemon');
+  });
+
+  it('rejects hosts other than PriceCharting and SportsCardsPro', () => {
+    expect(() => normalizeCatalogSourceUrl('https://example.com/file.csv')).toThrow(
+      /pricecharting\.com or sportscardspro\.com/,
+    );
+  });
+});
 
 describe('PricechartingService', () => {
   const originalFetch = globalThis.fetch;

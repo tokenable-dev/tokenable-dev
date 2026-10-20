@@ -14,6 +14,21 @@ const DEPLOY_SYNC_FIX = 'maintenance/deploy-sync.sql (or run apply-deploy-mainte
 
 export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   {
+    kind: 'table',
+    name: 'pricecharting_products',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
+    name: 'pricecharting_catalog_sources',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
+    name: 'pricecharting_price_history',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
     kind: 'column',
     table: 'vault_cycles',
     column: 'mint_attempt',

@@ -19,6 +19,16 @@ function isAbortMessage(msg: string): boolean {
   return m.includes('aborted') || m.includes('abort');
 }
 
+/** Upstream closed the socket while the CSV body was still arriving. */
+export function isPricechartingConnectionReset(err: unknown): boolean {
+  const cause =
+    err && typeof err === 'object' && 'cause' in err
+      ? (err as { cause?: { code?: string; message?: string } }).cause
+      : undefined;
+  const raw = `${err instanceof Error ? err.message : String(err)} ${cause?.code ?? ''} ${cause?.message ?? ''}`;
+  return /terminated|econnreset|socket hang up|econnrefused|etimedout/i.test(raw);
+}
+
 export function throwPricechartingNotConfigured(): never {
   throw new ServiceUnavailableException({
     statusCode: 503,
@@ -53,8 +63,17 @@ export function throwPricechartingFetchFailed(
   err: unknown,
   timeoutMs: number,
 ): never {
-  const raw =
-    err instanceof Error ? err.message : err != null ? String(err) : 'unknown';
+  const raw = (
+    err instanceof Error ? err.message : err != null ? String(err) : 'unknown'
+  ).replace(/([?&]t=)[^&\s]+/gi, '$1');
+  if (isPricechartingConnectionReset(err)) {
+    throw new ServiceUnavailableException({
+      statusCode: 503,
+      code: PRICECHARTING_NETWORK_ERROR_CODE,
+      message:
+        'PriceCharting closed the connection while sending the CSV. Wait a few minutes and run this guide again.',
+    });
+  }
   if (isAbortMessage(raw)) {
     throw new GatewayTimeoutException({
       statusCode: 504,

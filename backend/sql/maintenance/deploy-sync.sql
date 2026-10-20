@@ -1637,4 +1637,96 @@ COMMENT ON COLUMN rwa_tokens.mint_tx_hash IS
 DROP TABLE IF EXISTS public.bulk_mint_job_items;
 DROP TABLE IF EXISTS public.bulk_mint_jobs;
 
+-- ── pricecharting_catalog.sql ──
+-- Admin CSV catalog for PriceCharting / SportsCardsPro. Idempotent.
+
+CREATE TABLE IF NOT EXISTS pricecharting_products (
+  id varchar(32) PRIMARY KEY,
+  console_name varchar(256) NOT NULL DEFAULT '',
+  product_name varchar(512) NOT NULL DEFAULT '',
+  loose_price_cents integer,
+  cib_price_cents integer,
+  new_price_cents integer,
+  graded_price_cents integer,
+  box_only_price_cents integer,
+  manual_only_price_cents integer,
+  bgs_10_price_cents integer,
+  condition_9_price_cents integer,
+  condition_10_price_cents integer,
+  condition_13_price_cents integer,
+  condition_14_price_cents integer,
+  condition_15_price_cents integer,
+  condition_16_price_cents integer,
+  condition_17_price_cents integer,
+  condition_18_price_cents integer,
+  condition_19_price_cents integer,
+  condition_20_price_cents integer,
+  condition_21_price_cents integer,
+  condition_22_price_cents integer,
+  gamestop_price_cents integer,
+  gamestop_trade_price_cents integer,
+  retail_loose_buy_cents integer,
+  retail_loose_sell_cents integer,
+  retail_cib_buy_cents integer,
+  retail_cib_sell_cents integer,
+  retail_new_buy_cents integer,
+  retail_new_sell_cents integer,
+  upc varchar(32),
+  sales_volume integer,
+  genre varchar(128),
+  tcg_id text,
+  asin varchar(32),
+  epid text,
+  release_date date,
+  source_file varchar(256) NOT NULL DEFAULT '',
+  imported_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricecharting_products_genre
+  ON pricecharting_products (genre);
+
+CREATE INDEX IF NOT EXISTS idx_pricecharting_products_console
+  ON pricecharting_products (console_name);
+
+CREATE TABLE IF NOT EXISTS pricecharting_import_runs (
+  id serial PRIMARY KEY,
+  filename varchar(256) NOT NULL,
+  byte_size integer NOT NULL,
+  row_count integer NOT NULL DEFAULT 0,
+  skipped_count integer NOT NULL DEFAULT 0,
+  genres jsonb NOT NULL DEFAULT '{}'::jsonb,
+  status varchar(16) NOT NULL DEFAULT 'success',
+  error_message text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS pricecharting_catalog_sources (
+  id serial PRIMARY KEY,
+  label varchar(128) NOT NULL,
+  url text NOT NULL,
+  enabled boolean NOT NULL DEFAULT true,
+  last_status varchar(16),
+  last_error text,
+  last_row_count integer,
+  last_run_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_pricecharting_catalog_sources_url
+  ON pricecharting_catalog_sources (url);
+
+CREATE TABLE IF NOT EXISTS pricecharting_price_history (
+  product_id varchar(32) NOT NULL,
+  observed_on date NOT NULL,
+  prices jsonb NOT NULL,
+  PRIMARY KEY (product_id, observed_on)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricecharting_price_history_observed_on
+  ON pricecharting_price_history (observed_on);
+
+ALTER TABLE pricecharting_products
+  ALTER COLUMN tcg_id TYPE text,
+  ALTER COLUMN epid TYPE text;
+
 

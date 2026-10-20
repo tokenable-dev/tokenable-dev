@@ -49,6 +49,10 @@ const nextConfig: NextConfig = {
       ? { position: "bottom-left" }
       : false,
   experimental: {
+    /** Admin CSV upserts (≈100k rows) must outlive the 30s rewrite proxy default. */
+    proxyTimeout: 300_000,
+    /** Rewrite proxy clones the body; default 10MB drops larger price guides. */
+    proxyClientMaxBodySize: "50mb",
     /**
      * Tree-shakes large packages so Turbopack/Webpack only bundles the exports actually used.
      * Significant dev compile-time win for viem (350+ sub-modules), wagmi, echarts.

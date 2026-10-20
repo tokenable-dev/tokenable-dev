@@ -143,6 +143,10 @@ CATALOG_COVER_S3_BUCKET=tokenable-catalog-covers
 CATALOG_COVER_S3_PREFIX=covers/
 CATALOG_COVER_PUBLIC_BASE_URL=https://YOUR_CLOUDFRONT_DOMAIN
 
+# PriceCharting raw CSV archive (private bucket; production writes only)
+PRICECHARTING_S3_BUCKET=tokenable-pricecharting-raw
+PRICECHARTING_S3_PREFIX=pricecharting/raw/
+
 # PSA (multi-token pool)
 PSA_PUBLIC_API_TOKENS=token1,token2,...
 

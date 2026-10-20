@@ -1,6 +1,7 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  isPricechartingConnectionReset,
   throwPricechartingCsvCooldown,
   throwPricechartingCsvNotConfigured,
   throwPricechartingFetchFailed,
@@ -14,8 +15,47 @@ const CSV_COOLDOWN_MS = 10 * 60 * 1_000;
 const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 const CSV_HTTP_TIMEOUT_MS = 120_000;
 
+const CATALOG_HOSTS = new Set([
+  'pricecharting.com',
+  'www.pricecharting.com',
+  'sportscardspro.com',
+  'www.sportscardspro.com',
+]);
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseAllowedCatalogUrl(raw: string): URL {
+  let url: URL;
+  try {
+    url = new URL(raw.trim());
+  } catch {
+    throw new BadRequestException(
+      'CSV URL must be an https link on pricecharting.com or sportscardspro.com',
+    );
+  }
+  if (url.protocol !== 'https:' || !CATALOG_HOSTS.has(url.hostname.toLowerCase())) {
+    throw new BadRequestException(
+      'CSV URL must be an https link on pricecharting.com or sportscardspro.com',
+    );
+  }
+  return url;
+}
+
+/** Stored form: same link the admin pasted, with any `t` token removed. */
+export function normalizeCatalogSourceUrl(raw: string): string {
+  const url = parseAllowedCatalogUrl(raw);
+  url.searchParams.delete('t');
+  url.hash = '';
+  return url.toString();
+}
+
+/** Fetch form: server token overwrites `t`. */
+export function buildCatalogDownloadUrl(raw: string, token: string): URL {
+  const url = parseAllowedCatalogUrl(raw);
+  url.searchParams.set('t', token);
+  return url;
 }
 
 /**
@@ -209,5 +249,55 @@ export class PricechartingService {
       `PriceCharting CSV downloaded (${buf.length} bytes, content-type=${contentType})`,
     );
     return { buffer: buf, contentType, contentDisposition };
+  }
+
+  /**
+   * Admin catalog fetch. Separate from the single-URL `/csv` proxy so a list
+   * of guides is not blocked by that route's 10-minute cooldown.
+   */
+  async downloadPriceList(rawUrl: string): Promise<Buffer> {
+    const token = this.getApiToken();
+    if (!token) throwPricechartingNotConfigured();
+
+    const url = buildCatalogDownloadUrl(rawUrl, token);
+    const timeoutMs = CSV_HTTP_TIMEOUT_MS;
+    const attempts = 3;
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        return await this.readPriceList(url, timeoutMs);
+      } catch (err) {
+        if (err instanceof HttpException) throw err;
+        const again = attempt < attempts && isPricechartingConnectionReset(err);
+        if (!again) throwPricechartingFetchFailed(err, timeoutMs);
+        this.logger.warn(
+          `PriceCharting download connection reset (attempt ${attempt} of ${attempts})`,
+        );
+        await sleep(4_000 * attempt);
+      }
+    }
+    throwPricechartingFetchFailed(new Error('terminated'), timeoutMs);
+  }
+
+  private async readPriceList(url: URL, timeoutMs: number): Promise<Buffer> {
+    const upstream = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Accept: 'text/csv,*/*',
+        'User-Agent': 'tokenable-pricecharting/1.0',
+      },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    if (!upstream.ok) {
+      let payload: unknown = buf.toString('utf8').slice(0, 500);
+      try {
+        payload = JSON.parse(buf.toString('utf8'));
+      } catch {
+        /* keep text */
+      }
+      throwPricechartingUpstreamHttpError(upstream.status, payload);
+    }
+    this.logger.log(`PriceCharting price list downloaded (${buf.length} bytes)`);
+    return buf;
   }
 }

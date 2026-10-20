@@ -18,6 +18,7 @@ export { MarketplaceAdminCollectionsPage } from "./MarketplaceAdminCollectionsPa
 export { MarketplaceAdminMarketsPage } from "./markets/MarketplaceAdminMarketsPage";
 export { MarketplaceAdminPortfolioPage } from "./portfolio/MarketplaceAdminPortfolioPage";
 export { MarketplaceAdminPriceWebhooksPage } from "./MarketplaceAdminPriceWebhooksPage";
+export { MarketplaceAdminPricechartingPage } from "./MarketplaceAdminPricechartingPage";
 export { MarketplaceAdminVaultPage } from "./MarketplaceAdminVaultPage";
 export { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
 export { MarketplaceAdminShell } from "./MarketplaceAdminShell";

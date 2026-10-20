@@ -1233,6 +1233,7 @@ export class DataInventoryService {
         lastActivity: 'updatedAt',
       }, estimates),
       this.loadMarketSnapshots(estimates),
+      this.loadPricechartingProducts(estimates),
       this.loadSimple('cardhedger_price_delta_import_runs', this.deltaRunsRepo, {
         oldest: 'ranAt',
         newest: 'ranAt',
@@ -1347,6 +1348,46 @@ export class DataInventoryService {
           newestAt: row?.newestAt ?? null,
           lastActivityAt: row?.lastActivityAt ?? null,
         }),
+      ];
+    } catch (err) {
+      this.logSkip(id, err);
+      return [id, emptyStats()];
+    }
+  }
+
+  private async loadPricechartingProducts(
+    estimates: Map<string, number>,
+  ): Promise<[string, DataStoreStats]> {
+    const id = 'pricecharting_products';
+    try {
+      const rowCount = await resolveInventoryRowCount(
+        estimates.get(id) ?? 0,
+        () => this.countRows(id),
+      );
+      if (rowCount === 0) return [id, emptyStats()];
+      const row = await this.dataSource.query(
+        `SELECT MIN(imported_at) AS "oldestAt", MAX(imported_at) AS "newestAt"
+         FROM pricecharting_products`,
+      );
+      const genres: { genre: string; n: number }[] = await this.dataSource.query(
+        `SELECT COALESCE(genre, '(blank)') AS genre, COUNT(*)::int AS n
+         FROM pricecharting_products
+         GROUP BY genre
+         ORDER BY n DESC
+         LIMIT 6`,
+      );
+      const highlights: Record<string, number> = {};
+      for (const g of genres) highlights[g.genre] = Number(g.n);
+      const newest = this.isoTimestamp(row?.[0]?.newestAt);
+      return [
+        id,
+        {
+          rowCount,
+          oldestAt: this.isoTimestamp(row?.[0]?.oldestAt),
+          newestAt: newest,
+          lastActivityAt: newest,
+          highlights,
+        },
       ];
     } catch (err) {
       this.logSkip(id, err);

@@ -262,6 +262,9 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 066 | `066_marketplace_partner_addresses.sql` | Partner company / Self-vault Origin address (1:1) |
 | 067 | `067_partner_vault_mint.sql` | `partner_vault_mint_jobs`, `partner_vault_mint_job_items` (sell-flow mint) |
 | 070 | `070_cardhedger.sql` | Cardhedger pricing infra |
+| 071 | `071_pricecharting.sql` | `pricecharting_products`, `pricecharting_import_runs` (admin CSV catalog; cents; not market snapshots) |
+| 072 | `072_pricecharting_sources.sql` | `pricecharting_catalog_sources` (admin CSV URLs; token not stored; no cron) |
+| 073 | `073_pricecharting_price_history.sql` | `pricecharting_price_history` (one price set per product per Seoul import date, including unchanged days) |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
 **Maintenance (existing DBs — not in bootstrap):**

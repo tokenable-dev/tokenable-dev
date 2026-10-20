@@ -24,6 +24,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/markets` | **Markets preview** | Home landing (90d top movers + just vaulted) |
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
+| `/marketplace/admin/pricecharting` | **PriceCharting** | Buttons for the five PriceCharting guides, plus CSV upload for sports sets. Latest row in `pricecharting_products`; changed prices kept by Seoul date in `pricecharting_price_history`. Production archives the original CSV to a private S3 bucket after the database commit. Not the live collection snapshot |
 | `/marketplace/admin/contract-roles` | **Contract roles** | TokenableRWA AccessControl grant/revoke |
 | `/marketplace/admin/vault/psa-mail` | **PSA mail** | Items Received Gmail queue — confirm → At PSA |
 | `/marketplace/admin/vault/mint-queue` | **Mint queue** | At PSA cards — mint & deliver NFT to depositor (Live) |
