@@ -137,7 +137,12 @@ export class PricechartingImportService {
       originalname: string;
       size: number;
     },
-    options?: { sportsArchive?: boolean; archiveSegments?: string[] },
+    options?: {
+      sportsArchive?: boolean;
+      archiveSegments?: string[];
+      /** Tests supply a Seoul day. Production omits this and uses seoulCalendarDay(). */
+      observedOn?: string;
+    },
   ): Promise<PricechartingImportResult> {
     const pending: {
       segments: string[] | null;
@@ -172,7 +177,10 @@ export class PricechartingImportService {
           throw new BadRequestException(`CSV exceeds ${MAX_ROWS} rows`);
         }
 
-        const day = seoulCalendarDay();
+        const day = options?.observedOn ?? seoulCalendarDay();
+        if (options?.observedOn && !/^\d{4}-\d{2}-\d{2}$/.test(options.observedOn)) {
+          throw new BadRequestException('observedOn must be YYYY-MM-DD');
+        }
         if (options?.sportsArchive) {
           const slug = dominantSetSlug(parsed.rows);
           filename = `${slug}-${day}.csv`;
