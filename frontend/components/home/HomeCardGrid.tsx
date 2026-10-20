@@ -3,7 +3,6 @@
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { useResolvedMediaUrlMap } from "@/hooks/media";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
-import { resolveMarketsListingMarketChangePct90d } from "@/lib/markets/marketsListingMarketPrice";
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
 
 export function HomeCardGrid({
@@ -11,14 +10,11 @@ export function HomeCardGrid({
   snapshotByKey,
   subMode = "change",
   changeLoading = false,
-  use90dChange = false,
 }: {
   collections: MarketplaceCollectionSummary[];
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
   subMode?: "change" | "vaulted";
   changeLoading?: boolean;
-  /** Home Top movers — fixed 90-day reference % change. */
-  use90dChange?: boolean;
 }) {
   const coverSources = collections.map((c) => pickCollectionSummaryDisplayImageUrl(c));
   const { map: coverUrlMap } = useResolvedMediaUrlMap(coverSources, {
@@ -42,10 +38,6 @@ export function HomeCardGrid({
         {collections.map((collection) => {
           const key = collection.collectionKey.toLowerCase();
           const snapshot = snapshotByKey.get(key);
-          const changePctOverride = use90dChange
-            ? resolveMarketsListingMarketChangePct90d(snapshot)
-            : undefined;
-          const periodLabel = use90dChange ? "90d" : undefined;
           return (
             <CollectibleCard
               key={collection.collectionKey}
@@ -57,8 +49,6 @@ export function HomeCardGrid({
               })()}
               subMode={subMode}
               changeLoading={changeLoading}
-              marketChangePctOverride={changePctOverride}
-              marketChangePeriodLabel={periodLabel}
               shell="none"
             />
           );

@@ -14,14 +14,12 @@ import {
   type GradePriceStrip,
   type UsdPoint,
   referenceChangeWithBestWindow,
-  referenceLagAnchorFromPoints,
 } from '../utils/collection-market.util';
 import {
   pickHomeTickerKeys,
   pickHomeTopMoverKeys,
   pickJustVaultedKeys,
   uniqueKeysInOrder,
-  HOME_MOVERS_LAG_90D_SEC,
 } from '../utils/collection-home-feed.util';
 import type { CollectionSummary } from './collection.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
@@ -1240,8 +1238,9 @@ export class CollectionMarketService {
 
   /**
    * Home ticker + Top movers + Just vaulted in one round-trip.
-   * Ranks from materialized snapshots (same 90d / 1Y rules as the previous
-   * client walk) and returns only the displayed collections.
+   * Top movers: stored reference gain (1Y, or the full span we have), highest
+   * first, only gains that round to at least +1%. Ticker: absolute change.
+   * Returns only the displayed collections.
    */
   async getHomeFeed(chainId?: SupportedChainId): Promise<HomeMarketplaceFeed> {
     const resolved = chainId ?? this.chainConfig.getDefaultChainId();
@@ -1260,11 +1259,6 @@ export class CollectionMarketService {
     const rankRows = allKeys.map((collectionKey) => {
       const snap = snapByKey.get(collectionKey);
       const spark = snap?.sparklineUsd ?? [];
-      const pct90d =
-        spark.length >= 2
-          ? (referenceLagAnchorFromPoints(spark, HOME_MOVERS_LAG_90D_SEC)
-              ?.pct ?? null)
-          : null;
       const bundled = snap?.marketChangePct;
       const changePct =
         bundled != null && Number.isFinite(bundled)
@@ -1272,7 +1266,7 @@ export class CollectionMarketService {
           : spark.length >= 2
             ? (referenceChangeWithBestWindow(spark).pct ?? null)
             : null;
-      return { collectionKey, pct90d, changePct };
+      return { collectionKey, changePct };
     });
 
     const topMoverKeys = pickHomeTopMoverKeys(rankRows);

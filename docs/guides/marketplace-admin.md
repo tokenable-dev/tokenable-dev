@@ -21,7 +21,7 @@ Admin routes are split by **operational role**, not duplicated dashboards.
 | `/marketplace/admin/cards` | **All cards** | RWA registry — metadata, S3 slab upload, **wallet transfer** (`safeTransferFrom` from connected wallet; gas on you), custody burn |
 | `/marketplace/admin/custody-nfts` | **Custody NFTs** | Deliver vaulted NFTs to user wallets |
 | `/marketplace/admin/self-vault-payouts` | **Self-vault payouts** | One row per sale (`order_hash`); resales before auto-pay show as Sale N of M. Pay early (~95% USDC) or wait ~5 min; reject to skip |
-| `/marketplace/admin/markets` | **Markets preview** | Home landing (90d top movers + just vaulted) |
+| `/marketplace/admin/markets` | **Markets preview** | Home landing (reference-gain top movers + just vaulted) |
 | `/marketplace/admin/portfolio` | **Portfolio ops** | Daily snapshots, `portfolio_holdings` cost basis stats, operator checklist |
 | `/marketplace/admin/price-webhooks` | **Price sync** | Cardhedger delta import — cron flags, manual “Run price sync”, sync history |
 | `/marketplace/admin/pricecharting` | **PriceCharting** | Buttons for the five PriceCharting guides, plus CSV upload for sports sets. Latest row in `pricecharting_products`; changed prices kept by Seoul date in `pricecharting_price_history`. Production archives the original CSV to a private S3 bucket after the database commit. Not the live collection snapshot |

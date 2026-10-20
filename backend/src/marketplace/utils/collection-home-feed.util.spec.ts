@@ -6,18 +6,20 @@ import {
 } from './collection-home-feed.util';
 
 describe('collection-home-feed.util', () => {
-  it('ranks top movers by 90d gain, positive only', () => {
+  it('ranks top movers by stored reference gain, whole-percent rises only', () => {
     expect(
       pickHomeTopMoverKeys(
         [
-          { collectionKey: 'a', pct90d: 1 },
-          { collectionKey: 'b', pct90d: 5 },
-          { collectionKey: 'c', pct90d: -2 },
-          { collectionKey: 'd', pct90d: null },
+          { collectionKey: 'a', changePct: 1.2 },
+          { collectionKey: 'b', changePct: 12.4 },
+          { collectionKey: 'c', changePct: -2 },
+          { collectionKey: 'd', changePct: null },
+          { collectionKey: 'e', changePct: 0.4 },
+          { collectionKey: 'f', changePct: 0.6 },
         ],
-        2,
+        10,
       ),
-    ).toEqual(['b', 'a']);
+    ).toEqual(['b', 'a', 'f']);
   });
 
   it('ranks ticker by absolute 1Y change', () => {

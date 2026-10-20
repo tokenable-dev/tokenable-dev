@@ -29,7 +29,6 @@ export function HomeTopMovers() {
           snapshotByKey={snapshotByKey}
           subMode="change"
           changeLoading={snapshotsPending}
-          use90dChange
         />
       )}
     </section>

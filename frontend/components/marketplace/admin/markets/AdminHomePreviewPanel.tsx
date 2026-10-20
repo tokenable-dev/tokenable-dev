@@ -5,7 +5,7 @@ import { useHomeMarketplaceGrids } from "@/hooks/home";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import {
-  resolveMarketsListingMarketChangePct90d,
+  resolveMarketsListingMarketChangePct,
   resolveMarketsListingMarketUsd,
 } from "@/lib/markets/marketsListingMarketPrice";
 import { formatReferencePercentChange, formatUsdCompact } from "@/lib/market";
@@ -57,7 +57,7 @@ function AdminHomePreviewTable({
                 <th className={ADMIN_TABLE_TH}>Grade</th>
                 <th className={`${ADMIN_TABLE_TH} text-right`}>Mark</th>
                 {showChange ? (
-                  <th className={`${ADMIN_TABLE_TH} text-right`}>90d</th>
+                  <th className={`${ADMIN_TABLE_TH} text-right`}>Change</th>
                 ) : null}
                 <th className={`${ADMIN_TABLE_TH} text-right`}>Listed</th>
               </tr>
@@ -67,7 +67,7 @@ function AdminHomePreviewTable({
                 const snap = snapshotByKey.get(c.collectionKey.toLowerCase());
                 const price = resolveMarketsListingMarketUsd(c, snap);
                 const change = showChange
-                  ? resolveMarketsListingMarketChangePct90d(snap)
+                  ? resolveMarketsListingMarketChangePct(snap)
                   : null;
                 const grade =
                   c.components?.gradeScore && c.components?.gradingCompany
@@ -137,10 +137,11 @@ export function AdminHomePreviewPanel() {
       <div className={`${ADMIN_ARTICLE} ${ADMIN_TEXT_SECONDARY} text-sm`}>
         <p className="font-semibold text-zinc-900">Home landing preview</p>
         <p className="mt-2 leading-relaxed">
-          Mirrors the public home page: <strong>Top movers</strong> ranks every
-          marketplace collection by <strong>90-day</strong> Cardhedger reference
-          gain (max 10 on desktop 5-col, 8 on tablet/mobile, positive only). <strong>New items</strong> lists the same count
-          of most recently minted collections by <code className="font-mono text-xs">createdAt</code>.
+          Mirrors the public home page: <strong>Top movers</strong> ranks by the
+          stored reference gain (1 year when that history exists, otherwise the
+          full span on the snapshot). Only gains that round to at least +1%, up
+          to 10. <strong>New items</strong> lists the 10 most recently minted
+          collections by <code className="font-mono text-xs">createdAt</code>.
         </p>
         <p className="mt-2">
           <Link href="/" className={ADMIN_LINK} target="_blank" rel="noreferrer">
@@ -150,8 +151,8 @@ export function AdminHomePreviewPanel() {
       </div>
 
       <AdminHomePreviewTable
-        title="Top movers (90d)"
-        subtitle="Same ranking as home — highest 90-day price gain across all collections."
+        title="Top movers"
+        subtitle="Same ranking as home — highest stored reference gain, at least +1%."
         rows={topMovers}
         snapshotByKey={snapshotByKey}
         showChange

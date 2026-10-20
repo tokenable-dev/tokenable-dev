@@ -2,18 +2,23 @@
 export const HOME_TOP_MOVERS_LIMIT = 10;
 export const HOME_JUST_VAULTED_LIMIT = 10;
 export const HOME_TICKER_LIMIT = 15;
-export const HOME_MOVERS_LAG_90D_SEC = 90 * 86_400;
 
+/**
+ * Stored reference gain (1Y when that history exists, otherwise the full span).
+ * Cards whose percent rounds to 0% are omitted — the home card shows those as "—".
+ */
 export function pickHomeTopMoverKeys(
-  items: Array<{ collectionKey: string; pct90d: number | null }>,
+  items: Array<{ collectionKey: string; changePct: number | null }>,
   limit = HOME_TOP_MOVERS_LIMIT,
 ): string[] {
   return items
     .filter(
       (r) =>
-        r.pct90d != null && Number.isFinite(r.pct90d) && (r.pct90d as number) > 0,
+        r.changePct != null &&
+        Number.isFinite(r.changePct) &&
+        Math.round(r.changePct) >= 1,
     )
-    .sort((a, b) => (b.pct90d ?? 0) - (a.pct90d ?? 0))
+    .sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0))
     .slice(0, limit)
     .map((r) => r.collectionKey);
 }

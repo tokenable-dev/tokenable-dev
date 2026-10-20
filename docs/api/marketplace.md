@@ -301,7 +301,7 @@ Returns a cursor-paginated list of collection summaries, or a **text search** wh
 
 ### `GET /api/marketplace/collections/home-feed`
 
-Home ticker, Top movers, and Just vaulted in one response. Ranking uses materialized snapshots (90-day gainers, 1Y abs change for the ticker, `createdAt` for Just vaulted). Returns only the displayed collections plus their list snapshots. Cached ~30s per chain.
+Home ticker, Top movers, and Just vaulted in one response. Ranking uses materialized snapshots. Top movers sorts by the stored reference gain (`marketChangePct`: 1 year when that history exists, otherwise the full span on the snapshot), highest first, and keeps only gains that round to at least +1% (up to 10). Ticker uses absolute reference change. Just vaulted uses `createdAt`. Returns only the displayed collections plus their list snapshots. Cached ~30s per chain.
 
 Response: `{ topMovers, justVaulted, ticker, snapshots }`.
 
