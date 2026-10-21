@@ -248,7 +248,7 @@
     .cd-mobile-scroll__chart
     .cd-hero-md-panel__row
     .cd-hero-stats__cell:nth-child(3n + 2) {
-    justify-self: center;
+    justify-self: start;
   }
 
   .collection-detail-page
@@ -1213,9 +1213,9 @@
 
 .cd-hero-md-panel__row {
   display: grid;
-  /* Full-width 3 tracks — pack each cell to L / C / R so the row reads
-     evenly (Mkt cap · Vol 1Yr · Velocity / Pop · Gem rate). */
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  /* Side tracks flex; the middle track is the wider of Vol 1Yr and Gem rate
+     so those two share a left edge and the pair stays centered. */
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
   column-gap: 12px;
   row-gap: 0;
   width: 100%;
@@ -1234,17 +1234,20 @@
   box-sizing: border-box;
 }
 
-/* Left / center / right anchors within equal columns (matches design strip). */
+/* Left stays put. Middle pair shares a left edge, nudged right.
+   Velocity hangs off the right edge, nudged back in. */
 .cd-hero-md-panel__row .cd-hero-stats__cell:nth-child(3n + 1) {
   justify-self: start;
 }
 
 .cd-hero-md-panel__row .cd-hero-stats__cell:nth-child(3n + 2) {
-  justify-self: center;
+  justify-self: start;
+  transform: translateX(16px);
 }
 
 .cd-hero-md-panel__row .cd-hero-stats__cell:nth-child(3n) {
   justify-self: end;
+  transform: translateX(-16px);
 }
 
 /* Mobile chart stats — same key names as the desktop hero. */
