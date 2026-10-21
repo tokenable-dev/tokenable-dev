@@ -62,12 +62,12 @@ export function ListRwaModalSuccessView({
     !successMeta?.matched && !fillFailed && !instantOnlyFailed && !softMatchNote
       ? isReplaceListing
         ? priceUsdc != null
-          ? `Listed at $${priceUsdc.toLocaleString("en-US")}.`
+          ? `Listed at $${Math.round(priceUsdc).toLocaleString("en-US")}.`
           : undefined
         : net != null
-          ? `You get $${Number(net).toLocaleString("en-US")} when it sells.`
+          ? `You get $${Math.round(Number(net)).toLocaleString("en-US")} when it sells.`
           : priceUsdc != null
-            ? `You get $${priceUsdc.toLocaleString("en-US")} when it sells.`
+            ? `You get $${Math.round(priceUsdc).toLocaleString("en-US")} when it sells.`
             : `Asset #${tokenId} is now listed for ${price} USDC.`
       : undefined;
 

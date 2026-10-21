@@ -1,5 +1,10 @@
 import { dominantSetSlug } from './pricecharting-import.service';
-import { parsePricechartingCsv, usdToCents } from './pricecharting-csv';
+import {
+  mergeManualHistoryPrices,
+  manualHistoryPricePatch,
+  parsePricechartingCsv,
+  usdToCents,
+} from './pricecharting-csv';
 
 const SAMPLE = [
   'id\tconsole-name\tproduct-name\tloose-price\tmanual-only-price\tgenre\trelease-date',
@@ -17,6 +22,42 @@ describe('sports set archive name', () => {
         { consoleName: 'Other' } as never,
       ]),
     ).toBe('Basketball-Cards-1986-Fleer');
+  });
+});
+
+describe('manual price history patch', () => {
+  it('keeps omitted grades and writes only the dollars that were entered', () => {
+    const patch = manualHistoryPricePatch({
+      loose_price_cents: '261.28',
+      manual_only_price_cents: '',
+      bgs_10_price_cents: '$1,067.00',
+    });
+    expect(patch).toEqual({
+      loose_price_cents: 26128,
+      bgs_10_price_cents: 106700,
+    });
+    expect(
+      mergeManualHistoryPrices(
+        { loose_price_cents: 100, manual_only_price_cents: 275000 },
+        patch,
+      ).loose_price_cents,
+    ).toBe(26128);
+    expect(
+      mergeManualHistoryPrices(
+        { loose_price_cents: 100, manual_only_price_cents: 275000 },
+        patch,
+      ).manual_only_price_cents,
+    ).toBe(275000);
+  });
+
+  it('rejects an empty form, a negative price, and an unknown column', () => {
+    expect(() => manualHistoryPricePatch({})).toThrow(/at least one price/);
+    expect(() => manualHistoryPricePatch({ loose_price_cents: '-1' })).toThrow(
+      /cannot be negative/,
+    );
+    expect(() => manualHistoryPricePatch({ not_a_column: '1' })).toThrow(
+      /Unknown price column/,
+    );
   });
 });
 

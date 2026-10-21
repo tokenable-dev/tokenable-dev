@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useLayoutEffect, useRef, type ReactNode } from "react";
 import {
   COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
   COLLECTION_ORDER_BOOK_SCROLL_CLASS,
@@ -337,26 +331,6 @@ export function OrderBookBookTab({
   listingAlertPending?: boolean;
   onToggleListingAlert?: () => void;
 }) {
-  const [coachOn, setCoachOn] = useState(false);
-
-  useEffect(() => {
-    if (!collectionDetail || askLevels.length === 0) return;
-    let seen = false;
-    try {
-      seen = window.localStorage.getItem("tk-ob-coach") === "1";
-    } catch {
-      seen = false;
-    }
-    if (seen) return;
-    setCoachOn(true);
-    try {
-      window.localStorage.setItem("tk-ob-coach", "1");
-    } catch {
-      /* ignore */
-    }
-    const t = window.setTimeout(() => setCoachOn(false), 3500);
-    return () => window.clearTimeout(t);
-  }, [collectionDetail, askLevels.length]);
   const askScrollable = askLevels.length > 0;
   const bidScrollable = bidLevels.length > 0;
   const noMarket = hasNoMarket(askLevels, bidLevels);
@@ -405,11 +379,6 @@ export function OrderBookBookTab({
         }
       >
         <OrderBookColumnHeader flush collectionDetail={collectionDetail} />
-        {coachOn ? (
-          <div className="cd-ob-coach" role="status">
-            Tap an ask to buy
-          </div>
-        ) : null}
         {collectionDetail ? (
           <div className="cd-ob-book-stack">
             {asksEmptyBidsLive ? (

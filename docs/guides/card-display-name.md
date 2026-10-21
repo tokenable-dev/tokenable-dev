@@ -69,7 +69,7 @@ Charizard ex · 199/165
 | Markets / home / similar tiles | Line 1 (no grade) + grade row | `{Name} · {Number}` then `PSA 10` on the next row. Do not also leave the grade on Line 1. |
 | Card detail header | Desktop: Line 1 (with grade) + Line 2. Mobile: title, subtitle, then grade | Desktop `{Name} · {Number} · {Grade}` then `{Year} · {Set} {Language} · {Variant}`. Mobile title omits the grade; `PSA 10` is its own line under the subtitle. |
 | Certificate of Ownership | Line 1 (no grade) + Line 2 | `{Name} · {Number}` then provenance. Grade + cert chips below. |
-| Search results | Line 1 + compact Line 2 | Global scope — keep Line 2. |
+| Search results | Line 1 name+number, grade, then Line 2 | `{Name} · {Number}`, then `PSA 10`, then `{Year} · {Set} {Language} · {Variant}` on one line. Overflow on that third line ends in `…`. |
 | Watchlist | Line 1 (no grade) + grade row | Same split as Markets tiles. |
 | Portfolio table | Line 1 only | `{Name} · {Number} · {Grade}` on one line. |
 | Portfolio gallery | Line 1 (no grade) + grade row | `{Name} · {Number}` then the grade. |
@@ -214,7 +214,7 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 | Markets / home grid | Line 1 name+number, grade on the next row | `CollectibleCard` — `splitGradeToSecondLine` |
 | Watchlist | Line 1 name+number, grade on the next row | `WatchlistCollectibleCard` |
 | Collection detail similar | Line 1 + grade row | `splitGradeToSecondLine: true` in title builder only |
-| GNB search collections | Line 1 + Line 2 meta | `buildMarketsCollectionSearchMeta` |
+| GNB / search results | Line 1 name+number, grade, then set line | `formatSearchCardHitDisplay`, `CollectibleCard` subtitle |
 | Portfolio table | Line 1 with grade | `resolvePortfolioHoldingsDisplayNames` |
 | Portfolio gallery | Line 1 name+number, grade on the next row | `nameLine` + `.pf-gtile__title-grade` |
 | Collection detail | Line 1 name+number+grade + full Line 2 | Grade on hero title |

@@ -12,12 +12,8 @@ function formatUsdcUnits(raw: unknown): string | null {
   const text = typeof raw === "bigint" ? raw.toString() : String(raw ?? "").trim();
   if (!/^\d+$/.test(text)) return null;
   const units = BigInt(text);
-  const whole = units / USDC_BASE;
-  const frac = units % USDC_BASE;
-  const wholeLabel = whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  if (frac === BigInt(0)) return `${wholeLabel} USDC`;
-  const fracLabel = frac.toString().padStart(6, "0").replace(/0+$/, "");
-  return `${wholeLabel}.${fracLabel} USDC`;
+  const whole = (units + USDC_BASE / BigInt(2)) / USDC_BASE;
+  return `${whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} USDC`;
 }
 
 function formatErc20Item(item: unknown): unknown {

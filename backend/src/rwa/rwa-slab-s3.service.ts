@@ -9,6 +9,7 @@ import {
 import {
   deriveRwaSlabS3Prefix,
   isPlatformHostedRwaSlabUrl,
+  sealedBoxObjectKey,
   stableRwaSlabObjectKey,
   type RwaSlabFace,
 } from './rwa-slab-s3.util';
@@ -203,5 +204,39 @@ export class RwaSlabS3Service {
       );
       return null;
     }
+  }
+
+  /**
+   * Partner sealed-box photo. Throws on missing S3 or a bad image — mint must not
+   * continue without a display URL.
+   */
+  async ingestBoxPhoto(params: {
+    chainId: number;
+    boxId: string;
+    buffer: Buffer;
+    contentType: string;
+  }): Promise<{ objectKey: string; publicUrl: string }> {
+    if (!this.isConfigured()) {
+      throw new Error('CATALOG_COVER_S3_NOT_CONFIGURED');
+    }
+    if (!params.buffer?.length) {
+      throw new Error('CATALOG_COVER_FILE_EMPTY');
+    }
+    const prepared = await prepareSlabForS3(params.buffer, params.contentType);
+    const coverPrefix = (
+      this.config.get<string>('CATALOG_COVER_S3_PREFIX') ?? 'covers/'
+    ).trim();
+    const objectKey = sealedBoxObjectKey(
+      coverPrefix,
+      params.chainId,
+      params.boxId,
+    );
+    const put = await this.catalogCoverS3.putBytesAtKey(
+      objectKey,
+      prepared.body,
+      prepared.contentType,
+      SLAB_CACHE_CONTROL,
+    );
+    return { objectKey: put.objectKey, publicUrl: put.publicUrl };
   }
 }

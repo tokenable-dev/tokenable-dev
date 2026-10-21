@@ -301,7 +301,8 @@
   box-sizing: border-box;
   pointer-events: none;
   display: flex;
-  align-items: center;
+  /* Hang from the top padding. Centering a taller stack pulls the title up. */
+  align-items: flex-start;
   justify-content: center;
   align-self: stretch;
   text-align: center;
@@ -318,79 +319,101 @@
 }
 
 .home-hero__search-tags,
-.home-hero__chips,
+.home-hero__points,
 .home-hero__cta {
   position: relative;
   z-index: 1;
 }
 
-.home-hero__chips {
+.home-hero__points {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 28px;
+  width: 100%;
+  max-width: 640px;
+  margin: 56px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-hero__point {
   display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-  margin-top: 64px;
-}
-
-.home-hero__chip {
-  box-sizing: border-box;
-  display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  min-width: 0;
-  /* Equal pad — previous 10.5/11.5 bottom-heavy padding optically pushed caps up. */
-  padding: 11px 18px;
-  align-self: stretch;
-  border-radius: 8px;
-  /* Figma: Blue Ribbon 16% + stroke #1B2A4A */
-  background: rgba(26, 111, 255, 0.16);
-  box-shadow: inset 0 0 0 1.5px #1b2a4a;
-  color: #fff;
   text-align: center;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-style: normal;
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: 1.12px;
-  text-transform: uppercase;
+  min-width: 0;
 }
 
-.home-hero__chip-dot {
-  width: 7px;
-  height: 7px;
-  flex: none;
-  border-radius: 3.5px;
-  background: #1a6fff;
+.home-hero__point-icon {
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  margin-bottom: 8px;
+}
+
+.home-hero__point-icon img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.home-hero__point-title {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.home-hero__point-copy {
+  margin-top: 4px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .home-hero__title {
   margin: 0;
   font-family: var(--font-sans);
+  font-style: normal;
   font-weight: 700;
-  font-size: clamp(44px, 6.4vw, 78px);
-  line-height: 1;
-  letter-spacing: -0.035em;
+  font-size: 65.5px;
+  line-height: 65.54px;
+  letter-spacing: -2.294px;
+  text-align: center;
   color: #fff;
 }
 
 .home-hero__cta {
   display: flex;
   justify-content: center;
-  margin-top: 28px;
+  margin-top: 60px;
   width: 100%;
 }
 
 .home-hero__browse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 340px;
+  height: 52px;
+  padding: 0 20px;
+  border-radius: 14px;
+  background: #7b4fff;
   font-family: var(--font-sans);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  color: var(--brand-400, #2e80ff);
+  color: #fff;
   text-decoration: none;
 }
 
 .home-hero__browse:hover {
+  background: #6a3df0;
   color: #fff;
 }
 
@@ -449,7 +472,7 @@
 
 .home-hero__search-tags {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   gap: 8px;
   margin-top: 20px;
@@ -459,18 +482,21 @@
 .home-hero__search-tags a {
   font-family: var(--font-sans);
   font-size: 13px;
+  font-style: normal;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.78);
-  padding: 7px 13px;
+  line-height: normal;
+  text-align: center;
+  color: var(--color-white-78, rgba(255, 255, 255, 0.78));
+  padding: 8px 16px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.06);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
   text-decoration: none;
 }
 
 .home-hero__search-tags a:hover {
   color: #fff;
-  background: rgba(26, 111, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 /* ds-39 index — `.hero-search__dd` (dark panel; scroll inner list like GNB) */
@@ -630,60 +656,163 @@
     padding: clamp(120px, 18vh, 257.5px) clamp(24px, 5vw, 80px)
       clamp(80px, 14vh, 181.5px);
   }
+
+  .home-hero__browse {
+    width: 273px;
+  }
+}
+
+/* 13–14" laptops (and other short desktops). The vault photo is 1376×768;
+   a taller hero makes object-fit:cover crop it into a zoomed center. */
+@media (min-width: 769px) and (max-height: 1180px) {
+  .home-hero {
+    height: calc(100dvh - 104px);
+    min-height: 0;
+    max-height: calc(100dvh - 104px);
+  }
+
+  .home-hero__content {
+    height: 100%;
+    min-height: 0;
+    padding: 48px 48px 36px;
+    align-items: center;
+  }
+
+  .home-hero__search {
+    margin-top: 36px;
+    max-width: 600px;
+  }
+
+  .home-hero__search-field .tk-search-field {
+    height: 54px;
+  }
+
+  .home-hero__search-btn.tk-btn {
+    height: 54px;
+    min-height: 54px;
+  }
+
+  .home-hero__search-tags {
+    margin-top: 16px;
+  }
+
+  .home-hero__points {
+    margin-top: 40px;
+    gap: 24px;
+  }
+
+  .home-hero__point-icon {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 6px;
+  }
+
+  .home-hero__point-title {
+    font-size: 16px;
+  }
+
+  .home-hero__point-copy {
+    font-size: 13px;
+  }
+
+  .home-hero__cta {
+    margin-top: 52px;
+  }
+
+  .home-hero__browse {
+    width: 320px;
+    height: 52px;
+  }
 }
 
 @media (max-width: 768px) {
   .home-page {
     overflow-x: clip;
+    /* Keep the first paint at scroll 0 when the ticker and hero finish loading. */
+    overflow-anchor: none;
   }
 
   .home-hero {
-    min-height: auto;
-    align-items: flex-start;
+    /* Header 64px + ticker 40px. svh is the visible phone height with the address bar showing, so the hero does not open already scrolled. */
+    min-height: calc(100dvh - 104px);
+    min-height: calc(100svh - 104px);
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
   }
 
   .home-hero__content {
-    padding: 60px clamp(16px, 4vw, 40px) 24px;
+    flex: 1;
+    flex-direction: column;
+    min-height: calc(100dvh - 104px);
+    min-height: calc(100svh - 104px);
+    padding: 72px 20px 100px;
+    align-items: stretch;
   }
 
-  .home-hero__chips {
-    flex-wrap: nowrap;
+  .home-hero__inner {
+    flex: 1;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .home-hero__points {
     gap: 8px;
-    margin-top: 20px;
-    justify-content: center;
+    margin-top: auto;
+    padding-top: 28px;
+    max-width: 100%;
   }
 
-  .home-hero__chip {
-    flex: 0 1 auto;
-    min-width: 0;
-    padding: 8px 12px;
-    gap: 6px;
-    border-radius: 7px;
-    font-size: 11px;
-    line-height: 1;
-    letter-spacing: 0.1em;
-    align-self: auto;
-  }
-
-  .home-hero__chip-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 3px;
+  .home-hero__point-icon {
+    width: 24px;
+    height: 24px;
     flex-shrink: 0;
+    margin-bottom: 4px;
+  }
+
+  .home-hero__point-title {
+    font-family: var(--font-sans);
+    font-size: 9.697px;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 8.485px;
+    text-align: center;
+    text-transform: capitalize;
+    color: #fff;
+  }
+
+  .home-hero__point-copy {
+    margin-top: 2px;
+    font-family: var(--font-sans);
+    font-size: 8.485px;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 8.485px;
+    letter-spacing: -0.182px;
+    text-align: center;
+    text-transform: capitalize;
+    color: #757575;
   }
 
   .home-hero__title {
+    font-family: var(--font-sans);
     font-size: 32px;
-    line-height: 1.05;
-    letter-spacing: -0.03em;
+    font-style: normal;
+    font-weight: 700;
+    line-height: 32px;
+    letter-spacing: -1.12px;
+    text-align: center;
+    color: #fff;
     position: relative;
     z-index: 1;
   }
 
   .home-hero__search {
-    margin-top: 24px;
+    /* Search field center sits a little above the visible-screen midline. */
+    margin-top: max(44px, calc(50dvh - 322px));
+    margin-top: max(44px, calc(50svh - 322px));
     width: 100%;
-    max-width: min(348px, 100%);
+    max-width: 100%;
     margin-left: auto;
     margin-right: auto;
   }
@@ -697,16 +826,16 @@
   .home-hero__search-field .tk-search-field {
     flex: 1 1 0;
     min-width: 0;
-    height: 44px;
-    border-radius: 10px;
+    height: 52px;
+    border-radius: 16px;
   }
 
   .home-hero__search-field .tk-search-field__input.tk-input {
     /* 16px keeps iOS Safari from zooming the page on focus. */
     font-size: 16px;
-    line-height: 44px;
-    padding: 0 10px 0 36px;
-    border-radius: 10px;
+    line-height: 52px;
+    padding: 0 12px 0 40px;
+    border-radius: 16px;
     box-shadow: inset 0 0 0 1px rgba(0, 0, 20, 0.1);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -732,17 +861,17 @@
 
   .home-hero__search-btn.tk-btn {
     flex: 0 0 auto;
-    height: 44px;
-    min-height: 44px;
-    padding: 0 16px;
-    font-size: 13px;
+    height: 52px;
+    min-height: 52px;
+    padding: 0 18px;
+    font-size: 15px;
     font-weight: 700;
-    border-radius: 10px;
+    border-radius: 14px;
   }
 
   .home-hero__search-tags {
     width: 100%;
-    max-width: min(348px, 100%);
+    max-width: 100%;
     margin-top: 14px;
     margin-left: auto;
     margin-right: auto;
@@ -752,18 +881,21 @@
   }
 
   .home-hero__search-tags a {
-    font-size: 12px;
-    font-weight: 600;
     padding: 6px 11px;
     white-space: nowrap;
   }
 
   .home-hero__cta {
-    margin-top: 20px;
+    margin-top: 28px;
+    width: 100%;
   }
 
   .home-hero__browse {
-    font-size: 14px;
+    width: 100%;
+    max-width: 100%;
+    height: 56px;
+    border-radius: 16px;
+    font-size: 16px;
   }
 
   .home-hero__search-btn.tk-btn.tk-btn--primary {
@@ -796,40 +928,17 @@
 }
 
 @media (max-width: 560px) {
-  .home-hero__search-field .tk-search-field {
-    height: 40px;
-  }
-
   .home-hero__search-field .tk-search-field__input.tk-input {
     font-size: 16px;
-    line-height: 40px;
-    padding-left: 32px;
-  }
-
-  .home-hero__search-btn.tk-btn {
-    height: 40px;
-    min-height: 40px;
-    padding: 0 12px;
-    font-size: 12px;
+    padding-left: 36px;
   }
 
   .home-hero__search-tags a {
-    font-size: 11px;
-    padding: 5px 9px;
+    padding: 6px 12px;
   }
 
   .home-hero__search {
-    max-width: min(320px, 100%);
-  }
-
-  .home-hero__search-tags {
-    max-width: min(320px, 100%);
-  }
-
-  .home-hero__chip {
-    padding: 7px 10px;
-    font-size: 10px;
-    letter-spacing: 0.09em;
+    max-width: 100%;
   }
 }
 

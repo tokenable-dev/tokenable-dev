@@ -42,6 +42,17 @@ export function isPlatformHostedRwaSlabUrl(
   return key.toLowerCase() === expected.toLowerCase();
 }
 
+/** Sealed-box photo. Same bucket and IAM prefix as slab photos; not cert-keyed. */
+export function sealedBoxObjectKey(
+  coverPrefix: string,
+  chainId: number,
+  boxId: string,
+): string {
+  const p = coverPrefix.endsWith('/') ? coverPrefix : `${coverPrefix}/`;
+  const id = boxId.trim().toLowerCase().replace(/[^a-f0-9-]/g, '').slice(0, 36);
+  return `${p}rwa-boxes/${chainId}/${id || 'unknown'}/photo`;
+}
+
 export function publicUrlForRwaSlab(
   publicBaseUrl: string,
   slabPrefix: string,

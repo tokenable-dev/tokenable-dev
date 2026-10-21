@@ -72,7 +72,7 @@ No `BURNER_ROLE`. `burn(tokenId)` is ERC721Burnable (current owner or approved).
 
 ### Functions we use
 
-`mint(to)`, `burn(tokenId)`, `pause`/`unpause`, `totalSupply`, `tokenByIndex`, `tokenURI` (= `baseURI + id`), standard ERC-721. No `vaultRef`, `mintBatch`, `adminBurn`, ERC-2981, or `contractURI`. Cert uniqueness and metadata live in Postgres / Pinata.
+`mint(to)`, `burn(tokenId)`, `pause`/`unpause`, `totalSupply`, `tokenByIndex`, `tokenURI` (= `baseURI + id`), standard ERC-721. No `vaultRef`, `mintBatch`, `adminBurn`, ERC-2981, or `contractURI`. Cert uniqueness and metadata live in Postgres / Pinata. A sealed-box mint uses the same `mint(to)`; the photo and product id stay in S3, IPFS, and `sealed_box_mints`.
 
 ### Design invariants
 

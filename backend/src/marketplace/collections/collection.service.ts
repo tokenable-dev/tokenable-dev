@@ -1271,7 +1271,7 @@ export class CollectionService {
     opts?: { limit?: number; chainId?: SupportedChainId },
   ): Promise<{ items: CollectionSummary[] }> {
     const key = decodeURIComponent(collectionKey).trim().toLowerCase();
-    const limit = Math.min(Math.max(opts?.limit ?? 12, 1), 24);
+    const limit = Math.min(Math.max(opts?.limit ?? 5, 1), 24);
     const empty = { items: [] as CollectionSummary[] };
     if (!key) return empty;
 

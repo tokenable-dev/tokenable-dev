@@ -5364,24 +5364,6 @@
   filter: none !important;
 }
 
-/* Card.html `#ob-coach` */
-.collection-detail-page .cd-ob-coach {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  top: 34px;
-  z-index: 5;
-  background: var(--azure, #1A6FFF);
-  color: #fff;
-  font-family: var(--font-sans);
-  font-size: var(--tk-ui-fs-body-sm);
-  font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 8px;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
-  pointer-events: none;
-}
-
 /* Notify me — Card.html `.tk-btn.bid-btn.ob-nbtn` (text only when idle) */
 .collection-detail-page .cd-ob-empty__btn--notify {
   height: 30px;

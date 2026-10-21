@@ -61,8 +61,10 @@ export function SearchCertMatches({
           const img = card.imageUrl ? (map.get(card.imageUrl) ?? card.imageUrl) : null;
           const display = formatSearchCardHitDisplay(card);
           const title =
-            formatCardDisplayLine1(cardDisplayPartsFromAssetDetail(display.parts, display.grade)) ||
-            display.line1;
+            formatCardDisplayLine1(
+              cardDisplayPartsFromAssetDetail(display.parts, display.grade),
+              { omitGrade: true },
+            ) || display.line1;
           const meta = [display.line2, card.vaultLabel].filter(Boolean).join(" · ");
           const exact = isExactCertHit(card, query);
           const certLabel = exact ? query : card.certNumber?.replace(/^#/, "");
@@ -99,6 +101,9 @@ export function SearchCertMatches({
                   <div className="card__title" title={title}>
                     {title}
                   </div>
+                  {display.grade ? (
+                    <div className="card__grade-line">{display.grade}</div>
+                  ) : null}
                   <div className="srch-cert__meta">
                     {meta ? <div className="srch-cert__meta-line">{meta}</div> : null}
                     {certLabel ? (

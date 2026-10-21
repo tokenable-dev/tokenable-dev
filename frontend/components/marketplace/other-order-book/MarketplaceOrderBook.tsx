@@ -158,10 +158,7 @@ export function MarketplaceOrderBook({
                 />
                 <div className={`relative z-10 ${rowGrid}`}>
                   <span className="text-neg font-medium group-hover:text-neg/80">
-                    {price.toLocaleString("en-US", {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2,
-                    })}
+                    {Math.round(price).toLocaleString("en-US")}
                   </span>
                   <span className="text-right text-gray-400">1</span>
                   <span className="text-right text-gray-400 group-hover:text-mint/90">

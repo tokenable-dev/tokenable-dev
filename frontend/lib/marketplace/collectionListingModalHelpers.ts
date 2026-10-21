@@ -68,7 +68,7 @@ export function formatListingUsdc(amount: string): string {
   try {
     const n = Number(amount) / 1_000_000;
     if (!Number.isFinite(n)) return "—";
-    return n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+    return Math.round(n).toLocaleString("en-US");
   } catch {
     return "—";
   }

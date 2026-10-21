@@ -283,10 +283,10 @@
   color: rgba(255, 255, 255, 0.4);
   margin-top: -2px;
   line-height: 1.3;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: block;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .card__meta {

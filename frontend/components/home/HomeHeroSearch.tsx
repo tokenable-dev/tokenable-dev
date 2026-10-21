@@ -256,7 +256,7 @@ export function HomeHeroSearch() {
         className="home-hero__search-tags home-hero__reveal home-hero__reveal--2"
         aria-label="Browse by category"
       >
-        {MARKETS_CATEGORY_SELECT_OPTIONS.map((cat) => (
+        {MARKETS_CATEGORY_SELECT_OPTIONS.filter((cat) => cat.id !== "other").map((cat) => (
           <Link
             key={cat.id}
             href={marketsHrefFromFilters({ categories: [cat.id] })}

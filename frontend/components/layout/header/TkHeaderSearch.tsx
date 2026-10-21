@@ -32,6 +32,9 @@ import { useGnbMobile } from "@/hooks/layout/useGnbMobile";
 import {
   buildGnbSearchCollectionMeta,
   buildGnbSearchCollectionTitle,
+  buildMarketsCollectionTitle,
+  gradeLabelFromComp,
+  stripGnbSearchDisplayMiddots,
 } from "@/lib/markets/marketsCollectionTitle";
 import { formatSearchCardHitDisplay } from "@/lib/markets/searchHitDisplay";
 import { buildCollectionSearchHref } from "@/lib/markets/marketsUrlFilters";
@@ -243,6 +246,9 @@ export function SearchResultsList({
                 </div>
                 <div className="gnb-search-item__info">
                   <div className="gnb-search-item__name">{display.line1}</div>
+                  {display.grade ? (
+                    <div className="gnb-search-item__grade">{display.grade}</div>
+                  ) : null}
                   {display.line2 ? (
                     <div className="gnb-search-item__meta">{display.line2}</div>
                   ) : null}
@@ -288,7 +294,15 @@ export function SearchResultsList({
               </div>
               <div className="gnb-search-item__info">
                 <div className="gnb-search-item__name">
-                  {buildGnbSearchCollectionTitle({ collection: c, comp: c.components })}
+                  {stripGnbSearchDisplayMiddots(
+                    buildMarketsCollectionTitle(
+                      { collection: c, comp: c.components },
+                      { splitGradeToSecondLine: true },
+                    ),
+                  )}
+                </div>
+                <div className="gnb-search-item__grade">
+                  {gradeLabelFromComp(c.components)}
                 </div>
                 {meta ? <div className="gnb-search-item__meta">{meta}</div> : null}
               </div>

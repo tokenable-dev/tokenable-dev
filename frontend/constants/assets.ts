@@ -90,6 +90,9 @@ export const ASSETS = {
   home: {
     /** ds-39 landing — vault photo background */
     heroBg: `${ASSETS_BASE}/home/hero-vault.png`,
+    heroIconGraded: `${ASSETS_BASE}/home/hero-icon-graded.png`,
+    heroIconVaulted: `${ASSETS_BASE}/home/hero-icon-vaulted.png`,
+    heroIconOnchain: `${ASSETS_BASE}/home/hero-icon-onchain.png`,
     landing1: `${ASSETS_BASE}/home/newcards/c01.jpg`,
     landing2: `${ASSETS_BASE}/home/newcards/c02.jpg`,
     landing3: `${ASSETS_BASE}/home/newcards/c03.jpg`,

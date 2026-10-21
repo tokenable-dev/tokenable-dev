@@ -76,6 +76,7 @@
 | `marketplace_partners` | Company wallets for Self vault (+ optional encrypted PK for Seaport) | `marketplace/entities/marketplace-partner.entity.ts` |
 | `marketplace_partner_addresses` | Partner Self-vault Origin address (FedEx Rate ship-from; 1:1) | `marketplace/entities/marketplace-partner-address.entity.ts` |
 | `partner_vault_mint_jobs` | Sell-flow server mint jobs (user → partner vault) | `rwa/entities/partner-vault-mint-job.entity.ts` |
+| `sealed_box_mints` | Partner sealed-box mint intent (product, S3 photo, token). Not a vault cycle | `rwa/entities/sealed-box-mint.entity.ts` |
 | `partner_vault_mint_job_items` | Per-cert rows for partner vault mint jobs | `rwa/entities/partner-vault-mint-job-item.entity.ts` |
 | `cardhedger_price_subscriptions` | Price push registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
 | `cardhedger_price_delta_checkpoints` | Singleton checkpoint for delta polling | `cardhedger/entities/cardhedger-price-delta-checkpoint.entity.ts` |
@@ -266,6 +267,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 072 | `072_pricecharting_sources.sql` | `pricecharting_catalog_sources` (admin CSV URLs; token not stored; no cron) |
 | 073 | `073_pricecharting_price_history.sql` | `pricecharting_price_history` (one price set per product per Seoul import date, including unchanged days) |
 | 074 | `074_pricecharting_listings.sql` | `pricecharting_listings`, `pricecharting_listing_photos` (seller catalog asks; not `orders`) |
+| 075 | `075_sealed_box_mints.sql` | `sealed_box_mints` (partner sealed-box mint intent; not a vault cycle or collection) |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
 **Maintenance (existing DBs — not in bootstrap):**

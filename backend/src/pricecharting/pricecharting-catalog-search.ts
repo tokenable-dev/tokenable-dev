@@ -108,13 +108,14 @@ export class PricechartingCatalogSearch {
     return { match: rows[0] ? toHit(rows[0]) : null, ambiguous: false };
   }
 
-  /** Function 2 shape: q only, at most 20 rows, ordered by id. */
-  async search(q: string): Promise<CatalogProductHit[]> {
+  /** Function 2 shape: q only, at most 20 rows. Default order is product id. */
+  async search(q: string, order: 'id' | 'name' = 'id'): Promise<CatalogProductHit[]> {
     const tokens = catalogQueryTokens(q ?? '');
     if (tokens.length === 0) throw new BadRequestException('q is required');
     const filter = tokenFilter(tokens, 1);
+    const orderSql = order === 'name' ? 'product_name ASC, id ASC' : 'id ASC';
     const rows = await this.dataSource.query<ProductRow[]>(
-      `${PRODUCT_SELECT} WHERE ${filter.sql} ORDER BY id ASC LIMIT 20`,
+      `${PRODUCT_SELECT} WHERE ${filter.sql} ORDER BY ${orderSql} LIMIT 20`,
       filter.params,
     );
     return rows.map(toHit);

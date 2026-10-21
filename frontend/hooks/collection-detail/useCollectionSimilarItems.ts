@@ -68,17 +68,20 @@ function toItems(
   });
 }
 
+const SIMILAR_ITEMS_LIMIT = 5;
+
 export function useCollectionSimilarItems(collectionKey: string | null | undefined) {
   const chainId = activeRqChainId();
   const key = collectionKey?.trim().toLowerCase() || "";
 
   return useQuery({
-    queryKey: [...rq.collectionDetail(key, chainId), "similar"] as const,
+    queryKey: [...rq.collectionDetail(key, chainId), "similar", SIMILAR_ITEMS_LIMIT] as const,
     enabled: Boolean(key),
     staleTime: 60_000,
     queryFn: async () => {
       const similar = await getMarketplaceCollectionSimilar(key);
-      const keys = similar.items.map((r) => r.collectionKey.toLowerCase());
+      const rows = similar.items.slice(0, SIMILAR_ITEMS_LIMIT);
+      const keys = rows.map((r) => r.collectionKey.toLowerCase());
       const snaps =
         keys.length > 0
           ? await postMarketplaceCollectionSnapshotsBatched(keys, "365d")
@@ -86,7 +89,7 @@ export function useCollectionSimilarItems(collectionKey: string | null | undefin
       const snapByKey = new Map(
         snaps.items.map((s) => [s.collectionKey.toLowerCase(), s] as const),
       );
-      return { items: toItems(similar.items, snapByKey) };
+      return { items: toItems(rows, snapByKey) };
     },
   });
 }

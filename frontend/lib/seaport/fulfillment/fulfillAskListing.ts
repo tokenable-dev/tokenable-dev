@@ -107,7 +107,10 @@ export async function fulfillAskListingOrder(params: {
   const { ask, address, publicClient, writes, chainId } = params;
   const { usdcAddress, rwaAddress } = getChainContracts(chainId as SupportedChainId);
   const payUnits = askPriceMicros(ask);
-  const priceUsdcLabel = formatUnits(payUnits, 6);
+  const whole = Number(formatUnits(payUnits, 6));
+  const priceUsdcLabel = Number.isFinite(whole)
+    ? Math.round(whole).toLocaleString("en-US")
+    : formatUnits(payUnits, 6);
   const tokenIdBn = BigInt(String(ask.tokenId ?? "0"));
 
   const onChainOwner = await publicClient.readContract({

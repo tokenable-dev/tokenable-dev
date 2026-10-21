@@ -149,6 +149,10 @@ export function PortfolioCertificatePage({
             : undefined
         }
         cancelListingPending={holdingActions.cancellingListingTokenId === tokenId}
+        holdOnly={
+          (data.metadata as { properties?: { assetKind?: string } } | null)
+            ?.properties?.assetKind === "sealed_box"
+        }
       />
       {tokenIdOk && listOpen ? (
         <ListRwaModal

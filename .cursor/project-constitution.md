@@ -20,6 +20,8 @@ Core user journey:
 
 **Only PSA 10 cards can be minted. This is a hard business rule.**
 
+Sealed boxes are a separate partner-only mint. They use the same `mint(address to)` and an `rwa_tokens` row, with `cert_number` and `collection_key` left null. The box instance id is not `vaultRef = keccak256(cert)`.
+
 ---
 
 ## Technical Stack

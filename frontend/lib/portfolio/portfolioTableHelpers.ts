@@ -150,7 +150,7 @@ export function formatPortfolioUsd(
 ): string {
   if (value == null || !Number.isFinite(value)) return "—";
   if (opts?.compact && value >= 1_000_000) {
-    return `$${(value / 1_000_000).toFixed(1)}M`;
+    return `$${Math.round(value / 1_000_000).toLocaleString("en-US")}M`;
   }
   if (opts?.compact && value >= 1_000) {
     return `$${(value / 1_000).toFixed(0)}k`;
@@ -190,10 +190,7 @@ export function formatPortfolioProfitReturn(
   const pct = (delta / costBasis) * 100;
   const sign = delta >= 0 ? "+" : "-";
   const absUsd = Math.abs(delta);
-  const usd =
-    absUsd >= 1000
-      ? absUsd.toLocaleString("en-US", { maximumFractionDigits: 0 })
-      : absUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const usd = Math.round(absUsd).toLocaleString("en-US");
   const muted = portfolioReturnIsFlat(delta, pct);
   return {
     profit: `${sign}$${usd}`,

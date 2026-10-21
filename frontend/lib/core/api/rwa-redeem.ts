@@ -131,10 +131,8 @@ export type RedeemCustodyResult = {
 };
 
 function moneyUsd(n: number): string {
-  return `$${n.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  if (!Number.isFinite(n)) return "—";
+  return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
 export { moneyUsd as formatRedeemUsd };

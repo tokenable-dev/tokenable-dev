@@ -87,7 +87,7 @@ function CollectionChangeBidModalBody({
 
   const listedLabel =
     listing.id !== 0
-      ? `${formatListingUsdc(listing.considerationAmount)}.00`
+      ? formatListingUsdc(listing.considerationAmount)
       : null;
 
   const replaceBid = bid.status === "active" ? bid : null;

@@ -73,6 +73,14 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes sealed_box_mints (partner box mint)', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) => r.kind === 'table' && r.name === 'sealed_box_mints',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes partner_vault_mint_jobs (sell-flow mint)', () => {
     expect(
       REQUIRED_SCHEMA.some(

@@ -181,6 +181,11 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     name: 'partner_vault_mint_job_items',
     fix: DEPLOY_SYNC_FIX,
   },
+  {
+    kind: 'table',
+    name: 'sealed_box_mints',
+    fix: DEPLOY_SYNC_FIX,
+  },
 ];
 
 export function formatSchemaAssertFailure(missing: SchemaRequirement[]): string {

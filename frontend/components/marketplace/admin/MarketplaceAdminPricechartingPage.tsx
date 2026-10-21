@@ -3,14 +3,49 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   getPricechartingCatalog,
+  recordPricechartingHistory,
+  searchPricechartingProducts,
   syncPricechartingGuide,
   uploadPricechartingCsv,
+  type ManualPriceHistoryResult,
   type PricechartingCatalogSummary,
   type PricechartingGuideSyncResult,
   type PricechartingImportResult,
+  type PricechartingProductHit,
 } from "@/lib/core/api/marketplace-admin-pricecharting";
-import { ADMIN_BTN_PRIMARY, ADMIN_PANEL } from "./adminUi";
+import { ADMIN_BTN_PRIMARY, ADMIN_BTN_SECONDARY, ADMIN_INPUT, ADMIN_LABEL, ADMIN_PANEL } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+
+/** Cent column → label. Order matches the CSV price columns. PSA 10 is manual-only. */
+const HISTORY_PRICE_FIELDS: Array<[string, string]> = [
+  ["loose_price_cents", "Loose"],
+  ["cib_price_cents", "CIB"],
+  ["new_price_cents", "New"],
+  ["graded_price_cents", "Graded"],
+  ["box_only_price_cents", "Box only"],
+  ["manual_only_price_cents", "PSA 10"],
+  ["bgs_10_price_cents", "BGS 10"],
+  ["condition_9_price_cents", "Condition 9"],
+  ["condition_10_price_cents", "Condition 10"],
+  ["condition_13_price_cents", "Condition 13"],
+  ["condition_14_price_cents", "Condition 14"],
+  ["condition_15_price_cents", "Condition 15"],
+  ["condition_16_price_cents", "Condition 16"],
+  ["condition_17_price_cents", "Condition 17"],
+  ["condition_18_price_cents", "Condition 18"],
+  ["condition_19_price_cents", "Condition 19"],
+  ["condition_20_price_cents", "Condition 20"],
+  ["condition_21_price_cents", "Condition 21"],
+  ["condition_22_price_cents", "Condition 22"],
+  ["gamestop_price_cents", "GameStop"],
+  ["gamestop_trade_price_cents", "GameStop trade"],
+  ["retail_loose_buy_cents", "Retail loose buy"],
+  ["retail_loose_sell_cents", "Retail loose sell"],
+  ["retail_cib_buy_cents", "Retail CIB buy"],
+  ["retail_cib_sell_cents", "Retail CIB sell"],
+  ["retail_new_buy_cents", "Retail new buy"],
+  ["retail_new_sell_cents", "Retail new sell"],
+];
 
 export function MarketplaceAdminPricechartingPage() {
   const [summary, setSummary] = useState<PricechartingCatalogSummary | null>(null);
@@ -20,6 +55,17 @@ export function MarketplaceAdminPricechartingPage() {
   const [result, setResult] = useState<PricechartingImportResult | null>(null);
   const [guideResult, setGuideResult] = useState<PricechartingGuideSyncResult | null>(null);
   const [syncingKey, setSyncingKey] = useState<string | null>(null);
+  const [historyQuery, setHistoryQuery] = useState("");
+  const [historyHits, setHistoryHits] = useState<PricechartingProductHit[] | null>(null);
+  const [historyPick, setHistoryPick] = useState<PricechartingProductHit | null>(null);
+  const [historySearchBusy, setHistorySearchBusy] = useState(false);
+  const [historySearchError, setHistorySearchError] = useState<string | null>(null);
+  const [historyProductId, setHistoryProductId] = useState("");
+  const [historyDate, setHistoryDate] = useState("");
+  const [historyPrices, setHistoryPrices] = useState<Record<string, string>>({});
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyResult, setHistoryResult] = useState<ManualPriceHistoryResult | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -44,6 +90,52 @@ export function MarketplaceAdminPricechartingPage() {
       setError(err instanceof Error ? err.message : "Sync failed");
     } finally {
       setSyncingKey(null);
+    }
+  }
+
+  async function onSearchHistory() {
+    const q = historyQuery.trim();
+    if (!q) return;
+    setHistorySearchBusy(true);
+    setHistorySearchError(null);
+    setHistoryHits(null);
+    try {
+      setHistoryHits(await searchPricechartingProducts(q));
+    } catch (err) {
+      setHistorySearchError(err instanceof Error ? err.message : "Could not search");
+    } finally {
+      setHistorySearchBusy(false);
+    }
+  }
+
+  function pickHistoryProduct(hit: PricechartingProductHit) {
+    setHistoryPick(hit);
+    setHistoryProductId(hit.id);
+    setHistoryResult(null);
+    setHistoryError(null);
+  }
+
+  async function onSaveHistory() {
+    const prices: Record<string, string> = {};
+    for (const [column, value] of Object.entries(historyPrices)) {
+      const trimmed = value.trim();
+      if (trimmed) prices[column] = trimmed;
+    }
+    setHistoryBusy(true);
+    setHistoryError(null);
+    setHistoryResult(null);
+    try {
+      setHistoryResult(
+        await recordPricechartingHistory({
+          productId: historyProductId.trim(),
+          observedOn: historyDate,
+          prices,
+        }),
+      );
+    } catch (err) {
+      setHistoryError(err instanceof Error ? err.message : "Could not save prices");
+    } finally {
+      setHistoryBusy(false);
     }
   }
 
@@ -181,6 +273,139 @@ export function MarketplaceAdminPricechartingPage() {
             <li className="text-zinc-500">아직 없습니다.</li>
           ) : null}
         </ul>
+      </section>
+
+      <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>
+        <h2 className="text-sm font-semibold text-zinc-900">과거 가격 입력</h2>
+        <p className="text-sm text-zinc-600">
+          카드나 박스 이름으로 찾은 뒤, 그 날짜의 가격만 넣습니다. 달러로 입력하고, 비운 칸은
+          그 날짜에 저장돼 있던 값을 그대로 둡니다. 지금 카탈로그에 보이는 최신 가격은 바뀌지
+          않습니다. PSA 10은 manual-only 칸입니다.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className={`${ADMIN_LABEL} min-w-0 flex-1`}>
+            카드 / 박스 이름
+            <input
+              className={`${ADMIN_INPUT} mt-1.5`}
+              placeholder="예: Scarlet Violet 151 Booster Box"
+              value={historyQuery}
+              onChange={(e) => setHistoryQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void onSearchHistory();
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={historySearchBusy || !historyQuery.trim()}
+            onClick={() => void onSearchHistory()}
+          >
+            {historySearchBusy ? "찾는 중…" : "찾기"}
+          </button>
+        </div>
+        {historySearchError ? <p className="text-sm text-red-600">{historySearchError}</p> : null}
+        {historyHits ? (
+          historyHits.length === 0 ? (
+            <p className="text-sm text-zinc-500">맞는 상품이 없습니다.</p>
+          ) : (
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-zinc-200 p-1">
+              {historyHits.map((hit) => {
+                const selected = historyPick?.id === hit.id;
+                const loose =
+                  hit.loosePriceCents == null
+                    ? null
+                    : `$${(hit.loosePriceCents / 100).toFixed(2)}`;
+                return (
+                  <li key={hit.id}>
+                    <button
+                      type="button"
+                      className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-50 ${
+                        selected ? "bg-zinc-100" : ""
+                      }`}
+                      onClick={() => pickHistoryProduct(hit)}
+                    >
+                      <span className="font-medium text-zinc-900">{hit.productName}</span>
+                      <span className="mt-0.5 block text-xs text-zinc-600">
+                        {hit.consoleName}
+                        {hit.genre ? ` · ${hit.genre}` : ""}
+                        {loose ? ` · Loose ${loose}` : ""}
+                        {" · "}
+                        <span className="font-mono">{hit.id}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+        {historyHits && historyHits.length === 20 ? (
+          <p className="text-xs text-zinc-500">
+            20개까지만 보여 줍니다. 세트 이름을 더 적으면 목록이 줄어듭니다.
+          </p>
+        ) : null}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className={ADMIN_LABEL}>
+            상품 id
+            <input
+              className={`${ADMIN_INPUT} mt-1.5 font-mono`}
+              inputMode="numeric"
+              value={historyProductId}
+              onChange={(e) => {
+                const next = e.target.value;
+                setHistoryProductId(next);
+                if (historyPick && historyPick.id !== next.trim()) setHistoryPick(null);
+              }}
+            />
+            {historyPick && historyPick.id === historyProductId.trim() ? (
+              <span className="mt-1 block text-xs font-normal text-zinc-600">
+                {historyPick.productName} · {historyPick.consoleName}
+              </span>
+            ) : null}
+          </label>
+          <label className={ADMIN_LABEL}>
+            날짜
+            <input
+              type="date"
+              className={`${ADMIN_INPUT} mt-1.5`}
+              value={historyDate}
+              onChange={(e) => setHistoryDate(e.target.value)}
+            />
+          </label>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {HISTORY_PRICE_FIELDS.map(([column, label]) => (
+            <label key={column} className={ADMIN_LABEL}>
+              {label}
+              <input
+                className={`${ADMIN_INPUT} mt-1.5 font-mono`}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={historyPrices[column] ?? ""}
+                onChange={(e) =>
+                  setHistoryPrices((prev) => ({ ...prev, [column]: e.target.value }))
+                }
+              />
+            </label>
+          ))}
+        </div>
+        <button
+          type="button"
+          className={ADMIN_BTN_PRIMARY}
+          disabled={historyBusy || !historyProductId.trim() || !historyDate}
+          onClick={() => void onSaveHistory()}
+        >
+          {historyBusy ? "저장 중…" : "이 날짜 가격 저장"}
+        </button>
+        {historyError ? <p className="text-sm text-red-600">{historyError}</p> : null}
+        {historyResult ? (
+          <p className="text-sm text-emerald-700">
+            {historyResult.productName} ({historyResult.productId}) · {historyResult.observedOn} ·{" "}
+            {Object.keys(historyResult.savedCents).length}개 가격 저장. 최신 카탈로그 가격은
+            그대로입니다.
+          </p>
+        ) : null}
       </section>
     </article>
   );

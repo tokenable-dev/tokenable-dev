@@ -19,8 +19,11 @@ import { VaultSubmissionAdminMintService } from './admin/vault-submission-admin-
 import { PsaVaultedMailService } from '../vault/psa-vaulted-mail.service';
 import { PartnerVaultMintJob } from './entities/partner-vault-mint-job.entity';
 import { PartnerVaultMintJobItem } from './entities/partner-vault-mint-job-item.entity';
+import { SealedBoxMint } from './entities/sealed-box-mint.entity';
 import { PartnerVaultMintController } from './partner-vault-mint/partner-vault-mint.controller';
 import { PartnerVaultMintJobService } from './partner-vault-mint/partner-vault-mint-job.service';
+import { SealedBoxMintController } from './sealed-box-mint/sealed-box-mint.controller';
+import { SealedBoxMintService } from './sealed-box-mint/sealed-box-mint.service';
 import { MarketplaceNotificationsModule } from '../marketplace/notifications/marketplace-notifications.module';
 import { KycModule } from '../kyc/kyc.module';
 import { VaultSubmissionItem } from '../vault/entities/vault-submission-item.entity';
@@ -43,6 +46,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     TypeOrmModule.forFeature([
       PartnerVaultMintJob,
       PartnerVaultMintJobItem,
+      SealedBoxMint,
       Order,
       VaultSubmissionItem,
       VaultRedemption,
@@ -68,6 +72,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     FedexRateAdminController,
     FedexTrackAdminController,
     PartnerVaultMintController,
+    SealedBoxMintController,
   ],
   providers: [
     PinataService,
@@ -83,6 +88,7 @@ import { RwaSlabBackfillService } from './rwa-slab-backfill.service';
     VaultSubmissionAdminMintService,
     PsaVaultedMailService,
     PartnerVaultMintJobService,
+    SealedBoxMintService,
   ],
   exports: [PinataService, RwaSlabS3Service, PsaVaultedMailService],
 })

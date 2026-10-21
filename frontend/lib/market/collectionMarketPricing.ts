@@ -3,10 +3,10 @@ import type { CollectionMarketStats, CollectionUsdPoint } from "@/lib/core";
 /** Shown when catalog / reference USD cannot be resolved (not a prose explanation). */
 export const NO_EXTERNAL_PRICE = "N/A";
 
-/** Catalog / Cardhedger / 30D median — drop cents (`$39.99` → `$39`). */
+/** Whole dollars everywhere except PriceCharting (`$39.99` → `$40`). */
 export function formatUsdCompact(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return "—";
-  return `$${Math.trunc(n).toLocaleString("en-US")}`;
+  return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
 /** On-platform ask, bid, or listed sale — whole dollars only. */

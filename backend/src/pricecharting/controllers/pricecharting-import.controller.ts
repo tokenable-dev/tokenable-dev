@@ -6,15 +6,17 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   Req,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsIn, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsObject, IsString, Matches, MaxLength, MinLength, IsIn } from 'class-validator';
 import type { Request } from 'express';
 import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
+import { PricechartingCatalogSearch } from '../pricecharting-catalog-search';
 import { PricechartingImportService } from '../pricecharting-import.service';
 import {
   PRICECHARTING_GUIDE_KEYS,
@@ -25,6 +27,16 @@ class SyncPricechartingGuideDto {
   @IsString()
   @IsIn(PRICECHARTING_GUIDE_KEYS)
   key!: string;
+}
+
+class RecordManualPriceHistoryDto {
+  @IsString()
+  @Matches(/^\d{4}-\d{2}-\d{2}$/)
+  observedOn!: string;
+
+  /** Dollar amounts keyed by `pricecharting_products` cent columns. Blank keys are omitted. */
+  @IsObject()
+  prices!: Record<string, unknown>;
 }
 
 class CreatePricechartingSourceDto {
@@ -48,7 +60,39 @@ export class PricechartingImportController {
     private readonly admin: MarketplaceAdminService,
     private readonly imports: PricechartingImportService,
     private readonly sync: PricechartingSyncService,
+    private readonly search: PricechartingCatalogSearch,
   ) {}
+
+  @Get('products')
+  @ApiOperation({
+    summary: '[Admin] Find a catalog product by name or id',
+    description:
+      'Same local name search as the catalog, at most 20 rows, ordered by product name. A numeric query looks up that product id. Does not call PriceCharting.',
+  })
+  async searchProducts(@Req() req: Request, @Query('q') q?: string) {
+    this.admin.assertAdminSession(req);
+    const query = q?.trim() ?? '';
+    if (/^\d+$/.test(query)) {
+      const found = await this.search.matchOne({ id: query });
+      return found.match ? [found.match] : [];
+    }
+    return this.search.search(query, 'name');
+  }
+
+  @Post('products/:id/prices')
+  @ApiOperation({
+    summary: '[Admin] Store one day of PriceCharting prices by hand',
+    description:
+      'Writes pricecharting_price_history only. Does not change the current catalog row and does not upload a CSV. Omitted price columns keep the value already stored for that date.',
+  })
+  recordHistory(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @Body() body: RecordManualPriceHistoryDto,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.imports.recordManualHistory(id, body.observedOn, body.prices);
+  }
 
   @Get('products/:id/prices')
   @ApiOperation({

@@ -71,6 +71,8 @@ Independent of `collection_market_snapshots`. Admin upload upserts by PriceChart
 | Saved URLs | `pricecharting_catalog_sources` (not shown in the admin UI) |
 | Price history | `pricecharting_price_history` (`product_id`, Seoul `observed_on`, jsonb cents). Every import writes that date, even when the cents match the previous day. The same date updates that one row. |
 | Series | `GET /api/marketplace/admin/pricecharting/products/:id/prices` returns `{ productId, points: [{ observedOn, prices }] }` oldest first. Cents, not dollars. |
+| Find product | `GET /api/marketplace/admin/pricecharting/products?q=` returns at most 20 catalog rows (`id`, `productName`, `consoleName`, `genre`, `releaseDate`, `upc`, `loosePriceCents`). Words must each appear in the product name or set name. A numeric `q` looks up that product id. Does not call PriceCharting. |
+| Manual day | `POST /api/marketplace/admin/pricecharting/products/:id/prices` `{ observedOn, prices }` writes that Seoul date on `pricecharting_price_history` only. `prices` values are dollars keyed by cent column names (`loose_price_cents`, `manual_only_price_cents`, …). Blank columns are omitted and keep the cents already stored for that date. The current `pricecharting_products` row is not changed. The product id must already exist. |
 | Audit | `pricecharting_import_runs` |
 
 Pokemon / One Piece guide files and sports **set** CSVs all land in the same table. Re-uploading the same id updates prices. Comma CSV and tab-separated files are both accepted (max 50 MB).

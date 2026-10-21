@@ -38,6 +38,9 @@ export function SiteAccessClient() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["site-access-status"] });
+      if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
       router.replace(nextPath);
       router.refresh();
     } catch {

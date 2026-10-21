@@ -30,7 +30,9 @@ export function SellFlowYourCardsSection({
         <div className="sell-flow-cards-title">
           Your cards{" "}
           <span className="sell-flow-cards-count">
-            ({cards.length} of {maxCards})
+            {embedded
+              ? `(${cards.length} of ${maxCards})`
+              : `(${cards.length})`}
           </span>
         </div>
       </div>

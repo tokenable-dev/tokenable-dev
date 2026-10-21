@@ -199,7 +199,7 @@ function AnalyzeResultPanel({ result }: { result: PsaAnalyzeResult }) {
               <dt className="text-zinc-600">Price USD</dt>
               <dd className="font-medium text-zinc-900">
                 {result.cardhedgerMint?.priceUsd != null
-                  ? `$${result.cardhedgerMint.priceUsd}`
+                  ? `$${Math.round(result.cardhedgerMint.priceUsd).toLocaleString("en-US")}`
                   : "—"}
               </dd>
             </div>

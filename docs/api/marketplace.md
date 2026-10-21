@@ -333,7 +333,7 @@ Unified catalog search for the header typeahead and `/search` page.
 
 Response: `{ cards: SearchCardHit[], collections: CollectionSummary[] }`. Cards are listed first in the UI (cert row), then collections.
 
-Each card hit includes `components` from the token’s collection bucket (when present). The UI formats **Line 1** `{Name} · {Number} · {Grade}` and **Line 2** `{Year} · {Set} {Language} · {Variant}` the same way as collection detail — not raw `displayName` / cert/vault strings.
+Each card hit includes `components` from the token’s collection bucket (when present). Search results show **Line 1** `{Name} · {Number}`, then the grade, then **Line 2** `{Year} · {Set} {Language} · {Variant}` — not raw `displayName` / cert/vault strings.
 
 ---
 
@@ -434,7 +434,7 @@ Returns active collections for Card.html **Similar items** that match **either**
 - same card name (`cardNameDisplay` / `cardName` / `psaSubject`), **or**
 - same set (`cardSetDisplay` / `cardSet` / `psaBrand`)
 
-Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 12 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`.
+Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 5 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`.
 
 ---
 

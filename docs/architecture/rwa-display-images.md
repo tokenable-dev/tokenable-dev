@@ -10,7 +10,7 @@ Complexity here is **domain complexity**, not accidental layering: a PSA slab ph
 | Layer | What users see | SSOT | Typical URL shape |
 |-------|----------------|------|-------------------|
 | **A. Mint input** | Vault OCR preview, `POST /rwa/upload` body | User `File` → else PSA CloudFront → else Cardhedger `card.image` → else placeholder | Ephemeral / remote HTTPS |
-| **B. Token slab** | Portfolio My Assets, certificate, admin All cards (per token) | `rwa_tokens.display_image_url` (+ optional `display_image_back_url`); on-chain `metadata.image` (IPFS) for provenance | `…/rwa-slabs/{chainId}/{cert}/slab` |
+| **B. Token slab** | Portfolio My Assets, certificate, admin All cards (per token) | `rwa_tokens.display_image_url` (+ optional `display_image_back_url`); on-chain `metadata.image` (IPFS) for provenance | `…/rwa-slabs/{chainId}/{cert}/slab` or, for a sealed box, `…/rwa-boxes/{chainId}/{boxId}/photo` |
 | **C. Collection cover** | Home / marketplace collection cards, collection detail hero | `marketplace_collections.cover_image_url` (+ Cardhedger sync) | `…/covers/{collection_key}/cover` |
 
 Layer **B** and **C** are intentionally different images: B shows the vaulted slab (often with cert label); C shows catalog art without slab chrome.

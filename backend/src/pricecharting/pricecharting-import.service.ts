@@ -9,6 +9,8 @@ import {
 } from './pricecharting-archive';
 import {
   PRICE_COLUMNS,
+  mergeManualHistoryPrices,
+  manualHistoryPricePatch,
   parsePricechartingCsv,
   type PricechartingCsvRow,
 } from './pricecharting-csv';
@@ -398,6 +400,70 @@ export class PricechartingImportService {
       [observedOn, ids, ...priceArrays],
     );
     return rows.length;
+  }
+
+  /**
+   * One past (or same-day) price row. Does not change `pricecharting_products`.
+   * Columns left blank keep that date's stored cents.
+   */
+  async recordManualHistory(
+    productId: string,
+    observedOn: string,
+    rawPrices: Record<string, unknown>,
+  ): Promise<{
+    productId: string;
+    productName: string;
+    consoleName: string;
+    observedOn: string;
+    savedCents: Record<string, number>;
+  }> {
+    const id = productId.trim();
+    if (!/^\d+$/.test(id)) {
+      throw new BadRequestException('product id must be numeric');
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(observedOn)) {
+      throw new BadRequestException('observedOn must be YYYY-MM-DD');
+    }
+    let savedCents: Record<string, number>;
+    try {
+      savedCents = manualHistoryPricePatch(rawPrices);
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Invalid prices',
+      );
+    }
+
+    const found = (await this.dataSource.query(
+      `SELECT product_name, console_name
+       FROM pricecharting_products
+       WHERE id = $1`,
+      [id],
+    )) as Array<{ product_name: string; console_name: string }>;
+    const product = found[0];
+    if (!product) {
+      throw new BadRequestException('No catalog product with that id');
+    }
+
+    const prior = (await this.dataSource.query(
+      `SELECT prices
+       FROM pricecharting_price_history
+       WHERE product_id = $1 AND observed_on = $2::date`,
+      [id, observedOn],
+    )) as Array<{ prices: Record<string, unknown> | null }>;
+    const prices = mergeManualHistoryPrices(prior[0]?.prices ?? null, savedCents);
+    await this.dataSource.query(
+      `INSERT INTO pricecharting_price_history (product_id, observed_on, prices)
+       VALUES ($1, $2::date, $3::jsonb)
+       ON CONFLICT (product_id, observed_on) DO UPDATE SET prices = EXCLUDED.prices`,
+      [id, observedOn, JSON.stringify(prices)],
+    );
+    return {
+      productId: id,
+      productName: product.product_name,
+      consoleName: product.console_name,
+      observedOn,
+      savedCents,
+    };
   }
 
   /** Chart series for one product: every stored Seoul date, oldest first. */

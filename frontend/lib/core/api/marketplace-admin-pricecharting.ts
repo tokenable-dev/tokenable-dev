@@ -80,6 +80,56 @@ export async function uploadPricechartingCsv(
   return res.json() as Promise<PricechartingImportResult>;
 }
 
+export type PricechartingProductHit = {
+  id: string;
+  productName: string;
+  consoleName: string;
+  genre: string | null;
+  releaseDate: string | null;
+  upc: string | null;
+  loosePriceCents: number | null;
+};
+
+export async function searchPricechartingProducts(
+  q: string,
+): Promise<PricechartingProductHit[]> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/products?q=${encodeURIComponent(q)}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<PricechartingProductHit[]>;
+}
+
+export type ManualPriceHistoryResult = {
+  productId: string;
+  productName: string;
+  consoleName: string;
+  observedOn: string;
+  savedCents: Record<string, number>;
+};
+
+export async function recordPricechartingHistory(input: {
+  productId: string;
+  observedOn: string;
+  prices: Record<string, string>;
+}): Promise<ManualPriceHistoryResult> {
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/products/${encodeURIComponent(input.productId)}/prices`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        observedOn: input.observedOn,
+        prices: input.prices,
+      }),
+    },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<ManualPriceHistoryResult>;
+}
+
 export async function syncPricechartingGuide(
   key: string,
 ): Promise<PricechartingGuideSyncResult> {

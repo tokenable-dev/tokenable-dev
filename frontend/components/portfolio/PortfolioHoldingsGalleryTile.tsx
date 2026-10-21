@@ -14,7 +14,7 @@ type GalleryStyleSeg = "notlisted" | "listed" | "shipping";
 
 function listedPriceInput(price: number | null | undefined): string {
   if (price == null || !Number.isFinite(price)) return "";
-  return price.toLocaleString("en-US", { maximumFractionDigits: 2 });
+  return Math.round(price).toLocaleString("en-US");
 }
 
 function formatLastPrice(price: number): string {

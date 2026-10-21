@@ -398,6 +398,8 @@ export function SellFlowPartnerCsvSection({
     );
   }
 
+  if (csvRows.length === 0) return null;
+
   return (
     <div className="sell-flow-partner-csv-section">
       <div className="sell-flow-partner-csv-listwrap">

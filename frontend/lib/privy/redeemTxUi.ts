@@ -1,8 +1,14 @@
 import type { SendTransactionModalUIOptions } from "@privy-io/react-auth";
 import { formatUnits } from "viem";
 
+function wholeUsdcLabel(amountMicros: bigint): string {
+  const n = Number(formatUnits(amountMicros, 6));
+  if (!Number.isFinite(n)) return formatUnits(amountMicros, 6);
+  return Math.round(n).toLocaleString("en-US");
+}
+
 export function redeemUsdcFeePrivyUi(amountMicros: bigint): SendTransactionModalUIOptions {
-  const usdc = formatUnits(amountMicros, 6);
+  const usdc = wholeUsdcLabel(amountMicros);
   return {
     description: `Redeem fee: ${usdc} USDC to Tokenable (plus network gas in ETH).`,
     buttonText: "Pay redeem fee",
@@ -52,12 +58,14 @@ export function sellSeaportMatchPrivyUi(): SendTransactionModalUIOptions {
 
 /** Seaport fulfillOrder during Buy now (embedded wallet). */
 export function buyFulfillAskPrivyUi(priceUsdc: string): SendTransactionModalUIOptions {
+  const n = Number(priceUsdc);
+  const label = Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : priceUsdc;
   return {
-    description: `Pay $${priceUsdc} USDC for this card (plus network gas in ETH).`,
+    description: `Pay $${label} USDC for this card (plus network gas in ETH).`,
     buttonText: "Confirm purchase",
     transactionInfo: {
       title: "Details",
-      action: `Buy for $${priceUsdc} USDC`,
+      action: `Buy for $${label} USDC`,
       contractInfo: { name: "Seaport" },
     },
     successHeader: "Purchase complete",

@@ -4,7 +4,23 @@ import Link from "next/link";
 import { ASSETS } from "@/constants/assets";
 import { HomeHeroSearch } from "@/components/home/HomeHeroSearch";
 
-const HERO_CHIPS = ["Graded", "Vaulted", "On-chain"] as const;
+const HERO_POINTS = [
+  {
+    title: "Graded",
+    copy: "PSA, BGS & CGC certified",
+    icon: ASSETS.home.heroIconGraded,
+  },
+  {
+    title: "Vaulted",
+    copy: "Stored & insured for you",
+    icon: ASSETS.home.heroIconVaulted,
+  },
+  {
+    title: "On-chain",
+    copy: "Instant settlement",
+    icon: ASSETS.home.heroIconOnchain,
+  },
+] as const;
 
 export function HomeHero() {
   return (
@@ -25,14 +41,18 @@ export function HomeHero() {
 
           <HomeHeroSearch />
 
-          <div className="home-hero__chips home-hero__reveal home-hero__reveal--3">
-            {HERO_CHIPS.map((label) => (
-              <span key={label} className="home-hero__chip">
-                <span className="home-hero__chip-dot" aria-hidden />
-                {label}
-              </span>
+          <ul className="home-hero__points home-hero__reveal home-hero__reveal--3">
+            {HERO_POINTS.map(({ title, copy, icon }) => (
+              <li key={title} className="home-hero__point">
+                <span className="home-hero__point-icon">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={icon} alt="" />
+                </span>
+                <span className="home-hero__point-title">{title}</span>
+                <span className="home-hero__point-copy">{copy}</span>
+              </li>
             ))}
-          </div>
+          </ul>
 
           <div className="home-hero__cta home-hero__reveal home-hero__reveal--4">
             <Link href="/markets" className="home-hero__browse">

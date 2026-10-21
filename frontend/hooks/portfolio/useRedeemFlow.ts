@@ -1053,7 +1053,7 @@ export function useRedeemFlow() {
       const amount = BigInt(estimate.totalUsdcMicros);
       if (usdcBalance < amount) {
         throw new Error(
-          `Insufficient USDC. Need ${formatUnits(amount, 6)} USDC.`,
+          `Insufficient USDC. Need ${Math.round(Number(formatUnits(amount, 6))).toLocaleString("en-US")} USDC.`,
         );
       }
 

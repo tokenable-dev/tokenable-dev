@@ -303,6 +303,29 @@ See [marketplace-admin.md](./marketplace-admin.md) for the full admin RWA API in
 
 ---
 
+## `POST /api/marketplace/partners/me/sealed-box-mints`
+
+**Auth:** `JwtAuthGuard`. Partner with a company vault address, same gate as self-vault card mint.
+
+**Content-Type:** `multipart/form-data`
+
+Mints one sealed box to the partner wallet. Order: S3 photo, IPFS image + metadata, then `mint(to)`. A failure before the chain call does not mint. No vault cycle, no `collection_key`, no ask.
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `pricechartingProductId` | Yes | Catalog product id (`pricecharting_products.id`) |
+| `clientRequestId` | Yes | UUID. A repeat of a submitted mint does not mint a second token |
+| `image` | Yes | JPEG, PNG, or WebP, max 10 MB |
+| `recipientAddress` | No | Linked wallet. Omitted uses the primary wallet |
+
+**Response:** `{ id, status: "minted", tokenId, tokenURI, displayImageUrl, txHash, chainId, productName }`
+
+`tokenURI` is `ipfs://{metadataCid}`. `displayImageUrl` is the S3 object under `rwa-boxes/{chainId}/{boxId}/photo`. `rwa_tokens.cert_number` and `collection_key` stay null. Portfolio shows the S3 image. The asset page does not offer card list or redeem (`properties.assetKind = sealed_box`).
+
+Same rejections as partner card mint when they apply: not a partner, missing company address, unlinked recipient, no wallet, KYC when `VAULT_MINT_REQUIRES_KYC` is on. Photo and catalog errors: `Image is required`, `Image must be JPEG, PNG, or WebP…`, `Catalog product not found`, `Catalog cover S3 is not configured`, `이미지 IPFS 업로드에 실패했습니다.`, `메타데이터 IPFS 업로드에 실패했습니다.`, `Mint already submitted for this request`.
+
+---
+
 ## Related Environment Variables
 
 | Variable | Purpose |

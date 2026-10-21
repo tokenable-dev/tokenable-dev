@@ -209,7 +209,10 @@ export function RedeemPayPanel({
           <p className="pf-redeem-hint-below">
             Account balance{" "}
             <span className="tkl-mono pf-redeem-paybox__bal">
-              {usdcBalanceFormatted || "—"} USDC
+              {Number.isFinite(Number(usdcBalanceFormatted))
+                ? Math.round(Number(usdcBalanceFormatted)).toLocaleString("en-US")
+                : "—"}{" "}
+              USDC
             </span>
             · charged as a USDC transfer to the Tokenable fee wallet.
           </p>

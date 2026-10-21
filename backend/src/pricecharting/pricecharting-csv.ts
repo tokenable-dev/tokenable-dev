@@ -47,6 +47,61 @@ export const PRICE_HEADER_TO_COLUMN: Record<string, string> = {
 
 export const PRICE_COLUMNS = Object.values(PRICE_HEADER_TO_COLUMN);
 
+const PRICE_COLUMN_SET = new Set<string>(PRICE_COLUMNS);
+
+/**
+ * Admin dollar inputs → cents for the columns that were filled in.
+ * Blank cells are omitted so a later edit can leave the other grades alone.
+ */
+export function manualHistoryPricePatch(
+  raw: Record<string, unknown>,
+): Record<string, number> {
+  const patch: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!PRICE_COLUMN_SET.has(key)) {
+      throw new Error(`Unknown price column ${key}`);
+    }
+    if (value == null || value === '') continue;
+    const text = typeof value === 'number' ? String(value) : String(value);
+    if (text.trim().startsWith('-')) {
+      throw new Error(`${key} cannot be negative`);
+    }
+    const cents = usdToCents(text);
+    if (cents == null || cents < 0) {
+      throw new Error(`${key} is not a valid price`);
+    }
+    patch[key] = cents;
+  }
+  if (Object.keys(patch).length === 0) {
+    throw new Error('Enter at least one price');
+  }
+  return patch;
+}
+
+/** Full cent object for one day. Omitted columns keep the stored value, or null on a new day. */
+export function mergeManualHistoryPrices(
+  existing: Record<string, unknown> | null | undefined,
+  patchCents: Record<string, number>,
+): Record<string, number | null> {
+  const next: Record<string, number | null> = {};
+  for (const column of PRICE_COLUMNS) {
+    const prior = existing?.[column];
+    if (prior == null || prior === '') {
+      next[column] = null;
+      continue;
+    }
+    const n = typeof prior === 'number' ? prior : Number(prior);
+    next[column] = Number.isFinite(n) ? n : null;
+  }
+  for (const [column, cents] of Object.entries(patchCents)) {
+    if (!PRICE_COLUMN_SET.has(column)) {
+      throw new Error(`Unknown price column ${column}`);
+    }
+    next[column] = cents;
+  }
+  return next;
+}
+
 /** Postgres integer. About $21.4M in cents; one bad upstream cell can exceed it. */
 const PG_INT_MAX = 2_147_483_647;
 

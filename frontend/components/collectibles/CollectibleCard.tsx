@@ -162,8 +162,8 @@ export const CollectibleCard = memo(function CollectibleCard({
         <div className="card__title" title={titleHover || line1Title}>
           {line1Title}
         </div>
-        {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
         <div className="card__grade-line">{grade}</div>
+        {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
         <div className="card__price-row">
           <span className="card__price">{formatUsdCompact(priceUsd)}</span>
           <ListingCardChange

@@ -150,7 +150,7 @@ export function pickLowestActiveAskCandidates(activeAsks: Order[]): Order[] {
 export function formatCriteriaBidUsdc6(amountStr: string): string {
   try {
     const n = Number(formatUnits(BigInt(amountStr), 6));
-    return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return Math.round(n).toLocaleString("en-US");
   } catch {
     return amountStr;
   }

@@ -1340,9 +1340,231 @@ button.sell-flow-link {
   }
 }
 
+.sell-flow-glass--partner-cards {
+  margin-top: 14px;
+  padding: 24px 24px 28px;
+}
+
+.sell-flow-glass--partner-cards .sell-flow-cards-section {
+  margin-top: 0;
+}
+
+.sell-flow-glass--partner-cards .sell-flow-cardrow {
+  border-bottom: 0;
+  padding-bottom: 4px;
+}
+
+.sell-flow-glass--partner-cards .sell-flow-ship-btn.tk-btn,
+.sell-flow-glass--partner-cards .sell-flow-ship-btn {
+  width: auto !important;
+  min-width: 240px;
+  padding: 0 22px !important;
+}
+
+.sell-flow-kind {
+  display: flex;
+  gap: 4px;
+  margin-top: 28px;
+  padding: 4px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 1px 2px rgba(17, 17, 17, 0.06);
+}
+
+.sell-flow-kind + .sell-flow-glass--partner-input {
+  margin-top: 12px;
+}
+
+.sell-flow-kind__b {
+  flex: 1;
+  height: 48px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  font-size: var(--tk-ui-fs-body-lg);
+  font-weight: 600;
+  color: #71717a;
+  cursor: pointer;
+}
+
+.sell-flow-kind__b--on {
+  background: #1a6fff;
+  color: #fff;
+}
+
+.sell-flow-kind__b:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.sell-flow-kind__b:focus-visible {
+  outline: 2px solid var(--brand-400);
+  outline-offset: 2px;
+}
+
+.sell-flow-box-input {
+  letter-spacing: normal;
+}
+
+.sell-flow-box-search {
+  position: relative;
+}
+
 .sell-flow-glass--partner-input {
-  margin-top: 36px;
-  padding: 24px;
+  overflow: visible;
+}
+
+.sell-flow-box-menu {
+  position: absolute;
+  z-index: 8;
+  left: 0;
+  right: 0;
+  top: calc(100% + 8px);
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow:
+    0 12px 32px rgba(17, 17, 17, 0.12),
+    0 0 0 1px rgba(17, 17, 17, 0.06);
+  max-height: 320px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d4d4d8 #fff;
+}
+
+.sell-flow-box-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sell-flow-box-menu::-webkit-scrollbar-track {
+  background: #fff;
+  margin: 10px 0;
+}
+
+.sell-flow-box-menu::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 9999px;
+  border: 2px solid #fff;
+}
+
+.sell-flow-box-menu::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+.sell-flow-box-menu__b {
+  display: block;
+  width: 100%;
+  padding: 12px 18px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sell-flow-box-menu__b:hover,
+.sell-flow-box-menu__b:focus-visible {
+  background: rgba(26, 111, 255, 0.06);
+}
+
+.sell-flow-box-menu__name {
+  display: block;
+  font-size: 15px;
+  font-weight: 700;
+  color: #18181b;
+  line-height: 1.35;
+}
+
+.sell-flow-box-menu__sub {
+  display: block;
+  margin-top: 3px;
+  font-size: 13px;
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.sell-flow-box-menu__empty {
+  padding: 14px 18px;
+  color: rgba(17, 17, 17, 0.55);
+  font-size: 14px;
+}
+
+.sell-flow-box-after {
+  margin-top: 16px;
+}
+
+.sell-flow-box-pick__name,
+.sell-flow-box-pick__sub {
+  display: block;
+}
+
+.sell-flow-box-pick__name {
+  font-weight: 700;
+  color: #18181b;
+}
+
+.sell-flow-box-pick__sub {
+  margin-top: 3px;
+  font-size: 13px;
+  color: rgba(17, 17, 17, 0.45);
+}
+
+.sell-flow-box-photo {
+  margin-top: 14px;
+  cursor: pointer;
+}
+
+.sell-flow-box-photo-preview {
+  display: block;
+  width: 96px;
+  height: 96px;
+  margin-top: 12px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: #f5f5f7;
+}
+
+.sell-flow-box-mint.tk-btn,
+.sell-flow-box-mint {
+  width: 100% !important;
+  margin-top: 16px;
+}
+
+.sell-flow-box-minted {
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #18181b;
+}
+
+@media (max-width: 768px) {
+  .sell-flow-kind {
+    margin-top: 20px;
+  }
+
+  .sell-flow-page .sell-flow-kind + .sell-flow-glass--partner-input,
+  .sell-flow-page .sell-flow-glass--partner-cards {
+    margin-top: 12px;
+  }
+
+  .sell-flow-glass--partner-cards {
+    padding: 20px 20px 20px;
+  }
+
+  .sell-flow-glass--partner-cards .sell-flow-cards-cta {
+    margin-top: 16px;
+  }
+
+  .sell-flow-glass--partner-cards .sell-flow-ship-btn.tk-btn,
+  .sell-flow-glass--partner-cards .sell-flow-ship-btn {
+    width: 100% !important;
+    min-width: 0;
+    padding: 0 !important;
+  }
+
+  .sell-flow-box-menu {
+    max-height: min(320px, 46vh);
+  }
 }
 
 .sell-flow-page-sub {
@@ -1382,6 +1604,31 @@ button.sell-flow-link {
 .sell-flow-mseg__b:focus-visible {
   outline: 2px solid var(--brand-400);
   outline-offset: 2px;
+}
+
+.sell-flow-mseg--text {
+  justify-content: flex-start;
+  gap: 22px;
+  padding: 0;
+  background: transparent;
+  border-radius: 0;
+  border-bottom: 1px solid rgba(17, 17, 17, 0.08);
+}
+
+.sell-flow-mseg--text .sell-flow-mseg__b {
+  flex: 0 0 auto;
+  height: auto;
+  padding: 0 0 10px;
+  border-radius: 0;
+  background: transparent;
+  color: rgba(17, 17, 17, 0.45);
+  box-shadow: none;
+}
+
+.sell-flow-mseg--text .sell-flow-mseg__b--on {
+  background: transparent;
+  color: #18181b;
+  box-shadow: inset 0 -2px 0 #1a6fff;
 }
 
 .sell-flow-csv-drop {

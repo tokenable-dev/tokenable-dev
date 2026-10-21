@@ -135,6 +135,7 @@ export function PortfolioCertificateView({
   onSellList,
   onCancelListing,
   cancelListingPending = false,
+  holdOnly = false,
 }: {
   tokenId: number;
   tokenIdOk: boolean;
@@ -145,6 +146,8 @@ export function PortfolioCertificateView({
   /** PortfolioAsset.html — Cancel listing sits on the Sale listing prow. */
   onCancelListing?: () => void;
   cancelListingPending?: boolean;
+  /** Sealed box: show the holding, without card list or redeem. */
+  holdOnly?: boolean;
 }) {
   const [tab, setTab] = useState<CertTab>("proof");
   const [zoomOpen, setZoomOpen] = useState(false);
@@ -531,6 +534,7 @@ export function PortfolioCertificateView({
                 </span>
               </div>
             ) : null}
+            {holdOnly ? null : (
             <div className="foot-actions">
               <button
                 type="button"
@@ -567,6 +571,7 @@ export function PortfolioCertificateView({
                 {d.listed ? "Edit price" : "Sell / List"}
               </button>
             </div>
+            )}
           </div>
         </div>
       </div>

@@ -173,7 +173,7 @@ export function MarketplaceAdminSelfVaultSettlementsPage() {
               onExecutePayout={() => {
                 if (
                   !window.confirm(
-                    `Send $${(Number(BigInt(row.sellerPayoutUsdc)) / 1e6).toFixed(2)} USDC from the platform fee wallet to the seller?`,
+                    `Send $${Math.round(Number(BigInt(row.sellerPayoutUsdc)) / 1e6).toLocaleString("en-US")} USDC from the platform fee wallet to the seller?`,
                   )
                 ) {
                   return;

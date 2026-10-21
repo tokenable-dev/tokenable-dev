@@ -52,6 +52,12 @@ export type MatchFailureCode =
 /** ERC20 offer item in Seaport order parameters. */
 const ITEM_ERC20 = 1;
 
+function wholeUsdc(units: bigint): string {
+  const n = Number(formatUnits(units, 6));
+  if (!Number.isFinite(n)) return formatUnits(units, 6);
+  return Math.round(n).toLocaleString("en-US");
+}
+
 export type BuyerUsdcReadyResult =
   | { ok: true }
   | {
@@ -105,7 +111,7 @@ export async function checkBuyerUsdcReadyForBid(
       ok: false,
       code: "balance",
       message:
-        `Buyer USDC insufficient: ${buyer} has ${formatUnits(bal as bigint, 6)} USDC but this offer requires ${formatUnits(needed, 6)} USDC. ` +
+        `Buyer USDC insufficient: ${buyer} has ${wholeUsdc(bal as bigint)} USDC but this offer requires ${wholeUsdc(needed)} USDC. ` +
         `Offers do not lock USDC — the buyer must still hold the funds when you accept.`,
     };
   }
@@ -114,7 +120,7 @@ export async function checkBuyerUsdcReadyForBid(
       ok: false,
       code: "allowance",
       message:
-        `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${formatUnits(needed, 6)} USDC for Seaport.`,
+        `Buyer USDC allowance too low for Seaport: ${buyer} must approve at least ${wholeUsdc(needed)} USDC for Seaport.`,
     };
   }
   return { ok: true };
