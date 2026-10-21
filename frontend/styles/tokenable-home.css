@@ -757,40 +757,45 @@
   }
 
   .home-hero__points {
-    gap: 8px;
+    gap: 6px;
     margin-top: auto;
+    margin-left: -10px;
+    margin-right: -10px;
     padding-top: 28px;
-    max-width: 100%;
+    width: calc(100% + 20px);
+    max-width: none;
   }
 
   .home-hero__point-icon {
-    width: 24px;
-    height: 24px;
+    width: 31px;
+    height: 31px;
     flex-shrink: 0;
     margin-bottom: 4px;
   }
 
   .home-hero__point-title {
     font-family: var(--font-sans);
-    font-size: 9.697px;
+    font-size: 12px;
     font-style: normal;
     font-weight: 700;
-    line-height: 8.485px;
+    line-height: 14px;
     text-align: center;
     text-transform: capitalize;
+    white-space: nowrap;
     color: #fff;
   }
 
   .home-hero__point-copy {
     margin-top: 2px;
     font-family: var(--font-sans);
-    font-size: 8.485px;
+    font-size: 10px;
     font-style: normal;
     font-weight: 400;
-    line-height: 8.485px;
+    line-height: 12px;
     letter-spacing: -0.182px;
     text-align: center;
     text-transform: capitalize;
+    white-space: nowrap;
     color: #757575;
   }
 
@@ -891,8 +896,8 @@
   }
 
   .home-hero__browse {
-    width: 100%;
-    max-width: 100%;
+    width: calc(100% - 40px);
+    max-width: calc(100% - 40px);
     height: 56px;
     border-radius: 16px;
     font-size: 16px;
