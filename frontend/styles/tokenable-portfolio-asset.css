@@ -837,6 +837,11 @@
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
+/* Sell / List alone (e.g. sealed box — no Redeem) — avoid left-half bias. */
+.pa-page .foot-actions:has(> :only-child) {
+  grid-template-columns: 1fr;
+  justify-items: stretch;
+}
 .pa-page .px-top {
   display: flex;
   align-items: baseline;

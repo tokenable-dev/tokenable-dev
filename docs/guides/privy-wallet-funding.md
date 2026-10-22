@@ -67,6 +67,22 @@ MoonPay-only embed KYC can reject **South Korea** on ID step even though KR is n
 
 ## Environment variables
 
+### Ethereum mainnet production (live USDC)
+
+```bash
+# frontend/.env
+NEXT_PUBLIC_PRIVY_FUNDING_ENVIRONMENT=production
+NEXT_PUBLIC_PRIVY_FUNDING_CHAIN_ID=1
+NEXT_PUBLIC_PRIVY_FUNDING_USE_ONRAMP_ON_TESTNET=false
+NEXT_PUBLIC_PRIVY_FUNDING_DEFAULT_AMOUNT=50
+# Do NOT set SKIP_READINESS_CHECK for live purchases
+
+# backend/.env
+PRIVY_FUNDING_TARGET_CAIP2=eip155:1
+```
+
+Privy Dashboard → Account Funding token/network must be **Ethereum + USDC** (not Sepolia).
+
 ### Polygon production (live USDC)
 
 ```bash
