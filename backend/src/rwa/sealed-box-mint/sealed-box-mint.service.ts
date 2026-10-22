@@ -271,6 +271,7 @@ export class SealedBoxMintService {
       properties: {
         assetKind: 'sealed_box',
         pricechartingProductId: row.pricechartingProductId,
+        productName: row.productName,
         consoleName: set,
         upc: row.upc,
       },

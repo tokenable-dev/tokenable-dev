@@ -14,6 +14,10 @@ import {
   resolveRwaHeadlineGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
+import {
+  sealedBoxHeroSetTitle,
+  sealedBoxProductTypeLabel,
+} from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
 
@@ -25,6 +29,10 @@ export function formatRedeemCardLine1FromMetadata(
   fallbackName: string,
   gradeOverride?: string | null,
 ): string {
+  if (isSealedBoxMetadata(meta)) {
+    const sealed = sealedBoxHeadlineFromMetadata(meta, fallbackName);
+    return sealed.line1;
+  }
   const parts = buildRwaAssetDetailHeadlineParts(meta, fallbackName);
   const grade =
     gradeOverride?.trim() ||
@@ -66,6 +74,60 @@ function isSealedBoxMetadata(
   return meta?.properties?.assetKind === "sealed_box";
 }
 
+function sealedBoxFieldsFromMetadata(
+  meta: RwaMetadata | null | undefined,
+  fallbackName: string,
+): { productName: string; consoleName: string } {
+  const props = (meta?.properties ?? {}) as Record<string, unknown>;
+  const productFromProps =
+    typeof props.productName === "string" ? props.productName.trim() : "";
+  const productName =
+    productFromProps ||
+    (typeof meta?.name === "string" ? meta.name.trim() : "") ||
+    fallbackName;
+  let consoleName =
+    typeof props.consoleName === "string" ? props.consoleName.trim() : "";
+  if (!consoleName && meta?.attributes?.length) {
+    for (const a of meta.attributes) {
+      if ((a.trait_type ?? "").trim().toLowerCase() === "set") {
+        const v = String(a.value ?? "").trim();
+        if (v) {
+          consoleName = v;
+          break;
+        }
+      }
+    }
+  }
+  return { productName, consoleName };
+}
+
+/** Gallery: line1 set name, grade row = product type (Booster Box). */
+function sealedBoxHeadlineFromMetadata(
+  meta: RwaMetadata | null | undefined,
+  fallbackName: string,
+): PortfolioHoldingsHeadline {
+  const fields = sealedBoxFieldsFromMetadata(meta, fallbackName);
+  const setTitle = sealedBoxHeroSetTitle(fields);
+  const typeLabel = sealedBoxProductTypeLabel(fields);
+  const parts: AssetDetailHeadlineParts = {
+    year: null,
+    setName: null,
+    cardNumber: null,
+    cardName: setTitle,
+    variety: typeLabel,
+    language: null,
+  };
+  const line1 = [setTitle, typeLabel].filter(Boolean).join(" · ") || setTitle;
+  return {
+    parts,
+    grade: typeLabel,
+    line1,
+    nameLine: setTitle,
+    line2: "",
+    hover: line1,
+  };
+}
+
 /** Set / Edit price sheet identity — name, number, grade (SSOT Line 1 parts). */
 export function listPriceSheetIdentity(
   meta: RwaMetadata | null | undefined,
@@ -73,22 +135,17 @@ export function listPriceSheetIdentity(
   fallbackName?: string | null,
 ): PortfolioHoldingsHeadline {
   const fallback = fallbackName?.trim() || `RWA #${tokenId}`;
-  const sealed = isSealedBoxMetadata(meta);
+  if (isSealedBoxMetadata(meta)) {
+    return sealedBoxHeadlineFromMetadata(meta, fallback);
+  }
   const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
-  // Boxes are always raw — omit the grade slot (never show "Raw").
-  const grade = sealed
-    ? ""
-    : formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
+  const grade =
+    formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
   const displayParts = cardDisplayPartsFromAssetDetail(parts, grade || null);
-  const line1 =
-    formatCardDisplayLine1(displayParts, sealed ? { omitGrade: true } : undefined) ||
-    fallback;
+  const line1 = formatCardDisplayLine1(displayParts) || fallback;
   const nameLine =
     formatCardDisplayLine1(displayParts, { omitGrade: true }) || line1;
-  const hover = formatCardDisplayHoverTitle(
-    parts,
-    sealed ? { omitGrade: true } : { grade },
-  );
+  const hover = formatCardDisplayHoverTitle(parts, { grade });
   const line2 = formatCardDisplayMeta(parts);
   return {
     parts,
