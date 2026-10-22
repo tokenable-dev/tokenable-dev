@@ -62,7 +62,7 @@ Independent of `collection_market_snapshots`. Admin upload upserts by PriceChart
 | | |
 |--|--|
 | UI | `/marketplace/admin/pricecharting` |
-| Sealed boxes UI | `/marketplace/admin/pricecharting/boxes` — paginated listing of every `is_sealed_box` catalog row + cover upload + bulk history CSV (collection need not exist yet) |
+| Sealed boxes UI | `/marketplace/admin/pricecharting/boxes` — paginated listing of every `is_sealed_box` catalog row + cover upload + bulk history CSV (collection need not exist yet). Includes a **client-side sample history CSV download** (chart-approximated daily loose prices for ~3 years; does not write the DB — upload the file yourself). |
 | Upload | `POST /api/marketplace/admin/pricecharting/import` (multipart `file`, admin session) |
 | Status | `GET /api/marketplace/admin/pricecharting/catalog` |
 | Register URL | `POST /api/marketplace/admin/pricecharting/sources` `{ label, url }` |

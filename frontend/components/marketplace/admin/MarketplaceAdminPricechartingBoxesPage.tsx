@@ -9,6 +9,10 @@ import {
   type PricechartingProductHit,
 } from "@/lib/core/api/marketplace-admin-pricecharting";
 import {
+  downloadPricechartingSampleHistoryCsv,
+  normalizeSampleHistoryProductId,
+} from "@/lib/marketplace/admin/pricechartingSampleHistoryCsv";
+import {
   ADMIN_BTN_PRIMARY,
   ADMIN_BTN_SECONDARY,
   ADMIN_INPUT,
@@ -35,6 +39,9 @@ export function MarketplaceAdminPricechartingBoxesPage() {
   const [historyResult, setHistoryResult] =
     useState<PricechartingHistoryBulkResult | null>(null);
   const [syncCurrent, setSyncCurrent] = useState(false);
+  const [sampleProductId, setSampleProductId] = useState("");
+  const [sampleCsvError, setSampleCsvError] = useState<string | null>(null);
+  const sampleProductIdOk = normalizeSampleHistoryProductId(sampleProductId) != null;
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -258,6 +265,53 @@ export function MarketplaceAdminPricechartingBoxesPage() {
           선택 열: cib_price, new_price, graded_price, manual_only_price(PSA 10) 등
           (달러). 최대 5MB / 5,000행.
         </p>
+        <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50/80 p-3">
+          <p className="text-sm font-medium text-zinc-800">
+            샘플 히스토리 CSV (차트 근사 · DB 미적용)
+          </p>
+          <p className="text-xs text-zinc-500">
+            2023-09-01~2026-10-22 Ungraded(loose) 일별 근사값(~1,100행). 26년
+            4~10월은 차트 기준(10/22 = $261). DB에 넣지 않으니 받은 뒤 아래
+            업로드로 직접 넣어 보세요.
+            숫자 <code className="font-mono text-[11px]">product_id</code>를
+            반드시 입력한 뒤 다운로드하세요 (예: 위 박스 목록의 id).
+          </p>
+          <label className={`${ADMIN_LABEL} block`}>
+            product_id (필수 · 숫자)
+            <input
+              className={`${ADMIN_INPUT} mt-1`}
+              value={sampleProductId}
+              onChange={(e) => {
+                setSampleProductId(e.target.value);
+                setSampleCsvError(null);
+              }}
+              placeholder="예: 7292337"
+              inputMode="numeric"
+            />
+          </label>
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={!sampleProductIdOk}
+            onClick={() => {
+              try {
+                setSampleCsvError(null);
+                downloadPricechartingSampleHistoryCsv(sampleProductId);
+              } catch (err) {
+                setSampleCsvError(
+                  err instanceof Error
+                    ? err.message
+                    : "product_id must be numeric",
+                );
+              }
+            }}
+          >
+            샘플 CSV 다운로드
+          </button>
+          {sampleCsvError ? (
+            <p className="text-sm text-red-600">{sampleCsvError}</p>
+          ) : null}
+        </div>
         <label className="block text-sm font-medium text-zinc-800">
           CSV
           <input

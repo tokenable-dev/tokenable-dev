@@ -98,7 +98,7 @@ export const ADMIN_COVER_BOX =
   "flex h-32 w-full shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:h-36 sm:w-36";
 
 export const ADMIN_COVER_BOX_CARD =
-  "flex h-36 w-full shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:h-40 sm:w-40";
+  "flex h-36 w-40 max-w-full shrink-0 items-center justify-center overflow-hidden rounded-md border border-zinc-200 bg-zinc-50 sm:h-40";
 
 /** Horizontal scroll container — use on mobile for wide tables. */
 export const ADMIN_TABLE_WRAP =

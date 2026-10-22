@@ -172,9 +172,9 @@ export function MarketplaceAdminCardRow({
 
   return (
     <article className={ADMIN_ARTICLE}>
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
-        <div className="flex shrink-0 flex-col gap-3 sm:flex-row lg:flex-col">
-          <div>
+      <div className="flex min-w-0 flex-col gap-5 lg:flex-row lg:items-start">
+        <div className="flex w-full max-w-full shrink-0 flex-col gap-3 overflow-hidden sm:w-auto sm:max-w-none sm:flex-row lg:w-40 lg:flex-col">
+          <div className="w-full min-w-0 max-w-[10rem] sm:w-40">
             <p className={`mb-1 text-xs font-medium ${ADMIN_TEXT_MUTED}`}>Front</p>
             <div className={ADMIN_COVER_BOX_CARD}>
               {displayPreview && resolvedPreview ? (
@@ -191,12 +191,12 @@ export function MarketplaceAdminCardRow({
               )}
             </div>
             {!row.displayImageUrl && onUploadSlab ? (
-              <label className={`mt-2 block text-xs ${ADMIN_TEXT_SECONDARY}`}>
+              <label className={`mt-2 block min-w-0 text-xs ${ADMIN_TEXT_SECONDARY}`}>
                 Register front
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  className="mt-1 block w-full text-xs"
+                  className="mt-1 block w-full max-w-full min-w-0 truncate text-xs"
                   disabled={disabled || !row.certNumber}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
@@ -207,7 +207,7 @@ export function MarketplaceAdminCardRow({
               </label>
             ) : null}
           </div>
-          <div>
+          <div className="w-full min-w-0 max-w-[10rem] sm:w-40">
             <p className={`mb-1 text-xs font-medium ${ADMIN_TEXT_MUTED}`}>Back</p>
             <div className={ADMIN_COVER_BOX_CARD}>
               {resolvedBack ? (
@@ -222,12 +222,12 @@ export function MarketplaceAdminCardRow({
               )}
             </div>
             {!row.displayImageBackUrl && onUploadSlab ? (
-              <label className={`mt-2 block text-xs ${ADMIN_TEXT_SECONDARY}`}>
+              <label className={`mt-2 block min-w-0 text-xs ${ADMIN_TEXT_SECONDARY}`}>
                 Register back
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
-                  className="mt-1 block w-full text-xs"
+                  className="mt-1 block w-full max-w-full min-w-0 truncate text-xs"
                   disabled={disabled || !row.certNumber}
                   onChange={(e) => {
                     const file = e.target.files?.[0];
