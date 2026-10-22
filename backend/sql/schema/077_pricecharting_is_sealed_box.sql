@@ -26,9 +26,20 @@ SET is_sealed_box = (
   )
 );
 
-CREATE INDEX IF NOT EXISTS idx_pricecharting_products_sealed_box
+-- Covering index: partner search filters ~2k sealed rows without heap fetches.
+DROP INDEX IF EXISTS idx_pricecharting_products_sealed_box;
+CREATE INDEX idx_pricecharting_products_sealed_box
   ON pricecharting_products (id)
+  INCLUDE (
+    product_name,
+    console_name,
+    genre,
+    release_date,
+    upc,
+    loose_price_cents,
+    cover_image_url
+  )
   WHERE is_sealed_box;
 
 COMMENT ON COLUMN pricecharting_products.is_sealed_box IS
-  'Partner sealed-box mint search. Set on CSV upsert from catalogProductIsBox; not a PriceCharting CSV column.';
+  'Partner sealed-box mint search. Set on CSV upsert from catalogProductIsBox; not a PriceCharting CSV column. Must be backfilled (this file) after ADD COLUMN — default false alone leaves search empty.';

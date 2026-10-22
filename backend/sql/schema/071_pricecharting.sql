@@ -52,8 +52,18 @@ CREATE INDEX IF NOT EXISTS idx_pricecharting_products_genre
 CREATE INDEX IF NOT EXISTS idx_pricecharting_products_console
   ON pricecharting_products (console_name);
 
+-- Covering partial index for partner box search (see also 077 backfill on existing DBs).
 CREATE INDEX IF NOT EXISTS idx_pricecharting_products_sealed_box
   ON pricecharting_products (id)
+  INCLUDE (
+    product_name,
+    console_name,
+    genre,
+    release_date,
+    upc,
+    loose_price_cents,
+    cover_image_url
+  )
   WHERE is_sealed_box;
 
 COMMENT ON TABLE pricecharting_products IS

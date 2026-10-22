@@ -27,11 +27,42 @@ export const PRICECHARTING_GUIDES = [
 
 export const PRICECHARTING_GUIDE_KEYS = PRICECHARTING_GUIDES.map((guide) => guide.key);
 
+export type PricechartingGuideSyncStatus = 'idle' | 'running' | 'success' | 'error';
+
 export type PricechartingGuideView = {
   key: string;
   label: string;
   lastRowCount: number | null;
   lastRunAt: string | null;
+  /** In-process guide sync (admin 「갱신」). Survives only for this Nest process. */
+  syncStatus: PricechartingGuideSyncStatus;
+  syncError: string | null;
+  /** Set when the latest background sync for this guide finished successfully. */
+  lastSyncResult: PricechartingGuideSyncDone | null;
+};
+
+export type PricechartingGuideSyncAccepted = {
+  accepted: true;
+  key: string;
+  label: string;
+  status: 'running';
+};
+
+export type PricechartingGuideSyncDone = {
+  key: string;
+  label: string;
+  rowCount: number;
+  historyCount: number;
+  totalProducts: number;
+  imported: true;
+  archived: boolean;
+  archiveError: string | null;
+};
+
+type GuideJobState = {
+  status: PricechartingGuideSyncStatus;
+  error: string | null;
+  result: PricechartingGuideSyncDone | null;
 };
 
 function guideDownloadUrl(category: string | null): string {
@@ -96,7 +127,9 @@ function toView(row: PricechartingCatalogSource): PricechartingSourceView {
 @Injectable()
 export class PricechartingSyncService {
   private readonly logger = new Logger(PricechartingSyncService.name);
+  /** At most one guide download+import at a time (this process). */
   private inFlight = false;
+  private readonly guideJobs = new Map<string, GuideJobState>();
 
   constructor(
     @InjectRepository(PricechartingCatalogSource)
@@ -105,6 +138,16 @@ export class PricechartingSyncService {
     private readonly pricecharting: PricechartingService,
     @InjectDataSource() private readonly dataSource: DataSource,
   ) {}
+
+  private jobFor(key: string): GuideJobState {
+    return (
+      this.guideJobs.get(key) ?? {
+        status: 'idle',
+        error: null,
+        result: null,
+      }
+    );
+  }
 
   async guides(): Promise<PricechartingGuideView[]> {
     const filenames = PRICECHARTING_GUIDES.map((guide) => `${guide.key}.csv`);
@@ -119,11 +162,15 @@ export class PricechartingSyncService {
     const byFile = new Map(runs.map((run) => [run.filename, run]));
     return PRICECHARTING_GUIDES.map((guide) => {
       const run = byFile.get(`${guide.key}.csv`);
+      const job = this.jobFor(guide.key);
       return {
         key: guide.key,
         label: guide.label,
         lastRowCount: run ? Number(run.row_count) : null,
         lastRunAt: run ? new Date(run.created_at).toISOString() : null,
+        syncStatus: job.status,
+        syncError: job.error,
+        lastSyncResult: job.result,
       };
     });
   }
@@ -158,63 +205,98 @@ export class PricechartingSyncService {
     return { ok: true };
   }
 
-  /** Admin button for one fixed guide. The download URL is not returned to the client. */
-  async runOne(key: string): Promise<{
-    key: string;
-    label: string;
-    rowCount: number;
-    historyCount: number;
-    totalProducts: number;
-    imported: true;
-    archived: boolean;
-    archiveError: string | null;
-  }> {
+  /**
+   * Admin 「갱신」 — accept immediately and import in the background.
+   * Avoids nginx/proxy 504 while large guide CSVs download and upsert.
+   */
+  enqueueOne(key: string): PricechartingGuideSyncAccepted {
     const guide = PRICECHARTING_GUIDES.find((item) => item.key === key);
     if (!guide) throw new BadRequestException('Unknown price guide');
     if (this.inFlight) {
       throw new BadRequestException('A PriceCharting sync is already running');
     }
     this.inFlight = true;
-    try {
-      const lock = await runWithPgSessionAdvisoryLock(this.dataSource, LOCK_KEY, async () => {
-        const buffer = await this.pricecharting.downloadPriceList(
-          guideDownloadUrl(guide.category),
-        );
-        const imported = await this.imports.importFile(
-          {
-            buffer,
-            originalname: `${guide.key}.csv`,
-            size: buffer.length,
-          },
-          { archiveSegments: [guide.key] },
-        );
-        const day = seoulCalendarDay();
-        const archive = await writePricechartingCsv(
-          guide.key,
-          `${guide.key}-${day}.csv`,
-          buffer,
-        );
-        return { imported, archive };
-      });
-      if (!lock.acquired) {
-        throw new BadRequestException('A PriceCharting sync is already running');
-      }
-      this.logger.log(
-        `PriceCharting guide ${guide.key} upserted ${lock.value.imported.rowCount} rows (${lock.value.imported.historyCount} price rows). CSV ${lock.value.archive}`,
+    this.guideJobs.set(guide.key, {
+      status: 'running',
+      error: null,
+      result: null,
+    });
+    void this.runOneInBackground(guide).catch((err) => {
+      this.logger.error(
+        `PriceCharting guide ${guide.key} background sync crashed: ${errorText(err)}`,
       );
-      return {
-        key: guide.key,
-        label: guide.label,
-        rowCount: lock.value.imported.rowCount,
-        historyCount: lock.value.imported.historyCount,
-        totalProducts: lock.value.imported.totalProducts,
-        imported: true,
-        archived: lock.value.imported.archived,
-        archiveError: lock.value.imported.archiveError,
-      };
+    });
+    return {
+      accepted: true,
+      key: guide.key,
+      label: guide.label,
+      status: 'running',
+    };
+  }
+
+  private async runOneInBackground(
+    guide: (typeof PRICECHARTING_GUIDES)[number],
+  ): Promise<void> {
+    try {
+      const done = await this.runOneLocked(guide);
+      this.guideJobs.set(guide.key, {
+        status: 'success',
+        error: null,
+        result: done,
+      });
+    } catch (err) {
+      const message = errorText(err);
+      this.guideJobs.set(guide.key, {
+        status: 'error',
+        error: message,
+        result: null,
+      });
+      this.logger.error(`PriceCharting guide ${guide.key} failed: ${message}`);
     } finally {
       this.inFlight = false;
     }
+  }
+
+  /** Download + upsert one fixed guide. The download URL is not returned to the client. */
+  private async runOneLocked(
+    guide: (typeof PRICECHARTING_GUIDES)[number],
+  ): Promise<PricechartingGuideSyncDone> {
+    const lock = await runWithPgSessionAdvisoryLock(this.dataSource, LOCK_KEY, async () => {
+      const buffer = await this.pricecharting.downloadPriceList(
+        guideDownloadUrl(guide.category),
+      );
+      const imported = await this.imports.importFile(
+        {
+          buffer,
+          originalname: `${guide.key}.csv`,
+          size: buffer.length,
+        },
+        { archiveSegments: [guide.key] },
+      );
+      const day = seoulCalendarDay();
+      const archive = await writePricechartingCsv(
+        guide.key,
+        `${guide.key}-${day}.csv`,
+        buffer,
+      );
+      return { imported, archive };
+    });
+    if (!lock.acquired) {
+      throw new BadRequestException('A PriceCharting sync is already running');
+    }
+    this.logger.log(
+      `PriceCharting guide ${guide.key} upserted ${lock.value.imported.rowCount} rows (${lock.value.imported.historyCount} price rows). CSV ${lock.value.archive}`,
+    );
+    return {
+      key: guide.key,
+      label: guide.label,
+      rowCount: lock.value.imported.rowCount,
+      historyCount: lock.value.imported.historyCount,
+      totalProducts: lock.value.imported.totalProducts,
+      imported: true,
+      archived: lock.value.imported.archived,
+      archiveError: lock.value.imported.archiveError,
+    };
   }
 
   /** Admin button. Downloads each enabled URL, then upserts the same catalog. */

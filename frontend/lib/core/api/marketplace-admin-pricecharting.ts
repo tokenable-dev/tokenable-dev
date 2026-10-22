@@ -1,10 +1,26 @@
 import { backendFetch, getApiUrl } from "./client";
 
+export type PricechartingGuideSyncStatus = "idle" | "running" | "success" | "error";
+
+export type PricechartingGuideSyncResult = {
+  key: string;
+  label: string;
+  rowCount: number;
+  historyCount: number;
+  totalProducts: number;
+  imported?: boolean;
+  archived?: boolean;
+  archiveError?: string | null;
+};
+
 export type PricechartingGuide = {
   key: string;
   label: string;
   lastRowCount: number | null;
   lastRunAt: string | null;
+  syncStatus: PricechartingGuideSyncStatus;
+  syncError: string | null;
+  lastSyncResult: PricechartingGuideSyncResult | null;
 };
 
 export type PricechartingCatalogSummary = {
@@ -36,15 +52,11 @@ export type PricechartingImportResult = {
   archiveError?: string | null;
 };
 
-export type PricechartingGuideSyncResult = {
+export type PricechartingGuideSyncAccepted = {
+  accepted: true;
   key: string;
   label: string;
-  rowCount: number;
-  historyCount: number;
-  totalProducts: number;
-  imported?: boolean;
-  archived?: boolean;
-  archiveError?: string | null;
+  status: "running";
 };
 
 async function readError(res: Response): Promise<string> {
@@ -150,9 +162,10 @@ export async function recordPricechartingHistory(input: {
   return res.json() as Promise<ManualPriceHistoryResult>;
 }
 
+/** Starts background guide sync. Returns quickly (202); poll catalog for status. */
 export async function syncPricechartingGuide(
   key: string,
-): Promise<PricechartingGuideSyncResult> {
+): Promise<PricechartingGuideSyncAccepted> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/pricecharting/sync`,
     {
@@ -160,9 +173,10 @@ export async function syncPricechartingGuide(
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ key }),
-      timeoutMs: 300_000,
+      // Accept only — work continues on the server; do not wait for import.
+      timeoutMs: 30_000,
     },
   );
   if (!res.ok) throw new Error(await readError(res));
-  return res.json() as Promise<PricechartingGuideSyncResult>;
+  return res.json() as Promise<PricechartingGuideSyncAccepted>;
 }

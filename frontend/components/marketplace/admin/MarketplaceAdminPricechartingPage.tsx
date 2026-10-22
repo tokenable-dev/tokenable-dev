@@ -79,9 +79,12 @@ export function MarketplaceAdminPricechartingPage() {
 
   const reload = useCallback(async () => {
     try {
-      setSummary(await getPricechartingCatalog());
+      const next = await getPricechartingCatalog();
+      setSummary(next);
+      return next;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load catalog");
+      return null;
     }
   }, []);
 
@@ -89,16 +92,50 @@ export function MarketplaceAdminPricechartingPage() {
     void reload();
   }, [reload]);
 
+  // Resume polling if the page loads while a guide sync is already running.
+  useEffect(() => {
+    const running = summary?.guides.find((g) => g.syncStatus === "running");
+    if (running && syncingKey !== running.key) {
+      setSyncingKey(running.key);
+    }
+  }, [summary, syncingKey]);
+
+  useEffect(() => {
+    if (!syncingKey) return;
+    let cancelled = false;
+    const tick = async () => {
+      const next = await reload();
+      if (cancelled || !next) return;
+      const guide = next.guides.find((g) => g.key === syncingKey);
+      if (!guide || guide.syncStatus === "running") return;
+      if (guide.syncStatus === "success" && guide.lastSyncResult) {
+        setGuideResult(guide.lastSyncResult);
+        setError(null);
+      } else if (guide.syncStatus === "error") {
+        setGuideResult(null);
+        setError(guide.syncError || "Sync failed");
+      }
+      setSyncingKey(null);
+    };
+    const id = window.setInterval(() => {
+      void tick();
+    }, 2_000);
+    void tick();
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [syncingKey, reload]);
+
   async function onSyncGuide(key: string) {
     setSyncingKey(key);
     setError(null);
     setGuideResult(null);
     try {
-      setGuideResult(await syncPricechartingGuide(key));
-      await reload();
+      await syncPricechartingGuide(key);
+      // Polling effect watches syncingKey + catalog.syncStatus.
     } catch (err) {
       setError(err instanceof Error ? err.message : "Sync failed");
-    } finally {
       setSyncingKey(null);
     }
   }
@@ -201,37 +238,47 @@ export function MarketplaceAdminPricechartingPage() {
     <article className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-6 sm:px-6">
       <MarketplaceAdminPageHeader
         title="PriceCharting catalog"
-        subtitle="가이드 버튼을 누르면 서버가 CSV를 받아 최신 가격으로 갱신합니다. 바뀐 가격은 날짜별로 남습니다."
+        subtitle="가이드 버튼을 누르면 서버가 백그라운드에서 CSV를 받아 최신 가격으로 갱신합니다. 바뀐 가격은 날짜별로 남습니다."
       />
 
       <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>
         <h2 className="text-sm font-semibold text-zinc-900">가이드 갱신</h2>
         <p className="text-sm text-zinc-600">
-          버튼을 누르면 그 가이드만 서버에서 받아 저장합니다. 주소는 화면에 나오지 않습니다.
-          상품 행은 최신 가격으로 갱신되고, 가격이 바뀐 상품은 오늘(한국시간) 이력으로 남습니다.
-          스포츠 세트는 아래 파일 업로드입니다.
+          버튼을 누르면 그 가이드만 서버에서 받아 저장합니다. 요청은 바로 접수되고, 다운로드·적재는
+          백그라운드에서 이어집니다(큰 CSV도 게이트웨이 타임아웃에 걸리지 않음). 주소는 화면에
+          나오지 않습니다. 상품 행은 최신 가격으로 갱신되고, 가격이 바뀐 상품은 오늘(한국시간)
+          이력으로 남습니다. 스포츠 세트는 아래 파일 업로드입니다.
         </p>
         <ul className="space-y-3">
-          {(summary?.guides ?? []).map((guide) => (
-            <li key={guide.key} className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-zinc-900">{guide.label}</p>
-                <p className="text-sm text-zinc-600">
-                  {guide.lastRunAt
-                    ? `${guide.lastRowCount?.toLocaleString() ?? 0}행 · ${new Date(guide.lastRunAt).toLocaleString()}`
-                    : "아직 실행 전"}
-                </p>
-              </div>
-              <button
-                type="button"
-                className={ADMIN_BTN_PRIMARY}
-                disabled={busy || syncingKey !== null}
-                onClick={() => void onSyncGuide(guide.key)}
+          {(summary?.guides ?? []).map((guide) => {
+            const running =
+              syncingKey === guide.key || guide.syncStatus === "running";
+            return (
+              <li
+                key={guide.key}
+                className="flex flex-wrap items-center justify-between gap-3"
               >
-                {syncingKey === guide.key ? "받는 중…" : "갱신"}
-              </button>
-            </li>
-          ))}
+                <div>
+                  <p className="text-sm font-medium text-zinc-900">{guide.label}</p>
+                  <p className="text-sm text-zinc-600">
+                    {running
+                      ? "받는 중… (서버에서 다운로드·적재 중)"
+                      : guide.lastRunAt
+                        ? `${guide.lastRowCount?.toLocaleString() ?? 0}행 · ${new Date(guide.lastRunAt).toLocaleString()}`
+                        : "아직 실행 전"}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={ADMIN_BTN_PRIMARY}
+                  disabled={busy || syncingKey !== null}
+                  onClick={() => void onSyncGuide(guide.key)}
+                >
+                  {running ? "받는 중…" : "갱신"}
+                </button>
+              </li>
+            );
+          })}
         </ul>
         {guideResult ? (
           <p className="text-sm text-emerald-700">

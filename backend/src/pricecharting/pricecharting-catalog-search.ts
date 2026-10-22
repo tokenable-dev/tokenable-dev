@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { DataSource } from 'typeorm';
 import {
   CatalogCoverS3Service,
@@ -134,9 +140,90 @@ function tokenFilter(tokens: string[], firstParam: number): { sql: string; param
   return { sql, params };
 }
 
+/**
+ * SQL that recomputes `is_sealed_box` — keep in sync with {@link SEALED_BOX_SQL} /
+ * `077_pricecharting_is_sealed_box.sql`.
+ */
+const BACKFILL_IS_SEALED_BOX_SQL = `
+UPDATE pricecharting_products
+SET is_sealed_box = ${SEALED_BOX_SQL}
+WHERE is_sealed_box IS DISTINCT FROM (${SEALED_BOX_SQL})
+`;
+
+const ENSURE_SEALED_BOX_INDEX_SQL = `
+CREATE INDEX IF NOT EXISTS idx_pricecharting_products_sealed_box
+  ON pricecharting_products (id)
+  INCLUDE (
+    product_name,
+    console_name,
+    genre,
+    release_date,
+    upc,
+    loose_price_cents,
+    cover_image_url
+  )
+  WHERE is_sealed_box
+`;
+
 @Injectable()
-export class PricechartingCatalogSearch {
+export class PricechartingCatalogSearch implements OnModuleInit {
+  private readonly logger = new Logger(PricechartingCatalogSearch.name);
+
   constructor(private readonly dataSource: DataSource) {}
+
+  /**
+   * Column default is false. If deploy added the column without the 077 backfill,
+   * partner box search returns nothing — heal once at boot.
+   */
+  async onModuleInit(): Promise<void> {
+    try {
+      await this.ensureSealedBoxSearchReady();
+    } catch (err) {
+      this.logger.warn(
+        `Sealed-box search ready check failed: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+  }
+
+  /** Backfill flags when none are set; ensure covering partial index exists. */
+  async ensureSealedBoxSearchReady(): Promise<void> {
+    const [hasAny, hasSealed] = await Promise.all([
+      this.dataSource.query<{ ok: boolean }[]>(
+        `SELECT EXISTS(SELECT 1 FROM pricecharting_products LIMIT 1) AS ok`,
+      ),
+      this.dataSource.query<{ ok: boolean }[]>(
+        `SELECT EXISTS(SELECT 1 FROM pricecharting_products WHERE is_sealed_box LIMIT 1) AS ok`,
+      ),
+    ]);
+    if (hasAny[0]?.ok && !hasSealed[0]?.ok) {
+      this.logger.warn(
+        'pricecharting_products.is_sealed_box is all false — running backfill',
+      );
+      await this.dataSource.query(BACKFILL_IS_SEALED_BOX_SQL);
+      const after = await this.dataSource.query<{ sealed: string }[]>(
+        `SELECT COUNT(*) FILTER (WHERE is_sealed_box)::text AS sealed
+         FROM pricecharting_products`,
+      );
+      this.logger.log(`is_sealed_box backfill done: ${after[0]?.sealed ?? 0} sealed`);
+    }
+    const idx = await this.dataSource.query<{ indexdef: string }[]>(
+      `SELECT indexdef FROM pg_indexes
+       WHERE schemaname = 'public'
+         AND indexname = 'idx_pricecharting_products_sealed_box'`,
+    );
+    const def = idx[0]?.indexdef ?? '';
+    if (!def || !/INCLUDE/i.test(def)) {
+      if (def) {
+        await this.dataSource.query(
+          `DROP INDEX IF EXISTS idx_pricecharting_products_sealed_box`,
+        );
+      }
+      await this.dataSource.query(ENSURE_SEALED_BOX_INDEX_SQL);
+      this.logger.log('Ensured covering idx_pricecharting_products_sealed_box');
+    }
+  }
 
   /** Function 1 shape: exactly one of id, upc, q. Several q matches stay ambiguous. */
   async matchOne(input: {
@@ -192,10 +279,10 @@ export class PricechartingCatalogSearch {
     if (tokens.length === 0) throw new BadRequestException('q is required');
     const filter = tokenFilter(tokens, 1);
     const orderSql = order === 'name' ? 'product_name ASC, id ASC' : 'id ASC';
-    // Prefer indexed is_sealed_box (import-time flag). Never re-evaluate regex over the full catalog.
-    const boxSql = boxesOnly ? ' AND is_sealed_box' : '';
+    // Put is_sealed_box first so the covering partial index can Index Only Scan (~2k rows).
+    const boxSql = boxesOnly ? 'is_sealed_box AND ' : '';
     const rows = await this.dataSource.query<ProductRow[]>(
-      `${PRODUCT_SELECT} WHERE ${filter.sql}${boxSql} ORDER BY ${orderSql} LIMIT 20`,
+      `${PRODUCT_SELECT} WHERE ${boxSql}${filter.sql} ORDER BY ${orderSql} LIMIT 20`,
       filter.params,
     );
     return rows.map(toHit);
@@ -205,9 +292,9 @@ export class PricechartingCatalogSearch {
   async findByUpc(upc: string, boxesOnly = false): Promise<CatalogProductHit[]> {
     const value = upc?.trim() ?? '';
     if (!value) throw new BadRequestException('upc is required');
-    const boxSql = boxesOnly ? ' AND is_sealed_box' : '';
+    const boxSql = boxesOnly ? 'is_sealed_box AND ' : '';
     const rows = await this.dataSource.query<ProductRow[]>(
-      `${PRODUCT_SELECT} WHERE upc = $1${boxSql} ORDER BY id ASC LIMIT 20`,
+      `${PRODUCT_SELECT} WHERE ${boxSql}upc = $1 ORDER BY id ASC LIMIT 20`,
       [value],
     );
     return rows.map(toHit);

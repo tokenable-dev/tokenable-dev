@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   NotFoundException,
   Param,
   ParseIntPipe,
@@ -223,14 +225,15 @@ export class PricechartingImportController {
   }
 
   @Post('sync')
+  @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
-    summary: '[Admin] Download one PriceCharting guide and upsert it',
+    summary: '[Admin] Start one PriceCharting guide download + upsert',
     description:
-      'Fixed guides only (video games, pokemon, magic, yugioh, one piece). The server builds the download URL and injects the token. Changed prices are stored for that Seoul date.',
+      'Fixed guides only (video games, pokemon, magic, yugioh, one piece). Returns 202 immediately; download and DB import run in the background so proxies do not 504. Poll GET catalog — each guide includes syncStatus / lastSyncResult / syncError.',
   })
   syncNow(@Req() req: Request, @Body() body: SyncPricechartingGuideDto) {
     this.admin.assertAdminSession(req);
-    return this.sync.runOne(body.key);
+    return this.sync.enqueueOne(body.key);
   }
 
   @Post('import')

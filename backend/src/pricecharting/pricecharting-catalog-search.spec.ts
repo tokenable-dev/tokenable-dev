@@ -198,4 +198,21 @@ describe('pricecharting local catalog search', () => {
     const hits = await search.search('Base', 'id', true);
     expect(hits.map((hit) => hit.id)).toEqual(['201']);
   });
+
+  it('partner search finds booster box when set name is on console_name', async () => {
+    const { dataSource, query } = database([
+      {
+        ...BOX,
+        id: '5490667',
+        product_name: 'Booster Box',
+        console_name: 'Pokemon Japanese Scarlet & Violet 151',
+        genre: 'Sealed Product',
+      },
+    ]);
+    const search = new PricechartingCatalogSearch(dataSource);
+    const hits = await search.search('booster box 151', 'id', true);
+    expect(hits.map((hit) => hit.id)).toEqual(['5490667']);
+    const sql = String(query.mock.calls[0]?.[0] ?? '');
+    expect(sql).toMatch(/WHERE is_sealed_box AND/);
+  });
 });
