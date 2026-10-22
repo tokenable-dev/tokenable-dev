@@ -14,12 +14,16 @@ import { formatOrderBookPriceUsdc } from "@/lib/marketplace/unified-order-book";
 
 const FILTER_THRESHOLD = 8;
 
-function vaultAccent(tone: "psa" | "partner"): string {
-  return tone === "psa" ? "#5B9AFF" : "#00C350";
+function vaultAccent(tone: "psa" | "partner", isBox: boolean): string {
+  if (tone === "psa") return "#5B9AFF";
+  /* Box picker mock uses blue TKB chips; graded cards keep green partner tone. */
+  return isBox ? "#5B9AFF" : "#00C350";
 }
 
-/** Card.html vault chip — first word only (`PSA`, `TOKN`). */
-function vaultShortCode(label: string): string {
+/** Vault chip — PSA / TKB (filter options use TKB Vault, not TOKN). */
+function vaultShortCode(label: string, tone: "psa" | "partner"): string {
+  if (tone === "partner") return "TKB";
+  if (tone === "psa") return "PSA";
   const first = label.trim().split(/\s+/)[0] ?? label;
   return first || "Vault";
 }
@@ -84,7 +88,8 @@ function pickSoonestPsa(rows: CopyRow[]): CopyRow | null {
 }
 
 /**
- * Card.html `#tk-choose` — Select your card sheet after Buy now / ask row.
+ * Card.html `#tk-choose` — Select your card/box sheet after ask row Buy.
+ * One active ask at the price skips this modal (caller opens Privy directly).
  */
 export function CollectionChooseCopyModal({
   open,
@@ -96,6 +101,7 @@ export function CollectionChooseCopyModal({
   orders,
   batchMetadata,
   onConfirm,
+  variant = "card",
 }: {
   open: boolean;
   onClose: () => void;
@@ -112,7 +118,10 @@ export function CollectionChooseCopyModal({
     | Map<number, { metadata: RwaMetadata | null; imageUrl: string | null; imageBackUrl?: string | null }>
     | undefined;
   onConfirm: (tokenId: number) => void;
+  /** Sealed-box collection — Token # rows, box copy, no PSA “Any card”. */
+  variant?: "card" | "box";
 }) {
+  const isBox = variant === "box";
   const allRows = useMemo(
     () =>
       [...orders]
@@ -128,8 +137,8 @@ export function CollectionChooseCopyModal({
   const [fadeHidden, setFadeHidden] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  /** Card.html: auto-pick row only when many copies. */
-  const showAutoPick = allRows.length > FILTER_THRESHOLD;
+  /** Card.html: auto-pick row only when many graded copies. Boxes always pick a token. */
+  const showAutoPick = !isBox && allRows.length > FILTER_THRESHOLD;
 
   const visibleRows = useMemo(() => {
     let list = [...allRows];
@@ -217,7 +226,7 @@ export function CollectionChooseCopyModal({
 
   return createPortal(
     <div
-      className="cd-choose-copy"
+      className={`cd-choose-copy${isBox ? " cd-choose-copy--box" : ""}`}
       id="tk-choose"
       role="presentation"
       onClick={(e) => {
@@ -233,7 +242,7 @@ export function CollectionChooseCopyModal({
         <div className="cd-choose-copy__grab" aria-hidden />
         <div className="cd-choose-copy__head">
           <h2 id="cd-choose-copy-title" className="cd-choose-copy__title">
-            Select your card
+            {isBox ? "Select your box" : "Select your card"}
           </h2>
           <button
             type="button"
@@ -248,30 +257,40 @@ export function CollectionChooseCopyModal({
         <div className="cd-choose-copy__fixed">
           <div className="cd-choose-copy__item">
             <div className="cd-choose-copy__item-title">{collectionTitle}</div>
-            <div className="cd-choose-copy__item-sub tkl-mono" id="tkc-sub">
+            <div
+              className={`cd-choose-copy__item-sub${isBox ? "" : " tkl-mono"}`}
+              id="tkc-sub"
+            >
               {itemSub}
             </div>
           </div>
-          <p className="cd-choose-copy__ctx tkl-mono" id="tk-choose-ctx">
-            {allRows.length} card{allRows.length === 1 ? "" : "s"} at this price
+          <p
+            className={`cd-choose-copy__ctx${isBox ? "" : " tkl-mono"}`}
+            id="tk-choose-ctx"
+          >
+            {isBox
+              ? `${allRows.length} box${allRows.length === 1 ? "" : "es"} at this price`
+              : `${allRows.length} card${allRows.length === 1 ? "" : "s"} at this price`}
           </p>
-          {/* Card.html `#tkc-filterbar` — vault filter only (sort select is hidden). */}
-          <div className="cd-choose-copy__filters" id="tkc-filterbar">
-            <select
-              id="tkc-vfilter"
-              className="cd-choose-copy__fsel tkl-mono"
-              value={vaultFilter}
-              onChange={(e) => {
-                setAutoSel(false);
-                setVaultFilter(e.target.value as "all" | "psa" | "tkb");
-              }}
-              aria-label="Filter by vault"
-            >
-              <option value="all">Vault · All</option>
-              <option value="psa">PSA Vault</option>
-              <option value="tkb">TKB Vault</option>
-            </select>
-          </div>
+          {/* Graded cards keep vault filter; sealed boxes are usually one vault. */}
+          {!isBox ? (
+            <div className="cd-choose-copy__filters" id="tkc-filterbar">
+              <select
+                id="tkc-vfilter"
+                className="cd-choose-copy__fsel tkl-mono"
+                value={vaultFilter}
+                onChange={(e) => {
+                  setAutoSel(false);
+                  setVaultFilter(e.target.value as "all" | "psa" | "tkb");
+                }}
+                aria-label="Filter by vault"
+              >
+                <option value="all">Vault · All</option>
+                <option value="psa">PSA Vault</option>
+                <option value="tkb">TKB Vault</option>
+              </select>
+            </div>
+          ) : null}
         </div>
 
         <div className="cd-choose-copy__scrollwrap">
@@ -303,14 +322,14 @@ export function CollectionChooseCopyModal({
 
             {visibleRows.length === 0 ? (
               <p className="cd-choose-copy__empty tkl-mono">
-                No cards in this vault
+                {isBox ? "No boxes in this vault" : "No cards in this vault"}
               </p>
             ) : null}
 
             {visibleRows.map((row) => {
               const selectedRow =
                 !autoSel && row.order.orderHash === selected.order.orderHash;
-              const accent = vaultAccent(row.vaultTone);
+              const accent = vaultAccent(row.vaultTone, isBox);
               return (
                 <div
                   key={row.order.orderHash}
@@ -334,17 +353,21 @@ export function CollectionChooseCopyModal({
                       <span className="cd-choose-copy__radio-dot" />
                     ) : null}
                   </span>
-                  <span className="cd-choose-copy__cert tkl-mono">
-                    Cert #{row.cert}
+                  <span
+                    className={`cd-choose-copy__cert${isBox ? "" : " tkl-mono"}`}
+                  >
+                    {isBox
+                      ? `Token #${row.tokenId}`
+                      : `Cert #${row.cert}`}
                   </span>
                   <span
-                    className="cd-choose-copy__vault-pill tkl-mono"
+                    className={`cd-choose-copy__vault-pill${isBox ? "" : " tkl-mono"}`}
                     style={{
                       color: accent,
                       background: `${accent}22`,
                     }}
                   >
-                    {vaultShortCode(row.vaultLabel)}
+                    {vaultShortCode(row.vaultLabel, row.vaultTone)}
                   </span>
                 </div>
               );

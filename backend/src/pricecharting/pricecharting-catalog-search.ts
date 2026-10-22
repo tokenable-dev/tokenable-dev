@@ -301,6 +301,62 @@ export class PricechartingCatalogSearch implements OnModuleInit {
   }
 
   /**
+   * Admin box prep — paginated sealed products (covers before collection exists).
+   */
+  async listBoxes(input: {
+    page?: number;
+    pageSize?: number;
+    q?: string;
+    missingCoverOnly?: boolean;
+  }): Promise<{
+    items: CatalogProductHit[];
+    total: number;
+    page: number;
+    pageSize: number;
+  }> {
+    const pageSize = Math.min(
+      100,
+      Math.max(1, Math.floor(input.pageSize ?? 40)),
+    );
+    const page = Math.max(1, Math.floor(input.page ?? 1));
+    const offset = (page - 1) * pageSize;
+    const tokens = catalogQueryTokens(input.q ?? '');
+    const params: unknown[] = [];
+    const where: string[] = ['is_sealed_box'];
+    if (input.missingCoverOnly) {
+      where.push(
+        `(cover_image_url IS NULL OR BTRIM(cover_image_url) = '')`,
+      );
+    }
+    if (tokens.length > 0) {
+      const filter = tokenFilter(tokens, params.length + 1);
+      where.push(`(${filter.sql})`);
+      params.push(...filter.params);
+    }
+    const whereSql = where.join(' AND ');
+    const countRows = await this.dataSource.query<{ n: string }[]>(
+      `SELECT COUNT(*)::text AS n FROM pricecharting_products WHERE ${whereSql}`,
+      params,
+    );
+    const total = Number(countRows[0]?.n ?? 0);
+    const limitParam = params.length + 1;
+    const offsetParam = params.length + 2;
+    const rows = await this.dataSource.query<ProductRow[]>(
+      `${PRODUCT_SELECT}
+       WHERE ${whereSql}
+       ORDER BY product_name ASC, id ASC
+       LIMIT $${limitParam} OFFSET $${offsetParam}`,
+      [...params, pageSize, offset],
+    );
+    return {
+      items: rows.map(toHit),
+      total,
+      page,
+      pageSize,
+    };
+  }
+
+  /**
    * Admin representative image for collection detail.
    * A partner's own photo stays on the minted token, not this column.
    */

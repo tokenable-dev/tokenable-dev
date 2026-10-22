@@ -244,55 +244,91 @@ export function PortfolioCertificateView({
           <div className="hair" />
 
           <div className="subject">
-            <div className="showcase">
-              <div className="slab-tilt">
-                <div
-                  className="slab3d"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openZoom("front")}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") openZoom("front");
-                  }}
-                >
-                  <div className="sface sfront">
+            <div className={`showcase${holdOnly ? " showcase--flat" : ""}`}>
+              {holdOnly ? (
+                <>
+                  <button
+                    type="button"
+                    className="box-cover"
+                    onClick={() => openZoom("front")}
+                    aria-label="Inspect box image"
+                  >
                     {front ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={front} alt="Graded slab — front" />
-                    ) : null}
-                    <span className="sheen" />
+                      <img src={front} alt="Sealed box" />
+                    ) : (
+                      <span className="box-cover-empty">No image</span>
+                    )}
+                  </button>
+                  {front ? (
+                    <span
+                      className="slab-cap"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openZoom("front")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openZoom("front");
+                        }
+                      }}
+                    >
+                      Inspect
+                    </span>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <div className="slab-tilt">
+                    <div
+                      className="slab3d"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openZoom("front")}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") openZoom("front");
+                      }}
+                    >
+                      <div className="sface sfront">
+                        {front ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={front} alt="Graded slab — front" />
+                        ) : null}
+                        <span className="sheen" />
+                      </div>
+                      {back ? (
+                        <div className="sface sback">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={back} alt="Graded slab — back" />
+                          <span className="sheen" />
+                        </div>
+                      ) : (
+                        <div className="sface sback sback--empty">
+                          <span>No intake back photo</span>
+                        </div>
+                      )}
+                      <div className="sedge sedge-l" />
+                      <div className="sedge sedge-r" />
+                      <div className="sedge sedge-t" />
+                      <div className="sedge sedge-b" />
+                    </div>
                   </div>
-                  {back ? (
-                    <div className="sface sback">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={back} alt="Graded slab — back" />
-                      <span className="sheen" />
-                    </div>
-                  ) : (
-                    <div className="sface sback sback--empty">
-                      <span>No intake back photo</span>
-                    </div>
-                  )}
-                  <div className="sedge sedge-l" />
-                  <div className="sedge sedge-r" />
-                  <div className="sedge sedge-t" />
-                  <div className="sedge sedge-b" />
-                </div>
-              </div>
-              <span
-                className="slab-cap"
-                role="button"
-                tabIndex={0}
-                onClick={() => openZoom("front")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openZoom("front");
-                  }
-                }}
-              >
-                Inspect
-              </span>
+                  <span
+                    className="slab-cap"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openZoom("front")}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openZoom("front");
+                      }
+                    }}
+                  >
+                    Inspect
+                  </span>
+                </>
+              )}
             </div>
             <div className="subj-info">
               <div className="subj-name">

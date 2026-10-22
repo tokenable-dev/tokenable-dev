@@ -219,3 +219,76 @@ describe('VaultService.assertTokensRedeemable', () => {
     ).resolves.toBeUndefined();
   });
 });
+
+describe('VaultService.getVaultCustodyRows partner-policy heal', () => {
+  function makeCustodyService(token: Partial<RwaToken>) {
+    const execute = jest.fn().mockResolvedValue(undefined);
+    const updateQb = {
+      update: jest.fn().mockReturnThis(),
+      set: jest.fn().mockReturnThis(),
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      execute,
+    };
+    const selectQb = {
+      where: jest.fn().mockReturnThis(),
+      andWhere: jest.fn().mockReturnThis(),
+      getMany: jest.fn(() => Promise.resolve([token])),
+    };
+    const rwaTokens = {
+      createQueryBuilder: jest.fn((alias?: string) =>
+        alias ? selectQb : updateQb,
+      ),
+    } as unknown as Repository<RwaToken>;
+    const service = new VaultService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      rwaTokens,
+      {} as never,
+      {} as never,
+      { getDefaultChainId: jest.fn(() => SEPOLIA) } as never,
+    );
+    return { service, execute, rwaTokens };
+  }
+
+  it('heals null settlement_policy when vault_partner_id is set', async () => {
+    const { service, execute } = makeCustodyService({
+      tokenId: '27',
+      tokenContract: '0xf724',
+      settlementPolicy: null,
+      vaultPartnerId: '2d0aae7d-9435-4f07-9197-da0ece0240a3',
+    });
+
+    const rows = await service.getVaultCustodyRows('0xf724', ['27']);
+    expect(rows).toEqual([
+      {
+        tokenId: '27',
+        settlementPolicy: 'self_vault_hold',
+        vaultPartnerId: '2d0aae7d-9435-4f07-9197-da0ece0240a3',
+        known: true,
+      },
+    ]);
+    expect(execute).toHaveBeenCalled();
+  });
+
+  it('keeps unknown when policy and partner id are both missing', async () => {
+    const { service, execute } = makeCustodyService({
+      tokenId: '27',
+      tokenContract: '0xf724',
+      settlementPolicy: null,
+      vaultPartnerId: null,
+    });
+
+    await expect(service.getVaultCustodyRows('0xf724', ['27'])).resolves.toEqual([
+      {
+        tokenId: '27',
+        settlementPolicy: null,
+        vaultPartnerId: null,
+        known: false,
+      },
+    ]);
+    expect(execute).not.toHaveBeenCalled();
+  });
+});

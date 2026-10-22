@@ -64,8 +64,8 @@ export const FAQ_GROUPS: FaqGroup[] = [
         a: "Most listings are PSA Vault cards: verified against their PSA certification and insured before they go live, marked with the PSA Vault badge. Partner-vault cards come directly from a seller, so we show the cert number, grade, vault, and seller up front, and every card has an Asset Passport you can review. If you want only verified, insured cards, filter for the PSA Vault badge.",
       },
       {
-        q: "What does “Select your card” mean?",
-        a: "When several cards are listed at the same lowest price, buying opens Select your card so you choose the exact one. You can see how many cards are at that price, filter by vault, and pick by cert number. Same price, but the individual card is your choice.",
+        q: "What does “Select your card” or “Select your box” mean?",
+        a: "When several copies are listed at the same price, buying opens a picker so you choose the exact one. You can see how many are at that price, filter by vault, and pick by cert (cards) or token number (sealed boxes). One listing at that price skips the picker and goes straight to checkout.",
       },
     ],
   },

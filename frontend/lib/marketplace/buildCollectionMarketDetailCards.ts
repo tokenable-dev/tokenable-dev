@@ -14,10 +14,7 @@ import {
   formatCardDisplaySetLabel,
   formatDetailExpansionSetName,
 } from "@/lib/marketplace/cardDisplayName";
-import {
-  inferLanguageFromLatinPokemonRegion,
-  resolveCollectionDisplayLanguage,
-} from "@/lib/marketplace/collectionEditionLanguage";
+import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { labelMentionsPokemon } from "@/lib/market";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -33,16 +30,41 @@ import { resolveCollectionSetFacetLabel } from "@/lib/markets/marketsFilters";
 const SEALED_BOX_LANGUAGE_WORD =
   /^(japanese|english|korean|chinese|jp|ja|en|eng|kr|ko|cn|zh)$/i;
 
-/** PriceCharting set line without franchise or language. `Scarlet & Violet` stays intact. */
-export function sealedBoxCatalogSet(consoleName: string | null | undefined): string {
-  const tokens = (consoleName ?? "")
+function sealedBoxTokens(
+  consoleName: string | null | undefined,
+  opts?: { keepFranchise?: boolean },
+): string[] {
+  return (consoleName ?? "")
     .replace(/\s*&\s*/g, " & ")
     .trim()
     .split(/\s+/)
     .filter(Boolean)
-    .filter((token) => !/^pok[eé]mon$/i.test(token))
+    .filter((token) =>
+      opts?.keepFranchise ? true : !/^pok[eé]mon$/i.test(token),
+    )
     .filter((token) => !SEALED_BOX_LANGUAGE_WORD.test(token));
-  return tokens.join(" ").replace(/ & /g, " and ").replace(/\s+/g, " ").trim();
+}
+
+/** PriceCharting set line without franchise or language. `Scarlet & Violet` stays intact. */
+export function sealedBoxCatalogSet(consoleName: string | null | undefined): string {
+  return sealedBoxTokens(consoleName)
+    .join(" ")
+    .replace(/ & /g, " and ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Breadcrumb trail set: keep franchise (Pokemon …), drop embedded language words
+ * so `(JP)` / `(KR)` can be appended separately.
+ */
+export function sealedBoxBreadcrumbSet(
+  consoleName: string | null | undefined,
+): string {
+  return sealedBoxTokens(consoleName, { keepFranchise: true })
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 /** Details rows for a PriceCharting sealed-box collection. Omits fields we do not have. */
@@ -70,10 +92,11 @@ export function buildSealedBoxDetailCards(
     push("year", "Year", String(year));
   }
 
-  const language = formatCardDisplayLanguageShort(
-    inferLanguageFromLatinPokemonRegion(
-      [comp.consoleName, comp.productName, comp.genre].filter(Boolean).join(" "),
-    ),
+  const language = formatCardDisplayLanguageLong(
+    resolveCollectionDisplayLanguage({
+      comp,
+      corpusLines: [comp.consoleName, comp.productName, comp.genre],
+    }),
   );
   push("language", "Language", language);
 

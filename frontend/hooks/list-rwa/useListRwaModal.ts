@@ -411,7 +411,7 @@ export function useListRwaModal({
         const refreshed = await refetchSettlementPolicy();
         if (refreshed.data?.known !== true) {
           setErrorMsg(
-            "Card details are still loading after mint. Wait a moment and try List again.",
+            "Vault settlement for this token is not ready yet. Refresh the page and try List again.",
           );
           setStep("error");
           return;

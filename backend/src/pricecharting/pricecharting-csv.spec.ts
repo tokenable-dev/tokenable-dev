@@ -2,6 +2,7 @@ import { dominantSetSlug } from './pricecharting-import.service';
 import {
   mergeManualHistoryPrices,
   manualHistoryPricePatch,
+  parseManualHistoryCsv,
   parsePricechartingCsv,
   usdToCents,
 } from './pricecharting-csv';
@@ -92,5 +93,54 @@ describe('pricecharting csv', () => {
     const parsed = parsePricechartingCsv(csv);
     expect(parsed.rows[0]?.productName).toBe('Jordan, Michael #57');
     expect(parsed.rows[0]?.prices.loose_price_cents).toBe(413800);
+  });
+});
+
+describe('parseManualHistoryCsv', () => {
+  it('keeps dollar strings keyed by cent column names', () => {
+    const csv = [
+      'product_id,observed_on,loose_price',
+      '12345,2024-01-15,139.98',
+      '12345,2024-01-16,$140.00',
+      '99999,2024-02-01,"1,250.50"',
+    ].join('\n');
+    const parsed = parseManualHistoryCsv(csv);
+    expect(parsed).toEqual([
+      {
+        line: 2,
+        productId: '12345',
+        observedOn: '2024-01-15',
+        prices: { loose_price_cents: '139.98' },
+      },
+      {
+        line: 3,
+        productId: '12345',
+        observedOn: '2024-01-16',
+        prices: { loose_price_cents: '$140.00' },
+      },
+      {
+        line: 4,
+        productId: '99999',
+        observedOn: '2024-02-01',
+        prices: { loose_price_cents: '1,250.50' },
+      },
+    ]);
+  });
+
+  it('skips blank rows and requires product_id + observed_on headers', () => {
+    const withBlank = parseManualHistoryCsv(
+      ['product_id,observed_on,loose_price', ',,', '1,2024-01-01,10'].join(
+        '\n',
+      ),
+    );
+    expect(withBlank).toHaveLength(1);
+    expect(withBlank[0]).toMatchObject({
+      productId: '1',
+      observedOn: '2024-01-01',
+      prices: { loose_price_cents: '10' },
+    });
+    expect(() =>
+      parseManualHistoryCsv('foo,bar\n1,2\n'),
+    ).toThrow(/product_id/);
   });
 });

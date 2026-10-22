@@ -180,3 +180,58 @@ export async function syncPricechartingGuide(
   if (!res.ok) throw new Error(await readError(res));
   return res.json() as Promise<PricechartingGuideSyncAccepted>;
 }
+
+export type PricechartingBoxesPage = {
+  items: PricechartingProductHit[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+/** Paginated sealed-box listing for cover prep (collection not required). */
+export async function listPricechartingBoxes(input: {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  missingCoverOnly?: boolean;
+}): Promise<PricechartingBoxesPage> {
+  const params = new URLSearchParams();
+  if (input.page != null) params.set("page", String(input.page));
+  if (input.pageSize != null) params.set("pageSize", String(input.pageSize));
+  if (input.q?.trim()) params.set("q", input.q.trim());
+  if (input.missingCoverOnly) params.set("missingCover", "1");
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/boxes?${params}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<PricechartingBoxesPage>;
+}
+
+export type PricechartingHistoryBulkResult = {
+  filename: string;
+  rowCount: number;
+  ok: number;
+  failed: Array<{ line: number; productId: string; error: string }>;
+};
+
+/** Bulk upsert price history CSV (dollars). */
+export async function uploadPricechartingHistoryCsv(
+  file: File,
+  opts?: { syncCurrent?: boolean },
+): Promise<PricechartingHistoryBulkResult> {
+  const body = new FormData();
+  body.append("file", file);
+  const qs = opts?.syncCurrent ? "?syncCurrent=1" : "";
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/history/bulk${qs}`,
+    {
+      method: "POST",
+      credentials: "include",
+      body,
+      timeoutMs: 300_000,
+    },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<PricechartingHistoryBulkResult>;
+}

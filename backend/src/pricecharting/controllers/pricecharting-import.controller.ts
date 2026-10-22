@@ -125,6 +125,69 @@ export class PricechartingImportController {
     return this.search.search(query, 'name');
   }
 
+  /** Full catalog listing of sealed boxes (not nested under products/:id). */
+  @Get('boxes')
+  @ApiOperation({
+    summary: '[Admin] List sealed-box catalog rows (cover prep)',
+    description:
+      'Paginated listing of every pricecharting_products row with is_sealed_box. Optional q narrows the list; missingCover=1 shows rows without cover_image_url. Collection does not need to exist yet.',
+  })
+  listBoxes(
+    @Req() req: Request,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('q') q?: string,
+    @Query('missingCover') missingCover?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    return this.search.listBoxes({
+      page: page ? Number(page) : 1,
+      pageSize: pageSize ? Number(pageSize) : 40,
+      q,
+      missingCoverOnly:
+        missingCover === '1' ||
+        missingCover === 'true' ||
+        missingCover === 'yes',
+    });
+  }
+
+  @Post('history/bulk')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: '[Admin] Bulk upsert pricecharting_price_history from CSV',
+    description:
+      'CSV columns: product_id, observed_on (YYYY-MM-DD), loose_price (dollars), optional other dollar columns. Max 5 MB / 5000 rows. Does not rewrite catalog spot unless syncCurrent=1.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+        syncCurrent: { type: 'string', description: '1 to also set current loose' },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  importHistoryCsv(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File | undefined,
+    @Query('syncCurrent') syncCurrent?: string,
+  ) {
+    this.admin.assertAdminSession(req);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    return this.imports.importManualHistoryCsv(file, {
+      syncCurrent:
+        syncCurrent === '1' ||
+        syncCurrent === 'true' ||
+        syncCurrent === 'yes',
+    });
+  }
+
   @Post('products/:id/cover')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({

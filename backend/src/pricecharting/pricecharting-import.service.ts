@@ -13,6 +13,7 @@ import {
   PRICE_COLUMNS,
   mergeManualHistoryPrices,
   manualHistoryPricePatch,
+  parseManualHistoryCsv,
   parsePricechartingCsv,
   type PricechartingCsvRow,
 } from './pricecharting-csv';
@@ -20,6 +21,8 @@ import {
 const CHUNK = 8_000;
 const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_ROWS = 250_000;
+const MAX_HISTORY_CSV_BYTES = 5 * 1024 * 1024;
+const MAX_HISTORY_CSV_ROWS = 5_000;
 
 const TEXT_COLUMNS = [
   'id',
@@ -552,6 +555,66 @@ export class PricechartingImportService {
       savedCents,
       syncedCurrentLoose,
     };
+  }
+
+  /**
+   * Admin bulk history CSV — dollars per day. Does not change catalog spot
+   * unless syncCurrent is true (latest loose still only via recordManualHistory).
+   */
+  async importManualHistoryCsv(
+    file: { buffer: Buffer; originalname?: string; size?: number },
+    opts?: { syncCurrent?: boolean },
+  ): Promise<{
+    filename: string;
+    rowCount: number;
+    ok: number;
+    failed: Array<{ line: number; productId: string; error: string }>;
+  }> {
+    const size = file.size ?? file.buffer?.length ?? 0;
+    if (!file.buffer?.length || size <= 0) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (size > MAX_HISTORY_CSV_BYTES) {
+      throw new BadRequestException('History CSV must be at most 5 MB');
+    }
+    const filename = (file.originalname ?? 'history.csv').slice(0, 256);
+    let rows;
+    try {
+      rows = parseManualHistoryCsv(file.buffer.toString('utf8'));
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Invalid history CSV',
+      );
+    }
+    if (rows.length === 0) {
+      throw new BadRequestException('CSV has no data rows');
+    }
+    if (rows.length > MAX_HISTORY_CSV_ROWS) {
+      throw new BadRequestException(
+        `History CSV allows at most ${MAX_HISTORY_CSV_ROWS} rows`,
+      );
+    }
+
+    const failed: Array<{ line: number; productId: string; error: string }> = [];
+    let ok = 0;
+    for (const row of rows) {
+      try {
+        await this.recordManualHistory(row.productId, row.observedOn, row.prices, {
+          syncCurrent: opts?.syncCurrent === true,
+        });
+        ok += 1;
+      } catch (err) {
+        failed.push({
+          line: row.line,
+          productId: row.productId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+    this.logger.log(
+      `PriceCharting history CSV ${filename}: ${ok}/${rows.length} ok`,
+    );
+    return { filename, rowCount: rows.length, ok, failed };
   }
 
   /** Chart series for one product: every stored Seoul date, oldest first. */

@@ -1199,6 +1199,56 @@ export class VaultService {
   }
 
   /**
+   * Partner/self-vault tokens always have `vault_partner_id` at mint.
+   * If `settlement_policy` was dropped (schema lag, transfer stub race), restore
+   * `self_vault_hold` — never invent PSA `standard`.
+   */
+  async ensureSettlementPolicy(
+    tokenContract: string,
+    tokenId: string | number,
+    policy: 'standard' | 'self_vault_hold',
+  ): Promise<void> {
+    const contract = String(tokenContract ?? '')
+      .trim()
+      .toLowerCase();
+    const tid = String(tokenId ?? '').trim();
+    if (!contract || !tid) return;
+    await this.rwaTokens
+      .createQueryBuilder()
+      .update(RwaToken)
+      .set({ settlementPolicy: policy })
+      .where('LOWER(token_contract) = :contract AND token_id = :tid', {
+        contract,
+        tid,
+      })
+      .andWhere('settlement_policy IS NULL')
+      .execute();
+  }
+
+  /**
+   * Resolve custody for a registry row. Partner id without policy → heal to
+   * self_vault_hold (secondary list after buy must not 404).
+   */
+  private async resolveRowSettlementPolicy(
+    row: RwaToken,
+  ): Promise<'standard' | 'self_vault_hold' | null> {
+    if (row.settlementPolicy === 'self_vault_hold') return 'self_vault_hold';
+    if (row.settlementPolicy === 'standard') return 'standard';
+    if (row.vaultPartnerId?.trim()) {
+      await this.ensureSettlementPolicy(
+        row.tokenContract,
+        row.tokenId,
+        'self_vault_hold',
+      );
+      this.logger.warn(
+        `Healed settlement_policy=self_vault_hold for token=#${row.tokenId} (vault_partner_id set, policy was null)`,
+      );
+      return 'self_vault_hold';
+    }
+    return null;
+  }
+
+  /**
    * Seaport settlement policy for a minted RWA.
    * Returns null when the token is not indexed OR mint registry has not
    * recorded custody yet — never assume PSA vault.
@@ -1211,9 +1261,7 @@ export class VaultService {
     const rows = await this.findRwaTokensByDecimalIds(tokenContract, [raw]);
     const token = rows[0];
     if (!token) return null;
-    if (token.settlementPolicy === 'self_vault_hold') return 'self_vault_hold';
-    if (token.settlementPolicy === 'standard') return 'standard';
-    return null;
+    return this.resolveRowSettlementPolicy(token);
   }
 
   /** Batch load settlement + partner id for portfolio / listing vault chips. */
@@ -1317,40 +1365,51 @@ export class VaultService {
     const byNorm = new Map(
       rows.map((r) => [normalizeDecimalTokenId(r.tokenId), r] as const),
     );
-    return ids.map((tokenId) => {
+    const out: Array<{
+      tokenId: string;
+      settlementPolicy: 'standard' | 'self_vault_hold' | null;
+      vaultPartnerId: string | null;
+      known: boolean;
+    }> = [];
+    for (const tokenId of ids) {
       const row = byNorm.get(normalizeDecimalTokenId(tokenId));
       if (!row) {
-        return {
+        out.push({
           tokenId,
           settlementPolicy: null,
           vaultPartnerId: null,
           known: false,
-        };
+        });
+        continue;
       }
-      if (row.settlementPolicy === 'self_vault_hold') {
-        return {
+      const policy = await this.resolveRowSettlementPolicy(row);
+      if (policy === 'self_vault_hold') {
+        out.push({
           tokenId,
-          settlementPolicy: 'self_vault_hold' as const,
+          settlementPolicy: 'self_vault_hold',
           vaultPartnerId: row.vaultPartnerId ?? null,
           known: true,
-        };
+        });
+        continue;
       }
-      if (row.settlementPolicy === 'standard') {
-        return {
+      if (policy === 'standard') {
+        out.push({
           tokenId,
-          settlementPolicy: 'standard' as const,
+          settlementPolicy: 'standard',
           vaultPartnerId: null,
           known: true,
-        };
+        });
+        continue;
       }
       // Transfer-index stub or incomplete mint registry — custody unknown.
-      return {
+      out.push({
         tokenId,
         settlementPolicy: null,
         vaultPartnerId: null,
         known: false,
-      };
-    });
+      });
+    }
+    return out;
   }
 
   /** Portfolio / listing chips: keyed by requested tokenId string. */

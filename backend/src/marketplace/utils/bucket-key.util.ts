@@ -4,6 +4,7 @@ import {
   psaGradePolicyInputFromGraded,
 } from './psa-grade-policy.util';
 import { marketParallelKeyFromPsaVariety } from './market-parallel-key.util';
+import { inferPrintLanguageFromHints } from './pokemon-metadata-normalize.util';
 
 /** Canonical fields that define a "same card" pool (many tokenIds, one book). */
 export interface MarketBucketComponents {
@@ -366,6 +367,15 @@ export function sealedBoxCollectionComponents(
   if (consoleName) out.consoleName = consoleName;
   const genre = product.genre?.trim();
   if (genre) out.genre = genre;
+  // PriceCharting embeds region in Latin names ("Pokemon Japanese …").
+  const language = inferPrintLanguageFromHints({
+    brand: consoleName || productName,
+    setHint: consoleName,
+    category: genre,
+    variety: productName,
+    cardhedgerSet: [productName, consoleName].filter(Boolean).join(' '),
+  });
+  if (language) out.language = language;
   const release = product.releaseDate?.trim() ?? '';
   const releaseDay = /^(\d{4}-\d{2}-\d{2})/.exec(release)?.[1];
   if (releaseDay) {

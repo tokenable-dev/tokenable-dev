@@ -168,6 +168,23 @@
   object-position: center;
 }
 
+/*
+ * Markets / home grids set `.card__img img { object-fit: fill }` (higher specificity).
+ * Sealed-box covers must keep aspect ratio — scale into the layout, never stretch.
+ */
+.card__img .psa-slab__plain-img,
+.gnb-search-item__thumb .psa-slab__plain-img,
+.cd-si-card__media .psa-slab__plain-img,
+.cd-hero-bar .psa-slab__plain-img,
+.home-page .markets-grid .card__img .psa-slab__plain-img {
+  width: 82%;
+  height: 82%;
+  max-width: 82%;
+  max-height: 82%;
+  object-fit: contain !important;
+  object-position: center;
+}
+
 .psa-slab__card {
   position: absolute;
   top: calc(188.5 * var(--u));

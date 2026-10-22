@@ -9,6 +9,8 @@ import {
 } from "@/lib/portfolio/portfolioPaths";
 import type { PartnerMintBatchResult } from "@/lib/sell/mintSellFlowCard";
 
+type MintItemKind = "card" | "box";
+
 type Props = {
   mintBusy: boolean;
   done: number;
@@ -18,6 +20,8 @@ type Props = {
   result: PartnerMintBatchResult | null;
   onDismissResult: () => void;
   onRetryFailed: () => void;
+  /** Partner sealed-box path — same chrome, box copy. Default card. */
+  itemKind?: MintItemKind;
 };
 
 function DoneCheckIcon() {
@@ -44,16 +48,20 @@ export function SellFlowPartnerMintBackground({
   done,
   total,
   onShow,
+  itemKind = "card",
 }: {
   visible: boolean;
   done: number;
   total: number;
   onShow: () => void;
+  itemKind?: MintItemKind;
 }) {
   if (!visible) return null;
   return (
     <p className="sell-flow-csv-bg" role="status">
-      Minting in the background ·{" "}
+      {itemKind === "box"
+        ? "Minting boxes in the background · "
+        : "Minting in the background · "}
       <span className="tkl-mono">{done}</span> / <span className="tkl-mono">{total}</span>
       {" · "}
       <button type="button" className="sell-flow-csv-link" onClick={onShow}>
@@ -72,7 +80,9 @@ export function SellFlowPartnerMintModal({
   result,
   onDismissResult,
   onRetryFailed,
+  itemKind = "card",
 }: Props) {
+  const isBox = itemKind === "box";
   const complete = result !== null && !mintBusy;
   const open = (mintBusy && !progressHidden) || complete;
 
@@ -109,9 +119,13 @@ export function SellFlowPartnerMintModal({
 
   const doneTitle =
     okN === 1
-      ? "Card vaulted and token minted"
+      ? isBox
+        ? "Box vaulted and token minted"
+        : "Card vaulted and token minted"
       : okN > 1
-        ? `${okN} cards vaulted and tokens minted`
+        ? isBox
+          ? `${okN} boxes vaulted and tokens minted`
+          : `${okN} cards vaulted and tokens minted`
         : failed.length > 0
           ? "Minting finished with errors"
           : "Minting finished";
@@ -155,7 +169,9 @@ export function SellFlowPartnerMintModal({
                   <li key={row.cert} className="sell-flow-csv-modal__done-row">
                     <div className="sell-flow-csv-modal__done-name">{row.name}</div>
                     <div className="sell-flow-csv-modal__done-meta tkl-mono">
-                      Cert #{row.cert} · token #{row.tokenId}
+                      {isBox
+                        ? `Product #${row.cert} · token #${row.tokenId}`
+                        : `Cert #${row.cert} · token #${row.tokenId}`}
                     </div>
                   </li>
                 ))}
@@ -168,8 +184,19 @@ export function SellFlowPartnerMintModal({
                 {failed.map((row, i) => (
                   <span key={row.cert}>
                     {i > 0 ? ", " : null}
-                    <span className="tkl-mono">{row.cert}</span>
-                    {row.title ? ` (${row.title})` : null}
+                    {isBox ? (
+                      <>
+                        {row.name || (
+                          <span className="tkl-mono">#{row.cert}</span>
+                        )}
+                        {row.title ? ` — ${row.title}` : null}
+                      </>
+                    ) : (
+                      <>
+                        <span className="tkl-mono">{row.cert}</span>
+                        {row.title ? ` (${row.title})` : null}
+                      </>
+                    )}
                   </span>
                 ))}
               </p>
@@ -204,7 +231,7 @@ export function SellFlowPartnerMintModal({
                 className="sell-flow-partner-btn--ghost sell-flow-csv-modal__close"
                 onClick={onDismissResult}
               >
-                {okN > 0 ? "Add cards" : "Close"}
+                {okN > 0 ? (isBox ? "Add boxes" : "Add cards") : "Close"}
               </TkButton>
             </div>
           </>
@@ -212,7 +239,7 @@ export function SellFlowPartnerMintModal({
           <>
             <div className="sell-flow-csv-modal__head">
               <div id="partner-mint-modal-title" className="sell-flow-csv-modal__title">
-                Minting your cards
+                {isBox ? "Minting your boxes" : "Minting your cards"}
               </div>
               <span className="sell-flow-csv-pill">Minting</span>
             </div>
@@ -225,9 +252,9 @@ export function SellFlowPartnerMintModal({
             </div>
 
             <p className="sell-flow-csv-pnote sell-flow-csv-modal__note">
-              Each card is minted on-chain one at a time on our servers. You can hide this
-              dialog or leave this page — mint keeps running. We&apos;ll notify you in your
-              inbox when the batch finishes.
+              {isBox
+                ? "Each box is minted on-chain one at a time. You can hide this dialog — mint keeps running while you stay on this page."
+                : "Each card is minted on-chain one at a time on our servers. You can hide this dialog or leave this page — mint keeps running. We\u2019ll notify you in your inbox when the batch finishes."}
             </p>
             <div className="sell-flow-csv-modal__btns">
               <TkButton

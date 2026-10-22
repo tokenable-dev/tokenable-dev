@@ -9,6 +9,7 @@ import {
   resolveCardDisplayGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
+import { sealedBoxBreadcrumbSet } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
@@ -27,8 +28,21 @@ type MarketsCollectionTitleCollection = Pick<
   "collectionKey" | "displayLabel"
 >;
 
+/** Sealed-box set for listing Line 1 (franchise kept, language words stripped). */
+function sealedBoxListingSetName(comp: CollectionComponents): string {
+  return (
+    sealedBoxBreadcrumbSet(comp.consoleName) ||
+    comp.consoleName?.trim() ||
+    ""
+  );
+}
+
 export function gradeLabelFromComp(comp: CollectionComponents): string {
-  if (comp.assetKind === "sealed_box") return "";
+  if (comp.assetKind === "sealed_box") {
+    const product = comp.productName?.trim() || "";
+    // Line 2 = product type when Line 1 is the set (e.g. Booster Box).
+    return sealedBoxListingSetName(comp) ? product : "";
+  }
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
   if (company && score) return toCardDisplayCase(`${company} ${score}`);
@@ -50,16 +64,20 @@ export function buildMarketsCollectionHeadlineParts(params: {
   if (comp.assetKind === "sealed_box") {
     const dl =
       typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
-    const name = comp.productName?.trim() || dl || null;
-    const setName = comp.consoleName?.trim() || null;
+    const product = comp.productName?.trim() || dl || null;
+    const setName = sealedBoxListingSetName(comp) || null;
     const year = yearFromComponents(comp);
+    const languageRaw = comp.language?.trim() || null;
+    const language =
+      formatCardDisplayLanguageShort(languageRaw) ?? languageRaw ?? null;
     return {
       year: year != null ? String(year) : null,
-      setName,
+      // Set is Line 1 (`cardName`); omit from Line 2 meta to avoid duplicate.
+      setName: null,
       cardNumber: null,
-      cardName: name,
+      cardName: setName || product,
       variety: null,
-      language: null,
+      language,
     };
   }
 
@@ -153,6 +171,13 @@ export function buildHomeTickerCollectionTitle(params: {
   comp: CollectionComponents;
 }): string {
   const parts = buildMarketsCollectionHeadlineParts(params);
+  if (params.comp.assetKind === "sealed_box") {
+    const set = parts.cardName?.trim() || "";
+    const product = params.comp.productName?.trim() || "";
+    const out = [set, product].filter(Boolean).join(" ");
+    if (out) return out;
+    return collectionDisplayLabelFallback(params.collection);
+  }
   const name = parts.cardName?.trim() || "";
   const number = parts.cardNumber?.trim() || "";
   const out = [name, number].filter(Boolean).join(" ");

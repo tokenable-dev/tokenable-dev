@@ -44,6 +44,16 @@
 
 /* §5 — Line 1 ellipsis lives in tokenable-collectible-card.css (`.cd-display-name--line1-clamp-2`) */
 
+/* Sealed-box collection hero — set name only, up to 2 lines (no single-line nowrap). */
+.collection-detail-page--sealed-box .cd-display-name--line1-clamp-2 {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  white-space: normal;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
 /* ── Flat markets cluster (no bezel/mat chrome) ───────────────────────────── */
 
 .collection-detail-page .cd-markets-cluster__inner,
@@ -6772,6 +6782,142 @@ button.cd-listing-orderbook__thumb-link {
   box-shadow: 0 -20px 60px rgba(0, 0, 0, 0.6);
   animation: cd-choose-up 0.24s cubic-bezier(0.22, 0.61, 0.36, 1);
   box-sizing: border-box;
+}
+
+/*
+ * Sealed-box picker list viewport:
+ * row ≈ 12+12 pad + ~22 line + 8 margin = 54px.
+ * Desktop shows 5 rows; mobile ~3 — overflow scrolls (wheel / touch).
+ */
+.cd-choose-copy--box {
+  --cd-choose-box-row: 54px;
+  --cd-choose-box-pad-x: 24px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__sheet {
+  padding-top: 4px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__head {
+  padding: 12px var(--cd-choose-box-pad-x) 14px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__fixed {
+  padding: 0 var(--cd-choose-box-pad-x);
+}
+
+.cd-choose-copy--box .cd-choose-copy__ctx {
+  margin-bottom: 14px;
+}
+
+/* Select your box — Figma typography (Inter / --font-sans) */
+.cd-choose-copy--box .cd-choose-copy__title {
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.cd-choose-copy--box .cd-choose-copy__item-title {
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 15px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+}
+
+.cd-choose-copy--box .cd-choose-copy__item-sub {
+  color: rgba(255, 255, 255, 0.52);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.cd-choose-copy--box .cd-choose-copy__ctx {
+  color: rgba(255, 255, 255, 0.7);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 400;
+  line-height: normal;
+}
+
+.cd-choose-copy--box .cd-choose-copy__cert {
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+}
+
+.cd-choose-copy--box .cd-choose-copy__vault-pill {
+  color: #5b9aff;
+  text-align: center;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  letter-spacing: 0.33px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__scroll {
+  flex: 0 0 auto;
+  max-height: calc(var(--cd-choose-box-row) * 5);
+  padding: 0 var(--cd-choose-box-pad-x);
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Match sheet #141418 — soft thumb, no bright OS default bar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) #141418;
+}
+
+.cd-choose-copy--box .cd-choose-copy__foot {
+  padding: 16px var(--cd-choose-box-pad-x) calc(18px + env(safe-area-inset-bottom));
+}
+
+.cd-choose-copy--box .cd-choose-copy__scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__scroll::-webkit-scrollbar-track {
+  background: #141418;
+  border-radius: 3px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 3px;
+}
+
+.cd-choose-copy--box .cd-choose-copy__scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.28);
+}
+
+@media (max-width: 768px) {
+  .cd-choose-copy--box {
+    --cd-choose-box-pad-x: 18px;
+  }
+
+  .cd-choose-copy--box .cd-choose-copy__sheet {
+    width: 100%;
+    max-height: min(92dvh, 740px);
+    border-radius: 18px 18px 0 0;
+  }
+
+  .cd-choose-copy--box .cd-choose-copy__head {
+    padding: 10px var(--cd-choose-box-pad-x) 12px;
+  }
+
+  .cd-choose-copy--box .cd-choose-copy__scroll {
+    max-height: calc(var(--cd-choose-box-row) * 3);
+  }
 }
 
 .cd-choose-copy__grab {

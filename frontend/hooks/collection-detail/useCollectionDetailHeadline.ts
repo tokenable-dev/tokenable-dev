@@ -13,6 +13,7 @@ import {
 import {
   buildCollectionMarketDetailCards,
   buildSealedBoxDetailCards,
+  sealedBoxBreadcrumbSet,
 } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
@@ -56,35 +57,49 @@ function sealedBoxHeadline(params: {
   vaultLabel?: string | null;
 }) {
   const { comp, displayLabel, hasCollection, vaultLabel } = params;
-  const name =
+  const productName =
     comp.productName?.trim() ||
     (typeof displayLabel === "string" ? displayLabel.trim() : "") ||
     "Sealed box";
   const setName = comp.consoleName?.trim() || "";
+  const trailSet =
+    sealedBoxBreadcrumbSet(comp.consoleName) || setName || productName;
+  /** Listing / hero primary title — set first so tiles are not all “Booster Box”. */
+  const titleName = trailSet || productName;
   const yearNum = yearFromComponents(comp);
   const year = yearNum != null ? String(yearNum) : null;
   const genre = comp.genre?.trim() || null;
-  const meta = [year, setName].filter(Boolean).join(" · ") || null;
+  const languageLabel = resolveCollectionDisplayLanguage({
+    comp,
+    corpusLines: [comp.consoleName, comp.productName, comp.genre],
+  });
+  const breadcrumbTrail =
+    formatDetailBreadcrumbTrail({
+      setName: trailSet,
+      categoryLabel: genre,
+      language: languageLabel,
+    }) || trailSet;
   const parts: AssetDetailHeadlineParts = {
     year,
     setName: setName || null,
     cardNumber: null,
-    cardName: name,
+    cardName: titleName,
     variety: null,
-    language: null,
+    language: languageLabel,
   };
   return {
     metadataRows: [] as { label: string; value: string }[],
     subtitle: null as string | null,
     headlineSetLine: null,
     collectionCategoryBadge: genre,
-    collectionBreadcrumbTrail: setName || name,
+    collectionBreadcrumbTrail: breadcrumbTrail,
     collectionHeadlineParts: parts,
-    collectionHeadlineDisplayTitle: name,
-    collectionHeadlineMetaStrip: meta,
-    headlineGrade: null as string | null,
+    collectionHeadlineDisplayTitle: titleName,
+    // Collection hero: set name only — no product-type (Booster Box) under-title.
+    collectionHeadlineMetaStrip: null,
+    headlineGrade: null,
     collectionPopulationBadge: null as string | null,
-    collectionWovenTitle: name,
+    collectionWovenTitle: titleName,
     headlineInfoTags: null as CollectionHeadlineInfoTag[] | null,
     detailsCatalogLine: null as string | null,
     heroDetailsKvRows: hasCollection

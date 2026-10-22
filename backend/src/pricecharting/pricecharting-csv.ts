@@ -116,6 +116,98 @@ export function usdToCents(raw: string | undefined): number | null {
   return cents;
 }
 
+/** Map admin history CSV header → `PRICE_COLUMNS` key (values are dollars). */
+export function resolveManualHistoryCsvPriceColumn(
+  header: string,
+): string | null {
+  const raw = header.trim().toLowerCase();
+  if (!raw) return null;
+  const underscored = raw.replace(/[\s-]+/g, '_');
+  if (PRICE_COLUMN_SET.has(underscored)) return underscored;
+  if (PRICE_COLUMN_SET.has(`${underscored}_cents`)) {
+    return `${underscored}_cents`;
+  }
+  const hyphen = underscored.replace(/_/g, '-');
+  if (PRICE_HEADER_TO_COLUMN[hyphen]) return PRICE_HEADER_TO_COLUMN[hyphen]!;
+  if (PRICE_HEADER_TO_COLUMN[`${hyphen}-price`]) {
+    return PRICE_HEADER_TO_COLUMN[`${hyphen}-price`]!;
+  }
+  return null;
+}
+
+export type ManualHistoryCsvRow = {
+  line: number;
+  productId: string;
+  observedOn: string;
+  prices: Record<string, string>;
+};
+
+/**
+ * Admin bulk history CSV.
+ * Required: product_id (or id), observed_on (or date).
+ * Price columns are dollars (e.g. loose_price / loose_price_cents header → cents column).
+ */
+export function parseManualHistoryCsv(text: string): ManualHistoryCsvRow[] {
+  const normalized = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+  const lines = normalized.split('\n').filter((line) => line.trim().length > 0);
+  if (lines.length < 2) {
+    throw new Error('CSV needs a header row and at least one data row');
+  }
+  const delimiter = detectDelimiter(lines[0]!);
+  const headers = splitDelimitedLine(lines[0]!, delimiter).map((h) =>
+    h.trim().toLowerCase(),
+  );
+  const productIdx = headers.findIndex(
+    (h) => h === 'product_id' || h === 'id' || h === 'product-id',
+  );
+  const dateIdx = headers.findIndex(
+    (h) =>
+      h === 'observed_on' ||
+      h === 'observed-on' ||
+      h === 'date' ||
+      h === 'day',
+  );
+  if (productIdx < 0 || dateIdx < 0) {
+    throw new Error(
+      'CSV header must include product_id (or id) and observed_on (or date)',
+    );
+  }
+  const priceCols: Array<{ index: number; column: string }> = [];
+  headers.forEach((header, index) => {
+    if (index === productIdx || index === dateIdx) return;
+    const column = resolveManualHistoryCsvPriceColumn(header);
+    if (column) priceCols.push({ index, column });
+  });
+  if (priceCols.length === 0) {
+    throw new Error(
+      'CSV needs at least one price column (e.g. loose_price)',
+    );
+  }
+
+  const out: ManualHistoryCsvRow[] = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const cols = splitDelimitedLine(lines[i]!, delimiter);
+    const productId = (cols[productIdx] ?? '').trim();
+    const observedOn = (cols[dateIdx] ?? '').trim();
+    if (!productId && !observedOn) continue;
+    const prices: Record<string, string> = {};
+    for (const { index, column } of priceCols) {
+      const value = (cols[index] ?? '').trim();
+      if (value) prices[column] = value;
+    }
+    out.push({
+      line: i + 1,
+      productId,
+      observedOn,
+      prices,
+    });
+  }
+  return out;
+}
+
 function detectDelimiter(headerLine: string): '\t' | ',' {
   const tabs = headerLine.split('\t').length;
   let commas = 0;

@@ -41,6 +41,7 @@ import {
   listingVaultBadge,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
+import { formatCardDisplayLanguageLong } from "@/lib/marketplace/cardDisplayName";
 import { sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { Order } from "@/lib/core";
@@ -432,10 +433,30 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     />
   );
 
-  const chooseCopyLine1 =
-    formatAssetDetailLine1(headline.collectionHeadlineParts, {
-      grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
-    }) || headline.collectionHeadlineDisplayTitle;
+  const chooseCopyLine1 = sealedBox
+    ? [
+        (comp.consoleName ?? "")
+          .replace(/\s*&\s*/g, " and ")
+          .replace(/\s+/g, " ")
+          .trim(),
+        (comp.productName ?? "").trim(),
+      ]
+        .filter(Boolean)
+        .join(" · ") || headline.collectionHeadlineDisplayTitle
+    : formatAssetDetailLine1(headline.collectionHeadlineParts, {
+        grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
+      }) || headline.collectionHeadlineDisplayTitle;
+
+  const chooseCopyMetaLine = sealedBox
+    ? [
+        headline.collectionHeadlineParts.year?.trim() || null,
+        formatCardDisplayLanguageLong(
+          headline.collectionHeadlineParts.language,
+        ),
+      ]
+        .filter(Boolean)
+        .join(" · ") || null
+    : headline.collectionHeadlineMetaStrip;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -483,7 +504,11 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   });
 
   return (
-    <div className="collection-detail-page min-h-screen min-w-0 text-white max-[1140px]:min-h-0">
+    <div
+      className={`collection-detail-page min-h-screen min-w-0 text-white max-[1140px]:min-h-0${
+        sealedBox ? " collection-detail-page--sealed-box" : ""
+      }`}
+    >
       <div
         className={`collection-detail-page__shell ${COLLECTION_DETAIL_SHELL_CLASS} flex min-h-0 flex-1 flex-col max-[1140px]:overflow-visible min-[1141px]:overflow-visible`}
       >
@@ -566,8 +591,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       <CollectionChooseCopyModal
         open={orderBookAskPicker?.side === "ask"}
         onClose={() => setOrderBookAskPicker(null)}
+        variant={sealedBox ? "box" : "card"}
         collectionTitle={chooseCopyLine1}
-        itemMetaLine={headline.collectionHeadlineMetaStrip}
+        itemMetaLine={chooseCopyMetaLine}
         coverImageUrl={collectionCoverUrl}
         price={orderBookAskPicker?.price ?? 0}
         orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}

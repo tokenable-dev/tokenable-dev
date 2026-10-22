@@ -67,12 +67,30 @@ describe('bucket-key.util', () => {
       pricechartingProductId: '10021227',
       productName: 'Booster Box',
       consoleName: 'Pokemon Chinese Gem Pack 2',
+      language: 'CN',
       year: 2024,
       loosePriceCents: 12999,
       salesVolume: 12,
     });
     expect(components).not.toHaveProperty('gradeScore');
     expect(components).not.toHaveProperty('cardName');
+  });
+
+  it('stores JP/KR on sealed-box components from catalog names', () => {
+    expect(
+      sealedBoxCollectionComponents({
+        id: '1',
+        productName: 'Booster Box',
+        consoleName: 'Pokemon Japanese Scarlet & Violet 151',
+      }).language,
+    ).toBe('JP');
+    expect(
+      sealedBoxCollectionComponents({
+        id: '2',
+        productName: 'Pokemon Korean Sword & Shield Booster Box',
+        consoleName: 'Sword & Shield',
+      }).language,
+    ).toBe('KR');
   });
 
   it('separates PSA 9 and PSA 10 into different collection keys', () => {

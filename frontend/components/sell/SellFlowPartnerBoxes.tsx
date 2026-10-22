@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { TkButton } from "@/components/ds";
 import { useAccessGate } from "@/hooks/auth/useAccessGate";
@@ -13,13 +12,14 @@ import {
 } from "@/lib/core/api/pricecharting-listings";
 import { mintSealedBox } from "@/lib/core/api/rwa-mint";
 import { invalidateAfterRwaMintTx } from "@/lib/core/invalidation";
-import {
-  PARTNER_PORTFOLIO_PATH,
-  portfolioAssetHref,
-  portfolioUrl,
-} from "@/lib/portfolio/portfolioPaths";
+import type { PartnerMintBatchResult } from "@/lib/sell/mintSellFlowCard";
+import { classifyPartnerMintSkip } from "@/lib/sell/mintSellFlowCard";
 import { SLAB_UPLOAD_ACCEPT } from "@/lib/vault/mintImageSource";
 import { useAppChain } from "@/providers/AppChainProvider";
+import {
+  SellFlowPartnerMintBackground,
+  SellFlowPartnerMintModal,
+} from "./SellFlowPartnerMintModal";
 
 type BoxDraft = {
   localId: string;
@@ -53,7 +53,12 @@ export function SellFlowPartnerBoxes({
   const [boxes, setBoxes] = useState<BoxDraft[]>([]);
   const [boxMintBusy, setBoxMintBusy] = useState(false);
   const [boxMintError, setBoxMintError] = useState<string | null>(null);
-  const [mintedTokenIds, setMintedTokenIds] = useState<number[]>([]);
+  const [mintDone, setMintDone] = useState(0);
+  const [mintTotal, setMintTotal] = useState(0);
+  const [mintProgressHidden, setMintProgressHidden] = useState(false);
+  const [mintResult, setMintResult] = useState<PartnerMintBatchResult | null>(
+    null,
+  );
   const queryClient = useQueryClient();
   const boxPhotoInputRef = useRef<HTMLInputElement>(null);
   const boxPhotoTargetRef = useRef<string | null>(null);
@@ -66,6 +71,10 @@ export function SellFlowPartnerBoxes({
   useEffect(() => {
     onBusyChange(boxMintBusy);
   }, [boxMintBusy, onBusyChange]);
+
+  useEffect(() => {
+    if (boxMintBusy) setMintProgressHidden(false);
+  }, [boxMintBusy]);
 
   useEffect(() => {
     return () => {
@@ -134,38 +143,73 @@ export function SellFlowPartnerBoxes({
     if (!runAccessGate()) return;
     setBoxMintBusy(true);
     setBoxMintError(null);
+    setMintResult(null);
+    setMintDone(0);
+    setMintTotal(ready.length);
+    setMintProgressHidden(false);
+    const succeeded: PartnerMintBatchResult["succeeded"] = [];
+    const skipped: PartnerMintBatchResult["skipped"] = [];
     try {
       const recipientAddress = await ensureAccountWalletReady();
+      let done = 0;
       for (const box of ready) {
-        const minted = await mintSealedBox({
-          pricechartingProductId: box.product.id,
-          clientRequestId: box.clientRequestId,
-          image: box.photo,
-          chainId,
-          recipientAddress,
-        });
-        const tokenId = Number(minted.tokenId);
-        if (Number.isFinite(tokenId) && tokenId >= 1) {
-          setMintedTokenIds((prev) =>
-            prev.includes(tokenId) ? prev : [...prev, tokenId],
-          );
-          try {
-            await invalidateAfterRwaMintTx(queryClient, {
+        try {
+          const minted = await mintSealedBox({
+            pricechartingProductId: box.product.id,
+            clientRequestId: box.clientRequestId,
+            image: box.photo,
+            chainId,
+            recipientAddress,
+          });
+          const tokenId = Number(minted.tokenId);
+          if (Number.isFinite(tokenId) && tokenId >= 1) {
+            succeeded.push({
+              cert: box.product.id,
+              name: box.product.productName,
               tokenId,
-              address: recipientAddress,
             });
-          } catch {
-            // The NFT is already minted. Portfolio refresh can fail without undoing it.
+            try {
+              await invalidateAfterRwaMintTx(queryClient, {
+                tokenId,
+                address: recipientAddress,
+              });
+            } catch {
+              // The NFT is already minted. Portfolio refresh can fail without undoing it.
+            }
+          } else {
+            skipped.push({
+              cert: box.product.id,
+              name: box.product.productName,
+              kind: "other",
+              title: "Mint returned an invalid token id",
+              detail: String(minted.tokenId ?? ""),
+            });
           }
+          setBoxes((prev) => {
+            const row = prev.find((item) => item.localId === box.localId);
+            if (row?.photoUrl) URL.revokeObjectURL(row.photoUrl);
+            return prev.filter((item) => item.localId !== box.localId);
+          });
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : "Sealed box mint failed";
+          const classified = classifyPartnerMintSkip(message);
+          skipped.push({
+            cert: box.product.id,
+            name: box.product.productName,
+            kind: classified.kind,
+            title: classified.title,
+            detail: message,
+          });
         }
-        setBoxes((prev) => {
-          const row = prev.find((item) => item.localId === box.localId);
-          if (row?.photoUrl) URL.revokeObjectURL(row.photoUrl);
-          return prev.filter((item) => item.localId !== box.localId);
-        });
+        done += 1;
+        setMintDone(done);
       }
+      setMintResult({ succeeded, skipped });
     } catch (err) {
-      setBoxMintError(err instanceof Error ? err.message : "Sealed box mint failed");
+      setBoxMintError(
+        err instanceof Error ? err.message : "Sealed box mint failed",
+      );
     } finally {
       setBoxMintBusy(false);
     }
@@ -254,27 +298,6 @@ export function SellFlowPartnerBoxes({
           {boxSearchError ? (
             <p className="sell-flow-partner-cert-error" role="alert">
               {boxSearchError}
-            </p>
-          ) : null}
-          {mintedTokenIds.length > 0 ? (
-            <p className="sell-flow-box-minted" role="status">
-              Minted to your portfolio.{" "}
-              <Link
-                className="sell-flow-link"
-                href={portfolioAssetHref(
-                  PARTNER_PORTFOLIO_PATH,
-                  mintedTokenIds[mintedTokenIds.length - 1] ?? 0,
-                )}
-              >
-                Open the latest box
-              </Link>
-              {" · "}
-              <Link
-                className="sell-flow-link"
-                href={portfolioUrl(PARTNER_PORTFOLIO_PATH, "tab=assets")}
-              >
-                All assets
-              </Link>
             </p>
           ) : null}
         </div>
@@ -403,6 +426,25 @@ export function SellFlowPartnerBoxes({
           ) : null}
         </div>
       ) : null}
+
+      <SellFlowPartnerMintBackground
+        itemKind="box"
+        visible={boxMintBusy && mintProgressHidden}
+        done={mintDone}
+        total={mintTotal}
+        onShow={() => setMintProgressHidden(false)}
+      />
+      <SellFlowPartnerMintModal
+        itemKind="box"
+        mintBusy={boxMintBusy}
+        done={mintDone}
+        total={mintTotal}
+        progressHidden={mintProgressHidden}
+        onProgressHiddenChange={setMintProgressHidden}
+        result={mintResult}
+        onDismissResult={() => setMintResult(null)}
+        onRetryFailed={() => void mintBoxes()}
+      />
     </>
   );
 }

@@ -211,7 +211,7 @@ JWT required. Marks one notification read (must belong to a linked wallet).
 ### `GET /api/marketplace/rwa-tokens/:tokenId/settlement-policy`
 
 Returns `{ tokenId, settlementPolicy, vaultLabel, known }` where `settlementPolicy` is `standard` or `self_vault_hold` when the token is indexed on the chain.  
-`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `Tokenable Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. Returns **404** when the token is not indexed — clients must not assume PSA custody. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
+`vaultLabel` is `PSA Vault` for standard (PSA vault) custody, or `Tokenable Vault` for Self / partner custody. Partner company names (e.g. `ORP Vault`) stay on admin / partner-session APIs only. **Not** inferred from whether the owner is a marketplace partner. If `vault_partner_id` is set but `settlement_policy` is null (registry lag after transfer), the API heals the row to `self_vault_hold` and returns known. Returns **404** only when the token is not indexed at all — clients must not assume PSA custody. Chain-scoped via `x-tokenable-chain-id`. Used by list-ask builders and portfolio chips.
 
 ### `POST /api/marketplace/rwa-tokens/vault-info/batch`
 

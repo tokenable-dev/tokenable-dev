@@ -1944,6 +1944,7 @@ export class OrdersService {
           tokenContract: saved.tokenContract,
           tokenId: resolveFulfilledAskTokenId(saved),
           buyerWallet: buyerAddress,
+          ask: saved,
         });
         // Don't block the fulfill HTTP response on chart RPC — client has a fetch timeout.
         void this.refreshChartsAfterHoldingsMove(
@@ -2166,6 +2167,7 @@ export class OrdersService {
       tokenContract: ask.tokenContract,
       tokenId: ask.tokenId,
       buyerWallet: bid.offerer,
+      ask,
     });
 
     void this.refreshChartsAfterHoldingsMove(
@@ -2296,11 +2298,14 @@ export class OrdersService {
   /**
    * Immediate My Assets ownership after Seaport settle — do not wait for
    * Transfer-log poll (can be 1–2+ minutes). Poll remains a heal backstop.
+   * Also restores `settlement_policy` from the ask stamp when the registry
+   * row somehow lost it (secondary List must not see known:false).
    */
   private async recordBuyerOwnershipAfterSettle(params: {
     tokenContract: string;
     tokenId: string | number | null | undefined;
     buyerWallet: string | null | undefined;
+    ask?: { parameters?: unknown; tokenContract?: string; tokenId?: string };
   }): Promise<void> {
     const buyer = params.buyerWallet?.trim().toLowerCase();
     const tid =
@@ -2312,6 +2317,38 @@ export class OrdersService {
     } catch (e) {
       this.logger.warn(
         `recordOwner after settle failed token=#${tid}: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
+    try {
+      const stamped = String(
+        (params.ask?.parameters as { _settlementPolicy?: string } | undefined)
+          ?._settlementPolicy ?? '',
+      ).trim();
+      if (isSelfVaultHoldPolicy(stamped)) {
+        await this.vault.ensureSettlementPolicy(
+          contract,
+          tid,
+          'self_vault_hold',
+        );
+      } else if (stamped === 'standard') {
+        await this.vault.ensureSettlementPolicy(contract, tid, 'standard');
+      } else if (
+        params.ask &&
+        this.selfVaultSettlements.isFullPlatformTakeAsk(
+          params.ask as Pick<Order, 'parameters'>,
+        )
+      ) {
+        await this.vault.ensureSettlementPolicy(
+          contract,
+          tid,
+          'self_vault_hold',
+        );
+      }
+    } catch (e) {
+      this.logger.warn(
+        `ensureSettlementPolicy after settle failed token=#${tid}: ${
           e instanceof Error ? e.message : String(e)
         }`,
       );
