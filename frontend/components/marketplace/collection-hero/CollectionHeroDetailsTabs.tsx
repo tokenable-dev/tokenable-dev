@@ -52,7 +52,7 @@ export function CollectionHeroDetailsTabs({
         role="tablist"
         aria-label="Collection information"
       >
-        <div className="flex min-w-0 w-full flex-1 gap-0">
+        <div className="flex min-w-0 w-auto flex-none gap-6">
           <SidebarTabButton
             id="details"
             label="Details"

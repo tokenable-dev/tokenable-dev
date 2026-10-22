@@ -41,7 +41,10 @@ import {
   listingVaultBadge,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
-import { formatCardDisplayLanguageLong } from "@/lib/marketplace/cardDisplayName";
+import {
+  sealedBoxHeroSetTitle,
+  sealedBoxProductTypeLabel,
+} from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
 import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { Order } from "@/lib/core";
@@ -433,30 +436,20 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     />
   );
 
-  const chooseCopyLine1 = sealedBox
-    ? [
-        (comp.consoleName ?? "")
-          .replace(/\s*&\s*/g, " and ")
-          .replace(/\s+/g, " ")
-          .trim(),
-        (comp.productName ?? "").trim(),
-      ]
-        .filter(Boolean)
-        .join(" · ") || headline.collectionHeadlineDisplayTitle
-    : formatAssetDetailLine1(headline.collectionHeadlineParts, {
-        grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
-      }) || headline.collectionHeadlineDisplayTitle;
+  const chooseCopyLine1 = (() => {
+    if (!sealedBox) {
+      return (
+        formatAssetDetailLine1(headline.collectionHeadlineParts, {
+          grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
+        }) || headline.collectionHeadlineDisplayTitle
+      );
+    }
+    const set = sealedBoxHeroSetTitle(comp);
+    const typeLabel = sealedBoxProductTypeLabel(comp);
+    return [set, typeLabel].filter(Boolean).join(" · ") || set;
+  })();
 
-  const chooseCopyMetaLine = sealedBox
-    ? [
-        headline.collectionHeadlineParts.year?.trim() || null,
-        formatCardDisplayLanguageLong(
-          headline.collectionHeadlineParts.language,
-        ),
-      ]
-        .filter(Boolean)
-        .join(" · ") || null
-    : headline.collectionHeadlineMetaStrip;
+  const chooseCopyMetaLine = headline.collectionHeadlineMetaStrip;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />

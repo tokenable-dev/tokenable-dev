@@ -9,7 +9,10 @@ import {
   resolveCardDisplayGrade,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
-import { sealedBoxBreadcrumbSet } from "@/lib/marketplace/buildCollectionMarketDetailCards";
+import {
+  sealedBoxHeroSetTitle,
+  sealedBoxProductTypeLabel,
+} from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { bucketCardSetForDisplay } from "@/lib/marketplace/bucketKey";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
@@ -28,20 +31,9 @@ type MarketsCollectionTitleCollection = Pick<
   "collectionKey" | "displayLabel"
 >;
 
-/** Sealed-box set for listing Line 1 (franchise kept, language words stripped). */
-function sealedBoxListingSetName(comp: CollectionComponents): string {
-  return (
-    sealedBoxBreadcrumbSet(comp.consoleName) ||
-    comp.consoleName?.trim() ||
-    ""
-  );
-}
-
 export function gradeLabelFromComp(comp: CollectionComponents): string {
   if (comp.assetKind === "sealed_box") {
-    const product = comp.productName?.trim() || "";
-    // Line 2 = product type when Line 1 is the set (e.g. Booster Box).
-    return sealedBoxListingSetName(comp) ? product : "";
+    return sealedBoxProductTypeLabel(comp);
   }
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
@@ -62,10 +54,7 @@ export function buildMarketsCollectionHeadlineParts(params: {
   const { collection, comp } = params;
 
   if (comp.assetKind === "sealed_box") {
-    const dl =
-      typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
-    const product = comp.productName?.trim() || dl || null;
-    const setName = sealedBoxListingSetName(comp) || null;
+    const setName = sealedBoxHeroSetTitle(comp);
     const year = yearFromComponents(comp);
     const languageRaw = comp.language?.trim() || null;
     const language =
@@ -75,7 +64,7 @@ export function buildMarketsCollectionHeadlineParts(params: {
       // Set is Line 1 (`cardName`); omit from Line 2 meta to avoid duplicate.
       setName: null,
       cardNumber: null,
-      cardName: setName || product,
+      cardName: setName,
       variety: null,
       language,
     };

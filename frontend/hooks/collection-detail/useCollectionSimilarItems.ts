@@ -10,6 +10,7 @@ import {
 import { rq } from "@/lib/core/queryKeys";
 import { activeRqChainId } from "@/lib/chains";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { sealedBoxHeroSetTitle } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import {
   buildMarketsCollectionTileGrade,
   buildMarketsCollectionTitle,
@@ -54,16 +55,23 @@ function toItems(
   return rows.map((row) => {
     const key = row.collectionKey.toLowerCase();
     const snap = snapByKey.get(key);
+    const comp = row.components ?? {};
+    const sealedBox = comp.assetKind === "sealed_box";
     return {
       collectionKey: row.collectionKey,
-      displayLabel: buildMarketsCollectionTitle(
-        {
-          collection: row,
-          comp: row.components,
-        },
-        { splitGradeToSecondLine: true },
-      ),
-      gradeLabel: buildMarketsCollectionTileGrade({ comp: row.components }),
+      // Sealed: set name only (no Booster Box second line); wrap up to 2 lines in CSS.
+      displayLabel: sealedBox
+        ? sealedBoxHeroSetTitle(comp)
+        : buildMarketsCollectionTitle(
+            {
+              collection: row,
+              comp,
+            },
+            { splitGradeToSecondLine: true },
+          ),
+      gradeLabel: sealedBox
+        ? ""
+        : buildMarketsCollectionTileGrade({ comp }),
       catalogLabel: row.displayLabel,
       components: row.components,
       imageUrl: row.displayImageUrl ?? row.coverImageUrl ?? null,

@@ -61,11 +61,25 @@ export function useCollectionDetailMarketData(params: {
   const marketSeriesEnabled =
     chainReady && looksLikeCollectionKey(key) && !detailError;
 
+  const sealedBox = comp.assetKind === "sealed_box";
+
   const { data: marketSeries, isLoading: marketSeriesLoading } = useQuery({
     queryKey: rq.collectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION, chainId),
     queryFn: () => getCollectionMarketSeries(key, MARKET_METRICS_SERIES_DURATION),
     enabled: marketSeriesEnabled,
     staleTime: marketplaceRqPolicy.marketSeriesStaleMs,
+    // Sealed boxes have no Cardhedger overlay — poll briefly until PriceCharting
+    // snapshot lands (spot and/or ≥2 history points).
+    refetchInterval: (q) => {
+      if (!sealedBox || !marketSeriesEnabled) return false;
+      const d = q.state.data;
+      const hasSpot =
+        (typeof d?.gradePrices?.raw === "number" && d.gradePrices.raw > 0) ||
+        d?.spotPriceBasis === "pricecharting";
+      const pts = d?.externalUsd?.length ?? 0;
+      if (hasSpot && pts >= 2) return false;
+      return 3_000;
+    },
   });
 
   const gradeChart = useCollectionGradeChart({
@@ -204,17 +218,24 @@ export function useCollectionDetailMarketData(params: {
 
   const externalPriceChange1MoPct = externalPriceChangeResult.pct;
 
-  const resolvedExternal = useMemo(
-    () =>
-      resolveExternalMarketUsd({
-        marketPreview,
-        gradePrices: marketSeries?.gradePrices ?? null,
-        gradeScore: parseGradeScoreNumber(comp.gradeScore),
-        components: comp,
-        spotPriceBasis: marketSeries?.spotPriceBasis ?? null,
-      }),
-    [marketPreview, marketSeries?.gradePrices, marketSeries?.spotPriceBasis, comp.gradeScore, comp],
-  );
+  const resolvedExternal = useMemo(() => {
+    const fromSeries = resolveExternalMarketUsd({
+      marketPreview,
+      gradePrices: marketSeries?.gradePrices ?? null,
+      gradeScore: parseGradeScoreNumber(comp.gradeScore),
+      components: comp,
+      spotPriceBasis: marketSeries?.spotPriceBasis ?? null,
+    });
+    if (fromSeries.usd != null) return fromSeries;
+    // Markets list already falls back to components.loosePriceCents for sealed boxes.
+    if (comp.assetKind === "sealed_box") {
+      const cents = comp.loosePriceCents;
+      if (typeof cents === "number" && Number.isFinite(cents) && cents > 0) {
+        return { usd: cents / 100, source: "pricecharting" as const };
+      }
+    }
+    return fromSeries;
+  }, [marketPreview, marketSeries?.gradePrices, marketSeries?.spotPriceBasis, comp]);
 
   const gradeAwareExternalUsd =
     gradeChart.selectedPriceUsd ?? resolvedExternal.usd;

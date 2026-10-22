@@ -406,6 +406,8 @@ export async function invalidateAfterListing(
     });
     await qc.invalidateQueries({ queryKey: ["marketplace-collection", key] });
     await qc.invalidateQueries({ queryKey: ["collection-platform-trades", key] });
+    // Sealed-box price/chart come from market-series (no Cardhedger overlay).
+    await qc.invalidateQueries({ queryKey: ["collection-market-series", key] });
   }
   if (opts.address) {
     await qc.invalidateQueries({ queryKey: ["rwa-tokens"] });

@@ -67,6 +67,96 @@ export function sealedBoxBreadcrumbSet(
     .trim();
 }
 
+/** Generic PriceCharting product-type labels — not a set name. */
+const SEALED_BOX_PRODUCT_TYPE =
+  /^(booster\s*box|elite\s*trainer\s*box|etb|tin|collection\s*box|blister|bundle|premium\s*collection|ultra\s*premium(\s*collection)?|display\s*box|case|booster\s*pack|theme\s*deck)$/i;
+
+const SEALED_BOX_PRODUCT_TYPE_SUFFIX =
+  /\s*(?:[·•]\s*)?(booster\s*box|elite\s*trainer\s*box|etb|tin|collection\s*box|blister|bundle|premium\s*collection|ultra\s*premium(?:\s*collection)?|display\s*box|case|booster\s*pack|theme\s*deck)\s*$/i;
+
+function titleCaseProductType(raw: string): string {
+  const t = raw.replace(/\s+/g, " ").trim();
+  if (/^etb$/i.test(t)) return "ETB";
+  return t
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function stripSealedBoxProductTypeSuffix(value: string): string {
+  return value.replace(SEALED_BOX_PRODUCT_TYPE_SUFFIX, "").replace(/\s+/g, " ").trim();
+}
+
+/**
+ * Product-type label for sealed-box meta (`2023 · JP · Booster Box`).
+ * Prefer an explicit PriceCharting type field; never invent pack counts.
+ */
+export function sealedBoxProductTypeLabel(comp: {
+  productName?: string | null;
+  consoleName?: string | null;
+}): string {
+  const product = (comp.productName ?? "").replace(/\s+/g, " ").trim();
+  const console = (comp.consoleName ?? "").replace(/\s+/g, " ").trim();
+  if (product && SEALED_BOX_PRODUCT_TYPE.test(product)) {
+    return titleCaseProductType(product);
+  }
+  if (console && SEALED_BOX_PRODUCT_TYPE.test(console)) {
+    return titleCaseProductType(console);
+  }
+  for (const raw of [product, console]) {
+    const m = SEALED_BOX_PRODUCT_TYPE_SUFFIX.exec(raw);
+    if (m?.[1]) return titleCaseProductType(m[1]);
+  }
+  return "Booster Box";
+}
+
+/**
+ * Hero eyebrow — e.g. `POKÉMON · SEALED`.
+ * PriceCharting `genre` is often bare `Sealed Product` — never use that as the
+ * left token (avoids `SEALED PRODUCT · SEALED`). Prefer franchise from corpus.
+ */
+export function sealedBoxHeroEyebrow(comp: {
+  genre?: string | null;
+  consoleName?: string | null;
+  productName?: string | null;
+}): string {
+  const corpus = [comp.genre, comp.consoleName, comp.productName]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  if (/pok[eé]mon/i.test(corpus)) return "POKÉMON · SEALED";
+  if (/one\s*piece/i.test(corpus)) return "ONE PIECE · SEALED";
+  const genre = (comp.genre ?? "").trim();
+  if (genre && !/sealed/i.test(genre)) {
+    return `${genre.toUpperCase()} · SEALED`;
+  }
+  return "SEALED";
+}
+
+/**
+ * Collection / markets hero title for a sealed box — set line only
+ * (`Scarlet and Violet 151`), never a bare / trailing `Booster Box`.
+ * Franchise + language stay out of the title (they live in eyebrow / meta).
+ */
+export function sealedBoxHeroSetTitle(comp: {
+  productName?: string | null;
+  consoleName?: string | null;
+}): string {
+  const product = (comp.productName ?? "").replace(/\s+/g, " ").trim();
+  const console = (comp.consoleName ?? "").replace(/\s+/g, " ").trim();
+  const productIsType = !product || SEALED_BOX_PRODUCT_TYPE.test(product);
+  const consoleIsType = !console || SEALED_BOX_PRODUCT_TYPE.test(console);
+  let raw = "";
+  if (console && !consoleIsType) raw = console;
+  else if (product && !productIsType) raw = product;
+  else raw = console || product || "";
+  const cleaned =
+    sealedBoxCatalogSet(raw) || stripSealedBoxProductTypeSuffix(raw);
+  const stripped = stripSealedBoxProductTypeSuffix(cleaned);
+  const out = (stripped || cleaned || "Sealed box").replace(/\s*&\s*/g, " and ");
+  return out.replace(/\s+/g, " ").trim() || "Sealed box";
+}
+
 /** Details rows for a PriceCharting sealed-box collection. Omits fields we do not have. */
 export function buildSealedBoxDetailCards(
   comp: CollectionComponents,

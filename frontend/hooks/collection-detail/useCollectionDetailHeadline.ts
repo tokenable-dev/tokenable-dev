@@ -14,6 +14,9 @@ import {
   buildCollectionMarketDetailCards,
   buildSealedBoxDetailCards,
   sealedBoxBreadcrumbSet,
+  sealedBoxHeroEyebrow,
+  sealedBoxHeroSetTitle,
+  sealedBoxProductTypeLabel,
 } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
@@ -56,47 +59,59 @@ function sealedBoxHeadline(params: {
   hasCollection: boolean;
   vaultLabel?: string | null;
 }) {
-  const { comp, displayLabel, hasCollection, vaultLabel } = params;
-  const productName =
-    comp.productName?.trim() ||
-    (typeof displayLabel === "string" ? displayLabel.trim() : "") ||
-    "Sealed box";
-  const setName = comp.consoleName?.trim() || "";
+  const { comp, hasCollection, vaultLabel } = params;
+  const titleName = sealedBoxHeroSetTitle(comp);
   const trailSet =
-    sealedBoxBreadcrumbSet(comp.consoleName) || setName || productName;
-  /** Listing / hero primary title — set first so tiles are not all “Booster Box”. */
-  const titleName = trailSet || productName;
+    sealedBoxBreadcrumbSet(comp.consoleName) ||
+    sealedBoxBreadcrumbSet(titleName) ||
+    titleName;
   const yearNum = yearFromComponents(comp);
   const year = yearNum != null ? String(yearNum) : null;
-  const genre = comp.genre?.trim() || null;
   const languageLabel = resolveCollectionDisplayLanguage({
     comp,
     corpusLines: [comp.consoleName, comp.productName, comp.genre],
   });
+  const langShort =
+    formatCardDisplayLanguageShort(languageLabel) ?? languageLabel;
+  const productType = sealedBoxProductTypeLabel(comp);
+  const metaStrip = [year, langShort, productType]
+    .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
+    .join(" · ");
+  const genre = comp.genre?.trim() || null;
+  // Breadcrumb mid: franchise only — never raw PriceCharting "Sealed Product".
+  const eyebrow = sealedBoxHeroEyebrow(comp);
+  const franchise = eyebrow.replace(/\s*·\s*SEALED\s*$/i, "").trim();
+  const breadcrumbCategory =
+    franchise && !/^sealed$/i.test(franchise)
+      ? franchise
+      : genre && !/sealed/i.test(genre)
+        ? genre
+        : null;
   const breadcrumbTrail =
     formatDetailBreadcrumbTrail({
       setName: trailSet,
-      categoryLabel: genre,
+      categoryLabel: breadcrumbCategory,
       language: languageLabel,
     }) || trailSet;
   const parts: AssetDetailHeadlineParts = {
     year,
-    setName: setName || null,
+    // Set lives on the title line — omit from meta so HeroMeta does not duplicate.
+    setName: null,
     cardNumber: null,
     cardName: titleName,
-    variety: null,
-    language: languageLabel,
+    variety: productType,
+    language: langShort,
   };
   return {
     metadataRows: [] as { label: string; value: string }[],
     subtitle: null as string | null,
     headlineSetLine: null,
-    collectionCategoryBadge: genre,
+    collectionCategoryBadge: breadcrumbCategory,
     collectionBreadcrumbTrail: breadcrumbTrail,
     collectionHeadlineParts: parts,
     collectionHeadlineDisplayTitle: titleName,
-    // Collection hero: set name only — no product-type (Booster Box) under-title.
-    collectionHeadlineMetaStrip: null,
+    // Mock: `2023 · JP · Booster Box` (product type — not pack counts).
+    collectionHeadlineMetaStrip: metaStrip || null,
     headlineGrade: null,
     collectionPopulationBadge: null as string | null,
     collectionWovenTitle: titleName,

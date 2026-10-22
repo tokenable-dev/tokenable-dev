@@ -29,6 +29,7 @@ import {
   resolveCardDisplayGrade,
 } from "@/lib/marketplace/assetDetailHeadline";
 import { formatHeadlineCardNumber } from "@/lib/marketplace/collectionFullDetailsTitle";
+import { sealedBoxHeroEyebrow } from "@/lib/marketplace/buildCollectionMarketDetailCards";
 
 function formatChangeTag(pct: number): {
   arrow: string;
@@ -408,6 +409,10 @@ export function CollectionDetailStatMain({
   const coverSrc = imageUrl?.trim() || null;
   const title = headlineTitle?.trim() || null;
   const meta = headlineMeta?.trim() || null;
+  const sealedEyebrow =
+    omitUnavailableMarket && coverComp
+      ? sealedBoxHeroEyebrow(coverComp)
+      : null;
 
   const changeTag =
     changePct != null && Number.isFinite(changePct)
@@ -469,6 +474,11 @@ export function CollectionDetailStatMain({
           <div className="cd-hero-bar__copy" id="hero-copy">
           {title ? (
             <div className="cd-hero-bar__head" id="hero-head">
+              {sealedEyebrow ? (
+                <div className="cd-hero-bar__eyebrow" id="hero-eyebrow">
+                  {sealedEyebrow}
+                </div>
+              ) : null}
               {headlineParts && !omitUnavailableMarket ? (
                 <CollectionHeroTitle
                   parts={headlineParts}
@@ -491,7 +501,7 @@ export function CollectionDetailStatMain({
                 </div>
               ) : null}
               <HeroMeta
-                parts={headlineParts}
+                parts={omitUnavailableMarket ? null : headlineParts}
                 meta={meta}
                 gradeLabel={gradeLabel}
                 cardNumber={headlineParts?.cardNumber}
@@ -505,7 +515,7 @@ export function CollectionDetailStatMain({
             <div className="cd-hero-bar__metrics hero-actionsrow">
               <div className="cd-hero-bar__priceblock" id="hero-priceblock">
                 <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
-                  Last Price
+                  {omitUnavailableMarket ? "Market Value" : "Last Price"}
                 </div>
                 <div className="cd-hero-bar__price-row">
                   {priceLoading && priceUsd == null ? (
@@ -522,6 +532,7 @@ export function CollectionDetailStatMain({
                       {NO_EXTERNAL_PRICE}
                     </div>
                   )}
+                  {!omitUnavailableMarket ? (
                   <div className="cd-hero-bar__chg" id="hero-chg">
                     {changeLoading && changePct == null ? (
                       <span
@@ -557,6 +568,7 @@ export function CollectionDetailStatMain({
                       </TkTag>
                     )}
                   </div>
+                  ) : null}
                 </div>
               </div>
             </div>

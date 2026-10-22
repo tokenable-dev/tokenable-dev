@@ -298,11 +298,19 @@ export class CollectionMarketService {
     let row = await this.snapshotService.findByKey(key);
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
-      row =
-        (await this.snapshotService.resolveSnapshotForRead(
-          key,
-          sealedBox ? 'price_delta' : 'cold_start',
-        )) ?? row;
+      if (sealedBox) {
+        // No Cardhedger overlay for sealed boxes — block once so first detail
+        // paint is not an empty sticky market-series cache miss.
+        row =
+          (await this.snapshotService.ensureSnapshot(key, 'price_delta')) ??
+          row;
+      } else {
+        row =
+          (await this.snapshotService.resolveSnapshotForRead(
+            key,
+            'cold_start',
+          )) ?? row;
+      }
     }
 
     let bundle: CollectionMarketBundle;
@@ -316,8 +324,7 @@ export class CollectionMarketService {
       const preview = row.previewJson;
       const needsHistoryRefresh = sealedBox
         ? row.spotPriceBasis !== 'pricecharting' ||
-          ((row.externalUsdJson?.length ?? 0) < 2 &&
-            (row.rawUsd == null || row.rawUsd <= 0))
+          (row.externalUsdJson?.length ?? 0) < 2
         : preview != null &&
           preview.matched !== true &&
           (row.externalUsdJson?.length ?? 0) < 2;
