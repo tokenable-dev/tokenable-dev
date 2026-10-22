@@ -96,7 +96,7 @@ Signed-in users search `pricecharting_products` locally. These routes do not cal
 | | |
 |--|--|
 | One match | `GET /api/pricecharting/catalog/product` — exactly one of `id`, `upc`, `q`. Several matches return `{ match: null, ambiguous: true }`. |
-| Text search | `GET /api/pricecharting/catalog/products?q=` — partner box mint. At most 20, ordered by product id. Tokens are whole words in `product_name` or `console_name`, and the row must be a sealed box. `genre = 'Sealed Product'` whose product name is a box, bundle, display, chest, or premium collection, plus the same names filed under a card genre. Raw cards, graded cards, packs, and video games are excluded. Admin product search is a different route and still returns every genre. |
+| Text search | `GET /api/pricecharting/catalog/products?q=` — partner box mint. At most 20, ordered by product id. Tokens are whole words in `product_name` or `console_name`, and `is_sealed_box` must be true (set on CSV upsert / deploy backfill from `catalogProductIsBox`: Sealed Product with box keyword in name or console, or card-genre rows with a box-style product name). Raw cards, graded cards, packs, and video games are excluded. Admin product search is a different route and still returns every genre. |
 | UPC | `GET /api/pricecharting/catalog/upc?upc=` — partner box mint. Exact string match, leading zeros kept, at most 20, same box rule as text search. |
 
 Purge stored rows if the subscription ends.

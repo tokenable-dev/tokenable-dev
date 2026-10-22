@@ -1810,4 +1810,36 @@ ALTER TABLE pricecharting_products
 COMMENT ON COLUMN pricecharting_products.cover_image_url IS
   'Admin-set representative image. Not part of the PriceCharting CSV upsert.';
 
+-- ── 077_pricecharting_is_sealed_box.sql ──
+
+ALTER TABLE pricecharting_products
+  ADD COLUMN IF NOT EXISTS is_sealed_box boolean NOT NULL DEFAULT false;
+
+UPDATE pricecharting_products
+SET is_sealed_box = (
+  (
+    genre = 'Sealed Product'
+    AND (
+      product_name ~* '\m(box|booster bundle|half booster bundle|booster display|bundle display|build & battle stadium|build and battle stadium|build & battle display|collector chest|collectors chest|ultra-premium collection|ultra premium collection|premium collection|booster case)\M'
+      OR console_name ~* '\m(box|booster bundle|half booster bundle|booster display|bundle display|build & battle stadium|build and battle stadium|build & battle display|collector chest|collectors chest|ultra-premium collection|ultra premium collection|premium collection|booster case)\M'
+    )
+  )
+  OR (
+    genre IS DISTINCT FROM 'Sealed Product'
+    AND genre IS DISTINCT FROM 'Board & Card'
+    AND (genre ILIKE '%card%' OR genre IS NULL OR genre = '')
+    AND product_name ~* '\m(box|booster bundle|half booster bundle|booster display|bundle display|build & battle stadium|build and battle stadium|build & battle display|collector chest|collectors chest|ultra-premium collection|ultra premium collection|premium collection|booster case)\M'
+    AND product_name !~* 'box topper|buy-a-box|buy a box|illustration box|storage box set|code in box|long box|cardboard box|big box|treasure box|puzzle box|ancient gear box|fairy box|mirror box|boom box|attack-in-the-box|tool box|toolbox|box of friends|box of |mystic box|music box|secret box|box promo|grand box|promotion pack'
+    AND product_name !~ '#[0-9]'
+    AND product_name !~ '[A-Za-z0-9]{2,8}-[A-Za-z]{0,4}[0-9]{2,4}'
+  )
+);
+
+CREATE INDEX IF NOT EXISTS idx_pricecharting_products_sealed_box
+  ON pricecharting_products (id)
+  WHERE is_sealed_box;
+
+COMMENT ON COLUMN pricecharting_products.is_sealed_box IS
+  'Partner sealed-box mint search. Set on CSV upsert from catalogProductIsBox; not a PriceCharting CSV column.';
+
 

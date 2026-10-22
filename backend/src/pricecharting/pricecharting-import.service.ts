@@ -8,6 +8,7 @@ import {
   PricechartingArchive,
   runImportThenArchive,
 } from './pricecharting-archive';
+import { catalogProductIsBox } from './pricecharting-catalog-search';
 import {
   PRICE_COLUMNS,
   mergeManualHistoryPrices,
@@ -33,7 +34,10 @@ const TEXT_COLUMNS = [
   'source_file',
 ] as const;
 
-/** CSV fields only. `cover_image_url` is admin-set and must not be in this list. */
+/**
+ * CSV fields + derived `is_sealed_box`.
+ * `cover_image_url` is admin-set and must not be in this list.
+ */
 const INSERT_COLUMNS = [
   ...TEXT_COLUMNS.slice(0, 3),
   ...PRICE_COLUMNS,
@@ -44,6 +48,7 @@ const INSERT_COLUMNS = [
   'asin',
   'epid',
   'release_date',
+  'is_sealed_box',
   'source_file',
   'imported_at',
 ];
@@ -350,6 +355,7 @@ export class PricechartingImportService {
     const asins: Array<string | null> = [];
     const epids: Array<string | null> = [];
     const releases: Array<string | null> = [];
+    const sealedFlags: boolean[] = [];
 
     for (const row of rows) {
       ids.push(row.id);
@@ -363,6 +369,13 @@ export class PricechartingImportService {
       asins.push(row.asin);
       epids.push(row.epid);
       releases.push(row.releaseDate);
+      sealedFlags.push(
+        catalogProductIsBox({
+          genre: row.genre,
+          productName: row.productName,
+          consoleName: row.consoleName,
+        }),
+      );
     }
 
     const historyCount = await this.insertDailyPrices(qr, rows, observedOn);
@@ -380,17 +393,17 @@ export class PricechartingImportService {
       `INSERT INTO pricecharting_products (${INSERT_COLUMNS.join(', ')})
        SELECT id, console_name, product_name, ${PRICE_COLUMNS.join(', ')},
               upc, sales_volume, genre, tcg_id, asin, epid,
-              release_date::date, $1, now()
+              release_date::date, is_sealed_box, $1, now()
        FROM unnest(
          $2::varchar[], $3::varchar[], $${4}::varchar[],
          ${priceSelect},
          $${afterPrices}::varchar[], $${afterPrices + 1}::int[],
          $${afterPrices + 2}::varchar[], $${afterPrices + 3}::varchar[],
          $${afterPrices + 4}::varchar[], $${afterPrices + 5}::varchar[],
-         $${afterPrices + 6}::varchar[]
+         $${afterPrices + 6}::varchar[], $${afterPrices + 7}::boolean[]
        ) AS u(
          id, console_name, product_name, ${PRICE_COLUMNS.join(', ')},
-         upc, sales_volume, genre, tcg_id, asin, epid, release_date
+         upc, sales_volume, genre, tcg_id, asin, epid, release_date, is_sealed_box
        )
        ON CONFLICT (id) DO UPDATE SET ${updates}`,
       [
@@ -406,6 +419,7 @@ export class PricechartingImportService {
         asins,
         epids,
         releases,
+        sealedFlags,
       ],
     );
     return historyCount;

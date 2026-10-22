@@ -41,6 +41,7 @@ CREATE TABLE IF NOT EXISTS pricecharting_products (
   epid text,
   release_date date,
   cover_image_url text,
+  is_sealed_box boolean NOT NULL DEFAULT false,
   source_file varchar(256) NOT NULL DEFAULT '',
   imported_at timestamptz NOT NULL DEFAULT now()
 );
@@ -50,6 +51,10 @@ CREATE INDEX IF NOT EXISTS idx_pricecharting_products_genre
 
 CREATE INDEX IF NOT EXISTS idx_pricecharting_products_console
   ON pricecharting_products (console_name);
+
+CREATE INDEX IF NOT EXISTS idx_pricecharting_products_sealed_box
+  ON pricecharting_products (id)
+  WHERE is_sealed_box;
 
 COMMENT ON TABLE pricecharting_products IS
   'PriceCharting and SportsCardsPro price-list rows. PK is upstream product id. Re-upload upserts. manual_only_price_cents is PSA 10. cover_image_url is admin-set and is not part of the CSV upsert.';

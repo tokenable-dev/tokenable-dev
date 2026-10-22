@@ -74,14 +74,18 @@ const CARD_NOISE =
 const BOX_NAME_SQL = `\\m(${BOX_NAME})\\M`;
 
 /**
- * Partner box mint only. Admin catalog search does not use this.
- * Sealed Product rows match on the product name, so a pack from a "Box" set stays out.
- * Boxes filed under a card genre still match, after card-number and card-name exclusions.
+ * Partner box mint classification (written to `is_sealed_box` on CSV upsert).
+ * Sealed Product: box keyword in product_name OR console_name (packs stay out).
+ * Card genres: product_name only, after card-number / noise exclusions.
+ * Keep in sync with backend/sql/schema/077_pricecharting_is_sealed_box.sql.
  */
-const SEALED_BOX_SQL = `(
+export const SEALED_BOX_SQL = `(
   (
     genre = 'Sealed Product'
-    AND product_name ~* '${BOX_NAME_SQL}'
+    AND (
+      product_name ~* '${BOX_NAME_SQL}'
+      OR console_name ~* '${BOX_NAME_SQL}'
+    )
   )
   OR (
     genre IS DISTINCT FROM 'Sealed Product'
@@ -99,15 +103,19 @@ const cardNoisePattern = new RegExp(CARD_NOISE, 'i');
 const cardNumberPattern = /#[0-9]/;
 const setCodePattern = /[A-Za-z0-9]{2,8}-[A-Za-z]{0,4}[0-9]{2,4}/;
 
-/** Same rule as {@link SEALED_BOX_SQL}. Tests use this; the query does not. */
+/** Same rule as {@link SEALED_BOX_SQL} / `is_sealed_box` backfill. */
 export function catalogProductIsBox(input: {
   genre: string | null | undefined;
   productName: string;
+  consoleName?: string | null;
 }): boolean {
   const name = input.productName ?? '';
-  if (!boxNamePattern.test(name)) return false;
+  const consoleName = input.consoleName ?? '';
   const genre = (input.genre ?? '').trim();
-  if (genre === 'Sealed Product') return true;
+  if (genre === 'Sealed Product') {
+    return boxNamePattern.test(name) || boxNamePattern.test(consoleName);
+  }
+  if (!boxNamePattern.test(name)) return false;
   if (genre === 'Board & Card') return false;
   if (genre !== '' && !/card/i.test(genre)) return false;
   if (cardNumberPattern.test(name) || setCodePattern.test(name)) return false;
@@ -184,7 +192,8 @@ export class PricechartingCatalogSearch {
     if (tokens.length === 0) throw new BadRequestException('q is required');
     const filter = tokenFilter(tokens, 1);
     const orderSql = order === 'name' ? 'product_name ASC, id ASC' : 'id ASC';
-    const boxSql = boxesOnly ? ` AND ${SEALED_BOX_SQL}` : '';
+    // Prefer indexed is_sealed_box (import-time flag). Never re-evaluate regex over the full catalog.
+    const boxSql = boxesOnly ? ' AND is_sealed_box' : '';
     const rows = await this.dataSource.query<ProductRow[]>(
       `${PRODUCT_SELECT} WHERE ${filter.sql}${boxSql} ORDER BY ${orderSql} LIMIT 20`,
       filter.params,
@@ -196,7 +205,7 @@ export class PricechartingCatalogSearch {
   async findByUpc(upc: string, boxesOnly = false): Promise<CatalogProductHit[]> {
     const value = upc?.trim() ?? '';
     if (!value) throw new BadRequestException('upc is required');
-    const boxSql = boxesOnly ? ` AND ${SEALED_BOX_SQL}` : '';
+    const boxSql = boxesOnly ? ' AND is_sealed_box' : '';
     const rows = await this.dataSource.query<ProductRow[]>(
       `${PRODUCT_SELECT} WHERE upc = $1${boxSql} ORDER BY id ASC LIMIT 20`,
       [value],

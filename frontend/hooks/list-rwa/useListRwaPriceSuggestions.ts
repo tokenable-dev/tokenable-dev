@@ -15,6 +15,7 @@ import {
   type CollectionPlatformTapeFill,
   type Order,
 } from "@/lib/core";
+import { matchCatalogProduct } from "@/lib/core/api/pricecharting-listings";
 import {
   extractBucketComponentsFromMetadata,
   computeMarketBucketKey,
@@ -34,6 +35,18 @@ import { normalizeDecimalTokenId } from "@/lib/marketplace";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import { isCriteriaCollectionBid } from "@/lib/seaport/criteria/criteriaMatch";
 import { isTokenBidOrder, tokenBidTargetTokenId } from "@/lib/seaport/orders/isTokenBidOrder";
+
+function sealedBoxProductIdFromMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+): string | null {
+  const props = metadata?.properties as Record<string, unknown> | undefined;
+  if (props?.assetKind !== "sealed_box") return null;
+  const id =
+    typeof props.pricechartingProductId === "string"
+      ? props.pricechartingProductId.trim()
+      : "";
+  return id || null;
+}
 
 const SUGGESTIONS_TRADE_LIMIT = 8;
 
@@ -189,6 +202,28 @@ export function useListRwaPriceSuggestions(input: {
   const mintPreviewPack = mintPreviewQuery.data;
   const mintPreview = mintPreviewPack?.[tokenId] ?? null;
 
+  const sealedProductId = useMemo(
+    () => sealedBoxProductIdFromMetadata(metadata as Record<string, unknown> | null),
+    [metadata],
+  );
+
+  /** First ask before collection exists — PriceCharting loose is the only spot. */
+  const catalogLooseQuery = useQuery({
+    queryKey: ["list-rwa-catalog-loose", sealedProductId] as const,
+    queryFn: async () => {
+      const pack = await matchCatalogProduct({ id: sealedProductId! });
+      return pack.match;
+    },
+    enabled: enabled && tokenIdOk && Boolean(sealedProductId),
+    staleTime: marketplaceRqPolicy.snapshotsStaleMs,
+  });
+
+  const catalogLooseUsd = useMemo(() => {
+    const cents = catalogLooseQuery.data?.loosePriceCents;
+    if (cents == null || !Number.isFinite(cents) || cents <= 0) return null;
+    return cents / 100;
+  }, [catalogLooseQuery.data?.loosePriceCents]);
+
   const marketPriceUsd = useMemo(() => {
     const gradeScore = parseGradeScoreNumber(bucketComponents?.gradeScore);
     const fromSnapshot = representativeGradeUsd(
@@ -197,6 +232,21 @@ export function useListRwaPriceSuggestions(input: {
       bucketComponents?.gradeScore,
     );
     if (fromSnapshot != null && fromSnapshot > 0) return fromSnapshot;
+
+    // Sealed box: gradePrices.raw after collection exists; else catalog loose.
+    if (sealedProductId) {
+      const raw = collectionSnapshot?.gradePrices?.raw;
+      if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;
+      if (catalogLooseUsd != null && catalogLooseUsd > 0) return catalogLooseUsd;
+      const compsCents = pricingComponents?.loosePriceCents;
+      if (
+        typeof compsCents === "number" &&
+        Number.isFinite(compsCents) &&
+        compsCents > 0
+      ) {
+        return compsCents / 100;
+      }
+    }
 
     const fromPreview = resolveExternalMarketUsd({
       marketPreview: mintPreview,
@@ -227,6 +277,8 @@ export function useListRwaPriceSuggestions(input: {
     collectionSnapshot?.spotPriceBasis,
     mintPreview,
     tradesPack?.trades,
+    sealedProductId,
+    catalogLooseUsd,
   ]);
 
   const lowestAskUsd = useMemo(() => {
@@ -270,7 +322,8 @@ export function useListRwaPriceSuggestions(input: {
       mintPreviewQuery.isFetched &&
       collectionKeySettled &&
       (!candidateCollectionKey || collectionDetailQuery.isFetched) &&
-      (!persistedCollectionKey || snapshotQuery.isFetched));
+      (!persistedCollectionKey || snapshotQuery.isFetched) &&
+      (!sealedProductId || catalogLooseQuery.isFetched));
 
   const loading = enabled && tokenIdOk && !referencesReady;
 

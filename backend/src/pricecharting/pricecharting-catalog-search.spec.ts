@@ -36,15 +36,19 @@ const OTHER: Row = {
 };
 
 function matches(row: Row, sql: string, params: unknown[]): boolean {
-  if (sql.includes("genre = 'Sealed Product'") && !catalogProductIsBox({
-    genre: row.genre,
-    productName: row.product_name,
-  })) {
+  if (
+    sql.includes('is_sealed_box') &&
+    !catalogProductIsBox({
+      genre: row.genre,
+      productName: row.product_name,
+      consoleName: row.console_name,
+    })
+  ) {
     return false;
   }
   if (sql.includes('WHERE id = $1')) return row.id === params[0];
   if (sql.includes('WHERE upc = $1')) return row.upc === params[0];
-  if (!sql.includes('~*')) return false;
+  if (!sql.includes('~*') && !sql.includes('is_sealed_box')) return false;
   const tokenParams = params.filter((param) => String(param).includes('\\m'));
   if (tokenParams.length === 0) return true;
   return tokenParams.every((param) => {
@@ -134,6 +138,16 @@ describe('pricecharting local catalog search', () => {
       genre: 'Sealed Product',
       productName: 'Booster Box',
     })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Sealed Product',
+      productName: 'Pokemon Japanese Scarlet & Violet 151',
+      consoleName: 'Booster Box',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Sealed Product',
+      productName: 'Booster Pack',
+      consoleName: 'Pokemon Base',
+    })).toBe(false);
     expect(catalogProductIsBox({
       genre: 'Pokemon Card',
       productName: 'Mew V Box',

@@ -84,6 +84,17 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes pricecharting_products.is_sealed_box', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'pricecharting_products' &&
+          r.column === 'is_sealed_box',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes sealed_box_mints (partner box mint)', () => {
     expect(
       REQUIRED_SCHEMA.some(

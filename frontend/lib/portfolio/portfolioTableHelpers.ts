@@ -60,6 +60,12 @@ export type PortfolioHoldingsHeadline = {
   hover: string;
 };
 
+function isSealedBoxMetadata(
+  meta: RwaMetadata | null | undefined,
+): boolean {
+  return meta?.properties?.assetKind === "sealed_box";
+}
+
 /** Set / Edit price sheet identity — name, number, grade (SSOT Line 1 parts). */
 export function listPriceSheetIdentity(
   meta: RwaMetadata | null | undefined,
@@ -67,14 +73,22 @@ export function listPriceSheetIdentity(
   fallbackName?: string | null,
 ): PortfolioHoldingsHeadline {
   const fallback = fallbackName?.trim() || `RWA #${tokenId}`;
+  const sealed = isSealedBoxMetadata(meta);
   const parts = buildRwaAssetDetailHeadlineParts(meta ?? null, fallback);
-  const grade =
-    formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
-  const displayParts = cardDisplayPartsFromAssetDetail(parts, grade);
-  const line1 = formatCardDisplayLine1(displayParts) || fallback;
+  // Boxes are always raw — omit the grade slot (never show "Raw").
+  const grade = sealed
+    ? ""
+    : formatPortfolioGradeLabel(meta ?? null) || resolveRwaHeadlineGrade(meta);
+  const displayParts = cardDisplayPartsFromAssetDetail(parts, grade || null);
+  const line1 =
+    formatCardDisplayLine1(displayParts, sealed ? { omitGrade: true } : undefined) ||
+    fallback;
   const nameLine =
     formatCardDisplayLine1(displayParts, { omitGrade: true }) || line1;
-  const hover = formatCardDisplayHoverTitle(parts, { grade });
+  const hover = formatCardDisplayHoverTitle(
+    parts,
+    sealed ? { omitGrade: true } : { grade },
+  );
   const line2 = formatCardDisplayMeta(parts);
   return {
     parts,

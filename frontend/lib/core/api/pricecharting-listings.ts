@@ -39,3 +39,24 @@ export async function searchCatalogUpc(upc: string): Promise<CatalogProductHit[]
   if (!res.ok) throw new Error(await readError(res));
   return res.json() as Promise<CatalogProductHit[]>;
 }
+
+/** Local catalog match — exactly one of id / upc / q. */
+export async function matchCatalogProduct(input: {
+  id?: string;
+  upc?: string;
+  q?: string;
+}): Promise<{ match: CatalogProductHit | null; ambiguous: boolean }> {
+  const params = new URLSearchParams();
+  if (input.id?.trim()) params.set("id", input.id.trim());
+  else if (input.upc?.trim()) params.set("upc", input.upc.trim());
+  else if (input.q?.trim()) params.set("q", input.q.trim());
+  const res = await backendFetch(
+    `${getApiUrl()}/pricecharting/catalog/product?${params.toString()}`,
+    { credentials: "include" },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<{
+    match: CatalogProductHit | null;
+    ambiguous: boolean;
+  }>;
+}

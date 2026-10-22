@@ -345,7 +345,14 @@ function ListPriceSheetCardIdentity({
 }) {
   const name = headlineParts?.cardName?.trim() || "";
   const number = headlineParts?.cardNumber?.trim() || "";
-  const grade = resolveCardDisplayGrade(headlineGrade);
+  const gradeToken = (headlineGrade ?? "").trim();
+  // Sealed boxes pass empty grade and have no card number — omit (never invent "Raw").
+  // Ungraded cards still get the Raw slot when a collector number is present.
+  const grade = gradeToken
+    ? resolveCardDisplayGrade(gradeToken)
+    : number
+      ? resolveCardDisplayGrade("")
+      : "";
   const fallback = listModalAssetLabel(tokenId, assetTitle);
   const line = [name || fallback, number, grade].filter(Boolean).join(" · ");
 

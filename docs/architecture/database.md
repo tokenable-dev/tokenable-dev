@@ -269,6 +269,7 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 074 | `074_pricecharting_listings.sql` | `pricecharting_listings`, `pricecharting_listing_photos` (unused seller-ask tables; screens and listing routes removed; not `orders`) |
 | 075 | `075_sealed_box_mints.sql` | `sealed_box_mints` (partner sealed-box mint intent; not a vault cycle or collection) |
 | 076 | `076_pricecharting_product_cover.sql` | `pricecharting_products.cover_image_url` (admin representative image; CSV upsert does not write it) |
+| 077 | `077_pricecharting_is_sealed_box.sql` | `pricecharting_products.is_sealed_box` + partial index (partner box search; CSV upsert refreshes; backfill matches `catalogProductIsBox`) |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
 **Maintenance (existing DBs — not in bootstrap):**

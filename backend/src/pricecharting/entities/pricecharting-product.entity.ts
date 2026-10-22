@@ -109,6 +109,13 @@ export class PricechartingProduct {
   @Column({ type: 'varchar', length: 128, nullable: true })
   genre: string | null;
 
+  /**
+   * Partner sealed-box mint search. Computed on CSV upsert via catalogProductIsBox.
+   * Not a PriceCharting CSV column. Partial index: idx_pricecharting_products_sealed_box.
+   */
+  @Column({ name: 'is_sealed_box', type: 'boolean', default: false })
+  isSealedBox: boolean;
+
   /** Upstream value is free text, not a short code. Yu-Gi-Oh rows exceed varchar(64). */
   @Column({ name: 'tcg_id', type: 'text', nullable: true })
   tcgId: string | null;

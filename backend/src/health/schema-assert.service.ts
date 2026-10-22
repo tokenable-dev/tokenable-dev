@@ -25,6 +25,12 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     fix: DEPLOY_SYNC_FIX,
   },
   {
+    kind: 'column',
+    table: 'pricecharting_products',
+    column: 'is_sealed_box',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
     kind: 'table',
     name: 'pricecharting_catalog_sources',
     fix: DEPLOY_SYNC_FIX,
