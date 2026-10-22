@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'fs/promises';
 import path from 'path';
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import {
@@ -32,6 +33,7 @@ const TEXT_COLUMNS = [
   'source_file',
 ] as const;
 
+/** CSV fields only. `cover_image_url` is admin-set and must not be in this list. */
 const INSERT_COLUMNS = [
   ...TEXT_COLUMNS.slice(0, 3),
   ...PRICE_COLUMNS,
@@ -66,7 +68,44 @@ export class PricechartingImportService {
   constructor(
     @InjectDataSource() private readonly dataSource: DataSource,
     private readonly archive: PricechartingArchive,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
+
+  /** Refresh Markets snapshots for sealed-box collections tied to these products. */
+  private async enqueueSealedBoxSnapshots(
+    productIds: readonly string[],
+  ): Promise<void> {
+    const ids = [
+      ...new Set(
+        productIds.map((id) => id.trim()).filter((id) => /^\d+$/.test(id)),
+      ),
+    ].slice(0, 500);
+    if (ids.length === 0) return;
+    try {
+      const rows = (await this.dataSource.query(
+        `SELECT DISTINCT collection_key
+         FROM marketplace_collections
+         WHERE components->>'assetKind' = 'sealed_box'
+           AND components->>'pricechartingProductId' = ANY($1::text[])
+         LIMIT 200`,
+        [ids],
+      )) as Array<{ collection_key: string }>;
+      for (const row of rows) {
+        const key = String(row.collection_key ?? '')
+          .trim()
+          .toLowerCase();
+        if (!key) continue;
+        this.eventEmitter.emit('snapshot.enqueue', {
+          key,
+          reason: 'price_delta',
+        });
+      }
+    } catch (err) {
+      this.logger.warn(
+        `sealed-box snapshot enqueue skipped: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    }
+  }
 
   async summary(): Promise<{
     totalProducts: number;
@@ -237,6 +276,7 @@ export class PricechartingImportService {
         this.logger.log(
           `PriceCharting CSV upserted ${parsed.rows.length} rows from ${filename} (run ${runId})`,
         );
+        void this.enqueueSealedBoxSnapshots(parsed.rows.map((r) => r.id));
         return {
           runId,
           filename,
@@ -410,12 +450,14 @@ export class PricechartingImportService {
     productId: string,
     observedOn: string,
     rawPrices: Record<string, unknown>,
+    opts?: { syncCurrent?: boolean },
   ): Promise<{
     productId: string;
     productName: string;
     consoleName: string;
     observedOn: string;
     savedCents: Record<string, number>;
+    syncedCurrentLoose: boolean;
   }> {
     const id = productId.trim();
     if (!/^\d+$/.test(id)) {
@@ -457,12 +499,44 @@ export class PricechartingImportService {
        ON CONFLICT (product_id, observed_on) DO UPDATE SET prices = EXCLUDED.prices`,
       [id, observedOn, JSON.stringify(prices)],
     );
+
+    let syncedCurrentLoose = false;
+    const looseCents = savedCents.loose_price_cents;
+    if (
+      opts?.syncCurrent === true &&
+      typeof looseCents === 'number' &&
+      Number.isFinite(looseCents) &&
+      looseCents >= 0
+    ) {
+      await this.dataSource.query(
+        `UPDATE pricecharting_products
+         SET loose_price_cents = $2
+         WHERE id = $1`,
+        [id, looseCents],
+      );
+      await this.dataSource.query(
+        `UPDATE marketplace_collections
+         SET components = jsonb_set(
+           COALESCE(components, '{}'::jsonb),
+           '{loosePriceCents}',
+           to_jsonb($2::int),
+           true
+         )
+         WHERE components->>'assetKind' = 'sealed_box'
+           AND components->>'pricechartingProductId' = $1`,
+        [id, looseCents],
+      );
+      syncedCurrentLoose = true;
+    }
+
+    void this.enqueueSealedBoxSnapshots([id]);
     return {
       productId: id,
       productName: product.product_name,
       consoleName: product.console_name,
       observedOn,
       savedCents,
+      syncedCurrentLoose,
     };
   }
 

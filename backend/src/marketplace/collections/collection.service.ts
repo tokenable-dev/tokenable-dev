@@ -29,7 +29,10 @@ import {
   BUCKET_KEY_VERSION,
   computeMarketBucketKey,
   extractOrDiagnoseBucketComponents,
+  isSealedBoxCollectionComponents,
   metaShapeSampleForBucketLog,
+  sealedBoxCollectionComponents,
+  sealedBoxCollectionKey,
 } from '../utils/bucket-key.util';
 import { marketParallelKeyFromPsaVariety } from '../utils/market-parallel-key.util';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
@@ -125,6 +128,36 @@ export type CollectionReviewStatusFilter =
   | CollectionReviewStatus
   | 'all';
 
+/** Admin collections tab. Public lists omit this and return every active row. */
+export type AdminCollectionKind = 'card' | 'box';
+
+/** Same product name and set rank above a single facet. */
+export function sealedBoxSimilarFacetScore(
+  row: { productName: string; consoleName: string },
+  target: { productName: string; consoleName: string },
+): number {
+  const norm = (value: string) => value.trim().toLowerCase();
+  const nameHit = Boolean(
+    norm(target.productName) && norm(row.productName) === norm(target.productName),
+  );
+  const setHit = Boolean(
+    norm(target.consoleName) && norm(row.consoleName) === norm(target.consoleName),
+  );
+  if (nameHit && setHit) return 2;
+  if (nameHit || setHit) return 1;
+  return 0;
+}
+
+export function adminCollectionKindSql(
+  kind: AdminCollectionKind | undefined,
+): string {
+  if (kind === 'box') return `c.components->>'assetKind' = 'sealed_box'`;
+  if (kind === 'card') {
+    return `(c.components->>'assetKind' IS DISTINCT FROM 'sealed_box')`;
+  }
+  return 'TRUE';
+}
+
 /**
  * Collection bucket lifecycle facade: CRUD summaries, listing ensure, order reads, admin delete.
  * Cover / components / boot logic live in dedicated services (same public method surface).
@@ -162,8 +195,11 @@ export class CollectionService {
     return this.rwaTokenRegistry.collectionKeysByTokenIds(tokenIds, chainId);
   }
 
-  private enqueueMarketSnapshotRefresh(collectionKey: string): void {
-    this.eventEmitter.emit('snapshot.enqueue', { key: collectionKey, reason: 'cold_start' });
+  private enqueueMarketSnapshotRefresh(
+    collectionKey: string,
+    reason: 'cold_start' | 'price_delta' = 'cold_start',
+  ): void {
+    this.eventEmitter.emit('snapshot.enqueue', { key: collectionKey, reason });
   }
 
   private collectionActiveOrdersCap(): number {
@@ -179,8 +215,9 @@ export class CollectionService {
   }
 
   /**
-   * 매도(ask) 등록 시: 메타에서 버킷·컬렉션 라벨 문구를 읽어 컬렉션 행을 만들고 key 반환.
-   * graded 없으면 null (호출부에서 listing 거부).
+   * 매도(ask) 등록 시 컬렉션 행을 만들고 key 반환.
+   * 밀봉 박스는 PriceCharting 상품 하나당 컬렉션. 그레이드 카드는 버킷 v2.
+   * 신원 필드가 없으면 null.
    */
   async ensureCollectionForListing(
     tokenId: string,
@@ -195,6 +232,18 @@ export class CollectionService {
       throw new Error('Unsupported tokenURI for IPFS metadata fetch');
     }
     const meta = await this.ipfsResolver.fetchMetadataJson(uri);
+    const props = meta.properties;
+    if (
+      props &&
+      typeof props === 'object' &&
+      (props as Record<string, unknown>).assetKind === 'sealed_box'
+    ) {
+      return this.ensureSealedBoxCollection(meta, {
+        tokenId: String(tokenId),
+        tokenUri: uri,
+        chainId: resolved,
+      });
+    }
     const result = await this.ensureCollectionBucketFromGradedMeta(meta, {
       step: 'ensureCollectionForListing',
       tokenId: String(tokenId),
@@ -203,6 +252,132 @@ export class CollectionService {
       linkRwaToken: true,
     });
     return result?.collectionKey ?? null;
+  }
+
+  /**
+   * First ask for a sealed box: one collection per PriceCharting product.
+   * Cover is the admin representative image. The owner's photo stays on the token.
+   */
+  private async ensureSealedBoxCollection(
+    meta: Record<string, unknown>,
+    opts: { tokenId: string; tokenUri: string; chainId: SupportedChainId },
+  ): Promise<string | null> {
+    const props = meta.properties as Record<string, unknown>;
+    const productId =
+      typeof props.pricechartingProductId === 'string'
+        ? props.pricechartingProductId.trim()
+        : '';
+    const collectionKey = sealedBoxCollectionKey(productId);
+    if (!collectionKey) return null;
+
+    const rows = await this.collectionRepo.manager.query<
+      {
+        id: string;
+        product_name: string;
+        console_name: string;
+        genre: string | null;
+        release_date: string | null;
+        upc: string | null;
+        loose_price_cents: number | null;
+        sales_volume: number | null;
+        cover_image_url: string | null;
+      }[]
+    >(
+      `SELECT id, product_name, console_name, genre,
+              release_date::text AS release_date, upc,
+              loose_price_cents, sales_volume, cover_image_url
+       FROM pricecharting_products WHERE id = $1 LIMIT 1`,
+      [productId],
+    );
+    const product = rows[0];
+    if (!product) {
+      this.logger.warn(
+        `sealed box collection skipped token=${opts.tokenId}: catalog product ${productId} not found`,
+      );
+      return null;
+    }
+
+    const components = sealedBoxCollectionComponents({
+      id: product.id,
+      productName: product.product_name,
+      consoleName: product.console_name,
+      genre: product.genre,
+      releaseDate: product.release_date,
+      upc: product.upc,
+      loosePriceCents: product.loose_price_cents,
+      salesVolume: product.sales_volume,
+    });
+    const displayLabel = String(components.productName);
+    const coverImageUrl = product.cover_image_url?.trim() || null;
+    const tokenContract = this.rwaAddressForChain(opts.chainId);
+
+    await this.collectionRepo
+      .createQueryBuilder()
+      .insert()
+      .into(MarketplaceCollection)
+      .values({
+        collectionKey,
+        displayLabel,
+        queryUsed: displayLabel,
+        components: components as QueryDeepPartialEntity<Record<string, unknown>>,
+        coverImageUrl,
+        psaCertNumber: null,
+        marketParallelKey: 'base',
+        bucketKeyVersion: BUCKET_KEY_VERSION,
+        reviewStatus: 'active',
+        tokenContract,
+      })
+      .orIgnore()
+      .execute();
+
+    await this.collectionRepo
+      .createQueryBuilder()
+      .update(MarketplaceCollection)
+      .set({
+        displayLabel,
+        queryUsed: displayLabel,
+        components: components as QueryDeepPartialEntity<Record<string, unknown>>,
+        ...(coverImageUrl ? { coverImageUrl } : {}),
+      })
+      .where('collection_key = :k', { k: collectionKey })
+      .andWhere('token_contract = :tc', { tc: tokenContract })
+      .execute();
+
+    await this.rwaTokenRegistry.upsertFromMetadata(opts.tokenId, meta, {
+      tokenUri: opts.tokenUri,
+      collectionKey,
+      chainId: opts.chainId,
+    });
+    await this.syncTokenActiveAskCollectionKey(
+      opts.tokenId,
+      collectionKey,
+      opts.chainId,
+    );
+    this.enqueueMarketSnapshotRefresh(collectionKey, 'price_delta');
+    return collectionKey;
+  }
+
+  /** Admin cover uploaded after the first ask should show on the detail page. */
+  async refreshSealedBoxCover(
+    col: MarketplaceCollection,
+  ): Promise<MarketplaceCollection> {
+    if (!isSealedBoxCollectionComponents(col.components)) return col;
+    const productId = String(col.components.pricechartingProductId ?? '').trim();
+    if (!productId) return col;
+    const rows = await this.collectionRepo.manager.query<
+      { cover_image_url: string | null }[]
+    >(
+      `SELECT cover_image_url FROM pricecharting_products WHERE id = $1 LIMIT 1`,
+      [productId],
+    );
+    const cover = rows[0]?.cover_image_url?.trim() || null;
+    if (!cover || cover === col.coverImageUrl) return col;
+    await this.collectionRepo.update(
+      { collectionKey: col.collectionKey, tokenContract: col.tokenContract },
+      { coverImageUrl: cover },
+    );
+    col.coverImageUrl = cover;
+    return col;
   }
 
   /**
@@ -746,6 +921,8 @@ export class CollectionService {
     chainId?: SupportedChainId;
     /** Public callers must pass `active`. Admin may pass pending_review / rejected / all. */
     reviewStatus?: CollectionReviewStatusFilter;
+    /** Admin only. Omitted on the public Markets list. */
+    kind?: AdminCollectionKind;
     /**
      * Free-text search (header / discovery). When set, cursor is ignored and
      * results are capped. Digit-only queries under 7 chars match card #, not
@@ -763,6 +940,7 @@ export class CollectionService {
         limit: input.limit,
         chainId: input.chainId,
         reviewStatus: input.reviewStatus,
+        kind: input.kind,
       });
     }
 
@@ -780,22 +958,23 @@ export class CollectionService {
         : { reviewStatus: reviewFilter };
     const reviewSql =
       reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+    const kindSql = adminCollectionKindSql(input.kind);
 
     if (cur) {
       try {
         const { ca, ck } = this.decodeCollectionCursor(cur);
         qb.where(
-          `${chainFilter} AND ${reviewSql} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
+          `${chainFilter} AND ${reviewSql} AND ${kindSql} AND (c.created_at < :ca OR (c.created_at = :ca AND c.collection_key > :ck))`,
           { rwaContract, ca, ck, ...reviewParams },
         );
       } catch {
-        qb.where(`${chainFilter} AND ${reviewSql}`, {
+        qb.where(`${chainFilter} AND ${reviewSql} AND ${kindSql}`, {
           rwaContract,
           ...reviewParams,
         });
       }
     } else {
-      qb.where(`${chainFilter} AND ${reviewSql}`, {
+      qb.where(`${chainFilter} AND ${reviewSql} AND ${kindSql}`, {
         rwaContract,
         ...reviewParams,
       });
@@ -864,6 +1043,7 @@ export class CollectionService {
     limit?: number;
     chainId?: SupportedChainId;
     reviewStatus?: CollectionReviewStatusFilter;
+    kind?: AdminCollectionKind;
   }): Promise<{ items: CollectionSummary[]; nextCursor: string | null }> {
     const limit = Math.min(Math.max(input.limit ?? 30, 1), 40);
     const chainId = input.chainId ?? this.chainConfig.getDefaultChainId();
@@ -874,13 +1054,14 @@ export class CollectionService {
       reviewFilter === 'all' ? {} : { reviewStatus: reviewFilter };
     const reviewSql =
       reviewFilter === 'all' ? 'TRUE' : 'c.review_status = :reviewStatus';
+    const kindSql = adminCollectionKindSql(input.kind);
 
     const search = CollectionService.buildCollectionSearchSql(input.q);
     const fetchCap = Math.min(80, Math.max(limit * 2, limit));
 
     const rows = await this.collectionRepo
       .createQueryBuilder('c')
-      .where(`${chainFilter} AND ${reviewSql} AND ${search.sql}`, {
+      .where(`${chainFilter} AND ${reviewSql} AND ${kindSql} AND ${search.sql}`, {
         rwaContract,
         ...search.params,
         ...reviewParams,
@@ -1262,9 +1443,9 @@ export class CollectionService {
   }
 
   /**
-   * Similar collections for Card.html `#similar-items`:
-   * same card name OR same set name (active only), excluding the current key.
-   * When both facets exist, rows matching both are ranked above single-facet hits.
+   * Similar collections: graded cards match card name or set.
+   * Sealed boxes match product name or PriceCharting set.
+   * Active only, excluding the current key. Both facets rank above one.
    */
   async findSimilarByNameAndSet(
     collectionKey: string,
@@ -1279,6 +1460,9 @@ export class CollectionService {
     if (!col) return empty;
 
     const components = (col.components ?? {}) as Record<string, unknown>;
+    if (isSealedBoxCollectionComponents(components)) {
+      return this.findSimilarSealedBoxes(key, components, limit, opts?.chainId);
+    }
     const cardName = [
       components.cardNameDisplay,
       components.cardName,
@@ -1372,6 +1556,87 @@ export class CollectionService {
       return b.summary.createdAt.getTime() - a.summary.createdAt.getTime();
     });
 
+    return { items: ranked.slice(0, limit).map((r) => r.summary) };
+  }
+
+  /**
+   * Other sealed-box collections: same product name or same PriceCharting set.
+   * Graded cards stay on {@link findSimilarByNameAndSet}'s card path.
+   */
+  private async findSimilarSealedBoxes(
+    key: string,
+    components: Record<string, unknown>,
+    limit: number,
+    chainId?: SupportedChainId,
+  ): Promise<{ items: CollectionSummary[] }> {
+    const empty = { items: [] as CollectionSummary[] };
+    const productName = [components.productName, components.listingDisplayTitle]
+      .map((v) => (typeof v === 'string' ? v.trim() : ''))
+      .find((v) => v.length > 0);
+    const consoleName =
+      typeof components.consoleName === 'string' ? components.consoleName.trim() : '';
+    if (!productName && !consoleName) return empty;
+
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const rwaContract = this.chainConfig.getRwaAddress(resolved).toLowerCase();
+    const chainFilter = this.chainScopedCollectionSql(rwaContract);
+    const nameSql = `COALESCE(NULLIF(c.components->>'productName', ''), NULLIF(c.components->>'listingDisplayTitle', ''), '')`;
+    const setSql = `COALESCE(NULLIF(c.components->>'consoleName', ''), '')`;
+
+    const qb = this.collectionRepo
+      .createQueryBuilder('c')
+      .where(`${chainFilter} AND c.review_status = :reviewStatus`, {
+        rwaContract,
+        reviewStatus: 'active',
+      })
+      .andWhere(`c.components->>'assetKind' = 'sealed_box'`)
+      .andWhere('c.collection_key != :key', { key });
+
+    if (productName && consoleName) {
+      qb.andWhere(
+        `(LOWER(TRIM(${nameSql})) = LOWER(TRIM(:productName)) OR LOWER(TRIM(${setSql})) = LOWER(TRIM(:consoleName)))`,
+        { productName, consoleName },
+      );
+    } else if (productName) {
+      qb.andWhere(`LOWER(TRIM(${nameSql})) = LOWER(TRIM(:productName))`, {
+        productName,
+      });
+    } else {
+      qb.andWhere(`LOWER(TRIM(${setSql})) = LOWER(TRIM(:consoleName))`, {
+        consoleName,
+      });
+    }
+
+    const rows = await qb
+      .orderBy('c.created_at', 'DESC')
+      .addOrderBy('c.collection_key', 'ASC')
+      .take(limit * 3)
+      .getMany();
+    if (rows.length === 0) return empty;
+
+    const keys = rows.map((c) => c.collectionKey.toLowerCase());
+    const countMap = await this.activeAskCountsForKeys(keys, rwaContract);
+    const ranked = rows.map((c) => {
+      const comps = (c.components ?? {}) as Record<string, unknown>;
+      const rowName = [comps.productName, comps.listingDisplayTitle]
+        .map((v) => (typeof v === 'string' ? v.trim() : ''))
+        .find((v) => v.length > 0);
+      const rowSet = typeof comps.consoleName === 'string' ? comps.consoleName : '';
+      return {
+        summary: this.toCollectionSummary(c, countMap),
+        score: sealedBoxSimilarFacetScore(
+          { productName: rowName ?? '', consoleName: rowSet },
+          { productName: productName ?? '', consoleName },
+        ),
+      };
+    });
+    ranked.sort((a, b) => {
+      if (b.score !== a.score) return b.score - a.score;
+      if (b.summary.activeListingCount !== a.summary.activeListingCount) {
+        return b.summary.activeListingCount - a.summary.activeListingCount;
+      }
+      return b.summary.createdAt.getTime() - a.summary.createdAt.getTime();
+    });
     return { items: ranked.slice(0, limit).map((r) => r.summary) };
   }
 
@@ -1559,6 +1824,7 @@ export class CollectionService {
 
   async countByReviewStatus(
     chainId?: SupportedChainId,
+    kind?: AdminCollectionKind,
   ): Promise<Record<CollectionReviewStatus, number>> {
     const resolvedChainId = chainId ?? this.chainConfig.getDefaultChainId();
     const rwaContract = this.chainConfig
@@ -1568,7 +1834,10 @@ export class CollectionService {
       .createQueryBuilder('c')
       .select('c.review_status', 'status')
       .addSelect('COUNT(*)::int', 'cnt')
-      .where(this.chainScopedCollectionSql(rwaContract), { rwaContract })
+      .where(
+        `${this.chainScopedCollectionSql(rwaContract)} AND ${adminCollectionKindSql(kind)}`,
+        { rwaContract },
+      )
       .groupBy('c.review_status')
       .getRawMany<{ status: string; cnt: number }>();
     const out: Record<CollectionReviewStatus, number> = {

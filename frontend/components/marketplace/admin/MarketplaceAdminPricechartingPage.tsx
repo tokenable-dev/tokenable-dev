@@ -6,6 +6,7 @@ import {
   recordPricechartingHistory,
   searchPricechartingProducts,
   syncPricechartingGuide,
+  uploadPricechartingCover,
   uploadPricechartingCsv,
   type ManualPriceHistoryResult,
   type PricechartingCatalogSummary,
@@ -66,6 +67,15 @@ export function MarketplaceAdminPricechartingPage() {
   const [historyBusy, setHistoryBusy] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyResult, setHistoryResult] = useState<ManualPriceHistoryResult | null>(null);
+  const [coverQuery, setCoverQuery] = useState("");
+  const [coverHits, setCoverHits] = useState<PricechartingProductHit[] | null>(null);
+  const [coverPick, setCoverPick] = useState<PricechartingProductHit | null>(null);
+  const [coverSearchBusy, setCoverSearchBusy] = useState(false);
+  const [coverSearchError, setCoverSearchError] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverBusy, setCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -113,6 +123,37 @@ export function MarketplaceAdminPricechartingPage() {
     setHistoryProductId(hit.id);
     setHistoryResult(null);
     setHistoryError(null);
+  }
+
+  async function onSearchCover() {
+    const q = coverQuery.trim();
+    if (!q) return;
+    setCoverSearchBusy(true);
+    setCoverSearchError(null);
+    setCoverHits(null);
+    try {
+      setCoverHits(await searchPricechartingProducts(q));
+    } catch (err) {
+      setCoverSearchError(err instanceof Error ? err.message : "Could not search");
+    } finally {
+      setCoverSearchBusy(false);
+    }
+  }
+
+  async function onUploadCover() {
+    if (!coverPick || !coverFile || coverBusy) return;
+    setCoverBusy(true);
+    setCoverError(null);
+    try {
+      const saved = await uploadPricechartingCover(coverPick.id, coverFile);
+      setCoverUrl(saved.coverImageUrl);
+      setCoverPick({ ...coverPick, coverImageUrl: saved.coverImageUrl });
+      setCoverFile(null);
+    } catch (err) {
+      setCoverError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setCoverBusy(false);
+    }
   }
 
   async function onSaveHistory() {
@@ -273,6 +314,111 @@ export function MarketplaceAdminPricechartingPage() {
             <li className="text-zinc-500">아직 없습니다.</li>
           ) : null}
         </ul>
+      </section>
+
+      <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>
+        <h2 className="text-sm font-semibold text-zinc-900">박스 대표 이미지</h2>
+        <p className="text-sm text-zinc-600">
+          S3에 올린 주소는 pricecharting_products.cover_image_url 에 저장됩니다. CSV를
+          다시 올려도 이 칸은 유지됩니다. 컬렉션 상세의 대표 이미지이고, 파트너는 자기
+          사진 없이 이 이미지로 민트할 수 있습니다. 민트는 그때의 사진을 토큰에 복사하므로
+          나중에 대표 이미지를 바꿔도 이미 민트된 박스는 바뀌지 않습니다.
+        </p>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <label className={`${ADMIN_LABEL} min-w-0 flex-1`}>
+            카드 / 박스 이름
+            <input
+              className={`${ADMIN_INPUT} mt-1.5`}
+              placeholder="예: Evolving Skies Booster Box"
+              value={coverQuery}
+              onChange={(e) => setCoverQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void onSearchCover();
+              }}
+            />
+          </label>
+          <button
+            type="button"
+            className={ADMIN_BTN_SECONDARY}
+            disabled={coverSearchBusy || !coverQuery.trim()}
+            onClick={() => void onSearchCover()}
+          >
+            {coverSearchBusy ? "찾는 중…" : "찾기"}
+          </button>
+        </div>
+        {coverSearchError ? <p className="text-sm text-red-600">{coverSearchError}</p> : null}
+        {coverHits ? (
+          coverHits.length === 0 ? (
+            <p className="text-sm text-zinc-500">맞는 상품이 없습니다.</p>
+          ) : (
+            <ul className="max-h-64 space-y-1 overflow-y-auto rounded-md border border-zinc-200 p-1">
+              {coverHits.map((hit) => {
+                const selected = coverPick?.id === hit.id;
+                return (
+                  <li key={hit.id}>
+                    <button
+                      type="button"
+                      className={`w-full rounded px-2 py-1.5 text-left text-sm hover:bg-zinc-50 ${
+                        selected ? "bg-zinc-100" : ""
+                      }`}
+                      onClick={() => {
+                        setCoverPick(hit);
+                        setCoverUrl(hit.coverImageUrl ?? null);
+                        setCoverError(null);
+                        setCoverFile(null);
+                      }}
+                    >
+                      <span className="font-medium text-zinc-900">{hit.productName}</span>
+                      <span className="mt-0.5 block text-xs text-zinc-600">
+                        {hit.consoleName}
+                        {hit.coverImageUrl ? " · 대표 이미지 있음" : ""}
+                        {" · "}
+                        <span className="font-mono">{hit.id}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )
+        ) : null}
+        {coverPick ? (
+          <div className="space-y-3">
+            <p className="text-sm text-zinc-800">
+              <span className="font-medium">{coverPick.productName}</span>
+              <span className="text-zinc-600"> · {coverPick.consoleName}</span>
+            </p>
+            {coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={coverUrl}
+                alt=""
+                className="h-28 w-24 rounded-md border border-zinc-200 object-cover"
+              />
+            ) : (
+              <p className="text-sm text-zinc-500">아직 대표 이미지가 없습니다.</p>
+            )}
+            <label className="block text-sm font-medium text-zinc-800">
+              JPEG, PNG, WebP
+              <input
+                key={`${coverPick.id}:${coverUrl ?? ""}`}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="mt-2 block w-full text-sm"
+                onChange={(e) => setCoverFile(e.target.files?.[0] ?? null)}
+              />
+            </label>
+            <button
+              type="button"
+              className={ADMIN_BTN_PRIMARY}
+              disabled={coverBusy || !coverFile}
+              onClick={() => void onUploadCover()}
+            >
+              {coverBusy ? "올리는 중…" : "대표 이미지 저장"}
+            </button>
+            {coverError ? <p className="text-sm text-red-600">{coverError}</p> : null}
+          </div>
+        ) : null}
       </section>
 
       <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>

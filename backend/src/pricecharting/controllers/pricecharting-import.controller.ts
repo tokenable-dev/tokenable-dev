@@ -1,21 +1,37 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   ParseIntPipe,
   Post,
   Query,
   Req,
+  ServiceUnavailableException,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { IsObject, IsString, Matches, MaxLength, MinLength, IsIn } from 'class-validator';
+import {
+  IsBoolean,
+  IsIn,
+  IsObject,
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 import type { Request } from 'express';
 import { MarketplaceAdminService } from '../../marketplace/admin/marketplace-admin.service';
+import {
+  CATALOG_COVER_MAX_BYTES,
+  CatalogCoverS3Service,
+} from '../../marketplace/collections/catalog-cover-s3.service';
 import { PricechartingCatalogSearch } from '../pricecharting-catalog-search';
 import { PricechartingImportService } from '../pricecharting-import.service';
 import {
@@ -37,6 +53,14 @@ class RecordManualPriceHistoryDto {
   /** Dollar amounts keyed by `pricecharting_products` cent columns. Blank keys are omitted. */
   @IsObject()
   prices!: Record<string, unknown>;
+
+  /**
+   * When true and `loose_price_cents` is set: also update the catalog row and
+   * sealed-box collection `components.loosePriceCents` (Markets spot).
+   */
+  @IsOptional()
+  @IsBoolean()
+  syncCurrent?: boolean;
 }
 
 class CreatePricechartingSourceDto {
@@ -53,6 +77,25 @@ class CreatePricechartingSourceDto {
 
 const MAX_BYTES = 50 * 1024 * 1024;
 
+function coverUploadError(err: unknown): never {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
+    throw new ServiceUnavailableException(
+      'Catalog cover S3 is not configured (set CATALOG_COVER_S3_BUCKET and CATALOG_COVER_PUBLIC_BASE_URL)',
+    );
+  }
+  if (msg === 'CATALOG_COVER_FILE_TOO_LARGE') {
+    throw new BadRequestException('Image is too large');
+  }
+  if (
+    msg === 'CATALOG_COVER_FILE_EMPTY' ||
+    msg === 'CATALOG_COVER_FILE_TYPE_INVALID'
+  ) {
+    throw new BadRequestException('Image must be JPEG, PNG, or WebP');
+  }
+  throw err;
+}
+
 @ApiTags('marketplace-admin')
 @Controller('marketplace/admin/pricecharting')
 export class PricechartingImportController {
@@ -61,6 +104,7 @@ export class PricechartingImportController {
     private readonly imports: PricechartingImportService,
     private readonly sync: PricechartingSyncService,
     private readonly search: PricechartingCatalogSearch,
+    private readonly covers: CatalogCoverS3Service,
   ) {}
 
   @Get('products')
@@ -79,11 +123,49 @@ export class PricechartingImportController {
     return this.search.search(query, 'name');
   }
 
+  @Post('products/:id/cover')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: '[Admin] Upload the representative image for a catalog product',
+    description:
+      'Stores JPEG, PNG, or WebP on S3 and saves pricecharting_products.cover_image_url. CSV import does not overwrite it. This is the collection-detail image, not a partner photo.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['image'],
+      properties: { image: { type: 'string', format: 'binary' } },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('image', {
+      limits: { fileSize: CATALOG_COVER_MAX_BYTES },
+    }),
+  )
+  async uploadCover(
+    @Req() req: Request,
+    @Param('id') id: string,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    this.admin.assertAdminSession(req);
+    if (!file?.buffer?.length) {
+      throw new BadRequestException('Image is required');
+    }
+    try {
+      return await this.search.setCover(this.covers, id, file);
+    } catch (err) {
+      if (err instanceof NotFoundException || err instanceof BadRequestException) {
+        throw err;
+      }
+      coverUploadError(err);
+    }
+  }
+
   @Post('products/:id/prices')
   @ApiOperation({
     summary: '[Admin] Store one day of PriceCharting prices by hand',
     description:
-      'Writes pricecharting_price_history only. Does not change the current catalog row and does not upload a CSV. Omitted price columns keep the value already stored for that date.',
+      'Writes pricecharting_price_history. Omitted price columns keep the value already stored for that date. With syncCurrent + loose, also updates the catalog product and sealed-box collection spot.',
   })
   recordHistory(
     @Req() req: Request,
@@ -91,7 +173,9 @@ export class PricechartingImportController {
     @Body() body: RecordManualPriceHistoryDto,
   ) {
     this.admin.assertAdminSession(req);
-    return this.imports.recordManualHistory(id, body.observedOn, body.prices);
+    return this.imports.recordManualHistory(id, body.observedOn, body.prices, {
+      syncCurrent: body.syncCurrent === true,
+    });
   }
 
   @Get('products/:id/prices')

@@ -193,6 +193,78 @@ export function syncExternalTerminalWithHeadline(
   return [...externalUsd.slice(0, -1), { t: last.t, v: headlineUsd }];
 }
 
+/**
+ * PriceCharting loose price (cents) on a Seoul calendar day → chart dollars.
+ * Noon KST keeps the point on that calendar date.
+ */
+export function pricechartingLooseHistoryToUsdPoints(
+  rows: ReadonlyArray<{ observedOn: string; loosePriceCents: number | null }>,
+): UsdPoint[] {
+  const out: UsdPoint[] = [];
+  for (const row of rows) {
+    const day = /^(\d{4}-\d{2}-\d{2})/.exec(row.observedOn)?.[1];
+    const cents = row.loosePriceCents;
+    if (!day || cents == null || !Number.isFinite(cents) || cents <= 0) continue;
+    const t = Math.floor(Date.parse(`${day}T12:00:00+09:00`) / 1000);
+    if (!Number.isFinite(t)) continue;
+    out.push({ t, v: cents / 100 });
+  }
+  return out;
+}
+
+/** Sealed-box Markets/detail snapshot — PriceCharting loose series, no Cardhedger. */
+export function buildSealedBoxMaterializedSnapshotPayload(input: {
+  collectionKey: string;
+  historyPoints: UsdPoint[];
+  spotUsd: number | null;
+  categoryLabel: string | null;
+}): MaterializedMarketSnapshotPayload {
+  const key = input.collectionKey.toLowerCase();
+  const lastHistory = input.historyPoints[input.historyPoints.length - 1]?.v;
+  const spot =
+    finitePositive(input.spotUsd) ?? finitePositive(lastHistory ?? null);
+  let externalUsd = input.historyPoints
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v) && p.v > 0)
+    .map((p) => ({ t: p.t, v: p.v }));
+  externalUsd = syncExternalTerminalWithHeadline(externalUsd, spot);
+  const spark90 = downsampleSparkPoints(
+    filterExternalUsdByDays(externalUsd, 90),
+    48,
+  );
+  const gradePrices: GradePriceStrip = {
+    psa10: null,
+    psa9: null,
+    raw: spot,
+  };
+  const emptyPreview: MarketCollectionPreview = {
+    enabled: false,
+    searchQuery: '',
+    matched: false,
+    message: '',
+    card: null,
+  };
+  return {
+    collectionKey: key,
+    cardhedgerCardId: null,
+    psa10Usd: null,
+    psa9Usd: null,
+    rawUsd: spot,
+    headlineUsd: spot,
+    spotPriceBasis: spot != null ? 'pricecharting' : null,
+    change7dPct: computeChangePctLag(externalUsd, 7),
+    change30dPct: computeChangePctLag(externalUsd, 30),
+    sparkline90dJson: spark90,
+    previewJson: emptyPreview,
+    externalUsdJson: externalUsd,
+    gradePricesJson: gradePrices,
+    categoryLabel: input.categoryLabel,
+    historyTier: 'PRICECHARTING',
+    reliabilityScore: spot != null ? 70 : null,
+    marketState: spot != null || externalUsd.length > 0 ? 'fresh' : 'empty',
+    sourceVersion: MARKET_SNAPSHOT_SOURCE_VERSION,
+  };
+}
+
 export function buildMaterializedSnapshotPayload(input: {
   collectionKey: string;
   historyTier: string;

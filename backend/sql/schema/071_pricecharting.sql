@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS pricecharting_products (
   asin varchar(32),
   epid text,
   release_date date,
+  cover_image_url text,
   source_file varchar(256) NOT NULL DEFAULT '',
   imported_at timestamptz NOT NULL DEFAULT now()
 );
@@ -51,7 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_pricecharting_products_console
   ON pricecharting_products (console_name);
 
 COMMENT ON TABLE pricecharting_products IS
-  'PriceCharting and SportsCardsPro price-list rows. PK is upstream product id. Re-upload upserts. manual_only_price_cents is PSA 10.';
+  'PriceCharting and SportsCardsPro price-list rows. PK is upstream product id. Re-upload upserts. manual_only_price_cents is PSA 10. cover_image_url is admin-set and is not part of the CSV upsert.';
 
 CREATE TABLE IF NOT EXISTS pricecharting_import_runs (
   id serial PRIMARY KEY,

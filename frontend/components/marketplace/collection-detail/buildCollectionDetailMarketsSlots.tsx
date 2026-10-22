@@ -100,17 +100,20 @@ export function buildCollectionDetailMarketsSlots(input: {
     coverDisplayLabel,
     coverCollectionKey,
   });
+  const omitUnavailableMarket = coverComp?.assetKind === "sealed_box";
   const renderHero = (embedInChart: boolean) => (
     <CollectionDetailMetricsStrip
       {...metricsProps}
       headlineTitle={headlineTitle}
-      headlineParts={headlineParts}
+      headlineParts={omitUnavailableMarket ? null : headlineParts}
       headlineMeta={headlineMeta}
+      gradeLabel={omitUnavailableMarket ? "" : metricsProps.gradeLabel}
+      omitUnavailableMarket={omitUnavailableMarket}
       embedInChart={embedInChart}
     />
   );
 
-  const chartMdPanel = (
+  const chartMdPanel = omitUnavailableMarket ? null : (
     <CollectionHeroMdPanel
       tradeVolumeUsdc={metricsProps.tradeVolumeUsdc}
       tradeVolumeLoading={metricsProps.tradeVolumeLoading}

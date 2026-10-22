@@ -14,7 +14,10 @@ import {
   formatCardDisplaySetLabel,
   formatDetailExpansionSetName,
 } from "@/lib/marketplace/cardDisplayName";
-import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
+import {
+  inferLanguageFromLatinPokemonRegion,
+  resolveCollectionDisplayLanguage,
+} from "@/lib/marketplace/collectionEditionLanguage";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { labelMentionsPokemon } from "@/lib/market";
 import { resolveCollectionComponentVariant } from "@/lib/marketplace/resolveCardVariantLabel";
@@ -26,6 +29,70 @@ import {
   yearFromComponents,
 } from "@/lib/marketplace/collectionFullDetailsTitle";
 import { resolveCollectionSetFacetLabel } from "@/lib/markets/marketsFilters";
+
+const SEALED_BOX_LANGUAGE_WORD =
+  /^(japanese|english|korean|chinese|jp|ja|en|eng|kr|ko|cn|zh)$/i;
+
+/** PriceCharting set line without franchise or language. `Scarlet & Violet` stays intact. */
+export function sealedBoxCatalogSet(consoleName: string | null | undefined): string {
+  const tokens = (consoleName ?? "")
+    .replace(/\s*&\s*/g, " & ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .filter((token) => !/^pok[eé]mon$/i.test(token))
+    .filter((token) => !SEALED_BOX_LANGUAGE_WORD.test(token));
+  return tokens.join(" ").replace(/ & /g, " and ").replace(/\s+/g, " ").trim();
+}
+
+/** Details rows for a PriceCharting sealed-box collection. Omits fields we do not have. */
+export function buildSealedBoxDetailCards(
+  comp: CollectionComponents,
+  extras?: { vaultLabel?: string | null },
+): CollectionDetailCard[] {
+  const rows: CollectionDetailCard[] = [];
+  const push = (id: string, label: string, value: string | null | undefined) => {
+    const text = value?.trim();
+    if (!text) return;
+    rows.push({ id, label, value: text });
+  };
+
+  push("product", "Product", comp.productName);
+  push("category", "Category", comp.genre);
+  push("set", "Set", sealedBoxCatalogSet(comp.consoleName));
+
+  const year =
+    yearFromComponents(comp) ??
+    (/^(\d{4})/.exec(comp.releaseDate?.trim() ?? "")
+      ? Number(comp.releaseDate!.trim().slice(0, 4))
+      : null);
+  if (year != null && year >= 1880 && year <= 2100) {
+    push("year", "Year", String(year));
+  }
+
+  const language = formatCardDisplayLanguageShort(
+    inferLanguageFromLatinPokemonRegion(
+      [comp.consoleName, comp.productName, comp.genre].filter(Boolean).join(" "),
+    ),
+  );
+  push("language", "Language", language);
+
+  if (
+    comp.salesVolume != null &&
+    Number.isFinite(comp.salesVolume) &&
+    comp.salesVolume > 0
+  ) {
+    push("sales-volume", "Sales 1Yr", comp.salesVolume.toLocaleString("en-US"));
+  }
+
+  const productId = comp.pricechartingProductId?.trim();
+  if (productId) push("pricecharting-id", "PriceCharting ID", `#${productId}`);
+
+  push("upc", "UPC", comp.upc);
+  push("vault", "Vault", extras?.vaultLabel);
+
+  return rows;
+}
 
 export function buildCollectionMarketDetailCards(params: {
   key: string;

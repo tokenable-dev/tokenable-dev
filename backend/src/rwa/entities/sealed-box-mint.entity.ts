@@ -48,6 +48,7 @@ export class SealedBoxMint {
   @Column({ name: 'photo_object_key', type: 'varchar', length: 512, nullable: true })
   photoObjectKey: string | null;
 
+  /** Partner photo on S3. Shown in that owner's portfolio, not on collection detail. */
   @Column({ name: 'display_image_url', type: 'text', nullable: true })
   displayImageUrl: string | null;
 

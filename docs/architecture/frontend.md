@@ -238,7 +238,8 @@ Collection Details KV values deep-link to `/markets` using the Card.html / `mark
 | `series` | TCG era / block (e.g. `Scarlet & Violet`) |
 | `set` | Set facet (same labels as Markets set chips) |
 | `year_min` / `year_max` | Year range |
-| `grade` | e.g. `PSA 10` (pipe-joined). `GEM MT 10` counts as PSA 10. BGS Pristine / Black Label is not BGS 10. |
+| `grade` | e.g. `PSA 10` (pipe-joined). `GEM MT 10` counts as PSA 10. BGS Pristine / Black Label is not BGS 10. Ignored when `kind=box` only (sealed boxes have no grade). |
+| `kind` | `card` (graded) or `box` (sealed). Empty / both = all. Same tokens as admin collection list. |
 | `vault` | `psa` or `partner` (Tokenable Vault). Pipe-joined = either vault. |
 | `price_min` / `price_max`, `sort` | Default sort is `high_price`. `pct_change_high` (alias `gainers` = Top gainers) still works from URLs (landing Top movers → View all) but is not in the Markets sort menu. `recent_listed` (alias `newest` = Newest listings = **catalog `createdAt`**, same as landing Just vaulted — no price-first bump), plus price/population. Landing **Just vaulted → View all** → `/markets?sort=newest`. Price bounds are inclusive; a reversed min/max is swapped. `Under $1,000` stays strictly below $1,000. |
 

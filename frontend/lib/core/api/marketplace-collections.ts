@@ -13,6 +13,9 @@ export type CollectionReviewStatus =
 
 export type CollectionReviewStatusFilter = CollectionReviewStatus | "all";
 
+/** Admin collections tab. Public collection lists do not send this. */
+export type AdminCollectionKind = "card" | "box";
+
 export interface MarketplaceCollectionSummary {
   collectionKey: string;
   displayLabel: string;
@@ -82,6 +85,8 @@ export async function getMarketplaceCollectionsPage(opts?: {
   q?: string | null;
   /** Admin session required for non-`active` values. */
   reviewStatus?: CollectionReviewStatusFilter;
+  /** Admin session required. Public callers omit this. */
+  kind?: AdminCollectionKind;
 }): Promise<{
   items: MarketplaceCollectionSummary[];
   nextCursor: string | null;
@@ -91,6 +96,7 @@ export async function getMarketplaceCollectionsPage(opts?: {
   if (opts?.limit != null) sp.set("limit", String(opts.limit));
   if (opts?.q?.trim()) sp.set("q", opts.q.trim());
   if (opts?.reviewStatus) sp.set("reviewStatus", opts.reviewStatus);
+  if (opts?.kind) sp.set("kind", opts.kind);
   const q = sp.toString();
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/collections${q ? `?${q}` : ""}`,
@@ -155,11 +161,12 @@ export async function getMarketplaceCollectionSimilar(
   return res.json() as Promise<{ items: MarketplaceCollectionSummary[] }>;
 }
 
-export async function getAdminCollectionReviewCounts(): Promise<
-  Record<CollectionReviewStatus, number>
-> {
+export async function getAdminCollectionReviewCounts(
+  kind?: AdminCollectionKind,
+): Promise<Record<CollectionReviewStatus, number>> {
+  const q = kind ? `?kind=${kind}` : "";
   const res = await backendFetch(
-    `${getApiUrl()}/marketplace/collections/admin/review-counts`,
+    `${getApiUrl()}/marketplace/collections/admin/review-counts${q}`,
   );
   if (!res.ok) throw new Error("Failed to fetch review counts");
   return res.json() as Promise<Record<CollectionReviewStatus, number>>;

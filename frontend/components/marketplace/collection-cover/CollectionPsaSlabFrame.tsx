@@ -71,6 +71,35 @@ export function CollectionPsaSlabFrame({
     setImgFailed(false);
   }, [resolved]);
 
+  if (comp.assetKind === "sealed_box") {
+    return (
+      <div className={`psa-slab-frame ${className}`.trim()}>
+        <div className="psa-slab psa-slab--plain">
+          {resolved && !imgFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolved}
+              alt={alt}
+              className="psa-slab__plain-img"
+              onError={() => setImgFailed(true)}
+              referrerPolicy="no-referrer"
+              loading="lazy"
+              decoding="async"
+            />
+          ) : imgFailed ? (
+            <div className="psa-slab__placeholder" role="img">
+              Couldn&apos;t load image
+            </div>
+          ) : isLoading ? (
+            <div className="psa-slab__placeholder psa-slab__placeholder--load" aria-hidden />
+          ) : (
+            <div className="psa-slab__placeholder">No preview</div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const label = buildCollectionPsaSlabLabelFields({ comp, displayLabel, collectionKey });
 
   return (

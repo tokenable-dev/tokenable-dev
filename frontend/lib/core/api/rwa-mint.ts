@@ -178,3 +178,45 @@ export async function mintRwaViaBackend(input: {
   }
   return res.json() as Promise<MintRwaResult>;
 }
+
+export type SealedBoxMintResult = {
+  id: string;
+  status: "minted";
+  tokenId: string;
+  tokenURI: string;
+  displayImageUrl: string;
+  txHash: string;
+  chainId: number;
+  productName: string;
+};
+
+/** Partner sealed box. S3, IPFS, and mint(to) run on the server after this call. */
+export async function mintSealedBox(input: {
+  pricechartingProductId: string;
+  clientRequestId: string;
+  image?: File | null;
+  chainId: SupportedChainId;
+  recipientAddress?: string;
+}): Promise<SealedBoxMintResult> {
+  const body = new FormData();
+  body.set("pricechartingProductId", input.pricechartingProductId);
+  body.set("clientRequestId", input.clientRequestId);
+  if (input.recipientAddress) body.set("recipientAddress", input.recipientAddress);
+  if (input.image) body.set("image", input.image);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/partners/me/sealed-box-mints`,
+    {
+      method: "POST",
+      headers: { [CHAIN_ID_HEADER]: String(input.chainId) },
+      body,
+      timeoutMs: 120_000,
+    },
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    const message = (err as { message?: string | string[] }).message;
+    const text = Array.isArray(message) ? message.join(", ") : message;
+    throw new Error(text ?? "Sealed box mint failed");
+  }
+  return res.json() as Promise<SealedBoxMintResult>;
+}

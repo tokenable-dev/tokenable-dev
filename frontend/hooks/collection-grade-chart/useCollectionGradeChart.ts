@@ -60,9 +60,10 @@ export function useCollectionGradeChart(input: {
     input;
   const chainId = activeRqChainId();
 
+  const sealedBox = comp.assetKind === "sealed_box";
   const slabGrade = useMemo(
-    () => defaultSlabGradeLabel(marketSeries, comp),
-    [marketSeries, comp],
+    () => (sealedBox ? "" : defaultSlabGradeLabel(marketSeries, comp)),
+    [marketSeries, comp, sealedBox],
   );
 
   const [selectedGrade, setSelectedGrade] = useState<string | null>(null);
@@ -83,6 +84,7 @@ export function useCollectionGradeChart(input: {
    * itself is already PSA).
    */
   const activeGrade = (() => {
+    if (sealedBox) return "";
     if (isPsaChartGradeLabel(activeGradeRaw)) return activeGradeRaw;
     if (selectedGrade == null) {
       return slabGrade || "PSA 10";
@@ -96,6 +98,7 @@ export function useCollectionGradeChart(input: {
 
   const catalogFromSeries = marketSeries?.allGradePrices ?? [];
   const needsCatalogFetch =
+    !sealedBox &&
     marketSeriesEnabled &&
     collectionKey.length > 0 &&
     catalogFromSeries.length === 0;
@@ -169,9 +172,13 @@ export function useCollectionGradeChart(input: {
     slabGrade,
   ]);
 
-  const chartExternalLegend = `Live market · ${activeGrade}`;
-  const chartExternalShort = activeGrade;
-  const chartExternalRefTag = activeGrade;
+  const chartExternalLegend = sealedBox
+    ? "PriceCharting"
+    : activeGrade
+      ? `Live market · ${activeGrade}`
+      : "Listed price";
+  const chartExternalShort = sealedBox ? "PriceCharting" : activeGrade || "Price";
+  const chartExternalRefTag = sealedBox ? "PriceCharting" : activeGrade;
 
   const gradeChartLoading =
     marketSeriesLoading ||

@@ -1802,4 +1802,12 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_sealed_box_mints_user_request
 CREATE INDEX IF NOT EXISTS idx_sealed_box_mints_user
   ON sealed_box_mints (user_id);
 
+-- ── 076_pricecharting_product_cover.sql ──
+
+ALTER TABLE pricecharting_products
+  ADD COLUMN IF NOT EXISTS cover_image_url text;
+
+COMMENT ON COLUMN pricecharting_products.cover_image_url IS
+  'Admin-set representative image. Not part of the PriceCharting CSV upsert.';
+
 

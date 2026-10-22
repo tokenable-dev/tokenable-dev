@@ -5,6 +5,7 @@ import {
 } from "@/lib/market/collectionCategoryFilter";
 import type {
   MarketsGradeFilterId,
+  MarketsKindFilterId,
   MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
@@ -50,6 +51,8 @@ export type MarketsUrlFilters = {
   priceMin: string;
   priceMax: string;
   grades: MarketsGradeFilterId[];
+  /** `card` | `box`. Empty = both. */
+  kinds: MarketsKindFilterId[];
   /** `psa` | `partner`. Empty = both. */
   vaults: MarketsVaultFilterId[];
   /** Card.html `character` — card / character name facet */
@@ -69,6 +72,7 @@ export function emptyMarketsUrlFilters(): MarketsUrlFilters {
     priceMin: "",
     priceMax: "",
     grades: [],
+    kinds: [],
     vaults: [],
     characters: [],
     series: [],
@@ -202,6 +206,13 @@ export function parseMarketsUrlFilters(
     /^(PSA|BGS)\b/i.test(g),
   ) as MarketsGradeFilterId[];
 
+  const kindsRaw = splitPipe(params.get("kind")).filter(
+    (k): k is MarketsKindFilterId => k === "card" || k === "box",
+  );
+  // Both selected ≡ all — same as omitting the param.
+  const kinds =
+    kindsRaw.includes("card") && kindsRaw.includes("box") ? [] : kindsRaw;
+
   const vaults = splitPipe(params.get("vault")).filter(
     (v): v is MarketsVaultFilterId => v === "psa" || v === "partner",
   );
@@ -212,6 +223,7 @@ export function parseMarketsUrlFilters(
     priceMin: params.get("price_min")?.trim() ?? "",
     priceMax: params.get("price_max")?.trim() ?? "",
     grades,
+    kinds,
     vaults,
     characters: splitPipe(params.get("character")),
     series: splitPipe(params.get("series")),
@@ -236,6 +248,16 @@ export function serializeMarketsUrlFilters(
 
   const grade = joinPipe(filters.grades);
   if (grade) p.set("grade", grade);
+
+  // Both selected ≡ all — omit from URL like empty.
+  const kindsForUrl =
+    filters.kinds.length === 2 &&
+    filters.kinds.includes("card") &&
+    filters.kinds.includes("box")
+      ? []
+      : filters.kinds;
+  const kind = joinPipe(kindsForUrl);
+  if (kind) p.set("kind", kind);
 
   const vault = joinPipe(filters.vaults);
   if (vault) p.set("vault", vault);
@@ -271,6 +293,7 @@ export function marketsHrefFromFilters(
     ...filters,
     categories: filters.categories ?? fromLegacy,
     grades: filters.grades ?? base.grades,
+    kinds: filters.kinds ?? base.kinds,
     vaults: filters.vaults ?? base.vaults,
     characters: filters.characters ?? base.characters,
     series: filters.series ?? base.series,

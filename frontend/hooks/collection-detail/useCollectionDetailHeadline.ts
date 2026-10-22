@@ -10,7 +10,10 @@ import {
   formatAssetDetailLine1,
   type AssetDetailHeadlineParts,
 } from "@/lib/marketplace/assetDetailHeadline";
-import { buildCollectionMarketDetailCards } from "@/lib/marketplace/buildCollectionMarketDetailCards";
+import {
+  buildCollectionMarketDetailCards,
+  buildSealedBoxDetailCards,
+} from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { listingDisplayTitleFromComp } from "@/lib/marketplace/collectionListingUtils";
 import { resolveCollectionDisplayLanguage } from "@/lib/marketplace/collectionEditionLanguage";
@@ -46,6 +49,50 @@ import {
 } from "@/lib/market";
 import { marketsHrefForDetailRow } from "@/lib/markets/marketsUrlFilters";
 
+function sealedBoxHeadline(params: {
+  comp: CollectionComponents;
+  displayLabel: string | null | undefined;
+  hasCollection: boolean;
+  vaultLabel?: string | null;
+}) {
+  const { comp, displayLabel, hasCollection, vaultLabel } = params;
+  const name =
+    comp.productName?.trim() ||
+    (typeof displayLabel === "string" ? displayLabel.trim() : "") ||
+    "Sealed box";
+  const setName = comp.consoleName?.trim() || "";
+  const yearNum = yearFromComponents(comp);
+  const year = yearNum != null ? String(yearNum) : null;
+  const genre = comp.genre?.trim() || null;
+  const meta = [year, setName].filter(Boolean).join(" · ") || null;
+  const parts: AssetDetailHeadlineParts = {
+    year,
+    setName: setName || null,
+    cardNumber: null,
+    cardName: name,
+    variety: null,
+    language: null,
+  };
+  return {
+    metadataRows: [] as { label: string; value: string }[],
+    subtitle: null as string | null,
+    headlineSetLine: null,
+    collectionCategoryBadge: genre,
+    collectionBreadcrumbTrail: setName || name,
+    collectionHeadlineParts: parts,
+    collectionHeadlineDisplayTitle: name,
+    collectionHeadlineMetaStrip: meta,
+    headlineGrade: null as string | null,
+    collectionPopulationBadge: null as string | null,
+    collectionWovenTitle: name,
+    headlineInfoTags: null as CollectionHeadlineInfoTag[] | null,
+    detailsCatalogLine: null as string | null,
+    heroDetailsKvRows: hasCollection
+      ? buildSealedBoxDetailCards(comp, { vaultLabel })
+      : [],
+  };
+}
+
 export function useCollectionDetailHeadline(params: {
   key: string;
   comp: CollectionComponents;
@@ -54,6 +101,7 @@ export function useCollectionDetailHeadline(params: {
   displayLabel: string | null | undefined;
   hasCollection: boolean;
   activeGradeLabel?: string | null;
+  vaultLabel?: string | null;
 }) {
   const {
     key,
@@ -62,7 +110,16 @@ export function useCollectionDetailHeadline(params: {
     pokeTierLabel,
     displayLabel,
     hasCollection,
+    vaultLabel,
   } = params;
+
+  const sealedBoxView = useMemo(
+    () =>
+      comp.assetKind === "sealed_box"
+        ? sealedBoxHeadline({ comp, displayLabel, hasCollection, vaultLabel })
+        : null,
+    [comp, displayLabel, hasCollection, vaultLabel],
+  );
 
   const metadataRows = useMemo(() => [] as { label: string; value: string }[], [key]);
 
@@ -365,6 +422,8 @@ export function useCollectionDetailHeadline(params: {
     collectionCategoryBadge,
     comp,
   ]);
+
+  if (sealedBoxView) return sealedBoxView;
 
   return {
     metadataRows,

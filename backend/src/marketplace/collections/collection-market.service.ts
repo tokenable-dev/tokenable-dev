@@ -27,6 +27,7 @@ import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot
 import { computeRobustMarketStatsFromUsdPrices } from '../utils/collection-market-stats.util';
 import type { MarketCollectionPreview } from '../utils/market-reference.types';
 import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
+import { isSealedBoxCollectionComponents } from '../utils/bucket-key.util';
 import {
   cardhedgerRawSalesToTapeRows,
   computeCollectionTradesVolumeStats,
@@ -77,6 +78,7 @@ export type MarketChangeWindowLabel = PriceHistoryDuration | '24h';
 export type MarketChangePriceSource =
   | 'cardhedger_nm'
   | 'cardhedger_graded'
+  | 'pricecharting'
   | 'none';
 
 /** Listing-pool depth / distribution (USDC) — liquidity signal; not primary “market price”. */
@@ -196,6 +198,8 @@ function rowHasMaterializedListPrices(
   return false;
 }
 
+export { pricechartingLooseHistoryToUsdPoints } from '../utils/market-snapshot-normalize.util';
+
 function emptyMarketBundle(
   collectionKey: string,
   platformUsd: UsdPoint[],
@@ -262,7 +266,8 @@ export class CollectionMarketService {
 
   /**
    * Materialized snapshot read — platform trades always from orders DB.
-   * Collection detail overlays live Cardhedger when the row is thin.
+   * Graded cards may overlay live Cardhedger when the row is thin.
+   * Sealed boxes use the PriceCharting snapshot only (no Cardhedger).
    * Markets list batches use {@link batchListSnapshots} (snapshot-only).
    * Portfolio holdings use {@link batchPortfolioMarketData} (snapshot-only, no overlay).
    */
@@ -283,28 +288,47 @@ export class CollectionMarketService {
       ? priceHistoryDuration
       : '365d';
 
-    const { platformUsd } = await this.platformTradesForApi(key, undefined, chainId);
+    const resolved = chainId ?? this.chainConfig.getDefaultChainId();
+    const catalog = await this.collectionService.findOne(key, resolved);
+    const sealedBox = isSealedBoxCollectionComponents(catalog?.components);
+    const { platformUsd } = sealedBox
+      ? await this.buildPlatformTradesForKey(key, resolved)
+      : await this.platformTradesForApi(key, undefined, chainId);
+
     let row = await this.snapshotService.findByKey(key);
 
     if (!(await this.snapshotService.isUsableForRead(row, key))) {
       row =
         (await this.snapshotService.resolveSnapshotForRead(
           key,
-          'cold_start',
+          sealedBox ? 'price_delta' : 'cold_start',
         )) ?? row;
     }
 
     let bundle: CollectionMarketBundle;
     if (!row || !rowHasMaterializedListPrices(row)) {
       bundle = emptyMarketBundle(key, platformUsd, window);
+      if (sealedBox && this.snapshotService.onDemandEnabled()) {
+        this.snapshotScheduler.enqueue(key, 'price_delta');
+      }
     } else {
       const stale = this.snapshotService.isRowStale(row);
       const preview = row.previewJson;
-      const needsHistoryRefresh =
-        preview != null &&
-        preview.matched !== true &&
-        (row.externalUsdJson?.length ?? 0) < 2;
-      this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
+      const needsHistoryRefresh = sealedBox
+        ? row.spotPriceBasis !== 'pricecharting' ||
+          ((row.externalUsdJson?.length ?? 0) < 2 &&
+            (row.rawUsd == null || row.rawUsd <= 0))
+        : preview != null &&
+          preview.matched !== true &&
+          (row.externalUsdJson?.length ?? 0) < 2;
+      if (sealedBox) {
+        this.snapshotService.touchLastViewed(key);
+        if (stale || needsHistoryRefresh) {
+          this.snapshotScheduler.enqueue(key, 'price_delta');
+        }
+      } else {
+        this.touchAndMaybeRefreshStale(key, stale || needsHistoryRefresh);
+      }
       bundle = this.snapshotRead.buildBundleFromRow(
         row,
         window,
@@ -312,12 +336,9 @@ export class CollectionMarketService {
       ).bundle;
     }
 
-    const out = await this.overlayLiveCardhedgerWhenThin(
-      bundle,
-      key,
-      window,
-      chainId,
-    );
+    const out = sealedBox
+      ? bundle
+      : await this.overlayLiveCardhedgerWhenThin(bundle, key, window, chainId);
     return {
       ...out,
       cardhedgerPreview: sanitizeMarketCollectionPreview(out.cardhedgerPreview),
@@ -823,6 +844,11 @@ export class CollectionMarketService {
         resolved,
         opts?.bootstrapTokenId,
       );
+
+      if (isSealedBoxCollectionComponents(col?.components)) {
+        const volume = computeCollectionTradesVolumeStats(platformTrades);
+        return { platformUsd, trades: platformTrades, volume };
+      }
 
       const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();
       const tier = marketHistoryTierFromComponents(col?.components);

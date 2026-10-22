@@ -315,12 +315,12 @@ Mints one sealed box to the partner wallet. Order: S3 photo, IPFS image + metada
 |-------|----------|-------------|
 | `pricechartingProductId` | Yes | Catalog product id (`pricecharting_products.id`) |
 | `clientRequestId` | Yes | UUID. A repeat of a submitted mint does not mint a second token |
-| `image` | Yes | JPEG, PNG, or WebP, max 10 MB |
+| `image` | No, when the product has `cover_image_url` | JPEG, PNG, or WebP, max 10 MB. Omitted, the mint copies the admin representative image. A partner upload replaces it for that token only |
 | `recipientAddress` | No | Linked wallet. Omitted uses the primary wallet |
 
 **Response:** `{ id, status: "minted", tokenId, tokenURI, displayImageUrl, txHash, chainId, productName }`
 
-`tokenURI` is `ipfs://{metadataCid}`. `displayImageUrl` is the S3 object under `rwa-boxes/{chainId}/{boxId}/photo`. `rwa_tokens.cert_number` and `collection_key` stay null. Portfolio shows the S3 image. The asset page does not offer card list or redeem (`properties.assetKind = sealed_box`).
+`tokenURI` is `ipfs://{metadataCid}`. `mint(to)` records the recipient in the owner index before the HTTP response returns, and the same response writes `rwa_tokens` (`display_image_url`, `display_name`, `token_uri`, `owner_wallet`). That is what My Assets reads. The portfolio photo is the S3 object `rwa-boxes/{chainId}/{boxId}/photo`. It is the partner upload, or a copy of `pricecharting_products.cover_image_url` when the partner sends no image. The product column stays the collection-detail image. `rwa_tokens.cert_number` and `collection_key` stay null at mint. The first ask creates the collection from that PriceCharting product (one collection per product, not the graded card key) and then sets `collection_key`. The certificate hides Redeem. Sell / List stays on the portfolio, the same path as other RWAs.
 
 Same rejections as partner card mint when they apply: not a partner, missing company address, unlinked recipient, no wallet, KYC when `VAULT_MINT_REQUIRES_KYC` is on. Photo and catalog errors: `Image is required`, `Image must be JPEG, PNG, or WebP…`, `Catalog product not found`, `Catalog cover S3 is not configured`, `이미지 IPFS 업로드에 실패했습니다.`, `메타데이터 IPFS 업로드에 실패했습니다.`, `Mint already submitted for this request`.
 

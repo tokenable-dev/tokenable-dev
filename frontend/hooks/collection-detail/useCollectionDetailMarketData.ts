@@ -279,9 +279,11 @@ export function useCollectionDetailMarketData(params: {
     externalSeriesShortLabel: chartExternalShort,
     externalRefLineTag: chartExternalRefTag,
     emptyStateMessage:
-      marketSeries?.spotPriceBasis === "psa_estimate"
-        ? `PSA Estimate shown for ${gradeChart.activeGrade} — no sales history in this window.`
-        : `No price history for ${gradeChart.activeGrade} in this window.`,
+      comp.assetKind === "sealed_box"
+        ? "No PriceCharting price history in this window."
+        : marketSeries?.spotPriceBasis === "psa_estimate"
+          ? `PSA Estimate shown for ${gradeChart.activeGrade} — no sales history in this window.`
+          : `No price history for ${gradeChart.activeGrade} in this window.`,
     /* Trades fetch must not blank the chart — that reflows the sticky hero. */
     isLoading: gradeChart.gradeChartLoading,
     errorMessage: null as string | null,

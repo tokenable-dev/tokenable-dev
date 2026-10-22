@@ -174,6 +174,39 @@ describe('RwaAssetResolveService', () => {
     );
   });
 
+  it('batchPortfolioMetadata uses the partner S3 photo for a sealed box', async () => {
+    const partnerPhoto = 'https://cdn.example/rwa-boxes/box-1/photo';
+    const row = {
+      tokenId: '301',
+      tokenContract: '0xrwa',
+      tokenUri: 'ipfs://QmBox301',
+      certNumber: null,
+      displayName: 'Pokemon Evolving Skies Booster Box',
+      displayImageUrl: partnerPhoto,
+      displayImageBackUrl: null,
+      collectionKey: null,
+    } as RwaToken;
+    const boxMeta = {
+      name: 'Pokemon Evolving Skies Booster Box',
+      image: 'ipfs://bafyimage',
+      properties: {
+        assetKind: 'sealed_box',
+        pricechartingProductId: '7292337',
+      },
+    };
+
+    rwaTokenRepo.find.mockResolvedValue([row]);
+    blockchain.getRwaTokenURI.mockResolvedValue('ipfs://QmBox301');
+    ipfs.fetchMetadataJson.mockResolvedValue(boxMeta);
+    ipfs.resolveUriToHttps.mockImplementation(async (uri: string) => uri);
+    ipfs.resolveImageToHttps.mockResolvedValue('https://gateway.example/ipfs/bafyimage');
+
+    const { items } = await service.batchPortfolioMetadata([301], 11155111);
+
+    expect(items[0]?.imageUrl).toBe(partnerPhoto);
+    expect(items[0]?.metadata).toEqual(boxMeta);
+  });
+
   it('batchPortfolioMetadata prefers on-chain when registry token_uri drifts', async () => {
     const row = {
       tokenId: '1',

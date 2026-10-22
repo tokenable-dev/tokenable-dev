@@ -88,7 +88,22 @@ export type PricechartingProductHit = {
   releaseDate: string | null;
   upc: string | null;
   loosePriceCents: number | null;
+  coverImageUrl?: string | null;
 };
+
+export async function uploadPricechartingCover(
+  productId: string,
+  file: File,
+): Promise<{ id: string; productName: string; coverImageUrl: string }> {
+  const body = new FormData();
+  body.append("image", file);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/products/${encodeURIComponent(productId)}/cover`,
+    { method: "POST", credentials: "include", body, timeoutMs: 120_000 },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<{ id: string; productName: string; coverImageUrl: string }>;
+}
 
 export async function searchPricechartingProducts(
   q: string,
@@ -107,12 +122,16 @@ export type ManualPriceHistoryResult = {
   consoleName: string;
   observedOn: string;
   savedCents: Record<string, number>;
+  /** True when catalog + sealed-box collection spot were updated. */
+  syncedCurrentLoose?: boolean;
 };
 
 export async function recordPricechartingHistory(input: {
   productId: string;
   observedOn: string;
   prices: Record<string, string>;
+  /** Also write loose onto the catalog product and sealed-box collection spot. */
+  syncCurrent?: boolean;
 }): Promise<ManualPriceHistoryResult> {
   const res = await backendFetch(
     `${getApiUrl()}/marketplace/admin/pricecharting/products/${encodeURIComponent(input.productId)}/prices`,
@@ -123,6 +142,7 @@ export async function recordPricechartingHistory(input: {
       body: JSON.stringify({
         observedOn: input.observedOn,
         prices: input.prices,
+        ...(input.syncCurrent ? { syncCurrent: true } : {}),
       }),
     },
   );

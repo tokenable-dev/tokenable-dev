@@ -10,15 +10,18 @@ import {
 } from "@/lib/markets/marketsCollectionSort";
 import {
   MARKETS_GRADE_FILTER_OPTIONS,
+  MARKETS_KIND_FILTER_OPTIONS,
   MARKETS_PRICE_PRESET_CHIPS,
   MARKETS_VAULT_FILTER_OPTIONS,
   marketsPriceChipLabel,
   normalizeMarketsPriceInputs,
   normalizeMarketsYearInputs,
   type MarketsGradeFilterId,
+  type MarketsKindFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
+  MARKETS_CATEGORY_FILTERS,
   MARKETS_CATEGORY_SELECT_OPTIONS,
   type CategorySelectOption,
   type CollectionCategoryId,
@@ -35,7 +38,7 @@ type PopId = "sort" | null;
 
 const EMPTY_STRINGS: string[] = [];
 
-function categoryOptionLabel(f: CategorySelectOption): string {
+function categoryOptionLabel(f: { label: string }): string {
   return f.label;
 }
 
@@ -218,7 +221,7 @@ function DdChip({
       onClick={onClick}
     >
       <span className="markets-ddchip__text">
-        {label}
+        <span className="markets-ddchip__label">{label}</span>
         {value ? (
           <>
             {" "}
@@ -248,6 +251,9 @@ export function MarketsFilterBar({
   gradeFilters,
   onGradeToggle,
   onGradeFiltersChange,
+  kindFilters,
+  onKindToggle,
+  onKindFiltersChange,
   vaultFilters,
   onVaultToggle,
   onVaultFiltersChange,
@@ -274,6 +280,9 @@ export function MarketsFilterBar({
   gradeFilters: ReadonlySet<MarketsGradeFilterId>;
   onGradeToggle: (id: MarketsGradeFilterId) => void;
   onGradeFiltersChange: (grades: Set<MarketsGradeFilterId>) => void;
+  kindFilters: ReadonlySet<MarketsKindFilterId>;
+  onKindToggle: (id: MarketsKindFilterId) => void;
+  onKindFiltersChange: (kinds: Set<MarketsKindFilterId>) => void;
   vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
   onVaultToggle?: (id: MarketsVaultFilterId) => void;
   onVaultFiltersChange?: (vaults: Set<MarketsVaultFilterId>) => void;
@@ -303,6 +312,9 @@ export function MarketsFilterBar({
   const [draftGrades, setDraftGrades] = useState<Set<MarketsGradeFilterId>>(
     () => new Set(gradeFilters),
   );
+  const [draftKinds, setDraftKinds] = useState<Set<MarketsKindFilterId>>(
+    () => new Set(kindFilters),
+  );
   const [draftVaults, setDraftVaults] = useState<Set<MarketsVaultFilterId>>(
     () => new Set(vaultFilters ?? []),
   );
@@ -328,8 +340,12 @@ export function MarketsFilterBar({
 
   const yearActive = Boolean(yearMin.trim() || yearMax.trim());
 
+  const activeKindCount = kindFilters.size === 2 ? 0 : kindFilters.size;
+  const boxesOnly = kindFilters.size === 1 && kindFilters.has("box");
+  const draftBoxesOnly = draftKinds.size === 1 && draftKinds.has("box");
+
   const moreCount = useMemo(() => {
-    let n = sets.length + gradeFilters.size + (vaultFilters?.size ?? 0);
+    let n = sets.length + gradeFilters.size + activeKindCount + (vaultFilters?.size ?? 0);
     n += characters.length + series.length;
     if (priceActive) n += 1;
     if (yearActive) n += 1;
@@ -337,6 +353,7 @@ export function MarketsFilterBar({
   }, [
     sets.length,
     gradeFilters.size,
+    activeKindCount,
     vaultFilters,
     characters.length,
     series.length,
@@ -357,6 +374,7 @@ export function MarketsFilterBar({
     setDraftPriceMin(priceMin);
     setDraftPriceMax(priceMax);
     setDraftGrades(new Set(gradeFilters));
+    setDraftKinds(new Set(kindFilters));
     setDraftVaults(new Set(vaultFilters ?? []));
     setDraftSets([...sets]);
     setDraftYearMin(yearMin);
@@ -411,12 +429,30 @@ export function MarketsFilterBar({
         filter_value: [...draftGrades].join(",") || "none",
       });
     }
+    const kindsChanged =
+      draftKinds.size !== kindFilters.size ||
+      [...draftKinds].some((k) => !kindFilters.has(k));
+    if (kindsChanged) {
+      trackEvent("filter_applied", {
+        filter_type: "kind",
+        filter_value: [...draftKinds].join(",") || "all",
+      });
+    }
     const price = normalizeMarketsPriceInputs(draftPriceMin, draftPriceMax);
     const year = normalizeMarketsYearInputs(draftYearMin, draftYearMax);
+    // Both selected ≡ all — persist empty like vault / category.
+    const nextKinds =
+      draftKinds.size === 2 ? new Set<MarketsKindFilterId>() : new Set(draftKinds);
+    // Boxes have no grade — drop grade chips when applying boxes-only.
+    const nextGrades =
+      nextKinds.size === 1 && nextKinds.has("box")
+        ? new Set<MarketsGradeFilterId>()
+        : new Set(draftGrades);
     onCategoryFiltersChange(new Set(draftCategories));
     onSortChange(draftSort);
     onPriceRangeChange(price.min, price.max);
-    onGradeFiltersChange(new Set(draftGrades));
+    onKindFiltersChange(nextKinds);
+    onGradeFiltersChange(nextGrades);
     onVaultFiltersChange?.(new Set(draftVaults));
     onSetsChange?.([...draftSets]);
     onYearRangeChange?.(year.min, year.max);
@@ -429,6 +465,7 @@ export function MarketsFilterBar({
     onCategoryFiltersChange(new Set());
     onPriceRangeChange("", "");
     onGradeFiltersChange(new Set());
+    onKindFiltersChange(new Set());
     onVaultFiltersChange?.(new Set());
     onSetsChange?.([]);
     onYearRangeChange?.("", "");
@@ -438,6 +475,7 @@ export function MarketsFilterBar({
     setDraftPriceMin("");
     setDraftPriceMax("");
     setDraftGrades(new Set());
+    setDraftKinds(new Set());
     setDraftVaults(new Set());
     setDraftSets([]);
     setDraftYearMin("");
@@ -474,7 +512,27 @@ export function MarketsFilterBar({
     });
   }
 
+  function toggleDraftKind(id: MarketsKindFilterId) {
+    setDraftKinds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
   const activeChips: { key: string; label: string; onClear: () => void }[] = [];
+  if (activeKindCount > 0) {
+    for (const opt of MARKETS_KIND_FILTER_OPTIONS) {
+      if (kindFilters.has(opt.id)) {
+        activeChips.push({
+          key: `kind-${opt.id}`,
+          label: opt.chipLabel,
+          onClear: () => onKindToggle(opt.id),
+        });
+      }
+    }
+  }
   for (const [i, setName] of sets.entries()) {
     activeChips.push({
       key: `set-${setName}`,
@@ -489,13 +547,15 @@ export function MarketsFilterBar({
       onClear: () => onPriceRangeChange("", ""),
     });
   }
-  for (const g of MARKETS_GRADE_FILTER_OPTIONS) {
-    if (gradeFilters.has(g)) {
-      activeChips.push({
-        key: `grade-${g}`,
-        label: g,
-        onClear: () => onGradeToggle(g),
-      });
+  if (!boxesOnly) {
+    for (const g of MARKETS_GRADE_FILTER_OPTIONS) {
+      if (gradeFilters.has(g)) {
+        activeChips.push({
+          key: `grade-${g}`,
+          label: g,
+          onClear: () => onGradeToggle(g),
+        });
+      }
     }
   }
   for (const opt of MARKETS_VAULT_FILTER_OPTIONS) {
@@ -513,8 +573,11 @@ export function MarketsFilterBar({
     <div className="markets-filter-sticky">
       <div className="tkl-wrap markets-slim-bar">
         <div className="markets-catchiprow" role="group" aria-label="Category">
-          {filters.map((f) => {
-            const selected = categoryFilters.has(f.id);
+          {MARKETS_CATEGORY_FILTERS.map((f) => {
+            const selected =
+              f.id === "all"
+                ? categoryFilters.size === 0
+                : categoryFilters.has(f.id as CollectionCategoryId);
             return (
               <button
                 key={f.id}
@@ -529,7 +592,11 @@ export function MarketsFilterBar({
                     filter_type: "category",
                     filter_value: f.id,
                   });
-                  onCategoryToggle(f.id);
+                  if (f.id === "all") {
+                    onCategoryFiltersChange(new Set());
+                    return;
+                  }
+                  onCategoryToggle(f.id as CollectionCategoryId);
                 }}
               >
                 {categoryOptionLabel(f)}
@@ -538,6 +605,9 @@ export function MarketsFilterBar({
           })}
         </div>
 
+        <div className="markets-slim-bar__sp" aria-hidden />
+
+        <div className="markets-slim-bar__end">
         <button
           type="button"
           className={cn(
@@ -554,12 +624,7 @@ export function MarketsFilterBar({
           }}
         >
           <FilterIcon size={13} />
-          <span className="markets-ddchip__label markets-ddchip__label--desktop">
-            More filters
-          </span>
-          <span className="markets-ddchip__label markets-ddchip__label--mobile">
-            Filters
-          </span>
+          <span className="markets-ddchip__label">Filters</span>
           {moreCount > 0 ? (
             <i className="markets-ddchip__count">{moreCount}</i>
           ) : null}
@@ -574,12 +639,11 @@ export function MarketsFilterBar({
           <SearchIcon />
         </button>
 
-        <div className="markets-slim-bar__sp" aria-hidden />
+        <span className="markets-slim-bar__rule" aria-hidden />
 
-        <div className="markets-slim-bar__end">
         <div ref={sortRef} className="markets-fw markets-fw--sort">
           <DdChip
-            label="Sort:"
+            label="Sort by"
             value={SORT_LABELS[sortId]}
             open={openPop === "sort"}
             onClick={() => setOpenPop((p) => (p === "sort" ? null : "sort"))}
@@ -675,6 +739,21 @@ export function MarketsFilterBar({
                 <line x1={18} y1={6} x2={6} y2={18} />
               </svg>
             </button>
+          </div>
+
+          <div className="markets-fd-section">
+            <span className="markets-fd-label">Type</span>
+            <div className="markets-fd-chips markets-fd-chips--stack">
+              {MARKETS_KIND_FILTER_OPTIONS.map((opt) => (
+                <FilterCheckRow
+                  key={opt.id}
+                  selected={draftKinds.has(opt.id)}
+                  onClick={() => toggleDraftKind(opt.id)}
+                >
+                  {opt.chipLabel}
+                </FilterCheckRow>
+              ))}
+            </div>
           </div>
 
           <div className="markets-fd-section">
@@ -791,20 +870,22 @@ export function MarketsFilterBar({
             </div>
           </div>
 
-          <div className="markets-fd-section">
-            <span className="markets-fd-label">Grade</span>
-            <div className="markets-fd-chips markets-fd-chips--stack">
-              {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => (
-                <FilterCheckRow
-                  key={grade}
-                  selected={draftGrades.has(grade)}
-                  onClick={() => toggleDraftGrade(grade)}
-                >
-                  {grade}
-                </FilterCheckRow>
-              ))}
+          {!draftBoxesOnly ? (
+            <div className="markets-fd-section">
+              <span className="markets-fd-label">Grade</span>
+              <div className="markets-fd-chips markets-fd-chips--stack">
+                {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => (
+                  <FilterCheckRow
+                    key={grade}
+                    selected={draftGrades.has(grade)}
+                    onClick={() => toggleDraftGrade(grade)}
+                  >
+                    {grade}
+                  </FilterCheckRow>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : null}
 
           {onYearRangeChange ? (
             <div className="markets-fd-section">

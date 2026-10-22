@@ -109,6 +109,34 @@ export const MARKETS_VAULT_FILTER_OPTIONS: {
   { id: "partner", chipLabel: "Tokenable Vault" },
 ];
 
+/** Graded card vs sealed box — empty selection = both (All). */
+export type MarketsKindFilterId = "card" | "box";
+
+export const MARKETS_KIND_FILTER_OPTIONS: {
+  id: MarketsKindFilterId;
+  chipLabel: string;
+}[] = [
+  { id: "card", chipLabel: "Cards" },
+  { id: "box", chipLabel: "Boxes" },
+];
+
+export function collectionIsSealedBox(
+  collection: MarketplaceCollectionSummary,
+): boolean {
+  return parseCollectionComponents(collection.components).assetKind === "sealed_box";
+}
+
+export function collectionMatchesKindFilters(
+  collection: MarketplaceCollectionSummary,
+  selected: ReadonlySet<MarketsKindFilterId>,
+): boolean {
+  if (selected.size === 0) return true;
+  const isBox = collectionIsSealedBox(collection);
+  if (selected.has("box") && isBox) return true;
+  if (selected.has("card") && !isBox) return true;
+  return false;
+}
+
 export function vaultKindFromAsk(order: {
   sellerDisplayName?: string | null;
   settlementPolicy?: string | null;
@@ -512,6 +540,7 @@ export function applyMarketsListingFilters(
     priceMin?: string;
     priceMax?: string;
     gradeFilters: ReadonlySet<MarketsGradeFilterId>;
+    kindFilters?: ReadonlySet<MarketsKindFilterId>;
     vaultFilters?: ReadonlySet<MarketsVaultFilterId>;
     vaultKindsByKey?: Map<string, Set<MarketsVaultFilterId>>;
     characters?: readonly string[];
@@ -521,14 +550,20 @@ export function applyMarketsListingFilters(
     yearMax?: string;
   },
 ): MarketplaceCollectionSummary[] {
+  const kinds = opts.kindFilters ?? new Set<MarketsKindFilterId>();
+  const boxesOnly = kinds.size === 1 && kinds.has("box");
   return collections.filter((c) => {
+    if (!collectionMatchesKindFilters(c, kinds)) return false;
     const snap = snapshotByKey.get(collectionKeyLower(c));
     const priceOk =
       opts.priceMin != null || opts.priceMax != null
         ? collectionMatchesPriceRange(c, snap, opts.priceMin ?? "", opts.priceMax ?? "")
         : collectionMatchesPriceFilter(c, snap, opts.priceFilter ?? MARKETS_DEFAULT_PRICE_FILTER);
     if (!priceOk) return false;
-    if (!collectionMatchesGradeFilters(c, opts.gradeFilters)) return false;
+    // Boxes have no PSA/BGS grade — ignore grade when browsing boxes only.
+    if (!boxesOnly && !collectionMatchesGradeFilters(c, opts.gradeFilters)) {
+      return false;
+    }
     if (
       opts.vaultFilters &&
       opts.vaultKindsByKey &&

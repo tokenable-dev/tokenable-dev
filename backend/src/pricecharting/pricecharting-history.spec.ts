@@ -104,6 +104,7 @@ function memoryDatabase() {
   const service = new PricechartingImportService(
     dataSource,
     archive as unknown as PricechartingArchive,
+    { emit: () => true } as never,
   );
   return { service, history, products, archive };
 }

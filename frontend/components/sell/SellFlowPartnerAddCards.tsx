@@ -1,17 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useEnsureAccountWalletReady } from "@/hooks/auth/useEnsureAccountWalletReady";
-import { useAccessGate } from "@/hooks/auth/useAccessGate";
-import { mintSealedBox } from "@/lib/sell/sealedBoxMint";
-import { SLAB_UPLOAD_ACCEPT } from "@/lib/vault/mintImageSource";
-import { useAppChain } from "@/providers/AppChainProvider";
 import { TkButton } from "@/components/ds";
-import {
-  searchCatalogProducts,
-  searchCatalogUpc,
-  type CatalogProductHit,
-} from "@/lib/core/api/pricecharting-listings";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
 import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
 import { SellFlowCertProgress } from "./SellFlowCertProgress";
@@ -23,18 +13,13 @@ import {
   SellFlowPartnerMintBackground,
   SellFlowPartnerMintModal,
 } from "./SellFlowPartnerMintModal";
+import { SellFlowPartnerBoxes } from "./SellFlowPartnerBoxes";
 import { SellFlowPartnerSlabUpload } from "./SellFlowPartnerSlabUpload";
 import { SellFlowYourCardsSection } from "./SellFlowYourCardsSection";
 
 type Flow = ReturnType<typeof useSellFlow>;
 type AddMode = "single" | "csv";
 type ItemKind = "card" | "box";
-
-function boxHitSubtitle(hit: CatalogProductHit): string {
-  const year = hit.releaseDate?.slice(0, 4) ?? "";
-  const set = hit.consoleName.trim();
-  return [year, set].filter(Boolean).join(" · ");
-}
 
 function BackChevron() {
   return (
@@ -70,20 +55,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
   } = flow;
 
   const [itemKind, setItemKind] = useState<ItemKind>("card");
-  const [boxQuery, setBoxQuery] = useState("");
-  const [boxHits, setBoxHits] = useState<CatalogProductHit[]>([]);
-  const [boxMenuOpen, setBoxMenuOpen] = useState(false);
-  const [boxSearchBusy, setBoxSearchBusy] = useState(false);
-  const [boxSearchError, setBoxSearchError] = useState<string | null>(null);
-  const [boxPick, setBoxPick] = useState<CatalogProductHit | null>(null);
-  const [boxPhoto, setBoxPhoto] = useState<File | null>(null);
-  const [boxPhotoUrl, setBoxPhotoUrl] = useState<string | null>(null);
   const [boxMintBusy, setBoxMintBusy] = useState(false);
-  const [boxMintError, setBoxMintError] = useState<string | null>(null);
-  const [boxMintedTokenId, setBoxMintedTokenId] = useState<string | null>(null);
-  const { chainId } = useAppChain();
-  const ensureAccountWalletReady = useEnsureAccountWalletReady();
-  const { runAccessGate } = useAccessGate(1, "/sell/flow");
   const [addMode, setAddMode] = useState<AddMode>("single");
   const [csvRows, setCsvRows] = useState<PartnerCsvRow[]>([]);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
@@ -113,54 +85,6 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
     if (!m) return { done: 0, total: mintTotal };
     return { done: Number(m[1]), total: Number(m[2]) };
   }, [mintBusy, mintStatus, mintTotal]);
-
-  const mintBox = async () => {
-    if (!boxPick || !boxPhoto || boxMintBusy) return;
-    if (!runAccessGate()) return;
-    setBoxMintBusy(true);
-    setBoxMintError(null);
-    setBoxMintedTokenId(null);
-    try {
-      const recipientAddress = await ensureAccountWalletReady();
-      const minted = await mintSealedBox({
-        pricechartingProductId: boxPick.id,
-        clientRequestId: crypto.randomUUID(),
-        image: boxPhoto,
-        chainId,
-        recipientAddress,
-      });
-      setBoxMintedTokenId(minted.tokenId);
-      setBoxPhoto(null);
-      setBoxPhotoUrl((prev) => {
-        if (prev) URL.revokeObjectURL(prev);
-        return null;
-      });
-    } catch (err) {
-      setBoxMintError(err instanceof Error ? err.message : "Sealed box mint failed");
-    } finally {
-      setBoxMintBusy(false);
-    }
-  };
-
-  const lookupBox = async () => {
-    const q = boxQuery.trim();
-    if (!q || boxSearchBusy) return;
-    setBoxSearchBusy(true);
-    setBoxSearchError(null);
-    try {
-      const hits = /^\d+$/.test(q)
-        ? await searchCatalogUpc(q)
-        : await searchCatalogProducts(q);
-      setBoxHits(hits);
-      setBoxMenuOpen(true);
-    } catch (err) {
-      setBoxHits([]);
-      setBoxMenuOpen(false);
-      setBoxSearchError(err instanceof Error ? err.message : "Search failed");
-    } finally {
-      setBoxSearchBusy(false);
-    }
-  };
 
   const removeCertFromList = (cert: string) => {
     const i = cards.findIndex((c) => c.cert === cert);
@@ -226,149 +150,12 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             </button>
           </div>
 
+          <div hidden={itemKind !== "box"}>
+            <SellFlowPartnerBoxes otherBusy={mintBusy} onBusyChange={setBoxMintBusy} />
+          </div>
+
+          {itemKind === "card" ? (
           <div className="sell-flow-glass sell-flow-glass--partner-input">
-            {itemKind === "box" ? (
-              <div role="tabpanel">
-                <label className="sell-flow-cert-label" htmlFor="sell-flow-box-query">
-                  Box name or barcode number
-                </label>
-                <div className="sell-flow-box-search">
-                  <div className="sell-flow-cert-row">
-                    <input
-                      id="sell-flow-box-query"
-                      className="sell-flow-cert-input sell-flow-box-input"
-                      type="text"
-                      autoComplete="off"
-                      placeholder="e.g. Evolving Skies or 820650851100"
-                      value={boxQuery}
-                      disabled={mintBusy || boxSearchBusy || boxMintBusy}
-                      onChange={(e) => {
-                        setBoxQuery(e.target.value);
-                        setBoxMenuOpen(false);
-                        setBoxPick(null);
-                        setBoxMintedTokenId(null);
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") {
-                          e.preventDefault();
-                          void lookupBox();
-                        }
-                      }}
-                    />
-                    <TkButton
-                      type="button"
-                      variant="primary"
-                      className="sell-flow-lookup-btn"
-                      disabled={mintBusy || boxSearchBusy || boxMintBusy || !boxQuery.trim()}
-                      onClick={() => void lookupBox()}
-                    >
-                      {boxSearchBusy ? "Checking" : "Check"}
-                    </TkButton>
-                  </div>
-                  {boxMenuOpen ? (
-                    <ul className="sell-flow-box-menu" role="listbox" aria-label="Matching boxes">
-                      {boxHits.length === 0 ? (
-                        <li className="sell-flow-box-menu__empty">No boxes matched that text.</li>
-                      ) : (
-                        boxHits.map((hit) => (
-                          <li key={hit.id}>
-                            <button
-                              type="button"
-                              role="option"
-                              className="sell-flow-box-menu__b"
-                              onClick={() => {
-                                setBoxPick(hit);
-                                setBoxQuery(hit.productName);
-                                setBoxMenuOpen(false);
-                                setBoxMintError(null);
-                                setBoxMintedTokenId(null);
-                              }}
-                            >
-                              <span className="sell-flow-box-menu__name">{hit.productName}</span>
-                              <span className="sell-flow-box-menu__sub">{boxHitSubtitle(hit)}</span>
-                            </button>
-                          </li>
-                        ))
-                      )}
-                    </ul>
-                  ) : null}
-                </div>
-                {boxPick ? (
-                  <div className="sell-flow-box-after">
-                    <p className="sell-flow-box-pick">
-                      <span className="sell-flow-box-pick__name">{boxPick.productName}</span>
-                      <span className="sell-flow-box-pick__sub">{boxHitSubtitle(boxPick)}</span>
-                    </p>
-                    <input
-                      id="sell-flow-box-photo"
-                      type="file"
-                      accept={SLAB_UPLOAD_ACCEPT}
-                      className="sr-only"
-                      disabled={boxMintBusy}
-                      onChange={(e) => {
-                          const next = e.target.files?.[0] ?? null;
-                          e.target.value = "";
-                          if (!next) return;
-                          const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-                          if (!allowed.includes(next.type)) {
-                            setBoxMintError(
-                              "Image must be JPEG, PNG, or WebP. HEIC and other formats are not supported — convert or re-export and try again.",
-                            );
-                            return;
-                          }
-                          if (next.size > 10 * 1024 * 1024) {
-                            setBoxMintError("Image is too large after processing");
-                            return;
-                          }
-                          setBoxMintError(null);
-                          setBoxPhoto(next);
-                          setBoxPhotoUrl((prev) => {
-                            if (prev) URL.revokeObjectURL(prev);
-                            return URL.createObjectURL(next);
-                          });
-                        }}
-                    />
-                    <TkButton
-                      type="button"
-                      variant="subtle"
-                      className="sell-flow-scan-btn sell-flow-partner-btn--ghost sell-flow-partner-scan-slab sell-flow-box-photo"
-                      disabled={boxMintBusy}
-                      onClick={() => document.getElementById("sell-flow-box-photo")?.click()}
-                    >
-                      Upload photo
-                    </TkButton>
-                    {boxPhotoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={boxPhotoUrl} alt="" className="sell-flow-box-photo-preview" />
-                    ) : null}
-                    <TkButton
-                      type="button"
-                      variant="primary"
-                      className="sell-flow-ship-btn sell-flow-box-mint"
-                      disabled={boxMintBusy || !boxPhoto}
-                      onClick={() => void mintBox()}
-                    >
-                      {boxMintBusy ? "Minting…" : "Mint sealed box"}
-                    </TkButton>
-                    {boxMintedTokenId ? (
-                      <p className="sell-flow-box-minted">Minted as token #{boxMintedTokenId}.</p>
-                    ) : null}
-                    {boxMintError ? (
-                      <p className="sell-flow-partner-cert-error" role="alert">
-                        {boxMintError}
-                      </p>
-                    ) : null}
-                  </div>
-                ) : null}
-                {boxSearchError ? (
-                  <p className="sell-flow-partner-cert-error" role="alert">
-                    {boxSearchError}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            {itemKind === "card" ? (
-            <>
             <div
               className="sell-flow-mseg sell-flow-mseg--text"
               role="tablist"
@@ -428,9 +215,9 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             ) : (
               <SellFlowPartnerCsvSection section="picker" {...csvSectionProps} />
             )}
-            </>
-            ) : null}
           </div>
+          ) : null}
+
 
           {itemKind === "card" && addMode === "single" && cards.length > 0 ? (
             <div className="sell-flow-glass sell-flow-glass--partner-cards">

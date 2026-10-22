@@ -32,6 +32,16 @@ export function stableCatalogCoverObjectKey(
   return `${p}${sanitizeCollectionKeyForS3(collectionKey)}/cover`;
 }
 
+/** Admin representative image for one PriceCharting product. Not a user photo. */
+export function catalogProductCoverObjectKey(
+  prefix: string,
+  productId: string,
+): string {
+  const p = prefix.endsWith('/') ? prefix : `${prefix}/`;
+  const id = productId.trim().toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 32);
+  return `${p}catalog-products/${id || 'unknown'}/cover`;
+}
+
 export function sanitizeCollectionKeyForS3(collectionKey: string): string {
   const raw = collectionKey.trim().toLowerCase();
   const safe = raw.replace(/[^a-z0-9._-]+/g, '_').replace(/^_+|_+$/g, '');

@@ -154,6 +154,20 @@
   border-radius: calc(2 * var(--u));
 }
 
+.psa-slab--plain {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #111113;
+}
+
+.psa-slab__plain-img {
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
+  object-position: center;
+}
+
 .psa-slab__card {
   position: absolute;
   top: calc(188.5 * var(--u));

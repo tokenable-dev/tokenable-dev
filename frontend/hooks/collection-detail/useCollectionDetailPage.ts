@@ -20,6 +20,7 @@ import { useCollectionDetailMobile } from "./useCollectionDetailMobile";
 import { useAppStore, selectWallet } from "@/store";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { buildCollectionDetailOrderBookProps } from "@/lib/marketplace/collectionDetailOrderBook";
+import { sharedListingVaultLabel } from "@/lib/marketplace/collectionListingModalHelpers";
 import { looksLikeCollectionKey } from "@/lib/ui/page-state-catalog";
 import { useAppChain } from "@/providers/AppChainProvider";
 
@@ -115,6 +116,11 @@ export function useCollectionDetailPage() {
     setSessionFillPoint,
   });
 
+  const asks = useMemo(
+    () => (data ? data.listings.filter((o) => o.side !== "bid") : []),
+    [data],
+  );
+
   const headline = useCollectionDetailHeadline({
     key: collectionKey,
     comp,
@@ -123,12 +129,9 @@ export function useCollectionDetailPage() {
     displayLabel: data?.collection?.displayLabel,
     hasCollection,
     activeGradeLabel: market.gradeAwareTierLabel,
+    vaultLabel:
+      comp.assetKind === "sealed_box" ? sharedListingVaultLabel(asks) : null,
   });
-
-  const asks = useMemo(
-    () => (data ? data.listings.filter((o) => o.side !== "bid") : []),
-    [data],
-  );
 
   const collectionBids = useMemo(() => {
     if (!data?.collectionBids) return [];

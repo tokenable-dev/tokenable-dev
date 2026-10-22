@@ -23,6 +23,7 @@ import {
 import {
   applyMarketsListingFilters,
   type MarketsGradeFilterId,
+  type MarketsKindFilterId,
 } from "@/lib/markets/marketsFilters";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { WatchlistCollectionGrid } from "./WatchlistCollectionGrid";
@@ -77,6 +78,7 @@ export function WatchlistPageContent({
   const [priceMin, setPriceMin] = useState("");
   const [priceMax, setPriceMax] = useState("");
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(new Set());
+  const [kindFilters, setKindFilters] = useState<Set<MarketsKindFilterId>>(new Set());
 
   const { items, isLoading, isError, snapshotByKey } = useWatchlistMarketSnapshots();
 
@@ -106,8 +108,17 @@ export function WatchlistPageContent({
       priceMin,
       priceMax,
       gradeFilters,
+      kindFilters,
     });
-  }, [sortedItems, snapshotByKey, categoryFilters, priceMin, priceMax, gradeFilters]);
+  }, [
+    sortedItems,
+    snapshotByKey,
+    categoryFilters,
+    priceMin,
+    priceMax,
+    gradeFilters,
+    kindFilters,
+  ]);
 
   if (!sessionActive) {
     return (
@@ -207,6 +218,16 @@ export function WatchlistPageContent({
             });
           }}
           onGradeFiltersChange={setGradeFilters}
+          kindFilters={kindFilters}
+          onKindToggle={(id) => {
+            setKindFilters((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            });
+          }}
+          onKindFiltersChange={setKindFilters}
         />
       ) : null}
 

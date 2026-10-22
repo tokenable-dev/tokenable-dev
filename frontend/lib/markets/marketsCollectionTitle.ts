@@ -28,6 +28,7 @@ type MarketsCollectionTitleCollection = Pick<
 >;
 
 export function gradeLabelFromComp(comp: CollectionComponents): string {
+  if (comp.assetKind === "sealed_box") return "";
   const company = (comp.gradingCompanyDisplay ?? comp.gradingCompany)?.trim();
   const score = comp.gradeScore?.trim();
   if (company && score) return toCardDisplayCase(`${company} ${score}`);
@@ -45,6 +46,22 @@ export function buildMarketsCollectionHeadlineParts(params: {
   comp: CollectionComponents;
 }): AssetDetailHeadlineParts {
   const { collection, comp } = params;
+
+  if (comp.assetKind === "sealed_box") {
+    const dl =
+      typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";
+    const name = comp.productName?.trim() || dl || null;
+    const setName = comp.consoleName?.trim() || null;
+    const year = yearFromComponents(comp);
+    return {
+      year: year != null ? String(year) : null,
+      setName,
+      cardNumber: null,
+      cardName: name,
+      variety: null,
+      language: null,
+    };
+  }
 
   const dl =
     typeof collection.displayLabel === "string" ? collection.displayLabel.trim() : "";

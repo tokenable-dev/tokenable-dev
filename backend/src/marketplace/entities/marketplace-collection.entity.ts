@@ -7,8 +7,9 @@ export type CollectionReviewStatus =
   | 'rejected';
 
 /**
- * graded 메타 기준 논리 컬렉션 — 첫 매도(ask) 등록 시 생성된다.
- * collection_key === `computeMarketBucketKey(components)` (풀 입찰 버킷과 동일 경계)
+ * 첫 매도(ask) 등록 시 생성된다.
+ * 그레이드 카드: collection_key === `computeMarketBucketKey(components)`.
+ * 밀봉 박스: collection_key === `sealedBoxCollectionKey(pricechartingProductId)`.
  *
  * Pricing / Cardhedger state: {@link CollectionMarketSnapshot} only.
  * PSA cert facet: `psa_cert_number` column (canonical cert for active listings in bucket).

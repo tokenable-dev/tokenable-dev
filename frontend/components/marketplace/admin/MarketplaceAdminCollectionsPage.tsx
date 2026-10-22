@@ -6,7 +6,7 @@
  */
 import { useState } from "react";
 import { useMarketplaceAdminCollections } from "@/hooks/marketplace-admin/useMarketplaceAdminCollections";
-import type { CollectionReviewStatusFilter } from "@/lib/core";
+import type { AdminCollectionKind, CollectionReviewStatusFilter } from "@/lib/core";
 import {
   ADMIN_BTN_LOAD_MORE,
   ADMIN_COUNT,
@@ -15,6 +15,11 @@ import {
 import { MarketplaceAdminCollectionRow } from "./MarketplaceAdminCollectionRow";
 import { MarketplaceAdminCreateCollectionPanel } from "./MarketplaceAdminCreateCollectionPanel";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
+
+const KINDS: { id: AdminCollectionKind; label: string }[] = [
+  { id: "card", label: "Graded cards" },
+  { id: "box", label: "Boxes" },
+];
 
 const FILTERS: {
   id: CollectionReviewStatusFilter;
@@ -30,6 +35,8 @@ export function MarketplaceAdminCollectionsPage() {
   const {
     reviewFilter,
     setReviewFilter,
+    kind,
+    setKind,
     counts,
     listQuery,
     items,
@@ -56,23 +63,51 @@ export function MarketplaceAdminCollectionsPage() {
   }
 
   const emptyCopy =
-    reviewFilter === "pending_review"
-      ? "No collections awaiting review."
-      : "No collections found for this filter.";
+    kind === "box"
+      ? "No box collections for this filter."
+      : reviewFilter === "pending_review"
+        ? "No collections awaiting review."
+        : "No collections found for this filter.";
 
   return (
     <>
       <MarketplaceAdminPageHeader
         title="Collections"
-        subtitle="Create catalog buckets from a PSA cert (no mint required), then review cover, names, prices, chart, and Cardhedger before Markets."
+        subtitle={
+          kind === "box"
+            ? "Sealed box collections, one per PriceCharting product. The cover is the admin representative image."
+            : "Create catalog buckets from a PSA cert (no mint required), then review cover, names, prices, chart, and Cardhedger before Markets."
+        }
       />
 
-      <MarketplaceAdminCreateCollectionPanel
-        onCreated={async () => {
-          setReviewFilter("pending_review");
-          await invalidateCollections();
-        }}
-      />
+      <div className="mb-4 flex flex-wrap gap-2">
+        {KINDS.map((item) => {
+          const active = kind === item.id;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => setKind(item.id)}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold transition ${
+                active
+                  ? "border-zinc-900 bg-zinc-900 text-white"
+                  : "border-zinc-300 bg-white text-zinc-800 hover:border-zinc-400"
+              }`}
+            >
+              {item.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {kind === "card" ? (
+        <MarketplaceAdminCreateCollectionPanel
+          onCreated={async () => {
+            setReviewFilter("pending_review");
+            await invalidateCollections();
+          }}
+        />
+      ) : null}
 
       <div className="mb-5 flex flex-wrap gap-2">
         {FILTERS.map((f) => {

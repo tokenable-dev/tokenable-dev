@@ -31,6 +31,7 @@ export function CollectionDetailMetricsStrip({
   marketCapUsd,
   psaPopulationMetrics,
   totalPopulation,
+  omitUnavailableMarket = false,
   embedInChart = false,
 }: {
   headlineTitle?: string | null;
@@ -52,6 +53,7 @@ export function CollectionDetailMetricsStrip({
   marketCapUsd: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
+  omitUnavailableMarket?: boolean;
   embedInChart?: boolean;
 }) {
   return (
@@ -77,6 +79,7 @@ export function CollectionDetailMetricsStrip({
         formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}
         psaPopulationMetrics={psaPopulationMetrics}
         totalPopulation={totalPopulation}
+        omitUnavailableMarket={omitUnavailableMarket}
         embedInChart={embedInChart}
       />
     </div>

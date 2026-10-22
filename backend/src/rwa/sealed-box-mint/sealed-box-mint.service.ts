@@ -43,6 +43,12 @@ type CatalogProduct = {
   product_name: string;
   console_name: string;
   upc: string | null;
+  cover_image_url: string | null;
+};
+
+type MintImage = {
+  buffer: Buffer;
+  mimetype: string;
 };
 
 /**
@@ -57,6 +63,12 @@ function metadataCidFromTokenUri(uri: string): string | null {
   const rest = uri.trim().replace(/^ipfs:\/\//, '').replace(/^ipfs\//, '');
   const cid = rest.split('/')[0]?.trim();
   return cid || null;
+}
+
+function imageExt(mime: string): string {
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  return 'jpg';
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -81,7 +93,7 @@ function exceptionText(err: unknown): string {
 }
 
 /** Same HTTP mapping as the admin slab upload. */
-export function sealedBoxStorageHttpException(err: unknown): HttpException | null {
+function sealedBoxStorageHttpException(err: unknown): HttpException | null {
   const msg = err instanceof Error ? err.message : String(err);
   if (msg === 'CATALOG_COVER_S3_NOT_CONFIGURED') {
     return new ServiceUnavailableException('Catalog cover S3 is not configured');
@@ -123,7 +135,19 @@ export class SealedBoxMintService {
     dto: MintSealedBoxDto,
     file: Express.Multer.File | undefined,
   ): Promise<SealedBoxMintResult> {
-    if (!file?.buffer?.length) {
+    const product = await this.requireProduct(dto.pricechartingProductId);
+    const existing = await this.mints.findOne({
+      where: { userId: user.id, clientRequestId: dto.clientRequestId },
+    });
+    const alreadySubmitted = Boolean(
+      existing &&
+        (existing.status === 'minted' || existing.tokenId || existing.mintTxHash),
+    );
+    if (
+      !alreadySubmitted &&
+      !file?.buffer?.length &&
+      !product.cover_image_url?.trim()
+    ) {
       throw new BadRequestException('Image is required');
     }
 
@@ -135,7 +159,6 @@ export class SealedBoxMintService {
       chainId,
     );
 
-    const product = await this.requireProduct(dto.pricechartingProductId);
     const row = await this.claimRow({
       userId: user.id,
       partnerId: partner.partnerId,
@@ -160,26 +183,21 @@ export class SealedBoxMintService {
     }
 
     try {
+      const image = await this.resolveMintImage(file, product);
       const photo = await this.slabs.ingestBoxPhoto({
         chainId,
         boxId: row.id,
-        buffer: file.buffer,
-        contentType: file.mimetype,
+        buffer: image.buffer,
+        contentType: image.mimetype,
       });
       row.photoObjectKey = photo.objectKey;
       row.displayImageUrl = photo.publicUrl;
       await this.mints.save(row);
 
-      const imageExt =
-        file.mimetype === 'image/png'
-          ? 'png'
-          : file.mimetype === 'image/webp'
-            ? 'webp'
-            : 'jpg';
       const imageCid = await this.pinata.uploadBuffer(
-        file.buffer,
-        `sealed-box-${row.id}.${imageExt}`,
-        file.mimetype || 'image/jpeg',
+        image.buffer,
+        `sealed-box-${row.id}.${imageExt(image.mimetype)}`,
+        image.mimetype || 'image/jpeg',
       );
       const metadata = this.metadataFor(row, this.pinata.ipfsUri(imageCid));
       const metadataCid = await this.pinata.uploadMetadata(metadata);
@@ -305,9 +323,42 @@ export class SealedBoxMintService {
       .execute();
   }
 
+  /**
+   * Partner upload wins. Otherwise copy the admin representative image into this
+   * mint's own S3 photo so a later cover change does not rewrite the portfolio.
+   */
+  private async resolveMintImage(
+    file: Express.Multer.File | undefined,
+    product: CatalogProduct,
+  ): Promise<MintImage> {
+    if (file?.buffer?.length) {
+      return { buffer: file.buffer, mimetype: file.mimetype || 'image/jpeg' };
+    }
+    const cover = product.cover_image_url?.trim() ?? '';
+    let parsed: URL | null = null;
+    try {
+      parsed = cover ? new URL(cover) : null;
+    } catch {
+      parsed = null;
+    }
+    if (!parsed || (parsed.protocol !== 'https:' && parsed.protocol !== 'http:')) {
+      throw new BadRequestException('Image is required');
+    }
+    try {
+      const fetched = await this.pinata.fetchImageBufferFromUrl(cover);
+      if (!fetched.buffer.length) {
+        throw new BadRequestException('Representative image could not be loaded');
+      }
+      return { buffer: fetched.buffer, mimetype: fetched.mimeType || 'image/jpeg' };
+    } catch (err) {
+      if (err instanceof BadRequestException) throw err;
+      throw new BadRequestException('Representative image could not be loaded');
+    }
+  }
+
   private async requireProduct(id: string): Promise<CatalogProduct> {
     const rows = await this.dataSource.query<CatalogProduct[]>(
-      `SELECT id, product_name, console_name, upc
+      `SELECT id, product_name, console_name, upc, cover_image_url
        FROM pricecharting_products WHERE id = $1 LIMIT 1`,
       [id],
     );

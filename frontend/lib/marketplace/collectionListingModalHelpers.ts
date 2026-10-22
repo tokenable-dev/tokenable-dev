@@ -129,6 +129,20 @@ export function listingVaultBadge(
   return { label: "—", tone: "psa", title: addr };
 }
 
+/** One Details vault row when every active ask shares a custody label. */
+export function sharedListingVaultLabel(
+  listings: Parameters<typeof listingVaultBadge>[0][],
+): string | null {
+  const labels = new Set<string>();
+  for (const listing of listings) {
+    const label = listingVaultBadge(listing).label.trim();
+    if (!label || label === "—") continue;
+    labels.add(label);
+  }
+  if (labels.size !== 1) return null;
+  return [...labels][0] ?? null;
+}
+
 function normalizeListingImageUrl(raw: string): string {
   const t = raw.trim();
   return t.startsWith("//") ? `https:${t}` : t;

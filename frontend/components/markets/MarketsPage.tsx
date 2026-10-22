@@ -35,6 +35,7 @@ import {
   collectMarketsSetFacetOptions,
   collectionVaultKindsFromAsks,
   type MarketsGradeFilterId,
+  type MarketsKindFilterId,
   type MarketsVaultFilterId,
 } from "@/lib/markets/marketsFilters";
 import {
@@ -67,6 +68,7 @@ function filtersFromState(input: {
   priceMin: string;
   priceMax: string;
   gradeFilters: Set<MarketsGradeFilterId>;
+  kindFilters: Set<MarketsKindFilterId>;
   vaultFilters: Set<MarketsVaultFilterId>;
   characters: string[];
   series: string[];
@@ -80,6 +82,7 @@ function filtersFromState(input: {
     priceMin: input.priceMin,
     priceMax: input.priceMax,
     grades: [...input.gradeFilters],
+    kinds: [...input.kindFilters],
     vaults: [...input.vaultFilters],
     characters: input.characters,
     series: input.series,
@@ -111,6 +114,9 @@ export default function MarketsPage() {
   const [gradeFilters, setGradeFilters] = useState<Set<MarketsGradeFilterId>>(
     () => new Set(urlFilters.grades),
   );
+  const [kindFilters, setKindFilters] = useState<Set<MarketsKindFilterId>>(
+    () => new Set(urlFilters.kinds),
+  );
   const [vaultFilters, setVaultFilters] = useState<Set<MarketsVaultFilterId>>(
     () => new Set(urlFilters.vaults),
   );
@@ -130,6 +136,7 @@ export default function MarketsPage() {
     setPriceMin(urlFilters.priceMin);
     setPriceMax(urlFilters.priceMax);
     setGradeFilters(new Set(urlFilters.grades));
+    setKindFilters(new Set(urlFilters.kinds));
     setVaultFilters(new Set(urlFilters.vaults));
     setCharacters(urlFilters.characters);
     setSeries(urlFilters.series);
@@ -150,6 +157,7 @@ export default function MarketsPage() {
       priceMin,
       priceMax,
       gradeFilters,
+      kindFilters,
       vaultFilters,
       characters,
       series,
@@ -173,6 +181,7 @@ export default function MarketsPage() {
     priceMin,
     priceMax,
     gradeFilters,
+    kindFilters,
     vaultFilters,
     characters,
     series,
@@ -197,6 +206,15 @@ export default function MarketsPage() {
       const next = new Set(prev);
       if (next.has(grade)) next.delete(grade);
       else next.add(grade);
+      return next;
+    });
+  }, []);
+
+  const toggleKindFilter = useCallback((id: MarketsKindFilterId) => {
+    setKindFilters((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   }, []);
@@ -337,6 +355,7 @@ export default function MarketsPage() {
       priceMin,
       priceMax,
       gradeFilters,
+      kindFilters,
       vaultFilters,
       vaultKindsByKey,
       characters,
@@ -352,6 +371,7 @@ export default function MarketsPage() {
     priceMin,
     priceMax,
     gradeFilters,
+    kindFilters,
     vaultFilters,
     vaultKindsByKey,
     characters,
@@ -471,6 +491,9 @@ export default function MarketsPage() {
           gradeFilters={gradeFilters}
           onGradeToggle={toggleGradeFilter}
           onGradeFiltersChange={setGradeFilters}
+          kindFilters={kindFilters}
+          onKindToggle={toggleKindFilter}
+          onKindFiltersChange={setKindFilters}
           vaultFilters={vaultFilters}
           onVaultToggle={toggleVaultFilter}
           onVaultFiltersChange={setVaultFilters}

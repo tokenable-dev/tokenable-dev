@@ -67,6 +67,7 @@ import { MarketplacePartner } from './marketplace/entities/marketplace-partner.e
 import { MarketplacePartnerAddress } from './marketplace/entities/marketplace-partner-address.entity';
 import { PartnerVaultMintJob } from './rwa/entities/partner-vault-mint-job.entity';
 import { PartnerVaultMintJobItem } from './rwa/entities/partner-vault-mint-job-item.entity';
+import { SealedBoxMint } from './rwa/entities/sealed-box-mint.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 import { SelfVaultSettlement } from './marketplace/entities/self-vault-settlement.entity';
 import { VaultModule } from './vault/vault.module';
@@ -176,6 +177,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           VaultPsaVaultedReview,
           PartnerVaultMintJob,
           PartnerVaultMintJobItem,
+          SealedBoxMint,
           MarketplaceNotification,
           SelfVaultSettlement,
         ],

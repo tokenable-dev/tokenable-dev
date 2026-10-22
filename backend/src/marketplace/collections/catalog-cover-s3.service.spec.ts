@@ -6,6 +6,7 @@ import {
   normalizeCatalogCoverPublicUrl,
   resolveCatalogCoverMime,
   sanitizeCollectionKeyForS3,
+  catalogProductCoverObjectKey,
   stableCatalogCoverObjectKey,
 } from './catalog-cover-s3.service';
 
@@ -15,6 +16,15 @@ describe('catalog-cover-s3 helpers', () => {
       'mock_markets_listing-3',
     );
     expect(sanitizeCollectionKeyForS3('  ABC  ')).toBe('abc');
+  });
+
+  it('builds a stable catalog-product cover key', () => {
+    expect(catalogProductCoverObjectKey('covers/', '5490667')).toBe(
+      'covers/catalog-products/5490667/cover',
+    );
+    expect(catalogProductCoverObjectKey('dev/covers', 'Ab C')).toBe(
+      'dev/covers/catalog-products/abc/cover',
+    );
   });
 
   it('builds a stable per-collection object key (no uuid)', () => {

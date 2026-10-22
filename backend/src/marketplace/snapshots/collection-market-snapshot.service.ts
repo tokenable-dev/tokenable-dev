@@ -21,7 +21,9 @@ import { MARKET_NM_HISTORY_MAX_DAYS } from '../utils/market-grade-strip.util';
 import { marketHistoryTierFromComponents } from '../utils/market-history-tier.util';
 import {
   buildMaterializedSnapshotPayload,
+  buildSealedBoxMaterializedSnapshotPayload,
   isSnapshotRowStale,
+  pricechartingLooseHistoryToUsdPoints,
 } from '../utils/market-snapshot-normalize.util';
 import type {
   MaterializedMarketSnapshotPayload,
@@ -29,6 +31,7 @@ import type {
 } from '../utils/market-snapshot.types';
 import { MARKET_SNAPSHOT_SOURCE_VERSION } from '../utils/market-snapshot.types';
 import { psaCertNumberFromCollectionRow } from '../utils/collection-row.util';
+import { isSealedBoxCollectionComponents } from '../utils/bucket-key.util';
 
 const PRICE_INDEX_NS = 'collection-market-snapshots:price-index';
 const PRICE_INDEX_KEY = 'all';
@@ -221,14 +224,18 @@ export class CollectionMarketSnapshotService {
     key: string,
     reason: SnapshotRefreshReason,
   ): Promise<CollectionMarketSnapshot | null> {
-    if (this.cardhedger?.wouldRejectDueToCircuit()) {
-      return this.findByKey(key);
-    }
     const started = Date.now();
     try {
+      const colEarly = await this.collectionEnrichment.findOne(key);
+      if (isSealedBoxCollectionComponents(colEarly?.components)) {
+        return this.refreshSealedBoxSnapshot(key, colEarly!, reason, started);
+      }
+      if (this.cardhedger?.wouldRejectDueToCircuit()) {
+        return this.findByKey(key);
+      }
       // Mint-only PSA policy: never call PSA Public API during snapshot refresh.
       void reason;
-      if (await this.collectionEnrichment.findOne(key)) {
+      if (colEarly) {
         await this.collectionEnrichment.ensureMintParallelVarietyFromListings(
           key,
         );
@@ -338,6 +345,64 @@ export class CollectionMarketSnapshotService {
       await this.markRefreshError(key, msg);
       return this.findByKey(key);
     }
+  }
+
+  /** PriceCharting loose history → snapshot. No Cardhedger / circuit gate. */
+  private async refreshSealedBoxSnapshot(
+    key: string,
+    col: { components: Record<string, unknown> | null },
+    reason: SnapshotRefreshReason,
+    started: number,
+  ): Promise<CollectionMarketSnapshot | null> {
+    const productId = String(col.components?.pricechartingProductId ?? '').trim();
+    const looseCents = col.components?.loosePriceCents;
+    const spotFromComponents =
+      typeof looseCents === 'number' && Number.isFinite(looseCents) && looseCents > 0
+        ? looseCents / 100
+        : null;
+    const genre =
+      typeof col.components?.genre === 'string' ? col.components.genre.trim() : '';
+
+    let historyPoints: { t: number; v: number }[] = [];
+    if (/^\d+$/.test(productId)) {
+      const rows = await this.snapshotRepo.manager.query<
+        { observed_on: string; loose_price_cents: number | null }[]
+      >(
+        `SELECT to_char(observed_on, 'YYYY-MM-DD') AS observed_on,
+                NULLIF(prices->>'loose_price_cents', '')::int AS loose_price_cents
+         FROM pricecharting_price_history
+         WHERE product_id = $1
+         ORDER BY observed_on ASC`,
+        [productId],
+      );
+      historyPoints = pricechartingLooseHistoryToUsdPoints(
+        rows.map((row) => ({
+          observedOn: row.observed_on,
+          loosePriceCents:
+            row.loose_price_cents == null ? null : Number(row.loose_price_cents),
+        })),
+      );
+    }
+
+    const payload = buildSealedBoxMaterializedSnapshotPayload({
+      collectionKey: key,
+      historyPoints,
+      spotUsd: spotFromComponents,
+      categoryLabel: genre || null,
+    });
+    const row = await this.upsertPayload(payload);
+    this.logger.log(
+      JSON.stringify({
+        msg: 'market_snapshot_refreshed',
+        collectionKey: key,
+        reason,
+        matched: false,
+        spotPriceBasis: payload.spotPriceBasis,
+        historyPoints: historyPoints.length,
+        durationMs: Date.now() - started,
+      }),
+    );
+    return row;
   }
 
   private async upsertPayload(

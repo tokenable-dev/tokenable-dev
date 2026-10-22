@@ -67,12 +67,13 @@ Independent of `collection_market_snapshots`. Admin upload upserts by PriceChart
 | Register URL | `POST /api/marketplace/admin/pricecharting/sources` `{ label, url }` |
 | Remove URL | `DELETE /api/marketplace/admin/pricecharting/sources/:id` |
 | Sync one guide | `POST /api/marketplace/admin/pricecharting/sync` `{ key }` — `video-games`, `pokemon-cards`, `magic-cards`, `yugioh-cards`, `one-piece-cards` |
-| Table | `pricecharting_products` (prices as integer cents; PSA 10 = `manual_only_price_cents`) |
+| Table | `pricecharting_products` (prices as integer cents; PSA 10 = `manual_only_price_cents`). `cover_image_url` is an admin-set representative image and is not written by CSV upsert. |
 | Saved URLs | `pricecharting_catalog_sources` (not shown in the admin UI) |
 | Price history | `pricecharting_price_history` (`product_id`, Seoul `observed_on`, jsonb cents). Every import writes that date, even when the cents match the previous day. The same date updates that one row. |
 | Series | `GET /api/marketplace/admin/pricecharting/products/:id/prices` returns `{ productId, points: [{ observedOn, prices }] }` oldest first. Cents, not dollars. |
-| Find product | `GET /api/marketplace/admin/pricecharting/products?q=` returns at most 20 catalog rows (`id`, `productName`, `consoleName`, `genre`, `releaseDate`, `upc`, `loosePriceCents`). Words must each appear in the product name or set name. A numeric `q` looks up that product id. Does not call PriceCharting. |
-| Manual day | `POST /api/marketplace/admin/pricecharting/products/:id/prices` `{ observedOn, prices }` writes that Seoul date on `pricecharting_price_history` only. `prices` values are dollars keyed by cent column names (`loose_price_cents`, `manual_only_price_cents`, …). Blank columns are omitted and keep the cents already stored for that date. The current `pricecharting_products` row is not changed. The product id must already exist. |
+| Find product | `GET /api/marketplace/admin/pricecharting/products?q=` returns at most 20 catalog rows (`id`, `productName`, `consoleName`, `genre`, `releaseDate`, `upc`, `loosePriceCents`, `coverImageUrl`). Words must each appear in the product name or set name. A numeric `q` looks up that product id. Does not call PriceCharting. |
+| Representative image | `POST /api/marketplace/admin/pricecharting/products/:id/cover` multipart `image` (JPEG, PNG, or WebP). Admin session. Writes S3 and `pricecharting_products.cover_image_url`, and copies that URL onto any sealed-box `marketplace_collections` row for the same product. Collection detail uses it. A partner mint with no uploaded photo copies these bytes onto that token's own S3 photo (`rwa_tokens.display_image_url`). A later cover change does not rewrite tokens already minted. |
+| Manual day | `POST /api/marketplace/admin/pricecharting/products/:id/prices` `{ observedOn, prices, syncCurrent? }` writes that Seoul date on `pricecharting_price_history`. `prices` values are dollars keyed by cent column names (`loose_price_cents`, `manual_only_price_cents`, …). Blank columns are omitted and keep the cents already stored for that date. Default: catalog row unchanged. With `syncCurrent: true` and a `loose_price_cents` value: also sets `pricecharting_products.loose_price_cents` and sealed-box `marketplace_collections.components.loosePriceCents`, then enqueues snapshot refresh. Used from Admin Collections box rows. The product id must already exist. |
 | Audit | `pricecharting_import_runs` |
 
 Pokemon / One Piece guide files and sports **set** CSVs all land in the same table. Re-uploading the same id updates prices. Comma CSV and tab-separated files are both accepted (max 50 MB).
@@ -86,25 +87,16 @@ After the database commit succeeds, production (`NODE_ENV=production`) uploads t
 
 The date is the Seoul calendar day. The same guide or set on the same day overwrites that object. A failed import does not upload. If the commit succeeds and the put still fails after three tries, the import stays committed, `pricecharting_import_runs.error_message` records it, and the admin response includes `imported: true` and `archived: false`. Local and any non-production process does not write this bucket. A local download command is a later phase. The bucket stays private: no public ACL and no CloudFront URL. Reuse `AWS_REGION` and the default AWS credential chain (instance role or the existing keys). IAM needs `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` on `arn:aws:s3:::tokenable-pricecharting-raw/pricecharting/raw/*`, plus `s3:ListBucket` on the bucket limited to that prefix. Cover, avatar, and slab permissions stay as they are.
 
-User-facing graded-card prices still read `collection_market_snapshots`. Catalog listings are a separate table.
+User-facing graded-card prices still read `collection_market_snapshots`.
 
-## Catalog listings
+## Catalog search
 
-Signed-in sellers search `pricecharting_products` locally. These routes do not call PriceCharting.
+Signed-in users search `pricecharting_products` locally. These routes do not call PriceCharting. Partner sealed-box mint uses the text and UPC routes. A minted box is an RWA in the owner portfolio, not a catalog listing page.
 
 | | |
 |--|--|
 | One match | `GET /api/pricecharting/catalog/product` — exactly one of `id`, `upc`, `q`. Several matches return `{ match: null, ambiguous: true }`. |
-| Text search | `GET /api/pricecharting/catalog/products?q=` — at most 20, ordered by product id. Tokens are whole words in `product_name` or `console_name`. |
-| UPC | `GET /api/pricecharting/catalog/upc?upc=` — exact string match, leading zeros kept, at most 20. |
-| Draft | `POST /api/pricecharting/listings` `{ pricechartingProductId, clientRequestId }` |
-| Photo | `POST /api/pricecharting/listings/:id/photos` — object key `{prefix}pricecharting-listings/{listingId}/{photoId}` on the existing cover bucket. |
-| Submit | `POST /api/pricecharting/listings/:id/submit` `{ askPriceCents, quantity, sealedStatus, conditionNote? }` |
-| Mine / cancel | `GET /api/pricecharting/listings/mine`, `POST /api/pricecharting/listings/:id/cancel` |
-| Public | `GET /api/pricecharting/listings`, `GET /api/pricecharting/listings/:id` |
-
-`GET /api/pricecharting/listings/:id` adds the stored catalog row: identity fields, every non-null cent column, and `loosePriceHistory` from `pricecharting_price_history`. The list route stays the short listing shape.
-
-The reference price is `loose_price_cents` on the catalog row. The seller's asking price is `ask_price_cents` on the listing. There is no checkout.
+| Text search | `GET /api/pricecharting/catalog/products?q=` — partner box mint. At most 20, ordered by product id. Tokens are whole words in `product_name` or `console_name`, and the row must be a sealed box. `genre = 'Sealed Product'` whose product name is a box, bundle, display, chest, or premium collection, plus the same names filed under a card genre. Raw cards, graded cards, packs, and video games are excluded. Admin product search is a different route and still returns every genre. |
+| UPC | `GET /api/pricecharting/catalog/upc?upc=` — partner box mint. Exact string match, leading zeros kept, at most 20, same box rule as text search. |
 
 Purge stored rows if the subscription ends.

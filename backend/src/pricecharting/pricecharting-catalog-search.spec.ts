@@ -1,6 +1,7 @@
 import type { DataSource } from 'typeorm';
 import {
   PricechartingCatalogSearch,
+  catalogProductIsBox,
   wordPattern,
 } from './pricecharting-catalog-search';
 
@@ -35,10 +36,18 @@ const OTHER: Row = {
 };
 
 function matches(row: Row, sql: string, params: unknown[]): boolean {
+  if (sql.includes("genre = 'Sealed Product'") && !catalogProductIsBox({
+    genre: row.genre,
+    productName: row.product_name,
+  })) {
+    return false;
+  }
   if (sql.includes('WHERE id = $1')) return row.id === params[0];
   if (sql.includes('WHERE upc = $1')) return row.upc === params[0];
   if (!sql.includes('~*')) return false;
-  return params.every((param) => {
+  const tokenParams = params.filter((param) => String(param).includes('\\m'));
+  if (tokenParams.length === 0) return true;
+  return tokenParams.every((param) => {
     const token = String(param).replace(/^\\m/, '').replace(/\\M$/, '');
     const re = new RegExp(`\\b${token}\\b`, 'i');
     return re.test(`${row.product_name} ${row.console_name}`);
@@ -114,5 +123,65 @@ describe('pricecharting local catalog search', () => {
   it('treats box and booster as different words', () => {
     expect(wordPattern('box')).toBe('\\mbox\\M');
     expect(wordPattern('100%')).toBe('\\m100%\\M');
+  });
+
+  it('keeps sealed boxes that do not say box, and drops cards', () => {
+    expect(catalogProductIsBox({
+      genre: 'Sealed Product',
+      productName: 'Booster Bundle',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Sealed Product',
+      productName: 'Booster Box',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Pokemon Card',
+      productName: 'Mew V Box',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Pokemon Card',
+      productName: 'Blastoise GX Premium Collection',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: '',
+      productName: 'Blaster Box',
+    })).toBe(true);
+    expect(catalogProductIsBox({
+      genre: 'Sealed Product',
+      productName: 'Booster Pack',
+    })).toBe(false);
+    expect(catalogProductIsBox({
+      genre: 'Pokemon Card',
+      productName: 'Secret Box #92',
+    })).toBe(false);
+    expect(catalogProductIsBox({
+      genre: 'Magic Card',
+      productName: "Teferi's Puzzle Box",
+    })).toBe(false);
+    expect(catalogProductIsBox({
+      genre: 'Action & Adventure',
+      productName: 'Zelda Musou [Premium Box]',
+    })).toBe(false);
+  });
+
+  it('partner box search hides raw cards', async () => {
+    const card: Row = {
+      ...OTHER,
+      id: '200',
+      product_name: 'Charizard',
+      console_name: 'Base',
+      genre: 'Pokemon Card',
+    };
+    const bundle: Row = {
+      ...BOX,
+      id: '201',
+      product_name: 'Booster Bundle',
+      console_name: 'Pokemon Base',
+      genre: 'Sealed Product',
+    };
+    const { dataSource } = database([card, bundle]);
+    const search = new PricechartingCatalogSearch(dataSource);
+    const hits = await search.search('Base', 'id', true);
+    expect(hits.map((hit) => hit.id)).toEqual(['201']);
   });
 });

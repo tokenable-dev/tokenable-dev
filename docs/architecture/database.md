@@ -50,7 +50,7 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `marketplace_collections` | Graded-metadata bucket catalog. **Composite PK: `(collection_key, token_contract)`** — one review/cover lifecycle per RWA chain address. Snapshot PK stays `collection_key`-only (shared pricing across chains). | `marketplace/entities/marketplace-collection.entity.ts` |
+| `marketplace_collections` | Graded-metadata bucket catalog, plus sealed-box rows keyed by PriceCharting product id (`components.assetKind = sealed_box`). **Composite PK: `(collection_key, token_contract)`** — one review/cover lifecycle per RWA chain address. Snapshot PK stays `collection_key`-only (shared pricing across chains). | `marketplace/entities/marketplace-collection.entity.ts` |
 | `rwa_tokens` | On-chain mint registry (contract + tokenId → cert, vault cycle, IPFS, `settlement_policy`, `vault_partner_id`, `owner_wallet`) | `marketplace/entities/rwa-token.entity.ts` |
 | `rwa_owner_index_cursors` | Transfer-log backfill cursor per RWA contract | `blockchain/entities/rwa-owner-index-cursor.entity.ts` |
 | `collection_market_snapshots` | Materialized Cardhedger market state per bucket | `marketplace/entities/collection-market-snapshot.entity.ts` |
@@ -76,7 +76,7 @@
 | `marketplace_partners` | Company wallets for Self vault (+ optional encrypted PK for Seaport) | `marketplace/entities/marketplace-partner.entity.ts` |
 | `marketplace_partner_addresses` | Partner Self-vault Origin address (FedEx Rate ship-from; 1:1) | `marketplace/entities/marketplace-partner-address.entity.ts` |
 | `partner_vault_mint_jobs` | Sell-flow server mint jobs (user → partner vault) | `rwa/entities/partner-vault-mint-job.entity.ts` |
-| `sealed_box_mints` | Partner sealed-box mint intent (product, S3 photo, token). Not a vault cycle | `rwa/entities/sealed-box-mint.entity.ts` |
+| `sealed_box_mints` | Partner sealed-box mint intent. `display_image_url` is that partner's S3 photo (also copied to `rwa_tokens`). Not the catalog cover | `rwa/entities/sealed-box-mint.entity.ts` |
 | `partner_vault_mint_job_items` | Per-cert rows for partner vault mint jobs | `rwa/entities/partner-vault-mint-job-item.entity.ts` |
 | `cardhedger_price_subscriptions` | Price push registrations | `cardhedger/entities/cardhedger-price-subscription.entity.ts` |
 | `cardhedger_price_delta_checkpoints` | Singleton checkpoint for delta polling | `cardhedger/entities/cardhedger-price-delta-checkpoint.entity.ts` |
@@ -266,8 +266,9 @@ Domain-grouped DDL for **fresh bootstrap only** — no incremental migration cha
 | 071 | `071_pricecharting.sql` | `pricecharting_products`, `pricecharting_import_runs` (admin CSV catalog; cents; not market snapshots) |
 | 072 | `072_pricecharting_sources.sql` | `pricecharting_catalog_sources` (admin CSV URLs; token not stored; no cron) |
 | 073 | `073_pricecharting_price_history.sql` | `pricecharting_price_history` (one price set per product per Seoul import date, including unchanged days) |
-| 074 | `074_pricecharting_listings.sql` | `pricecharting_listings`, `pricecharting_listing_photos` (seller catalog asks; not `orders`) |
+| 074 | `074_pricecharting_listings.sql` | `pricecharting_listings`, `pricecharting_listing_photos` (unused seller-ask tables; screens and listing routes removed; not `orders`) |
 | 075 | `075_sealed_box_mints.sql` | `sealed_box_mints` (partner sealed-box mint intent; not a vault cycle or collection) |
+| 076 | `076_pricecharting_product_cover.sql` | `pricecharting_products.cover_image_url` (admin representative image; CSV upsert does not write it) |
 | 900 | `900_triggers.sql` | `updated_at` auto-triggers |
 
 **Maintenance (existing DBs — not in bootstrap):**

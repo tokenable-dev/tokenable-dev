@@ -534,8 +534,8 @@ export function PortfolioCertificateView({
                 </span>
               </div>
             ) : null}
-            {holdOnly ? null : (
             <div className="foot-actions">
+              {holdOnly ? null : (
               <button
                 type="button"
                 className="btn btn--subtle"
@@ -557,6 +557,7 @@ export function PortfolioCertificateView({
               >
                 {d.redeemBadge ? "Redemption status" : "Redeem"}
               </button>
+              )}
               <button
                 type="button"
                 className="btn btn--primary"
@@ -571,7 +572,6 @@ export function PortfolioCertificateView({
                 {d.listed ? "Edit price" : "Sell / List"}
               </button>
             </div>
-            )}
           </div>
         </div>
       </div>

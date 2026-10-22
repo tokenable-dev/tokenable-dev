@@ -38,7 +38,7 @@ export class SealedBoxMintController {
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['pricechartingProductId', 'clientRequestId', 'image'],
+      required: ['pricechartingProductId', 'clientRequestId'],
       properties: {
         pricechartingProductId: { type: 'string' },
         clientRequestId: { type: 'string', format: 'uuid' },
@@ -49,7 +49,7 @@ export class SealedBoxMintController {
   })
   @ApiOperation({
     summary:
-      'Mint one sealed box to the partner wallet (S3 + IPFS, then mint(to). No collection.)',
+      'Mint one sealed box to the partner wallet (S3 + IPFS, then mint(to). No collection.). Image is optional when the product already has an admin representative image.',
   })
   @UseInterceptors(
     FileInterceptor('image', {

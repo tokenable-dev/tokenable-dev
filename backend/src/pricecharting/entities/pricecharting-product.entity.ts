@@ -122,6 +122,13 @@ export class PricechartingProduct {
   @Column({ name: 'release_date', type: 'date', nullable: true })
   releaseDate: string | null;
 
+  /**
+   * Admin-set representative image on S3. CSV upsert does not write this column.
+   * Collection detail uses this. A partner's own photo stays on the minted token.
+   */
+  @Column({ name: 'cover_image_url', type: 'text', nullable: true })
+  coverImageUrl: string | null;
+
   @Column({ name: 'source_file', type: 'varchar', length: 256, default: '' })
   sourceFile: string;
 

@@ -373,6 +373,11 @@ export function CollectionDetailStatMain({
   psaPopulationMetrics,
   totalPopulation,
   velocityPct,
+  /**
+   * Sealed-box collections have no PSA pop, market cap, or Cardhedger last sale.
+   * Hide those cells. A real platform price still renders when `priceUsd` is set.
+   */
+  omitUnavailableMarket = false,
   /** When true, hero sits inside `#chart-card` (no own notch chrome). */
   embedInChart = false,
 }: {
@@ -396,6 +401,7 @@ export function CollectionDetailStatMain({
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
   velocityPct?: number | null;
+  omitUnavailableMarket?: boolean;
   embedInChart?: boolean;
 }) {
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -409,7 +415,12 @@ export function CollectionDetailStatMain({
       : null;
   const changeTone = changeTag?.tone ?? null;
 
-  const statCells = resolveHeroStatCells({
+  const showPrice =
+    !omitUnavailableMarket ||
+    (priceUsd != null && Number.isFinite(priceUsd));
+  const statCells = omitUnavailableMarket
+    ? []
+    : resolveHeroStatCells({
     formatMarketCap,
     marketCapUsd,
     tradeVolumeUsdc,
@@ -434,7 +445,9 @@ export function CollectionDetailStatMain({
             className="cd-hero-bar__thumb-btn"
             id="hero-img"
             onClick={() => setLightboxOpen(true)}
-            aria-label="View card image"
+            aria-label={
+              omitUnavailableMarket ? "View box image" : "View card image"
+            }
           >
             <CollectionPsaSlabFrame
               imageUrl={coverSrc}
@@ -456,7 +469,7 @@ export function CollectionDetailStatMain({
           <div className="cd-hero-bar__copy" id="hero-copy">
           {title ? (
             <div className="cd-hero-bar__head" id="hero-head">
-              {headlineParts ? (
+              {headlineParts && !omitUnavailableMarket ? (
                 <CollectionHeroTitle
                   parts={headlineParts}
                   grade={gradeLabel}
@@ -472,7 +485,7 @@ export function CollectionDetailStatMain({
                   {title}
                 </h1>
               )}
-              {resolveCardDisplayGrade(gradeLabel) ? (
+              {!omitUnavailableMarket && resolveCardDisplayGrade(gradeLabel) ? (
                 <div className="cd-hero-bar__grade" id="hero-grade">
                   {resolveCardDisplayGrade(gradeLabel)}
                 </div>
@@ -487,6 +500,7 @@ export function CollectionDetailStatMain({
             </div>
           ) : null}
 
+          {showPrice ? (
           <div className="cd-hero-bar__actions">
             <div className="cd-hero-bar__metrics hero-actionsrow">
               <div className="cd-hero-bar__priceblock" id="hero-priceblock">
@@ -547,8 +561,10 @@ export function CollectionDetailStatMain({
               </div>
             </div>
           </div>
+          ) : null}
           </div>
 
+          {statCells.length > 0 ? (
           <div className="cd-hero-stats" id="hero-stats">
             <div className="cd-hero-stats__grid" id="hero-stats-grid">
               <HeroStatsCells
@@ -558,6 +574,7 @@ export function CollectionDetailStatMain({
               />
             </div>
           </div>
+          ) : null}
         </div>
       </div>
 

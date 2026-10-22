@@ -17,12 +17,14 @@ export type ExternalMarketPriceSource =
   | "cardhedger_fmv"
   | "cardhedger_estimate"
   | "cardhedger_comps"
-  | "psa_estimate";
+  | "psa_estimate"
+  | "pricecharting";
 
 export function externalMarketPriceSourceLabel(
   source: ExternalMarketPriceSource | null | undefined,
 ): string | null {
   if (source === "psa_estimate") return "PSA Estimate";
+  if (source === "pricecharting") return "PriceCharting";
   if (source === "cardhedger_fmv") return "Market FMV";
   if (source === "cardhedger_estimate") return "Market estimate";
   if (source === "cardhedger_comps") return "Recent sales";
@@ -108,6 +110,13 @@ export function resolveExternalMarketUsd(params: {
     params.marketPreview?.matched && params.marketPreview.card
       ? params.marketPreview
       : null;
+  if (params.spotPriceBasis === "pricecharting") {
+    const raw = finitePositive(params.gradePrices?.raw);
+    if (raw != null) {
+      return { usd: raw, source: "pricecharting" };
+    }
+  }
+
   const catalogSpotUsd = catalogSpotUsdFromMarketPreview(preview, tier);
   if (catalogSpotUsd != null) {
     const explicitSource = priceSourceFromPreview(params.marketPreview);

@@ -38,6 +38,7 @@ import { CollectionMarketService } from './collection-market.service';
 import { CollectionService } from './collection.service';
 import { MintEventListenerService } from './mint-event-listener.service';
 import { pickCollectionDisplayImageUrl } from '../utils/collection-image.util';
+import { isSealedBoxCollectionComponents } from '../utils/bucket-key.util';
 import { maskCollectionEntityForPublicApi } from '../utils/collection-row.util';
 import { BatchMarketSnapshotsDto } from './dto/batch-market-snapshots.dto';
 import { MintPreviewsByTokenIdsDto } from './dto/mint-previews-by-token-ids.dto';
@@ -256,6 +257,7 @@ export class CollectionsController {
     @Query('cursor') cursor?: string,
     @Query('q') qRaw?: string,
     @Query('reviewStatus') reviewStatusRaw?: string,
+    @Query('kind') kindRaw?: string,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const parsed =
@@ -275,11 +277,17 @@ export class CollectionsController {
       isAdmin && allowed.has(raw)
         ? (raw as 'pending_review' | 'active' | 'rejected' | 'all')
         : 'active';
+    const kindToken = (kindRaw ?? '').trim().toLowerCase();
+    const kind =
+      isAdmin && (kindToken === 'card' || kindToken === 'box')
+        ? kindToken
+        : undefined;
     return this.collectionService.listSummariesPaged({
       limit,
       cursor: cursor?.trim() || null,
       chainId: this.chainConfig.resolveChainId(chainHeader),
       reviewStatus,
+      kind,
       q: qRaw?.trim() || null,
     });
   }
@@ -317,11 +325,16 @@ export class CollectionsController {
   @Get('collections/admin/review-counts')
   async adminCollectionReviewCounts(
     @Req() req: Request,
+    @Query('kind') kindRaw?: string,
     @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     this.assertAdminSession(req);
+    const kindToken = (kindRaw ?? '').trim().toLowerCase();
+    const kind =
+      kindToken === 'card' || kindToken === 'box' ? kindToken : undefined;
     return this.collectionService.countByReviewStatus(
       this.chainConfig.resolveChainId(chainHeader),
+      kind,
     );
   }
 
@@ -635,8 +648,8 @@ export class CollectionsController {
     );
   }
 
-  /** Same card name OR same set — Card.html Similar items */
-  @ApiOperation({ summary: '유사 컬렉션 (동일 카드명 또는 동일 세트)' })
+  /** Graded: same card name or set. Sealed box: same product name or PriceCharting set. */
+  @ApiOperation({ summary: '유사 컬렉션 (카드명·세트, 또는 박스 상품명·세트)' })
   @ApiParam({ name: 'key', description: 'collection_key', example: SWAGGER_FIXTURES.collectionKey })
   @Get('collections/:key/similar')
   getSimilarCollections(
@@ -659,7 +672,9 @@ export class CollectionsController {
     const k = this.normalizeKey(key);
     const chainId = this.chainConfig.resolveChainId(chainHeader);
     let col = await this.collectionService.findOne(k, chainId);
-    if (col) {
+    if (col && isSealedBoxCollectionComponents(col.components)) {
+      col = await this.collectionService.refreshSealedBoxCover(col);
+    } else if (col) {
       // DB-only enrichments can stay on the request path.
       await this.collectionService.persistPsaMirrorFromCertToDb(k);
       await this.collectionService.ensurePsaSpecPopulationOnReadIfMissing(k);

@@ -289,6 +289,8 @@ Seller **take-offer** flows (Edit price primary; Accept offer secondary) are spe
 
 `collection_key` (v2) is SHA-256 of grader + name + set + grade + card # + `marketParallelKey`. Vault type is not in the hash. PSA `Variety` becomes a parallel slug only when it names an insert (Refractor, Silver Prizm, …). Variety that repeats Brand/set (e.g. `VSTAR UNIVERSE`) is `base` — same spec, one order book. See [Cardhedger + PSA Variety](../guides/cardhedger-psa-variety.md).
 
+A sealed box uses a different key: SHA-256 of `{ v: "sealed-box", pricechartingProductId }`. The first ask creates that row from `pricecharting_products` (name, set, year, genre, UPC, the current loose price, sales volume, admin `cover_image_url`). It does not call the graded bucket function, PSA population, or Cardhedger. PriceCharting loose history is written into `collection_market_snapshots` (same table as graded Cardhedger rows) on first ask and after guide / manual history imports. Markets tiles and collection detail read that snapshot — not live history on the request path. Copies of the same product share one order book. `collection_key` stays null until that ask.
+
 ### `GET /api/marketplace/collections`
 
 Returns a cursor-paginated list of collection summaries, or a **text search** when `q` is set.
@@ -404,7 +406,7 @@ Returns a Cardhedger AI market brief for the collection (card-match powered).
 
 ### `GET /api/marketplace/collections/:key/market-series`
 
-Returns a chart bundle: platform fills (USDC) + Cardhedger reference prices + window % change.
+Returns a chart bundle: platform fills (USDC) plus reference prices and window % change from the materialized snapshot. Graded cards use Cardhedger. A sealed box uses PriceCharting loose prices (`spotPriceBasis = pricecharting`, `gradePrices.raw`, `externalUsd`) and does not call Cardhedger.
 
 | Query | Values | Default |
 |-------|--------|---------|
@@ -430,11 +432,7 @@ Returns pool statistics:
 
 ### `GET /api/marketplace/collections/:key/similar`
 
-Returns active collections for Card.html **Similar items** that match **either**:
-- same card name (`cardNameDisplay` / `cardName` / `psaSubject`), **or**
-- same set (`cardSetDisplay` / `cardSet` / `psaBrand`)
-
-Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 5 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`.
+Returns active collections for **Similar items**. A graded card matches **either** the same card name (`cardNameDisplay` / `cardName` / `psaSubject`) **or** the same set (`cardSetDisplay` / `cardSet` / `psaBrand`). A sealed box matches other sealed boxes with the same product name or the same PriceCharting set (`consoleName`). Rows matching both facets are ranked above single-facet hits, then by active listing count. Excludes the current `collectionKey`. Up to 5 items. Response: `{ items: CollectionSummary[] }`. Frontend enriches prices via `POST …/market-snapshots`. A box tile with no snapshot uses `components.loosePriceCents`.
 
 ---
 

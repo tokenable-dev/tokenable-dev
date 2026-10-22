@@ -195,8 +195,8 @@ These routes live on `CollectionsController` (not under `/admin/*` path prefix) 
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET | `/api/marketplace/collections?reviewStatus=` | Public: always `active`. Admin: `pending_review` \| `active` \| `rejected` \| `all` |
-| GET | `/api/marketplace/collections/admin/review-counts` | Admin counts by status |
+| GET | `/api/marketplace/collections?reviewStatus=&kind=` | Public: always `active`, `kind` ignored. Admin: `pending_review` \| `active` \| `rejected` \| `all`, and `kind=card` (not a sealed box) or `kind=box` |
+| GET | `/api/marketplace/collections/admin/review-counts?kind=` | Admin counts by status. `kind=card` or `kind=box` limits the counts to that catalog |
 | POST | `/api/marketplace/collections/admin/create-from-cert` | Create catalog collection from PSA cert (no mint/ask). Body `{ certNumber }`. Resolves Cardhedger `card_id` into `components.cardhedgerCardId` (cert lookup + search fallback) and catalog image → S3 when configured. Starts `pending_review`. Collection Place Bid is allowed with an empty merkle set; the bid is not fillable until a copy is minted and the buyer re-signs. |
 | POST | `/api/marketplace/collections/:key/admin/review` | Set `{ reviewStatus }` |
 | POST | `/api/marketplace/collections/:key/admin/cover` | External URL → ingest/overwrite S3 → persist public URL |

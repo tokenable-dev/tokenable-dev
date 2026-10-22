@@ -67,6 +67,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
 
   const collection = data.collection!;
   const comp = parseCollectionComponents(collection.components);
+  const sealedBox = comp.assetKind === "sealed_box";
   const rememberedCoverUrl = useMemo(
     () => readRememberedCollectionCoverImage(collectionKey),
     [collectionKey],
@@ -451,11 +452,13 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         />
       }
       psaPanel={
+        sealedBox ? undefined : (
         <CollectionPsaPopulationPanel
           byGrade={psaPopulationPanel.byGrade}
           totalPop={psaPopulationPanel.totalPop}
           highlightGrade={comp.gradeScore ?? "10"}
         />
+        )
       }
     />
   );
@@ -503,7 +506,9 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           title={headline.collectionWovenTitle}
           subtitle={headline.subtitle}
           headlineTitle={headline.collectionHeadlineDisplayTitle}
-          headlineStructuredTitle={headline.collectionHeadlineParts}
+          headlineStructuredTitle={
+            sealedBox ? null : headline.collectionHeadlineParts
+          }
           headlineSetLine={headline.headlineSetLine}
           headlineMetaStrip={headline.collectionHeadlineMetaStrip ?? undefined}
           headlineInfoTags={headline.headlineInfoTags ?? undefined}

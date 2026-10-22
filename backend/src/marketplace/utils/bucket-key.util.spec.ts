@@ -2,6 +2,9 @@ import {
   BUCKET_KEY_VERSION,
   computeMarketBucketKey,
   extractBucketComponentsFromMetadata,
+  isSealedBoxCollectionComponents,
+  sealedBoxCollectionComponents,
+  sealedBoxCollectionKey,
 } from './bucket-key.util';
 
 describe('bucket-key.util', () => {
@@ -26,6 +29,50 @@ describe('bucket-key.util', () => {
 
   it('exposes bucket key version for migrations', () => {
     expect(BUCKET_KEY_VERSION).toBeGreaterThanOrEqual(2);
+  });
+
+  it('keys a sealed box by PriceCharting product, not the graded bucket', () => {
+    const key = sealedBoxCollectionKey('10021227');
+    expect(key).toMatch(/^[a-f0-9]{64}$/);
+    expect(sealedBoxCollectionKey(' 10021227 ')).toBe(key);
+    expect(sealedBoxCollectionKey('10021228')).not.toBe(key);
+    expect(sealedBoxCollectionKey('')).toBeNull();
+
+    const graded = extractBucketComponentsFromMetadata({
+      properties: {
+        assetKind: 'sealed_box',
+        pricechartingProductId: '10021227',
+        graded: {
+          gradingCompany: 'PSA',
+          card: { name: 'Pikachu', set: 'Base Set', number: '58' },
+          grade: { score: '10' },
+        },
+      },
+    });
+    expect(computeMarketBucketKey(graded!)).not.toBe(key);
+
+    const components = sealedBoxCollectionComponents({
+      id: '10021227',
+      productName: 'Booster Box',
+      consoleName: 'Pokemon Chinese Gem Pack 2',
+      genre: 'Pokemon Card',
+      releaseDate: '2024-03-01',
+      upc: '0820650852581',
+      loosePriceCents: 12999,
+      salesVolume: 12,
+    });
+    expect(isSealedBoxCollectionComponents(components)).toBe(true);
+    expect(components).toMatchObject({
+      assetKind: 'sealed_box',
+      pricechartingProductId: '10021227',
+      productName: 'Booster Box',
+      consoleName: 'Pokemon Chinese Gem Pack 2',
+      year: 2024,
+      loosePriceCents: 12999,
+      salesVolume: 12,
+    });
+    expect(components).not.toHaveProperty('gradeScore');
+    expect(components).not.toHaveProperty('cardName');
   });
 
   it('separates PSA 9 and PSA 10 into different collection keys', () => {

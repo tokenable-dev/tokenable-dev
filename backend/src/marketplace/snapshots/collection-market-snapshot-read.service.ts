@@ -180,9 +180,12 @@ export class CollectionMarketSnapshotReadService {
     } = marketChangePctBestWindow(fullExternal);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
-        ? historyTier === 'NEAR_MINT'
-          ? 'cardhedger_nm'
-          : 'cardhedger_graded'
+        ? historyTier === 'PRICECHARTING' ||
+          row.spotPriceBasis === 'pricecharting'
+          ? 'pricecharting'
+          : historyTier === 'NEAR_MINT'
+            ? 'cardhedger_nm'
+            : 'cardhedger_graded'
         : 'none';
 
     const gradePrices: GradePriceStrip = row.gradePricesJson ?? {

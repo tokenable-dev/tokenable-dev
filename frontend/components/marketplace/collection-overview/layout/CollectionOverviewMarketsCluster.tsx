@@ -83,7 +83,7 @@ export function CollectionOverviewMarketsCluster({
             : "lg:row-start-3";
 
   const desktopDetailsBesideListings =
-    useMobileTabbedMarket && belowCover != null && listingsGridRow != null;
+    useMobileTabbedMarket && belowCover != null;
 
   if (desktopDetailsBesideListings) {
     return (

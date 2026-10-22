@@ -15,7 +15,6 @@ import { PricechartingProduct } from './entities/pricecharting-product.entity';
 import { PricechartingArchive } from './pricecharting-archive';
 import { PricechartingCatalogSearch } from './pricecharting-catalog-search';
 import { PricechartingImportService } from './pricecharting-import.service';
-import { PricechartingListingService } from './pricecharting-listing.service';
 import { PricechartingSyncService } from './pricecharting-sync.service';
 import { PricechartingService } from './pricecharting.service';
 
@@ -47,7 +46,6 @@ import { PricechartingService } from './pricecharting.service';
     PricechartingImportService,
     PricechartingSyncService,
     PricechartingCatalogSearch,
-    PricechartingListingService,
     CatalogCoverS3Service,
   ],
   exports: [PricechartingService],

@@ -19,10 +19,6 @@ Legacy **`/exchange`** → `/markets`, **`/vault/submit/mint`** → `/vault/subm
 | `/sell` | `app/sell/page.tsx` | Sell router → collector hub (`/vault`) |
 | `/sell/flow` | `app/sell/flow/page.tsx` | Choose a vault (Sell your cards). Same screen as an empty `/vault`. Continue is not wired yet. |
 | `/sell/shipping` | `app/sell/shipping/page.tsx` | Pack and tracking (PSA Shipping) |
-| `/sell/catalog` | `app/sell/catalog/page.tsx` | Signed-in seller lists a PriceCharting catalog item (search, loose price, asking price, photos). Not PSA vaulting. |
-| `/sell/listings` | `app/sell/listings/page.tsx` | Signed-in seller sees their catalog listings and can cancel one. Drafts stay private. |
-| `/marketplace/catalog-listings` | `app/marketplace/catalog-listings/page.tsx` | Submitted catalog listings. Not card Markets, and there is no checkout. |
-| `/marketplace/catalog-listings/[id]` | `app/marketplace/catalog-listings/[id]/page.tsx` | Box details for one submitted catalog listing. Same collection-detail layout, filled from that product and listing. No PSA slab, order book, or checkout. |
 | `/vault/submit` | `app/vault/submit/page.tsx` | Personal mint — PSA → IPFS → on-chain mint |
 | `/vault/submit/mint` | `app/vault/submit/mint/page.tsx` | Redirects to `/vault/submit` |
 | `/vault/submissions/[id]` | `app/vault/submissions/[id]/page.tsx` | Submission detail (Vault-Detail A~H; `?scenario=` / `?demo=1`) |

@@ -26,6 +26,14 @@ export type SimilarCollectionItem = {
   changePct: number | null;
 };
 
+function loosePriceUsd(comp: CollectionComponents): number | null {
+  const cents = comp.loosePriceCents;
+  if (typeof cents === "number" && Number.isFinite(cents) && cents > 0) {
+    return cents / 100;
+  }
+  return null;
+}
+
 function pickLastPriceUsd(snap: CollectionListMarketSnapshot | undefined): number | null {
   if (!snap) return null;
   const gp = snap.gradePrices;
@@ -59,7 +67,7 @@ function toItems(
       catalogLabel: row.displayLabel,
       components: row.components,
       imageUrl: row.displayImageUrl ?? row.coverImageUrl ?? null,
-      lastPriceUsd: pickLastPriceUsd(snap),
+      lastPriceUsd: pickLastPriceUsd(snap) ?? loosePriceUsd(row.components),
       changePct:
         snap?.marketChangePct != null && Number.isFinite(snap.marketChangePct)
           ? snap.marketChangePct

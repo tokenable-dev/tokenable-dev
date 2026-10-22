@@ -127,10 +127,10 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 8px;
-  min-height: 60px;
-  padding-top: 11px;
-  padding-bottom: 11px;
+  gap: 8px 20px;
+  min-height: 52px;
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
 .markets-slim-bar__sp {
@@ -141,12 +141,20 @@
 .markets-slim-bar__end {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 14px;
   min-width: 0;
 }
 
 .markets-slim-bar__end .markets-fw--sort {
   flex: none;
+}
+
+.markets-slim-bar__rule {
+  display: block;
+  width: 1px;
+  height: 16px;
+  background: rgba(255, 255, 255, 0.18);
+  flex: 0 0 auto;
 }
 
 .markets-fw {
@@ -156,78 +164,86 @@
 .markets-catchiprow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 22px;
   flex-wrap: wrap;
   min-width: 0;
 }
 
 .markets-catchip {
-  height: 38px;
-  padding: 0 16px;
+  position: relative;
+  height: auto;
+  padding: 8px 0 10px;
   border: 0;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.72);
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1;
+  border-radius: 0;
+  background: transparent;
+  color: var(--global-color-white-60, rgba(255, 255, 255, 0.6));
+  text-align: center;
+  font-family: var(--font-family-Font-1, var(--font-sans, Inter, sans-serif));
+  font-size: var(--font-size-16, 16px);
+  font-style: normal;
+  font-weight: var(--font-weight-600, 600);
+  line-height: normal;
   box-sizing: border-box;
   cursor: pointer;
   white-space: nowrap;
 }
 
 .markets-catchip:hover:not(.markets-catchip--on) {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .markets-catchip--on,
 .markets-catchip--on:hover,
 .markets-catchip--on:active,
 .markets-catchip--on:focus {
-  background: #1A6FFF;
+  background: transparent;
   color: #fff;
 }
 
+.markets-catchip--on::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--azure, #1a6fff);
+}
+
 .markets-catchip:focus-visible {
-  outline: 2px solid var(--brand-400, #5b9aff);
-  outline-offset: 2px;
+  outline: 2px solid var(--azure, #1a6fff);
+  outline-offset: 4px;
 }
 
 .markets-ddchip {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  height: 38px;
-  padding: 0 14px;
+  height: auto;
+  padding: 8px 0;
   border: 0;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.8);
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  font-weight: 500;
-  line-height: 1;
+  border-radius: 0;
+  background: transparent;
+  color: var(--global-color-white-60, rgba(255, 255, 255, 0.6));
+  text-align: center;
+  font-family: var(--font-family-Font-1, var(--font-sans, Inter, sans-serif));
+  font-size: var(--font-size-16, 16px);
+  font-style: normal;
+  font-weight: var(--font-weight-600, 600);
+  line-height: normal;
   box-sizing: border-box;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 120ms steps(2);
 }
 
-.markets-ddchip:hover:not(.markets-ddchip--on):not(.markets-ddchip--open) {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-.markets-ddchip--on {
-  background: rgba(26, 111, 255, 0.2);
-  color: #5b9aff;
-}
-
+/* Text-style chips: keep muted label on hover/open; only __val is white. */
+.markets-ddchip:hover,
+.markets-ddchip--on,
 .markets-ddchip--open {
-  background: rgba(255, 255, 255, 0.14);
-  color: #fff;
+  background: transparent;
+  color: var(--global-color-white-60, rgba(255, 255, 255, 0.6));
 }
 
 .markets-ddchip__text {
@@ -235,7 +251,13 @@
 }
 
 .markets-ddchip__label {
-  font-weight: 500;
+  font-weight: 600;
+  color: var(--global-color-white-60, rgba(255, 255, 255, 0.6));
+}
+
+.markets-fw--sort .markets-ddchip__caret {
+  color: var(--global-color-white-60, rgba(255, 255, 255, 0.6));
+  opacity: 1;
 }
 
 .markets-ddchip__label--mobile {
@@ -244,11 +266,11 @@
 
 .markets-ddchip__val {
   display: inline-block;
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  font-weight: 500;
+  font-family: var(--font-family-Font-1, var(--font-sans, Inter, sans-serif));
+  font-size: var(--font-size-16, 16px);
+  font-weight: 600;
   color: #fff;
-  max-width: 9.5rem;
+  max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: bottom;
@@ -258,7 +280,7 @@
   font-style: normal;
   font-family: var(--font-sans);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   padding: 1px 6px;
   border-radius: 6px;
   background: rgba(26, 111, 255, 0.9);
@@ -268,6 +290,7 @@
 .markets-ddchip__caret {
   font-size: 11px;
   opacity: 0.65;
+  color: inherit;
 }
 
 /* Markets.html `button.mk-search-icon-btn` — mobile bar only (≤820px). */
@@ -923,10 +946,13 @@
 
   .markets-ddchip--more {
     width: 38px;
+    height: 38px;
     padding: 0;
     justify-content: center;
     gap: 0;
     order: 1;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
   }
 
   .markets-ddchip--more:has(.markets-ddchip__count) {
@@ -935,9 +961,17 @@
     gap: 4px;
   }
 
+  .markets-slim-bar__rule {
+    display: none;
+  }
+
   .markets-search-icon-btn {
     display: inline-flex;
     order: 2;
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.07);
   }
 
   .markets-slim-bar__sp {
@@ -981,9 +1015,6 @@
 
   .markets-catchip {
     flex: 0 0 auto;
-    height: 34px;
-    padding: 0 12px;
-    font-size: 13px;
     white-space: nowrap;
   }
 

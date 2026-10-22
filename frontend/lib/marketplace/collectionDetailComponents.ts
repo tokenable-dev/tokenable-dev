@@ -80,6 +80,23 @@ export interface CollectionComponents {
    * Mirror of `graded.normalized.pokemon` from IPFS mint metadata (Pokémon V1).
    * Additive — does not replace `psaBrand` / `cardSet` / Cardhedger fields.
    */
+  /**
+   * Sealed-box collections are keyed by a PriceCharting product, not a graded bucket.
+   * Present only on those rows.
+   */
+  assetKind?: "sealed_box";
+  pricechartingProductId?: string;
+  productName?: string;
+  consoleName?: string;
+  genre?: string;
+  /** `YYYY-MM-DD` from the catalog release date. */
+  releaseDate?: string;
+  upc?: string;
+  /** PriceCharting loose price, cents. Not a Tokenable last sale. */
+  loosePriceCents?: number;
+  /** PriceCharting catalog sales count. Not marketplace volume. */
+  salesVolume?: number;
+
   normalizedPokemon?: {
     game: "pokemon";
     language?: string;
@@ -210,6 +227,24 @@ export function parseCollectionComponents(raw: unknown): CollectionComponents {
 
   const psaCertNumber = strOrNull(r.psaCertNumber);
   if (psaCertNumber !== undefined) out.psaCertNumber = psaCertNumber;
+
+  if (r.assetKind === "sealed_box") out.assetKind = "sealed_box";
+  const pricechartingProductId = str(r.pricechartingProductId);
+  if (pricechartingProductId !== undefined) out.pricechartingProductId = pricechartingProductId;
+  const productName = str(r.productName);
+  if (productName !== undefined) out.productName = productName;
+  const consoleName = str(r.consoleName);
+  if (consoleName !== undefined) out.consoleName = consoleName;
+  const genre = str(r.genre);
+  if (genre !== undefined) out.genre = genre;
+  const releaseDate = str(r.releaseDate);
+  if (releaseDate !== undefined) out.releaseDate = releaseDate;
+  const upc = str(r.upc);
+  if (upc !== undefined) out.upc = upc;
+  const loosePriceCents = num(r.loosePriceCents);
+  if (loosePriceCents !== undefined) out.loosePriceCents = loosePriceCents;
+  const salesVolume = num(r.salesVolume);
+  if (salesVolume !== undefined) out.salesVolume = salesVolume;
 
   if (r.normalizedPokemon && typeof r.normalizedPokemon === "object") {
     const np = r.normalizedPokemon as Record<string, unknown>;

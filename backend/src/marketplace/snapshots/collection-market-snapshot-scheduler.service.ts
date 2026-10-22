@@ -331,8 +331,37 @@ export class CollectionMarketSnapshotSchedulerService
       while (this.queue.length > 0) {
         if (this.isCardhedgerCircuitOpen()) {
           pausedForCircuit = true;
-          this.scheduleDrainAfterCircuitPause();
-          break;
+          // PriceCharting sealed-box refreshes do not need Cardhedger.
+          const batch: SnapshotRefreshJob[] = [];
+          for (let i = 0; i < this.queue.length && batch.length < concurrency; ) {
+            const job = this.queue[i]!;
+            if (job.reason === 'price_delta' || job.reason === 'price_webhook') {
+              this.queue.splice(i, 1);
+              this.queuedKeys.delete(job.collectionKey);
+              batch.push(job);
+            } else {
+              i += 1;
+            }
+          }
+          if (batch.length === 0) {
+            this.scheduleDrainAfterCircuitPause();
+            break;
+          }
+          await Promise.all(
+            batch.map(async (job) => {
+              try {
+                await this.snapshotService.refreshSnapshot(
+                  job.collectionKey,
+                  job.reason,
+                );
+              } catch (e: unknown) {
+                this.logger.warn(
+                  `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+                );
+              }
+            }),
+          );
+          continue;
         }
         const batch: SnapshotRefreshJob[] = [];
         while (batch.length < concurrency && this.queue.length > 0) {

@@ -129,6 +129,8 @@ Order: Card name → Category → Series → Set → Set code (when known) → C
 | Grader | `PSA`, linked |
 | Language | Full name (`English` / `Japanese`). Pokémon Latin catalogs may default English. Omit when unknown. |
 
+A sealed box uses a different Details list, and only rows we can fill: Product, Category (`genre`), Set (PriceCharting console name with franchise and language removed; `&` shown as `and`), Year, Language (`JP` / `EN` / `KR` / `CN` from the set line), Sales 1Yr (`sales_volume`), PriceCharting ID, UPC, Vault (when every active ask shares one custody label). Pack configuration is not stored, so that row is omitted.
+
 - Detail Line 2 (hero subtitle) is always `{Year} · {Set} {Language} · {Variant}` (language token omitted when unknown). Do not drop the set from the hero because the breadcrumb already shows it.
 
 ---

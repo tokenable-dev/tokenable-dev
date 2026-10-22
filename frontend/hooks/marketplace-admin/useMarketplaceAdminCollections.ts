@@ -7,6 +7,7 @@ import {
   getMarketplaceCollectionsPage,
   postAdminSetCollectionReviewStatus,
   type CollectionReviewStatus,
+  type AdminCollectionKind,
   type CollectionReviewStatusFilter,
 } from "@/lib/core";
 import { rq } from "@/lib/core";
@@ -20,14 +21,16 @@ export function useMarketplaceAdminCollections() {
   const { chainId } = useAppChain();
   const [reviewFilter, setReviewFilter] =
     useState<CollectionReviewStatusFilter>("pending_review");
+  const [kind, setKind] = useState<AdminCollectionKind>("card");
 
   const listQuery = useInfiniteQuery({
-    queryKey: [...rq.adminCollectionsList(chainId), reviewFilter] as const,
+    queryKey: [...rq.adminCollectionsList(chainId), reviewFilter, kind] as const,
     queryFn: ({ pageParam }) =>
       getMarketplaceCollectionsPage({
         cursor: pageParam ?? null,
         limit: PAGE_SIZE,
         reviewStatus: reviewFilter,
+        kind,
       }),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.nextCursor,
@@ -35,8 +38,8 @@ export function useMarketplaceAdminCollections() {
   });
 
   const countsQuery = useQuery({
-    queryKey: [...rq.adminCollectionsList(chainId), "review-counts"] as const,
-    queryFn: () => getAdminCollectionReviewCounts(),
+    queryKey: [...rq.adminCollectionsList(chainId), "review-counts", kind] as const,
+    queryFn: () => getAdminCollectionReviewCounts(kind),
     staleTime: 30_000,
   });
 
@@ -77,6 +80,8 @@ export function useMarketplaceAdminCollections() {
   return {
     reviewFilter,
     setReviewFilter,
+    kind,
+    setKind,
     counts: countsQuery.data,
     countsLoading: countsQuery.isLoading,
     listQuery,
