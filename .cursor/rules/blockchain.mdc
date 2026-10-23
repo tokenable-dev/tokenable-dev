@@ -1,0 +1,70 @@
+---
+description: Blockchain and smart contract rules for contracts/ and blockchain-related backend code
+globs: ["contracts/**/*", "backend/src/blockchain/**/*", "backend/src/rwa/**/*"]
+alwaysApply: false
+---
+
+# Blockchain Rules
+
+## Required Reading
+
+Before any blockchain change, read:
+- `docs/architecture/blockchain.md` — full contract and backend writer docs
+- `docs/architecture/vault-lifecycle.md` — vault NFT flow
+- `docs/business-rules.md` (BR-19 through BR-21) — contract invariants
+- `contracts/test/OzErc721Preset.test.ts` — existing test coverage
+
+## Smart Contract
+
+1. **Do not write custom NFT Solidity.** The on-chain token is unmodified OpenZeppelin `ERC721PresetMinterPauserAutoId` (v4.9.6). `contracts/contracts/oz-erc721-preset.sol` is an import-only compile shim.
+
+2. **No proxies / no upgrades.** A behavior change is a new deploy + env address swap.
+
+3. **Token id 0 is burned at deploy** so live inventory starts at 1. Collection bids keep `token_id = 0` as a sentinel.
+
+4. **Cert uniqueness is off-chain** (`vaultRef` + vault cycle + `rwa_tokens` partial unique index). The preset has no `vaultRef` / `activeTokenIdOf`.
+
+5. After any ABI change, run `pnpm sync-abi` and commit the updated `backend/src/blockchain/abis/tokenable-rwa.abi.ts`.
+
+6. Never use `selfdestruct`. Never add ETH receive/fallback.
+
+## Backend Chain Writer (`rwa-chain-writer.service.ts`)
+
+7. This is the **only** service that submits NFT transactions. Do not create new transaction-signing services.
+
+8. Mint: `mint(to)` with `MINTER_ROLE`. Parse `Transfer` from `address(0)` for the new token id.
+
+9. Burn: ERC721Burnable `burn(tokenId)`. The signer must own the token (custody after redeem intake). Do not assume a `BURNER_ROLE`.
+
+10. On-chain errors (revert reasons) must be decoded and mapped to NestJS exceptions with helpful messages.
+
+11. `safeTransferFromCustody` must verify on-chain that the token is actually owned by the custody wallet before attempting transfer.
+
+## ABI Management
+
+12. Frontend ABI constants (`constants/contracts.ts: TOKENABLE_RWA_*`) are partial ABIs for frontend use. They are not the source of truth.
+
+13. The source-of-truth ABI is in `backend/src/blockchain/abis/tokenable-rwa.abi.ts` — synced from the OZ preset artifact.
+
+14. `TOKENABLE_RWA_MINT_ABI` is `mint(address to)` — display only; minting goes through the backend.
+
+## Chain Config
+
+15. Never hard-code chain IDs or contract addresses. Use `ChainConfigService`.
+
+16. When adding a new chain: add `CHAIN_{id}_RPC_URL`, `CHAIN_{id}_RWA_ADDRESS`, `CHAIN_{id}_USDC_ADDRESS` to env vars and update `ChainConfigService`.
+
+## Seaport (Frontend)
+
+17. Seaport contract address `0x00000000000000ADc04C56Bf30aC9d3c0aAF14dC` is standard; never change.
+
+18. Platform fee is encoded in Seaport `consideration` items — not via a separate transfer.
+
+19. The OZ preset has no ERC-2981. Marketplace fees are Seaport consideration only.
+
+## Environment Variables
+
+20. After deploying a new contract, update:
+    - `backend/.env` — `CHAIN_{id}_RWA_ADDRESS`
+    - `frontend/.env` — `NEXT_PUBLIC_CHAIN_{id}_RWA`
+    Also update: `backend/src/swagger/fixtures.ts` and any seed SQL files with the contract address.

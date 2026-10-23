@@ -1,50 +1,92 @@
 "use client";
 
+import { TkButton } from "@/components/ds";
 import { parseFriendlyMintError } from "@/lib/vault/friendlyMintError";
 import type { MintFormStep } from "@/lib/vault/mintFormConstants";
 import type { PsaInputMode } from "@/lib/vault/mintFormConstants";
-import {
-  GradientOutlineFrame,
-  gradientOutlineInnerButtonClass,
-  VAULT_OUTLINE_PAD_CLASS,
-} from "@/components/ui/GradientOutlineFrame";
 import { WalletConnect } from "@/components/wallet/WalletConnect";
 
 type MintFormMintActionsProps = {
-  isConnected: boolean;
+  isWalletReady: boolean;
+  isWalletActivating: boolean;
+  isWalletAwaitingPrivy: boolean;
+  hasAccountWallet: boolean;
+  walletActivateBusy: boolean;
+  walletActivateError: string;
+  onActivateAccountWallet: () => void;
   showMintReady: boolean;
   isProcessing: boolean;
   showPsaAnalyzeOverlay: boolean;
   psaInputMode: PsaInputMode;
   step: MintFormStep;
   errorMsg: string;
+  certTakenMessage?: string | null;
+  certTakenChecking?: boolean;
 };
 
 export function MintFormMintActions({
-  isConnected,
+  isWalletReady,
+  isWalletActivating,
+  isWalletAwaitingPrivy,
+  hasAccountWallet,
+  walletActivateBusy,
+  walletActivateError,
+  onActivateAccountWallet,
   showMintReady,
   isProcessing,
   showPsaAnalyzeOverlay,
   psaInputMode,
   step,
   errorMsg,
+  certTakenMessage = null,
+  certTakenChecking = false,
 }: MintFormMintActionsProps) {
   return (
     <>
-      {!isConnected ? (
-        <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-          <WalletConnect
-            connectButtonClassName={`${gradientOutlineInnerButtonClass} !rounded-[11px] py-3.5 text-sm`}
-            connectButtonStyle={{ backgroundColor: "#000000" }}
-          />
-        </GradientOutlineFrame>
+      {!isWalletReady ? (
+        <div className="flex flex-col items-center gap-2 py-2">
+          {isWalletActivating || walletActivateBusy ? (
+            <div className="flex items-center gap-2 px-2 py-1.5 text-sm text-[var(--t2)]">
+              <div
+                className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--azure)] border-t-transparent"
+                aria-hidden
+              />
+              <span>Preparing account wallet…</span>
+            </div>
+          ) : hasAccountWallet || isWalletAwaitingPrivy ? (
+            <>
+              <TkButton
+                type="button"
+                variant="primary"
+                className="w-full"
+                onClick={onActivateAccountWallet}
+              >
+                Activate account wallet
+              </TkButton>
+              {walletActivateError ? (
+                <p className="text-center text-xs text-[var(--neg)]">{walletActivateError}</p>
+              ) : (
+                <p className="text-center text-xs text-[var(--t2)]">
+                  Sign in with your Tokenable account wallet to mint.
+                </p>
+              )}
+            </>
+          ) : (
+            <WalletConnect />
+          )}
+        </div>
       ) : showMintReady ? (
-        <GradientOutlineFrame className="w-full" padClass={VAULT_OUTLINE_PAD_CLASS}>
-          <button
+        <>
+          <TkButton
             type="submit"
-            disabled={isProcessing || showPsaAnalyzeOverlay}
-            className="w-full rounded-[11px] border-0 !bg-black py-3.5 text-sm font-bold text-mint transition disabled:cursor-not-allowed disabled:!bg-black disabled:text-mint/35"
-            style={{ backgroundColor: "#000000" }}
+            variant="primary"
+            className="w-full"
+            disabled={
+              isProcessing ||
+              showPsaAnalyzeOverlay ||
+              certTakenChecking ||
+              Boolean(certTakenMessage)
+            }
           >
             {isProcessing
               ? "Minting…"
@@ -52,18 +94,26 @@ export function MintFormMintActions({
                 ? psaInputMode === "cert"
                   ? "Looking up cert…"
                   : "Analyzing slab…"
-                : "Mint"}
-          </button>
-        </GradientOutlineFrame>
+                : certTakenChecking
+                  ? "Checking cert…"
+                  : "Mint"}
+          </TkButton>
+          {certTakenMessage ? (
+            <p className="text-center text-xs text-[var(--neg)]">{certTakenMessage}</p>
+          ) : null}
+        </>
       ) : null}
 
       {isProcessing && (
         <div className="flex items-center gap-2 py-1">
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-mint border-t-transparent" />
-          <span className="text-sm text-gray-400">
+          <div
+            className="h-4 w-4 animate-spin rounded-full border-2 border-[var(--azure)] border-t-transparent"
+            aria-hidden
+          />
+          <span className="text-sm text-[var(--t2)]">
             {step === "uploading"
               ? "Uploading to IPFS..."
-              : "Waiting for MetaMask signature..."}
+              : "Submitting mint — platform is minting to custody; admin will deliver to your account wallet."}
           </span>
         </div>
       )}
@@ -73,8 +123,8 @@ export function MintFormMintActions({
           const friendly = parseFriendlyMintError(errorMsg);
           if (!friendly) {
             return (
-              <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-3">
-                <p className="text-xs break-all text-red-400">{errorMsg}</p>
+              <div className="rounded-lg border border-[var(--neg)]/30 bg-[var(--neg)]/10 p-3">
+                <p className="text-xs break-all text-[var(--neg)]">{errorMsg}</p>
               </div>
             );
           }
@@ -84,7 +134,7 @@ export function MintFormMintActions({
               <p className="mt-1.5 text-xs leading-relaxed text-amber-100/90">
                 {friendly.message}
               </p>
-              <ul className="mt-2.5 list-disc space-y-1 pl-4 text-[11px] leading-relaxed text-amber-100/80">
+              <ul className="mt-2.5 list-disc space-y-1 pl-4 text-xs leading-relaxed text-amber-100/80">
                 {friendly.hints.map((h) => (
                   <li key={h}>{h}</li>
                 ))}

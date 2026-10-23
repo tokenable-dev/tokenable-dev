@@ -28,12 +28,16 @@ export function RwaImageLightbox({
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape") {
+        (document.activeElement as HTMLElement | null)?.blur?.();
+        onClose();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
+      (document.activeElement as HTMLElement | null)?.blur?.();
     };
   }, [open, onClose]);
 
@@ -52,7 +56,8 @@ export function RwaImageLightbox({
       <img
         src={src}
         alt={alt}
-        className="max-h-[min(92vh,900px)] max-w-[min(96vw,560px)] object-contain object-center shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)]"
+        referrerPolicy="no-referrer"
+        className="max-h-[min(85dvh,92vh,1100px)] max-w-[min(92vw,calc(min(85dvh,92vh,1100px)*3/4))] object-contain object-center shadow-[0_28px_80px_-24px_rgba(0,0,0,0.85)]"
         style={{ filter: "saturate(1.04) contrast(1.02)" }}
       />
     </button>,

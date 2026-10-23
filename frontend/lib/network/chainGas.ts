@@ -1,8 +1,9 @@
-import type { PublicClient } from "viem";
+import { parseGwei } from "viem";
+import type { Hash, PublicClient, TransactionReceipt } from "viem";
 import type { EstimateContractGasParameters } from "viem";
 
 /**
- * Sepolia·일부 RPC는 블록/트랜잭션 가스 상한이 2^24(16777216) 근처.
+ * 일부 RPC(테스트넷 포함)는 블록/트랜잭션 가스 상한이 2^24(16777216) 근처.
  * MetaMask·viem 기본(~21M)이면 "transaction gas limit too high" 로 거절될 수 있음.
  */
 const GAS_CEILING = BigInt(16000000);
@@ -18,7 +19,7 @@ export const GAS_FALLBACK = {
 } as const;
 
 /** RPC `estimateGas`가 느릴 때 지갑 팝업까지 지연되지 않도록 짧게 두고 fallback 사용 */
-const ESTIMATE_BUDGET_MS = 400;
+const ESTIMATE_BUDGET_MS = 200;
 
 export async function gasWithCap(
   publicClient: PublicClient,
@@ -50,4 +51,65 @@ export async function gasWithCapFast(
         resolve(fallback);
       });
   });
+}
+
+/**
+ * Alchemy / publicnode suggest a 0 tip on mainnet and Privy sends it as-is, so
+ * approves waited several blocks (1min+). Same floor as backend `MIN_PRIORITY_FEE_WEI`.
+ */
+const MIN_PRIORITY_FEE_WEI = parseGwei("0.2");
+const FEE_ESTIMATE_BUDGET_MS = 1_500;
+
+export type UserTxFees = { maxFeePerGas?: bigint; maxPriorityFeePerGas?: bigint };
+
+/**
+ * EIP-1559 fees for a user tx with a minimum tip. Resolves `{}` (wallet decides)
+ * if estimation fails or exceeds the budget, so the wallet prompt is never blocked.
+ */
+export async function userTxFees(publicClient: PublicClient): Promise<UserTxFees> {
+  const estimate = publicClient
+    .estimateFeesPerGas()
+    .then((fees): UserTxFees => {
+      const tip =
+        fees.maxPriorityFeePerGas > MIN_PRIORITY_FEE_WEI
+          ? fees.maxPriorityFeePerGas
+          : MIN_PRIORITY_FEE_WEI;
+      // viem's maxFee is ~1.2× base; 2× keeps the tx valid if base fee rises for a few blocks.
+      const base = fees.maxFeePerGas - fees.maxPriorityFeePerGas;
+      return { maxFeePerGas: base * BigInt(2) + tip, maxPriorityFeePerGas: tip };
+    })
+    .catch((): UserTxFees => ({}));
+  const timeout = new Promise<UserTxFees>((resolve) =>
+    setTimeout(() => resolve({}), FEE_ESTIMATE_BUDGET_MS),
+  );
+  return Promise.race([estimate, timeout]);
+}
+
+/**
+ * Receipt poll sized to block time (Ethereum / Sepolia ~12s, Polygon ~2s).
+ * Polling far faster than blocks only burns RPC quota and triggers 429 retries.
+ */
+function txReceiptPollMs(chainId: number | undefined): number {
+  return chainId === 137 ? 1_000 : 2_000;
+}
+const USER_TX_RECEIPT_TIMEOUT_MS = 180_000;
+
+export async function waitForUserTxReceipt(
+  publicClient: PublicClient,
+  hash: Hash,
+): Promise<TransactionReceipt> {
+  const pollingInterval = txReceiptPollMs(publicClient.chain?.id);
+  try {
+    return await publicClient.waitForTransactionReceipt({
+      hash,
+      pollingInterval,
+      timeout: USER_TX_RECEIPT_TIMEOUT_MS,
+    });
+  } catch (e: unknown) {
+    const receipt = await publicClient
+      .getTransactionReceipt({ hash })
+      .catch(() => null);
+    if (receipt) return receipt;
+    throw e;
+  }
 }

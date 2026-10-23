@@ -1,7 +1,79 @@
 "use client";
 
-import type { TxRow } from "@/lib/portfolio/portfolioTypes";
-import { CategoryBadge } from "./CollectibleCardChrome";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import type { TxKind, TxLifecycle, TxRow } from "@/lib/portfolio/portfolioTypes";
+import {
+  compareSortNum,
+  compareSortText,
+  formatPortfolioUsd,
+} from "@/lib/portfolio/portfolioTableHelpers";
+import {
+  txAmountIsNonTrade,
+  txKindLabel,
+  txLifecycleLabel,
+} from "@/lib/portfolio/buildPortfolioTxRows";
+import { TkTable } from "@/components/ds";
+import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
+import {
+  placePortfolioToolbar,
+  useDockPortfolioToolbar,
+} from "@/components/portfolio/PortfolioMainSection";
+import { PortfolioTxDetailDrawer } from "./PortfolioTxDetailDrawer";
+import { useAppChain } from "@/providers/AppChainProvider";
+
+type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
+type HistoryStatusFilter = "" | TxLifecycle;
+
+function shortHex(value: string): string {
+  const s = value.trim();
+  if (s.length < 12) return s;
+  return `${s.slice(0, 6)}…${s.slice(-4)}`;
+}
+
+function txActionTone(type: TxKind): string {
+  if (type === "BUY") return "pf-ux-pos";
+  if (type === "SELL") return "pf-ux-neg";
+  if (type === "MINT") return "pf-ux-purple";
+  if (type === "REDEEM") return "pf-ux-blue";
+  if (type === "TRANSFER") return "";
+  return "";
+}
+
+function txStatusTone(status: TxLifecycle): string {
+  if (status === "in_progress") return "pf-ux-warn";
+  if (status === "failed") return "pf-ux-neg";
+  if (status === "canceled") return "pf-ux-mute";
+  return "pf-ux-pos";
+}
+
+function TxHashLink({
+  hash,
+  status,
+  scan,
+}: {
+  hash?: string;
+  status: TxLifecycle;
+  scan: string;
+}) {
+  if (hash) {
+    return (
+      <a
+        className="pf-ux-hash"
+        href={`${scan}/tx/${hash}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {shortHex(hash)} ↗
+      </a>
+    );
+  }
+  if (status === "in_progress") {
+    return <span className="pf-ux-mono pf-ux-mute">pending</span>;
+  }
+  return null;
+}
 
 export function PortfolioActivitySection({
   loading,
@@ -10,69 +82,187 @@ export function PortfolioActivitySection({
   loading: boolean;
   txRows: TxRow[];
 }) {
+  const { chain } = useAppChain();
+  const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
+  const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
+  const dockSlot = useDockPortfolioToolbar(1024);
+  const { sortKey, sortDir } = usePortfolioTableSort<HistorySortKey>("date", "desc");
+
+  const sortedRows = useMemo(() => {
+    const rows = txRows.filter((tx) => !statusFilter || tx.status === statusFilter);
+    rows.sort((a, b) => {
+      switch (sortKey) {
+        case "type":
+          return compareSortText(txKindLabel(a), txKindLabel(b), sortDir);
+        case "card":
+          return compareSortText(a.asset, b.asset, sortDir);
+        case "status":
+          return compareSortText(txLifecycleLabel(a.status), txLifecycleLabel(b.status), sortDir);
+        case "amount":
+          return compareSortNum(a.price, b.price, sortDir);
+        default:
+          return compareSortNum(a.dateMs, b.dateMs, sortDir);
+      }
+    });
+    return rows;
+  }, [txRows, statusFilter, sortKey, sortDir]);
+
+  if (loading) {
+    return (
+      <div className="space-y-3">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className="h-14 animate-pulse rounded-xl bg-white/5" />
+        ))}
+      </div>
+    );
+  }
+
+  if (txRows.length === 0) {
+    return (
+      <div className="pf-empty pf-empty--panel">
+        <p>No transactions yet</p>
+        <p className="pf-empty__sub">
+          Buys, sells, mints, and redeems will show up here once they settle.
+        </p>
+        <Link href="/markets" className="pf-empty__cta">
+          Browse collections
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="rounded-2xl border border-gray-800 bg-[#0b1118] p-5 sm:p-6">
-      <h2 className="mb-4 text-sm font-bold">Transaction History</h2>
-      {loading ? (
-        <div className="space-y-3">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="h-11 animate-pulse rounded-lg bg-gray-800/40" />
-          ))}
-        </div>
-      ) : txRows.length === 0 ? (
-        <p className="py-8 text-center text-sm text-gray-500">No transactions yet</p>
+    <>
+      {placePortfolioToolbar(
+      <div className="pf-tbar" id="hx-toolbar">
+        <label className="pf-tdrop">
+          <span className="pf-tdrop__k">Filter:</span>
+          <select
+            aria-label="Filter transactions by status"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as HistoryStatusFilter)}
+          >
+            <option value="">All</option>
+            <option value="completed">Completed</option>
+            <option value="in_progress">In progress</option>
+            <option value="failed">Failed</option>
+          </select>
+          <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="6 9 12 15 18 9" />
+          </svg>
+        </label>
+      </div>,
+      dockSlot,
+      )}
+
+      {sortedRows.length === 0 ? (
+        <p className="pf-empty pf-empty--panel">No transactions match this filter.</p>
       ) : (
-        <div className="max-h-[264px] overflow-hidden overflow-y-auto rounded-xl border border-gray-800/60">
-          <table className="w-full table-fixed text-[13px]">
-            <colgroup>
-              <col style={{ width: "10%" }} />
-              <col style={{ width: "36%" }} />
-              <col style={{ width: "14%" }} />
-              <col style={{ width: "16%" }} />
-              <col style={{ width: "24%" }} />
-            </colgroup>
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#111a25] text-left text-xs text-gray-500">
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Asset</th>
-                <th className="px-4 py-2.5 font-medium">Amount</th>
-                <th className="px-4 py-2.5 font-medium">Price</th>
-                <th className="px-4 py-2.5 font-medium">Date</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800/40">
-              {txRows.map((tx) => (
-                <tr key={tx.orderHash} className="transition-colors hover:bg-white/[0.02]">
-                  <td className="px-4 py-2.5">
-                    <span
-                      className={`inline-flex items-center justify-center rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                        tx.type === "BUY"
-                          ? "bg-mint/15 text-mint"
-                          : "bg-red-500/15 text-red-400"
-                      }`}
-                    >
-                      {tx.type}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <span className="truncate text-[13px] font-medium text-gray-200">
-                        {tx.asset}
+        <TkTable wrapClassName="pf-table-wrap" className="pf-table--history pf-ux">
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th>Action</th>
+              <th>Date</th>
+              <th>Status</th>
+              <th className="pf-ux-r">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedRows.map((tx) => {
+              const dash = txAmountIsNonTrade(tx);
+              const fullName = tx.assetHover || tx.asset;
+              const amount = dash ? null : formatPortfolioUsd(tx.price);
+              const when = tx.dateTimeLabel ?? tx.date;
+              const hash = tx.chainTxs?.[0]?.hash;
+              const scan = chain.explorerBaseUrl.replace(/\/$/, "");
+              const actionTone = txActionTone(tx.type);
+              const statusTone = txStatusTone(tx.status);
+              const statusLabel = txLifecycleLabel(tx.status);
+              const kind = txKindLabel(tx);
+              return (
+                <tr
+                  key={tx.orderHash}
+                  className="pf-history-row pf-ux-row"
+                  onClick={() => setSelectedTx(tx)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      setSelectedTx(tx);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                >
+                  <td data-label="Item">
+                    <div className="pf-ux-item">
+                      <span className="pf-ux-thumb">
+                        {tx.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tx.imageUrl} alt="" />
+                        ) : null}
                       </span>
-                      {tx.category ? <CategoryBadge label={tx.category} /> : null}
+                      <span className="pf-ux-txt">
+                        <span className="pf-ux-name" title={fullName}>
+                          {tx.asset}
+                        </span>
+                        <span className="pf-ux-sub">
+                          <TxHashLink hash={hash} status={tx.status} scan={scan} />
+                        </span>
+                      </span>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-400">{tx.amount}</td>
-                  <td className="px-4 py-2.5 text-gray-400">
-                    ${tx.price.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  <td data-label="Action">
+                    <span className={`pf-ux-v ${actionTone}`}>{kind}</span>
                   </td>
-                  <td className="px-4 py-2.5 text-gray-500">{tx.date}</td>
+                  <td data-label="Date">
+                    <span className="pf-ux-d">{when}</span>
+                  </td>
+                  <td data-label="Status">
+                    <span className={`pf-ux-v ${statusTone}`}>{statusLabel}</span>
+                  </td>
+                  <td data-label="Amount" className="pf-ux-r">
+                    {amount != null ? <span className="pf-ux-amt">{amount}</span> : null}
+                  </td>
+                  <td className="pf-ux-mc" data-label="Mobile">
+                    <div className="pf-ux-mc__card">
+                      <span className="pf-ux-mc__thumb">
+                        {tx.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={tx.imageUrl} alt="" />
+                        ) : null}
+                      </span>
+                      <div className="pf-ux-mc__body">
+                        <div className="pf-ux-mc__row">
+                          <span className="pf-ux-mc__name" title={fullName}>
+                            {tx.asset}
+                          </span>
+                        </div>
+                        <div className="pf-ux-mc__money">
+                          <span className={`pf-ux-v ${actionTone}`}>{kind}</span>
+                          {amount != null ? <span className="pf-ux-amt">{amount}</span> : null}
+                          <span className={`pf-ux-chip ${statusTone}`}>{statusLabel}</span>
+                        </div>
+                        <div className="pf-ux-mc__meta">
+                          <span className="pf-ux-d">{when}</span>
+                          {hash || tx.status === "in_progress" ? (
+                            <>
+                              {" · "}
+                              <TxHashLink hash={hash} status={tx.status} scan={scan} />
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              );
+            })}
+          </tbody>
+        </TkTable>
       )}
-    </div>
+
+      <PortfolioTxDetailDrawer tx={selectedTx} onClose={() => setSelectedTx(null)} />
+    </>
   );
 }

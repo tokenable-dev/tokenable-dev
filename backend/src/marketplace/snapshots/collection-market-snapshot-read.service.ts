@@ -10,7 +10,12 @@ import type { GradePriceStrip, UsdPoint } from '../utils/collection-market.util'
 import { referenceChangeWithBestWindow } from '../utils/collection-market.util';
 import { chartHistoryWindowFromCalendarDays } from '../utils/market-grade-strip.util';
 import { filterExternalUsdForChartWindow } from '../utils/market-snapshot-normalize.util';
+import {
+  catalogFromPricesByGradeMap,
+  collectionGradeLabelFromHistoryTier,
+} from '../utils/cardhedger-grade-catalog.util';
 import type { MarketCollectionPreview, MarketPriceHistoryResult } from '../utils/market-reference.types';
+import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
 import type { MarketHistoryPeriod } from '../utils/price-history-period.util';
 import type { MarketSnapshotMeta } from '../utils/market-snapshot.types';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
@@ -52,15 +57,15 @@ export class CollectionMarketSnapshotReadService {
   }
 
   previewFromRow(row: CollectionMarketSnapshot): MarketCollectionPreview {
-    return (
+    const raw =
       row.previewJson ?? {
         enabled: false,
         searchQuery: '',
         matched: false,
         message: 'Snapshot preview unavailable',
         card: null,
-      }
-    );
+      };
+    return sanitizeMarketCollectionPreview(raw);
   }
 
   /**
@@ -175,9 +180,12 @@ export class CollectionMarketSnapshotReadService {
     } = marketChangePctBestWindow(fullExternal);
     const marketChangeSource: MarketChangePriceSource | null =
       marketChangePct != null && externalUsd.length >= 2
-        ? historyTier === 'NEAR_MINT'
-          ? 'cardhedger_nm'
-          : 'cardhedger_graded'
+        ? historyTier === 'PRICECHARTING' ||
+          row.spotPriceBasis === 'pricecharting'
+          ? 'pricecharting'
+          : historyTier === 'NEAR_MINT'
+            ? 'cardhedger_nm'
+            : 'cardhedger_graded'
         : 'none';
 
     const gradePrices: GradePriceStrip = row.gradePricesJson ?? {
@@ -187,6 +195,11 @@ export class CollectionMarketSnapshotReadService {
     };
 
     const meta = this.snapshotMeta(row);
+
+    const { allGradePrices, collectionGrade } = this.gradeCatalogFromPreview(
+      preview,
+      historyTier,
+    );
 
     return {
       bundle: {
@@ -200,6 +213,10 @@ export class CollectionMarketSnapshotReadService {
         marketChangeRefAtSec: marketChangeRefAtSec ?? undefined,
         marketChangeSource,
         gradePrices,
+        spotPriceBasis: row.spotPriceBasis,
+        allGradePrices,
+        collectionGrade,
+        historyTier,
         externalUsd,
         platformUsd,
         cardhedgerPreview: preview,
@@ -209,5 +226,16 @@ export class CollectionMarketSnapshotReadService {
       },
       meta,
     };
+  }
+
+  private gradeCatalogFromPreview(
+    preview: MarketCollectionPreview,
+    historyTier: string | null,
+  ) {
+    const allGradePrices = catalogFromPricesByGradeMap(
+      preview.card?.pricesByGrade,
+    );
+    const collectionGrade = collectionGradeLabelFromHistoryTier(historyTier);
+    return { allGradePrices, collectionGrade };
   }
 }

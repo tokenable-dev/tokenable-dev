@@ -15,7 +15,13 @@ import type { MergeExternalChartSeriesInput, MergedExternalChartData } from "./t
 export function mergeExternalChartSeries(
   input: MergeExternalChartSeriesInput,
 ): MergedExternalChartData {
-  const { externalRollingUsd, externalMarketUsd, externalWindowDays, nowSec } = input;
+  const {
+    externalRollingUsd,
+    externalMarketUsd,
+    externalWindowDays,
+    nowSec,
+    stretchToWindow = false,
+  } = input;
 
   const extRolling = externalRollingUsd?.length
     ? [...externalRollingUsd].sort((a, b) => a.t - b.t)
@@ -38,6 +44,9 @@ export function mergeExternalChartSeries(
     const anchorSec = extRolling.length > 0 ? extRolling[extRolling.length - 1]!.t : nowSec;
     tMin = anchorSec - externalWindowDays! * CHART_DAY_SEC;
     tMax = Math.max(anchorSec, nowSec) + 6 * CHART_HOUR_SEC;
+  } else if (stretchToWindow && extRolling.length > 0) {
+    tMin = extRolling[0]!.t;
+    tMax = Math.max(extRolling[extRolling.length - 1]!.t, tMin + 60);
   } else {
     const extForSmart = extRolling.length > 0 ? extRolling : [];
     const smart = computeSmartTimeDomain(extForSmart, nowSec, 180 * CHART_DAY_SEC);
@@ -77,7 +86,10 @@ export function mergeExternalChartSeries(
     } else if (isUniformPrice(seriesProbe)) {
       const flatV = refPrice ?? seriesProbe[seriesProbe.length - 1]!.v;
       extForChart = buildFullWindowFlatSeries(tMin, tMax, flatV);
-    } else if (shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)) {
+    } else if (
+      stretchToWindow ||
+      shouldAnchorSparseWindow(seriesProbe, tMin, tMax, windowDays)
+    ) {
       extForChart = extendSeriesToWindowEdges(
         validUsdPoints(extForChart).length > 0 ? extForChart : seriesProbe,
         tMin,

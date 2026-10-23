@@ -32,9 +32,24 @@ export type CardhedgerCompsHeadline = {
 };
 
 /** Cached `POST /v1/cards/comps` payload slice — headline + optional raw sale points for charts. */
+export type CardhedgerCompRawPoint = {
+  t: number;
+  v: number;
+  /** Cardhedger `sale_type` (e.g. Auction, Best Offer) — not buy/sell aggressor. */
+  saleType?: string | null;
+  /** Cardhedger `price_source` (e.g. marketplace). */
+  priceSource?: string | null;
+  /** Cardhedger `sale_url` — sold listing link when provided. */
+  saleUrl?: string | null;
+  /** Inferred marketplace label from {@link saleUrl} / {@link priceSource}. */
+  platform?: string | null;
+};
+
 export type CardhedgerCompsCached = {
   headline: CardhedgerCompsHeadline | null;
-  rawPoints: Array<{ t: number; v: number }>;
+  rawPoints: CardhedgerCompRawPoint[];
+  lowUsd: number | null;
+  highUsd: number | null;
   /** Upstream 404: catalog match but no indexed sales for requested grade. */
   noSalesForGrade?: boolean;
 };

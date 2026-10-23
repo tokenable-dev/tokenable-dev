@@ -4,12 +4,17 @@ import {
   Logger,
   OnModuleDestroy,
   OnModuleInit,
+  Optional,
   forwardRef,
 } from '@nestjs/common';
+import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { CardhedgerService } from '../../cardhedger/cardhedger.service';
+import { CardhedgerMetricsService } from '../../common/metrics/cardhedger-metrics.service';
+import { ChainConfigService } from '../../blockchain/chain-config.service';
 import { CollectionMarketSnapshotService } from './collection-market-snapshot.service';
 import { Order, OrderSide, OrderStatus } from '../entities/order.entity';
 import { CollectionMarketSnapshot } from '../entities/collection-market-snapshot.entity';
@@ -18,6 +23,11 @@ import type {
   SnapshotRefreshJob,
   SnapshotRefreshReason,
 } from '../utils/market-snapshot.types';
+import {
+  collectionKeyToAdvisoryLockKey,
+  formatAdvisoryLockKey,
+} from '../utils/snapshot-advisory-lock.util';
+import { runWithPgSessionAdvisoryLock } from '../../database/pg-session-advisory-lock.util';
 
 /**
  * Schedules materialized snapshot refresh.
@@ -32,11 +42,20 @@ export class CollectionMarketSnapshotSchedulerService
   );
   private readonly queue: SnapshotRefreshJob[] = [];
   private readonly queuedKeys = new Set<string>();
+  /** Keys with a scheduled lock-retry timer (dedup gate for enqueue). */
+  private readonly pendingLockRetries = new Set<string>();
+  private readonly lockRetryTimers = new Map<string, NodeJS.Timeout>();
   private processing = false;
   private drainTimer: NodeJS.Timeout | null = null;
+  private circuitDrainTimer: NodeJS.Timeout | null = null;
+  /** Jobs rejected by the queue depth cap since boot (spike indicator). */
+  private droppedJobCount = 0;
+  /** Last observed null-cardhedgerCardId ratio from the batch-reduction check. */
+  private lastNullIdRatio: number | null = null;
 
   constructor(
     private readonly config: ConfigService,
+    private readonly chainConfig: ChainConfigService,
     @Inject(forwardRef(() => CollectionMarketSnapshotService))
     private readonly snapshotService: CollectionMarketSnapshotService,
     @InjectRepository(Order)
@@ -45,6 +64,10 @@ export class CollectionMarketSnapshotSchedulerService
     private readonly snapshotRepo: Repository<CollectionMarketSnapshot>,
     @InjectRepository(RwaToken)
     private readonly rwaTokenRepo: Repository<RwaToken>,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
+    @Optional() private readonly cardhedger?: CardhedgerService,
+    @Optional() private readonly metrics?: CardhedgerMetricsService,
   ) {}
 
   prewarmEnabled(): boolean {
@@ -67,6 +90,12 @@ export class CollectionMarketSnapshotSchedulerService
 
   onModuleDestroy(): void {
     if (this.drainTimer) clearTimeout(this.drainTimer);
+    if (this.circuitDrainTimer) clearTimeout(this.circuitDrainTimer);
+    for (const timer of this.lockRetryTimers.values()) {
+      clearTimeout(timer);
+    }
+    this.lockRetryTimers.clear();
+    this.pendingLockRetries.clear();
   }
 
   refreshConcurrency(): number {
@@ -103,14 +132,147 @@ export class CollectionMarketSnapshotSchedulerService
 
   cronEnabled(): boolean {
     const raw = this.config.get<string>('MARKET_SNAPSHOT_CRON_ENABLED');
-    return raw !== '0' && raw !== 'false';
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') === 'production';
+  }
+
+  maxQueueDepth(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_MAX_QUEUE_DEPTH') ?? '200',
+    );
+    if (!Number.isFinite(raw) || raw < 10) return 200;
+    return Math.min(Math.floor(raw), 2000);
+  }
+
+  /**
+   * Max `cold_start` jobs enqueued from a single list/portfolio batch read.
+   * Detail / single-key paths still call {@link enqueue} directly (uncapped).
+   * 0 = unlimited (legacy behavior).
+   */
+  bulkColdStartEnqueueCap(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_BULK_COLD_START_CAP') ?? '12',
+    );
+    if (!Number.isFinite(raw) || raw < 0) return 12;
+    if (raw === 0) return 0;
+    return Math.min(Math.floor(raw), 60);
+  }
+
+  circuitOpenDrainPauseMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_CIRCUIT_PAUSE_MS') ?? '30000',
+    );
+    if (!Number.isFinite(raw) || raw < 5_000) return 30_000;
+    return Math.min(Math.floor(raw), 120_000);
+  }
+
+  /**
+   * Enqueue at most {@link bulkColdStartEnqueueCap} missing snapshot refreshes
+   * after a multi-key read (Markets list, portfolio batch). Skips keys already queued.
+   */
+  enqueueColdStartBulk(collectionKeys: readonly string[]): void {
+    this.enqueueBulkCapped(collectionKeys, 'cold_start');
+  }
+
+  /**
+   * Cap stale-SWR enqueues from multi-key list reads (same cap as cold_start).
+   */
+  enqueueStaleSwrBulk(collectionKeys: readonly string[]): void {
+    this.enqueueBulkCapped(collectionKeys, 'stale_swr');
+  }
+
+  private enqueueBulkCapped(
+    collectionKeys: readonly string[],
+    reason: SnapshotRefreshReason,
+  ): void {
+    const cap = this.bulkColdStartEnqueueCap();
+    if (cap === 0) {
+      for (const raw of collectionKeys) {
+        const key = String(raw ?? '').trim().toLowerCase();
+        if (key) this.enqueue(key, reason);
+      }
+      return;
+    }
+    let enqueued = 0;
+    for (const raw of collectionKeys) {
+      if (enqueued >= cap) break;
+      const key = String(raw ?? '').trim().toLowerCase();
+      if (!key) continue;
+      if (this.queuedKeys.has(key) || this.pendingLockRetries.has(key)) {
+        continue;
+      }
+      this.enqueue(key, reason);
+      enqueued++;
+    }
+  }
+
+  private isCardhedgerCircuitOpen(): boolean {
+    if (!this.cardhedger) return false;
+    return this.cardhedger.wouldRejectDueToCircuit();
+  }
+
+  private isDeferrableBackgroundReason(reason: SnapshotRefreshReason): boolean {
+    return (
+      reason === 'cold_start' ||
+      reason === 'stale_swr' ||
+      reason === 'cron'
+    );
+  }
+
+  private scheduleDrainAfterCircuitPause(): void {
+    if (this.circuitDrainTimer) return;
+    const pauseMs = this.circuitOpenDrainPauseMs();
+    this.logger.log(
+      JSON.stringify({
+        msg: 'market_snapshot_drain_paused',
+        reason: 'cardhedger_circuit_open',
+        pauseMs,
+        queueDepth: this.queue.length,
+      }),
+    );
+    this.circuitDrainTimer = setTimeout(() => {
+      this.circuitDrainTimer = null;
+      void this.drainQueue();
+    }, pauseMs);
   }
 
   /** Public enqueue API — used by scheduler and stale-while-revalidate hooks. */
   enqueue(collectionKey: string, reason: SnapshotRefreshReason): void {
     const key = collectionKey.toLowerCase();
-    if (!key || this.queuedKeys.has(key)) return;
+    if (!key || this.queuedKeys.has(key) || this.pendingLockRetries.has(key)) {
+      return;
+    }
+    if (
+      this.isCardhedgerCircuitOpen() &&
+      this.isDeferrableBackgroundReason(reason)
+    ) {
+      return;
+    }
     const priority = this.priorityForReason(reason);
+
+    // Depth cap: under a traffic spike every page view enqueues stale-SWR
+    // refreshes — an unbounded queue turns into hours of CardHedger backlog.
+    // When full, evict the lowest-priority tail job if the new one outranks it;
+    // otherwise drop the new job (next page view re-enqueues it anyway).
+    if (this.queue.length >= this.maxQueueDepth()) {
+      const tail = this.queue[this.queue.length - 1];
+      if (!tail || tail.priority >= priority) {
+        this.droppedJobCount += 1;
+        if (this.droppedJobCount % 50 === 1) {
+          this.logger.warn(
+            `snapshot queue full (${this.maxQueueDepth()}) — ${this.droppedJobCount} refresh jobs dropped since boot`,
+          );
+        }
+        return;
+      }
+      this.queue.pop();
+      this.queuedKeys.delete(tail.collectionKey);
+      this.logger.warn(
+        `snapshot queue full (${this.maxQueueDepth()}) — evicted ${tail.collectionKey} for higher-priority ${key}`,
+      );
+    }
+
     this.queue.push({
       collectionKey: key,
       reason,
@@ -123,6 +285,16 @@ export class CollectionMarketSnapshotSchedulerService
     this.scheduleDrain();
   }
 
+  /**
+   * Handles 'snapshot.enqueue' events emitted by CollectionService (and any future domain
+   * services) so they do not need a direct injection of this scheduler.
+   */
+  @OnEvent('snapshot.enqueue')
+  handleSnapshotEnqueue(payload: { key: string; reason: string }): void {
+    const reason = (payload.reason ?? 'cold_start') as SnapshotRefreshReason;
+    this.enqueue(payload.key, reason);
+  }
+
   private priorityForReason(reason: SnapshotRefreshReason): number {
     switch (reason) {
       case 'cold_start':
@@ -131,6 +303,10 @@ export class CollectionMarketSnapshotSchedulerService
         return 80;
       case 'manual':
         return 60;
+      case 'price_webhook':
+        return 95;
+      case 'price_delta':
+        return 55;
       case 'cron':
       default:
         return 40;
@@ -150,8 +326,43 @@ export class CollectionMarketSnapshotSchedulerService
     if (this.processing) return;
     this.processing = true;
     const concurrency = this.refreshConcurrency();
+    let pausedForCircuit = false;
     try {
       while (this.queue.length > 0) {
+        if (this.isCardhedgerCircuitOpen()) {
+          pausedForCircuit = true;
+          // PriceCharting sealed-box refreshes do not need Cardhedger.
+          const batch: SnapshotRefreshJob[] = [];
+          for (let i = 0; i < this.queue.length && batch.length < concurrency; ) {
+            const job = this.queue[i]!;
+            if (job.reason === 'price_delta' || job.reason === 'price_webhook') {
+              this.queue.splice(i, 1);
+              this.queuedKeys.delete(job.collectionKey);
+              batch.push(job);
+            } else {
+              i += 1;
+            }
+          }
+          if (batch.length === 0) {
+            this.scheduleDrainAfterCircuitPause();
+            break;
+          }
+          await Promise.all(
+            batch.map(async (job) => {
+              try {
+                await this.snapshotService.refreshSnapshot(
+                  job.collectionKey,
+                  job.reason,
+                );
+              } catch (e: unknown) {
+                this.logger.warn(
+                  `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+                );
+              }
+            }),
+          );
+          continue;
+        }
         const batch: SnapshotRefreshJob[] = [];
         while (batch.length < concurrency && this.queue.length > 0) {
           const job = this.queue.shift();
@@ -161,15 +372,46 @@ export class CollectionMarketSnapshotSchedulerService
         }
         await Promise.all(
           batch.map(async (job) => {
+            const lockKey = collectionKeyToAdvisoryLockKey(job.collectionKey);
+            let lock: { acquired: boolean };
             try {
-              await this.snapshotService.refreshSnapshot(
-                job.collectionKey,
-                job.reason,
+              lock = await runWithPgSessionAdvisoryLock(
+                this.dataSource,
+                [lockKey.key1, lockKey.key2],
+                () =>
+                  this.snapshotService
+                    .refreshSnapshot(job.collectionKey, job.reason)
+                    .catch((e: unknown) => {
+                      this.logger.warn(
+                        `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+                      );
+                    }),
               );
-            } catch (e) {
+            } catch {
+              // Fail-closed: if DB is unreachable, skip this job so other pods don't
+              // double-write the same snapshot row. No lock retry on db_error.
               this.logger.warn(
-                `queue refresh failed key=${job.collectionKey}: ${e instanceof Error ? e.message : String(e)}`,
+                JSON.stringify({
+                  msg: 'snapshot:lock_db_error',
+                  collectionKey: job.collectionKey,
+                  lockKey: formatAdvisoryLockKey(lockKey),
+                  attempt: job.attempt,
+                  reason: job.reason,
+                }),
               );
+              return;
+            }
+            if (!lock.acquired) {
+              this.logger.debug(
+                JSON.stringify({
+                  msg: 'snapshot:lock_contention',
+                  collectionKey: job.collectionKey,
+                  lockKey: formatAdvisoryLockKey(lockKey),
+                  attempt: job.attempt,
+                  reason: job.reason,
+                }),
+              );
+              this.scheduleLockRetry(job);
             }
           }),
         );
@@ -179,8 +421,109 @@ export class CollectionMarketSnapshotSchedulerService
       }
     } finally {
       this.processing = false;
-      if (this.queue.length > 0) this.scheduleDrain();
+      if (this.queue.length > 0 && !pausedForCircuit) {
+        this.scheduleDrain();
+      }
     }
+  }
+
+  private lockRetryMax(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_MAX') ?? '3',
+    );
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 3;
+  }
+
+  private lockRetryBaseMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_BASE_MS') ?? '500',
+    );
+    return Number.isFinite(raw) && raw >= 50 ? Math.floor(raw) : 500;
+  }
+
+  private lockRetryJitterMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_JITTER_MS') ?? '300',
+    );
+    return Number.isFinite(raw) && raw >= 0 ? Math.floor(raw) : 300;
+  }
+
+  private lockRetryMaxDelayMs(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_LOCK_RETRY_MAX_DELAY_MS') ??
+        '10000',
+    );
+    return Number.isFinite(raw) && raw >= 100 ? Math.floor(raw) : 10_000;
+  }
+
+  /** Exponential backoff with jitter, capped at MARKET_SNAPSHOT_LOCK_RETRY_MAX_DELAY_MS. */
+  private lockRetryDelayMs(attempt: number): number {
+    const base = this.lockRetryBaseMs();
+    const jitter = Math.random() * this.lockRetryJitterMs();
+    const delay = base * Math.pow(2, attempt) + jitter;
+    return Math.min(Math.floor(delay), this.lockRetryMaxDelayMs());
+  }
+
+  /**
+   * Re-enqueue a job after lock contention with bounded exponential backoff.
+   * At most one pending retry timer per collection key.
+   */
+  private scheduleLockRetry(job: SnapshotRefreshJob): void {
+    const maxRetries = this.lockRetryMax();
+    const lockKey = collectionKeyToAdvisoryLockKey(job.collectionKey);
+
+    if (job.attempt >= maxRetries) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'snapshot:lock_retry_exhausted',
+          collectionKey: job.collectionKey,
+          lockKey: formatAdvisoryLockKey(lockKey),
+          attempt: job.attempt,
+          maxRetries,
+          reason: job.reason,
+        }),
+      );
+      return;
+    }
+
+    if (this.pendingLockRetries.has(job.collectionKey)) return;
+    if (this.queuedKeys.has(job.collectionKey)) return;
+
+    const delayMs = this.lockRetryDelayMs(job.attempt);
+    this.pendingLockRetries.add(job.collectionKey);
+
+    this.logger.log(
+      JSON.stringify({
+        msg: 'snapshot:lock_retry',
+        collectionKey: job.collectionKey,
+        lockKey: formatAdvisoryLockKey(lockKey),
+        attempt: job.attempt,
+        nextAttempt: job.attempt + 1,
+        delayMs,
+        reason: job.reason,
+      }),
+    );
+
+    const timer = setTimeout(() => {
+      this.lockRetryTimers.delete(job.collectionKey);
+      this.pendingLockRetries.delete(job.collectionKey);
+
+      if (this.queuedKeys.has(job.collectionKey)) return;
+      if (this.pendingLockRetries.has(job.collectionKey)) return;
+
+      this.queue.push({
+        ...job,
+        attempt: job.attempt + 1,
+        enqueuedAt: Date.now(),
+      });
+      this.queuedKeys.add(job.collectionKey);
+      this.queue.sort(
+        (a, b) => b.priority - a.priority || a.enqueuedAt - b.enqueuedAt,
+      );
+      this.scheduleDrain();
+    }, delayMs);
+
+    this.lockRetryTimers.set(job.collectionKey, timer);
   }
 
   @Cron('0 */15 * * * *')
@@ -190,14 +533,18 @@ export class CollectionMarketSnapshotSchedulerService
   }
 
   /** 09:00 KST daily full refresh for known portfolio collections. */
-  @Cron('0 0 0 * * *')
+  @Cron('0 0 9 * * *', { timeZone: 'Asia/Seoul' })
   async handleDailyPortfolioPrewarm(): Promise<void> {
     if (!this.cronEnabled()) return;
-    const rows = await this.rwaTokenRepo
+    const rwas = this.chainConfig.listConfiguredRwaAddresses();
+    const qb = this.rwaTokenRepo
       .createQueryBuilder('t')
       .select('DISTINCT t.collection_key', 'collectionKey')
-      .where('t.collection_key IS NOT NULL')
-      .getRawMany<{ collectionKey: string }>();
+      .where('t.collection_key IS NOT NULL');
+    if (rwas.length > 0) {
+      qb.andWhere('LOWER(t.token_contract) IN (:...rwas)', { rwas });
+    }
+    const rows = await qb.getRawMany<{ collectionKey: string }>();
     let count = 0;
     for (const r of rows) {
       const key = r.collectionKey?.trim().toLowerCase();
@@ -210,23 +557,196 @@ export class CollectionMarketSnapshotSchedulerService
         msg: 'market_snapshot_daily_portfolio_prewarm',
         timezone: 'KST',
         enqueued: count,
+        rwaContracts: rwas.length,
       }),
     );
   }
 
   private async runScheduledRefresh(trigger: string): Promise<void> {
     const keys = await this.discoverRefreshCandidates();
-    for (const key of keys) {
+    const { effectiveKeys, nullRatio } = await this.applyNullIdBatchReduction(
+      keys,
+      trigger,
+    );
+    for (const key of effectiveKeys) {
       this.enqueue(key, 'cron');
     }
+
+    // ── Degradation profile: single structured log per cron tick ──────────
+    const metricsSnap = this.metrics?.getSnapshot();
+    const resolveTotal = metricsSnap?.resolveTotal ?? 0;
+    const fallbackSearchCount = metricsSnap?.resolvePaths.search ?? 0;
+    const fallbackSearchRate =
+      resolveTotal > 0 ? fallbackSearchCount / resolveTotal : null;
+
     this.logger.log(
       JSON.stringify({
         msg: 'market_snapshot_refresh_scheduled',
         trigger,
         candidateCount: keys.length,
+        effectiveCount: effectiveKeys.length,
         queueDepth: this.queue.length,
+        // Degradation profile fields
+        circuitState: metricsSnap?.circuitState ?? 'UNKNOWN',
+        circuitOpenDurationMs: metricsSnap?.circuitOpenDurationMs ?? 0,
+        nullIdRatio: nullRatio != null ? Number(nullRatio.toFixed(2)) : null,
+        fallbackSearchRate:
+          fallbackSearchRate != null
+            ? Number(fallbackSearchRate.toFixed(2))
+            : null,
+        searchDepthAvg:
+          metricsSnap?.searchDepthAvg != null
+            ? Number(metricsSnap.searchDepthAvg.toFixed(2))
+            : null,
+        batchReductionCount: metricsSnap?.batchReductionCount ?? 0,
       }),
     );
+
+    // Push scheduler state into the global metrics service so that the admin
+    // health endpoint can read it without injecting this service directly
+    // (direct injection requires importing MarketplaceSnapshotsModule from admin
+    // modules, which creates unresolvable circular module contexts).
+    this.metrics?.recordSchedulerState({
+      queueDepth: this.queue.length,
+      queuedKeyCount: this.queuedKeys.size,
+      processing: this.processing,
+      lastNullIdRatio: nullRatio,
+      cronEnabled: this.cronEnabled(),
+      refreshConcurrency: this.refreshConcurrency(),
+    });
+  }
+
+  /**
+   * Cold-start protection: if the fraction of candidate snapshots with a null
+   * `cardhedger_card_id` exceeds `MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD`
+   * (default 0.5), the batch is trimmed to limit search amplification.
+   *
+   * Shadow mode (`MARKET_SNAPSHOT_COLD_START_SHADOW_MODE`):
+   *   - When true: compute and log the reduction but DO NOT apply it.
+   *   - Default: true in non-production, false in production.
+   *   This allows observing thresholds in staging before enabling in production.
+   *
+   * DB-only read. Fails open — on DB error the full batch proceeds.
+   */
+  private async applyNullIdBatchReduction(
+    keys: string[],
+    trigger: string,
+  ): Promise<{ effectiveKeys: string[]; nullRatio: number | null }> {
+    if (keys.length === 0) return { effectiveKeys: keys, nullRatio: null };
+    const threshold = this.nullIdRatioThreshold();
+    if (threshold <= 0) return { effectiveKeys: keys, nullRatio: null };
+
+    try {
+      const row = await this.snapshotRepo
+        .createQueryBuilder('s')
+        .select('COUNT(*)', 'total')
+        .addSelect(
+          'COUNT(*) FILTER (WHERE s.cardhedger_card_id IS NULL)',
+          'null_count',
+        )
+        .where('s.collection_key IN (:...keys)', { keys })
+        .getRawOne<{ total: string; null_count: string }>();
+
+      if (!row) return { effectiveKeys: keys, nullRatio: null };
+      const total = Number(row.total) || 0;
+      if (total === 0) return { effectiveKeys: keys, nullRatio: null };
+
+      const nullRatio = (Number(row.null_count) || 0) / total;
+      this.lastNullIdRatio = nullRatio; // record for health surface
+      if (nullRatio <= threshold) return { effectiveKeys: keys, nullRatio };
+
+      const factor = this.nullIdBatchReductionFactor();
+      const reducedCount = Math.max(1, Math.ceil(keys.length * factor));
+      const shadow = this.coldStartShadowMode();
+
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'market_snapshot_cold_start_batch_reduced',
+          trigger,
+          shadowMode: shadow,
+          nullRatio: nullRatio.toFixed(2),
+          threshold,
+          originalCount: keys.length,
+          reducedCount,
+        }),
+      );
+
+      if (shadow) {
+        // Observe-only: report what would have been reduced, but serve the full batch.
+        return { effectiveKeys: keys, nullRatio };
+      }
+
+      this.metrics?.recordBatchReduction(keys.length, reducedCount, false);
+      return { effectiveKeys: keys.slice(0, reducedCount), nullRatio };
+    } catch (e) {
+      // Best-effort — DB error during ratio check does not block snapshot refresh.
+      this.logger.warn(
+        `cold_start_batch_check failed (proceeding with full batch): ${String(e)}`,
+      );
+      return { effectiveKeys: keys, nullRatio: null };
+    }
+  }
+
+  /**
+   * Shadow mode: when true, batch reduction is computed and logged but NOT applied.
+   * Allows threshold calibration before enabling enforcement.
+   *
+   * Default: ON in non-production, OFF in production.
+   * Config key: MARKET_SNAPSHOT_COLD_START_SHADOW_MODE (1/true or 0/false to override)
+   */
+  private coldStartShadowMode(): boolean {
+    const raw = this.config.get<string>('MARKET_SNAPSHOT_COLD_START_SHADOW_MODE');
+    if (raw === '1' || raw === 'true') return true;
+    if (raw === '0' || raw === 'false') return false;
+    return this.config.get<string>('NODE_ENV') !== 'production';
+  }
+
+  /**
+   * Null-ID ratio above which the scheduled batch is reduced.
+   * 0 disables the feature; default 0.5 (50 %).
+   * Config key: MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD
+   */
+  private nullIdRatioThreshold(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_NULL_ID_RATIO_THRESHOLD') ?? '0.5',
+    );
+    return Number.isFinite(raw) && raw >= 0 && raw <= 1 ? raw : 0.5;
+  }
+
+  /**
+   * Fraction of original batch to keep when the null-ID ratio threshold is breached.
+   * Default 0.5 (50 %); clamped to (0, 1).
+   * Config key: MARKET_SNAPSHOT_NULL_ID_REDUCTION_FACTOR
+   */
+  private nullIdBatchReductionFactor(): number {
+    const raw = Number(
+      this.config.get<string>('MARKET_SNAPSHOT_NULL_ID_REDUCTION_FACTOR') ?? '0.5',
+    );
+    return Number.isFinite(raw) && raw > 0 && raw < 1 ? raw : 0.5;
+  }
+
+  /**
+   * Returns a point-in-time read-only view of scheduler health for the admin surface.
+   * No business logic — reads in-memory state only.
+   */
+  getSchedulerHealth(): {
+    queueDepth: number;
+    queuedKeyCount: number;
+    processing: boolean;
+    lastNullIdRatio: number | null;
+    batchReductionCount: number;
+    cronEnabled: boolean;
+    refreshConcurrency: number;
+  } {
+    return {
+      queueDepth: this.queue.length,
+      queuedKeyCount: this.queuedKeys.size,
+      processing: this.processing,
+      lastNullIdRatio: this.lastNullIdRatio,
+      batchReductionCount: this.metrics?.getSnapshot().batchReductionCount ?? 0,
+      cronEnabled: this.cronEnabled(),
+      refreshConcurrency: this.refreshConcurrency(),
+    };
   }
 
   /**
@@ -241,25 +761,32 @@ export class CollectionMarketSnapshotSchedulerService
     const viewedSince = new Date(
       Date.now() - this.viewedLookbackDays() * 86_400_000,
     );
+    const rwas = this.chainConfig.listConfiguredRwaAddresses();
 
-    const activeRows = await this.orderRepo
+    const activeQb = this.orderRepo
       .createQueryBuilder('o')
       .select('DISTINCT o.collection_key', 'collectionKey')
       .where('o.collection_key IS NOT NULL')
       .andWhere('o.side = :side', { side: OrderSide.ASK })
-      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE })
-      .getRawMany<{ collectionKey: string }>();
+      .andWhere('o.status = :status', { status: OrderStatus.ACTIVE });
+    if (rwas.length > 0) {
+      activeQb.andWhere('LOWER(o.token_contract) IN (:...rwas)', { rwas });
+    }
+    const activeRows = await activeQb.getRawMany<{ collectionKey: string }>();
     for (const r of activeRows) {
       if (r.collectionKey) keys.add(r.collectionKey.toLowerCase());
     }
 
-    const recentFills = await this.orderRepo
+    const fillsQb = this.orderRepo
       .createQueryBuilder('o')
       .select('DISTINCT o.collection_key', 'collectionKey')
       .where('o.collection_key IS NOT NULL')
       .andWhere('o.status = :status', { status: OrderStatus.FULFILLED })
-      .andWhere('o.updated_at >= :since', { since: fillSince })
-      .getRawMany<{ collectionKey: string }>();
+      .andWhere('o.updated_at >= :since', { since: fillSince });
+    if (rwas.length > 0) {
+      fillsQb.andWhere('LOWER(o.token_contract) IN (:...rwas)', { rwas });
+    }
+    const recentFills = await fillsQb.getRawMany<{ collectionKey: string }>();
     for (const r of recentFills) {
       if (r.collectionKey) keys.add(r.collectionKey.toLowerCase());
     }

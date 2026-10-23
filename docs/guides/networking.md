@@ -39,17 +39,20 @@ CORS_ORIGIN=http://54.x.x.x,https://tokenable-dev.com,https://www.tokenable-dev.
 
 ---
 
-## OAuth & Cookies
+## Cookies
+
+Google OAuth login and SMTP mail were removed. Login is Privy. Gmail polling uses `GMAIL_*`, not `GOOGLE_CLIENT_*`.
 
 | Variable | Purpose |
 |----------|---------|
-| `GOOGLE_CALLBACK_URL` | Public URL: must exactly match an **Authorized redirect URI** in Google Cloud Console |
-| `FRONTEND_URL` | Frontend base URL — used for post-auth redirects and cookie `Secure` flag |
+| `FRONTEND_URL` | Frontend base URL — cookie `Secure` flag |
 | `COOKIE_SECURE` | Override cookie `Secure` flag: `true` / `false`. Default: derived from `FRONTEND_URL` scheme |
 
 **Rule:** `Secure=true` is automatically set when `FRONTEND_URL` starts with `https://`. Override with `COOKIE_SECURE=false` for HTTP + IP access.
 
-Supporting both `https://domain` and `http://ip` for OAuth simultaneously is awkward. Prefer one canonical entry point with HTTPS.
+Prefer one canonical HTTPS entry point.
+
+**Two hostnames, one stack:** public default chain is chosen in the browser by hostname (`frontend/lib/chains/defaultChainByHost.ts`) — `app.tokenable.io` → Ethereum mainnet, `tokenable-dev.com` / `www` → Sepolia. Same Docker image; no per-domain frontend rebuild. API calls still use `x-tokenable-chain-id` from that default (internal dev can override via the header switcher).
 
 ---
 
@@ -57,18 +60,21 @@ Supporting both `https://domain` and `http://ip` for OAuth simultaneously is awk
 
 1. Point the domain **A record** to the EC2 public IP.
 2. The `nginx/nginx.conf` already handles HTTP + ACME challenge.
-3. Run Certbot:
+3. Run Certbot (separate lineage per hostname — do **not** expand the existing `tokenable-dev.com` cert):
    ```bash
-   certbot certonly --webroot -w /var/www/certbot -d tokenable-dev.com -d www.tokenable-dev.com
+   certbot certonly --webroot -w /home/ubuntu/app/certbot/www -d tokenable-dev.com -d www.tokenable-dev.com
+   certbot certonly --webroot -w /home/ubuntu/app/certbot/www -d app.tokenable.io
    ```
 4. Set HTTPS template without overwriting tracked files. In `/home/ubuntu/app/.env` (gitignored):
    ```env
    NGINX_CONF=./nginx/nginx.tls.conf
    ```
-5. Edit `nginx/nginx.tls.conf` with correct `server_name` and cert paths.
-6. Recreate the Nginx container:
+5. `nginx/nginx.tls.conf` has separate `server` blocks for `tokenable-dev.com` / `www` and `app.tokenable.io` (each with its own LE paths). After editing, `docker exec tokenable-nginx nginx -t` then `nginx -s reload` (or recreate nginx only).
+
+   Do **not** create `nginx/nginx.tls.conf.bak.YYYYMMDDHHMMSS` in the repo tree (old manual habit). GitHub Deploy backs up TLS config under `/tmp` during `git reset --hard` and deletes `nginx.tls.conf.bak.*` on each run. For a manual backup before editing, use e.g. `cp nginx/nginx.tls.conf /tmp/nginx.tls.conf.$(date +%Y%m%d%H%M%S)`.
+6. Recreate only if reload is not enough:
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --force-recreate nginx
+   docker-compose -f docker-compose.yml -f docker-compose.ec2.yml up -d --no-deps --force-recreate nginx
    ```
 
 `X-Forwarded-Proto` is forwarded to the backend so it can infer the client scheme.
@@ -80,8 +86,7 @@ Supporting both `https://domain` and `http://ip` for OAuth simultaneously is awk
 - [ ] Network tab: API calls go to `https://<domain>/api/...` or `http://<ip>/api/...` — not a mismatched host/scheme
 - [ ] Frontend image built **without** `NEXT_PUBLIC_API_URL` (same-origin setup)
 - [ ] `CORS_ORIGIN` lists every frontend origin
-- [ ] Google Cloud Console **Authorized redirect URIs** match real callback URLs
-- [ ] `FRONTEND_URL` and `GOOGLE_CALLBACK_URL` match the chosen canonical entry point
+- [ ] `FRONTEND_URL` is the canonical HTTPS origin (sets the session cookie `Secure` flag)
 
 ---
 
@@ -93,6 +98,6 @@ Supporting both `https://domain` and `http://ip` for OAuth simultaneously is awk
 | `frontend/Dockerfile` | `NEXT_PUBLIC_*` build args |
 | `docker-compose.yml` | `INTERNAL_API_URL`, Nginx port mapping |
 | `nginx/nginx.conf` | HTTP + ACME + `/api` proxy (git-tracked) |
-| `nginx/nginx.tls.conf` | HTTPS template (not git-tracked) |
+| `nginx/nginx.tls.conf` | HTTPS template (tracked baseline; EC2 live edits preserved by Deploy backup) |
 | `backend/src/main.ts` | CORS, cookie config |
 | `backend/src/auth/auth.controller.ts` | Cookie `Secure` flag logic |

@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { PinataSDK } from 'pinata';
 import { RwaMetadata } from '../interfaces/rwa-metadata.interface';
+import { safeIpfsUploadFilename } from './pinata-filename.util';
 
 function pinataErrorDetail(error: unknown): string {
   if (error == null) return 'unknown';
@@ -41,6 +42,24 @@ export class PinataService {
     });
   }
 
+  /** Browser/wallet-loadable HTTPS URL for a pinned CID (single file). */
+  ipfsHttpsUrl(cid: string): string {
+    const host = this.configService.getOrThrow<string>('PINATA_GATEWAY').trim();
+    return `https://${host}/ipfs/${cid}`;
+  }
+
+  /**
+   * On-chain metadata `image` value.
+   * Prefer the configured dedicated Pinata HTTPS gateway: wallets (MetaMask)
+   * resolve `ipfs://` via public gateways (ipfs.io / Cloudflare), which often
+   * cannot find freshly Pinata-pinned CIDs. Dedicated gateway URLs with empty
+   * Access Controls serve our pins publicly and load reliably in MetaMask.
+   * Sepolia Etherscan still may not render NFT media either way.
+   */
+  ipfsUri(cid: string): string {
+    return this.ipfsHttpsUrl(cid);
+  }
+
   async uploadBuffer(
     buffer: Buffer,
     filename: string,
@@ -48,9 +67,10 @@ export class PinataService {
   ): Promise<string> {
     try {
       const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
-      const pinataFile = new File([blob], filename, { type: mimeType });
+      const safeName = safeIpfsUploadFilename(filename, mimeType.split('/')[1] ?? 'jpg');
+      const pinataFile = new File([blob], safeName, { type: mimeType });
       const result = await this.pinata.upload.public.file(pinataFile);
-      this.logger.log(`Buffer uploaded to IPFS: ${result.cid}`);
+      this.logger.log(`Buffer uploaded to IPFS: ${result.cid} (${safeName})`);
       return result.cid;
     } catch (error) {
       this.logger.error(
@@ -67,12 +87,14 @@ export class PinataService {
       const blob = new Blob([new Uint8Array(file.buffer)], {
         type: file.mimetype,
       });
-      const pinataFile = new File([blob], file.originalname, {
+      const ext = file.mimetype.split('/')[1] ?? 'jpg';
+      const safeName = safeIpfsUploadFilename(file.originalname, ext);
+      const pinataFile = new File([blob], safeName, {
         type: file.mimetype,
       });
 
       const result = await this.pinata.upload.public.file(pinataFile);
-      this.logger.log(`Image uploaded to IPFS: ${result.cid}`);
+      this.logger.log(`Image uploaded to IPFS: ${result.cid} (${safeName})`);
       return result.cid;
     } catch (error) {
       this.logger.error(
@@ -84,10 +106,7 @@ export class PinataService {
     }
   }
 
-  /**
-   * `uploadFromUrl`과 동일한 헤더로 이미지를 가져온다.
-   * PSA 슬랩 크롭 등 동일 바이트로 여러 작업을 할 때 한 번만 fetch하기 위해 사용.
-   */
+  /** `uploadFromUrl`과 동일한 헤더로 이미지를 가져온다. */
   async fetchImageBufferFromUrl(
     imageUrl: string,
   ): Promise<{ buffer: Buffer; mimeType: string; extension: string }> {

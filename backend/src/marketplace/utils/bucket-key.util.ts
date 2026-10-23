@@ -4,6 +4,7 @@ import {
   psaGradePolicyInputFromGraded,
 } from './psa-grade-policy.util';
 import { marketParallelKeyFromPsaVariety } from './market-parallel-key.util';
+import { inferPrintLanguageFromHints } from './pokemon-metadata-normalize.util';
 
 /** Canonical fields that define a "same card" pool (many tokenIds, one book). */
 export interface MarketBucketComponents {
@@ -263,7 +264,13 @@ export function extractOrDiagnoseBucketComponents(
   const psaVarietyRaw = String(
     psa?.variety ?? psa?.Variety ?? '',
   ).trim();
-  out.marketParallelKey = marketParallelKeyFromPsaVariety(psaVarietyRaw);
+  const brandOrSet = String(
+    psa?.brand ?? psa?.Brand ?? psa?.setHint ?? rawSetMerged,
+  ).trim();
+  out.marketParallelKey = marketParallelKeyFromPsaVariety(
+    psaVarietyRaw,
+    brandOrSet,
+  );
 
   const year = normalizeYearLike((card as Record<string, unknown> | undefined)?.year) ??
     normalizeYearLike((psa as Record<string, unknown> | undefined)?.year);
@@ -312,6 +319,88 @@ function normalizeCardNumberForBucketKey(num: string | undefined): string {
   return t.split('/')[0].trim().toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
+/**
+ * One marketplace collection per PriceCharting product.
+ * Not a graded bucket — do not pass this through {@link computeMarketBucketKey}.
+ */
+export function sealedBoxCollectionKey(pricechartingProductId: string): string | null {
+  const id = pricechartingProductId.trim();
+  if (!id) return null;
+  return createHash('sha256')
+    .update(
+      JSON.stringify({ v: 'sealed-box', pricechartingProductId: id }),
+      'utf8',
+    )
+    .digest('hex');
+}
+
+export function isSealedBoxCollectionComponents(
+  components: Record<string, unknown> | null | undefined,
+): boolean {
+  return components?.assetKind === 'sealed_box';
+}
+
+export type SealedBoxCatalogSource = {
+  id: string;
+  productName: string;
+  consoleName: string;
+  genre?: string | null;
+  releaseDate?: string | null;
+  upc?: string | null;
+  loosePriceCents?: number | null;
+  salesVolume?: number | null;
+};
+
+/** Components JSON for a sealed-box collection. No graded / PSA / Cardhedger fields. */
+export function sealedBoxCollectionComponents(
+  product: SealedBoxCatalogSource,
+): Record<string, unknown> {
+  const id = product.id.trim();
+  const productName = product.productName.trim() || 'Sealed box';
+  const consoleName = product.consoleName.trim();
+  const out: Record<string, unknown> = {
+    assetKind: 'sealed_box',
+    pricechartingProductId: id,
+    productName,
+    listingDisplayTitle: productName,
+  };
+  if (consoleName) out.consoleName = consoleName;
+  const genre = product.genre?.trim();
+  if (genre) out.genre = genre;
+  // PriceCharting embeds region in Latin names ("Pokemon Japanese …").
+  const language = inferPrintLanguageFromHints({
+    brand: consoleName || productName,
+    setHint: consoleName,
+    category: genre,
+    variety: productName,
+    cardhedgerSet: [productName, consoleName].filter(Boolean).join(' '),
+  });
+  if (language) out.language = language;
+  const release = product.releaseDate?.trim() ?? '';
+  const releaseDay = /^(\d{4}-\d{2}-\d{2})/.exec(release)?.[1];
+  if (releaseDay) {
+    out.releaseDate = releaseDay;
+    const year = Number(releaseDay.slice(0, 4));
+    if (year >= 1880 && year <= 2100) out.year = year;
+  }
+  const upc = product.upc?.trim();
+  if (upc) out.upc = upc;
+  if (
+    product.loosePriceCents != null &&
+    Number.isFinite(product.loosePriceCents)
+  ) {
+    out.loosePriceCents = Math.round(product.loosePriceCents);
+  }
+  if (
+    product.salesVolume != null &&
+    Number.isFinite(product.salesVolume) &&
+    product.salesVolume > 0
+  ) {
+    out.salesVolume = Math.round(product.salesVolume);
+  }
+  return out;
+}
+
 export function computeMarketBucketKey(
   components: MarketBucketComponents,
 ): string {
@@ -327,4 +416,14 @@ export function computeMarketBucketKey(
     ...(components.variantType ? { variantType: components.variantType } : {}),
   });
   return createHash('sha256').update(payload, 'utf8').digest('hex');
+}
+
+/** Marketplace bucket for a graded mint — null when identity is incomplete. */
+export function collectionKeyFromGradedMetadata(
+  meta: Record<string, unknown> | null | undefined,
+): string | null {
+  if (!meta || typeof meta !== 'object') return null;
+  const comp = extractBucketComponentsFromMetadata(meta);
+  if (!comp) return null;
+  return computeMarketBucketKey(comp).toLowerCase();
 }

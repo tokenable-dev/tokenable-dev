@@ -1,0 +1,264 @@
+/* Watchlist page — Watchlist.html patterns (Phase 7) */
+
+.watchlist-page {
+  background: var(--ink);
+  color: var(--t1);
+  overflow-x: clip;
+  min-height: 100%;
+}
+
+.watchlist-page__shell {
+  padding-bottom: 48px;
+}
+
+.watchlist-results-section {
+  padding-top: 32px;
+}
+
+.watchlist-page__header {
+  padding-top: 32px;
+}
+
+.watchlist-page__title {
+  margin: 16px 0 0;
+}
+
+.watchlist-page__subtitle {
+  max-width: 600px;
+}
+
+.watchlist-results-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin: 0 0 22px;
+}
+
+.watchlist-results-bar__count {
+  font-family: var(--font-mono);
+  font-size: var(--tk-ui-fs-body);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--t2);
+}
+
+.watchlist-results-bar__count b {
+  color: #fff;
+}
+
+.watchlist-results-bar__label {
+  font-family: var(--font-mono);
+  font-size: var(--tk-ui-fs-body);
+  color: var(--t2);
+}
+
+/* Column spec: tokenable-collectible-card.css (`.markets-grid` / `.watchlist-grid`). */
+
+@media (max-width: 767px) {
+  .watchlist-page__header {
+    padding-top: 20px;
+  }
+
+  .watchlist-results-section {
+    padding-top: 24px;
+  }
+
+  .watchlist-results-bar {
+    margin-bottom: 18px;
+  }
+}
+
+/* Grid cards — layout tweaks shared with .markets-grid (see tokenable-markets.css) */
+.watchlist-grid .card {
+  height: 100%;
+  min-width: 0;
+}
+
+.watchlist-grid .card > .fav .fav-btn,
+.watchlist-grid .card > .fav button {
+  width: 32px;
+  height: 32px;
+}
+
+.watchlist-grid .card > .fav .fav-btn svg,
+.watchlist-grid .card > .fav button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.watchlist-grid .card__stat,
+.watchlist-grid .card__kv {
+  font-size: var(--tk-ui-fs-caption);
+  font-weight: 400;
+}
+
+@media (max-width: 768px) {
+  /* Override global .card__body mobile padding from tokenable-collectible-card.css */
+  .watchlist-grid .card__body {
+    padding: 0 0 4px;
+    gap: 8px;
+  }
+}
+
+/* Watchlist.html card — gray grade chip, POP, split change/period, in-card CTAs */
+.watchlist-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  text-decoration: none;
+  color: inherit;
+}
+
+.watchlist-card .card__body {
+  padding: 0 0 4px;
+  gap: var(--card-list-body-gap);
+  flex: 1;
+}
+
+.watchlist-card__meta {
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.watchlist-card__grade {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--card-list-meta-fs);
+  font-weight: 400;
+  color: rgba(255, 255, 255, 0.8);
+  padding: 4px 8px;
+  line-height: 1.2;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 6px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+/* Price row sizes: tokenable-collectible-card.css variables */
+
+/* Cards stretch to the tallest in the row, so pin the CTAs to the bottom. */
+.watchlist-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  padding-top: 8px;
+  pointer-events: none;
+}
+
+.watchlist-card-actions__btn {
+  flex: 1;
+  height: 40px !important;
+  font-size: var(--tk-ui-fs-body) !important;
+  justify-content: center;
+}
+
+/* Decorative Buy CTA — no DS bevel / drop shadow on the card. */
+.watchlist-card-actions__btn.tk-btn--primary,
+.watchlist-card-actions .tk-btn.tk-btn--primary {
+  box-shadow: none !important;
+  filter: none !important;
+}
+
+.watchlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 16px;
+  text-align: center;
+}
+
+.watchlist-empty__icon {
+  color: var(--azure);
+  opacity: 0.85;
+}
+
+.watchlist-empty p {
+  margin-top: 8px;
+  font-size: var(--tk-ui-fs-body-lg);
+  color: var(--t2);
+}
+
+.watchlist-empty a {
+  margin-top: 12px;
+  font-size: var(--tk-ui-fs-body-lg);
+  font-weight: 600;
+  color: var(--azure);
+}
+
+.watchlist-empty a:hover {
+  text-decoration: underline;
+}
+
+.watchlist-page .text-mint {
+  color: var(--azure) !important;
+}
+
+@media (max-width: 560px) {
+  .watchlist-grid {
+    gap: 10px;
+    row-gap: 24px;
+  }
+
+  .watchlist-grid .watchlist-card {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 8px;
+  }
+
+  .watchlist-grid .card__img {
+    padding: 0;
+  }
+
+  .watchlist-grid .card__body {
+    padding: 0 0 4px;
+    gap: var(--card-list-body-gap);
+  }
+
+  .watchlist-grid .watchlist-card__meta {
+    gap: 3px 5px;
+  }
+
+  .watchlist-grid .watchlist-card__grade {
+    padding: 3px 6px;
+  }
+
+
+  .watchlist-grid .card__price-row {
+    gap: 4px;
+    margin-top: 0;
+  }
+
+  .watchlist-grid .card:not(:has(.psa-slab-frame)) > .fav {
+    top: 14px;
+    right: 14px;
+    left: auto;
+  }
+
+  .watchlist-grid .card > .fav .fav-btn,
+  .watchlist-grid .card > .fav button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .watchlist-grid .card > .fav .fav-btn svg,
+  .watchlist-grid .card > .fav button svg {
+    width: 13px;
+    height: 13px;
+  }
+
+  .watchlist-card-actions {
+    gap: 6px;
+    padding-top: 6px;
+  }
+
+  .watchlist-card-actions__btn {
+    height: 36px !important;
+    font-size: var(--tk-ui-fs-body-sm) !important;
+  }
+}
+

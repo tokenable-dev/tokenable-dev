@@ -15,15 +15,19 @@ function slugifyParallelKey(raw: string): string {
 /**
  * Stable bucket facet: PSA `Variety` when it names a parallel; otherwise `base`.
  * Used in {@link computeMarketBucketKey} v2 so Base vs Refractor do not share one collection.
+ *
+ * Do not strip print-run suffixes here — `collection_key` v2 must stay stable for existing
+ * orders. Matching uses {@link normalizePsaVarietyForMatch} separately.
  */
 export function marketParallelKeyFromPsaVariety(
   psaVariety: string | null | undefined,
+  brandOrSet?: string | null,
 ): string {
   const raw = String(psaVariety ?? '')
     .trim()
     .replace(/\s+/g, ' ');
   if (!raw) return 'base';
-  if (!psaVarietyRequiresNonBaseCardhedgerRow(raw)) return 'base';
+  if (!psaVarietyRequiresNonBaseCardhedgerRow(raw, brandOrSet)) return 'base';
   return slugifyParallelKey(raw);
 }
 

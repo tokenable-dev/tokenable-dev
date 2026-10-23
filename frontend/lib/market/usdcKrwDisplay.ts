@@ -10,21 +10,14 @@ export function usdToKrwRate(): number {
   return Number.isFinite(n) && n > 0 ? n : DEFAULT_USD_KRW_RATE;
 }
 
-/** Mobile listing line — e.g. `USDC $3,333.00` */
+/** Mobile listing line — e.g. `USDC $3,333` */
 export function formatUsdcPricePrimary(usd: number): string {
-  const amount = usd.toLocaleString("en-US", {
-    minimumFractionDigits: usd >= 100 ? 0 : 2,
-    maximumFractionDigits: 2,
-  });
+  const amount = Math.round(usd).toLocaleString("en-US");
   return `USDC $${amount}`;
 }
 
-/** Approximate KRW — e.g. `약 KRW 535,353.53` */
+/** Approximate KRW — e.g. `약 KRW 535,354` */
 export function formatApproxKrwFromUsd(usd: number): string {
-  const krw = usd * usdToKrwRate();
-  const amount = krw.toLocaleString("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  return `약 KRW ${amount}`;
+  const krw = Math.round(usd * usdToKrwRate());
+  return `약 KRW ${krw.toLocaleString("en-US")}`;
 }

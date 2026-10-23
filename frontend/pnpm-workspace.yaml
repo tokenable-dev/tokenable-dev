@@ -7,3 +7,8 @@ allowBuilds:
   bufferutil: true
   utf-8-validate: true
   unrs-resolver: false
+  # postinstall is a version check / funding banner, not a build
+  "@reown/appkit": false
+  core-js: false
+  # native hash; script is `node-gyp-build || exit 0`, JS fallback if no prebuild
+  keccak: true

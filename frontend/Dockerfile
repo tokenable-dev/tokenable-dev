@@ -8,7 +8,8 @@ WORKDIR /app
 ENV CI=true
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
-RUN pnpm install --frozen-lockfile
+# postinstall patches @privy-io in node_modules — needs scripts/ (not copied here yet).
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # ── Stage 2: 빌드 ────────────────────────────────────────────────
 FROM node:22-alpine AS builder
@@ -19,39 +20,27 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Build-time env (NEXT_PUBLIC_* 는 빌드 시 번들에 정적 포함)
-ARG NEXT_PUBLIC_API_URL
-ARG NEXT_PUBLIC_RWA_CONTRACT_ADDRESS
-ARG NEXT_PUBLIC_USDC_CONTRACT_ADDRESS
-ARG NEXT_PUBLIC_ALCHEMY_RPC_URL
-ARG NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT
-ARG NEXT_PUBLIC_PLATFORM_FEE_BPS
-# `next.config.ts` rewrites: same-origin `/api` → Nest. Baked at **build** time (not runtime).
-# 예: Docker Compose 에서 서비스명이 `api` 이고 Nest 가 4000 이면
-#   --build-arg API_PROXY_TARGET=http://api:4000
-# 없이 빌드하면 기본 http://127.0.0.1:4000 → 프론트 단독 컨테이너에서 /api 전부 502.
+# Privy dist patches (package.json postinstall — skipped in deps stage).
+RUN node scripts/patch-privy-isactive.mjs
+
+# CI copies /home/ubuntu/.env.production.frontend → frontend/.env.production before `docker build`.
+# Next.js loads .env.production at build and bakes NEXT_PUBLIC_* into the bundle.
+RUN set -e; \
+  test -f .env.production || \
+    (echo "ERROR: .env.production missing — CI must copy EC2 frontend env first" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RPC_URL=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RPC_URL missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_RWA=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_RWA missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_CHAIN_11155111_USDC=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_CHAIN_11155111_USDC missing" && exit 1); \
+  grep -Eq '^NEXT_PUBLIC_PRIVY_APP_ID=.+' .env.production || \
+    (echo "ERROR: NEXT_PUBLIC_PRIVY_APP_ID missing" && exit 1)
+
+# `next.config.ts` rewrites: same-origin `/api` → Nest. Baked at **build** time.
 ARG API_PROXY_TARGET=http://127.0.0.1:4000
 ENV API_PROXY_TARGET=${API_PROXY_TARGET}
 
-# Empty NEXT_PUBLIC_API_URL ⇒ browser uses same-origin /api (works for IP, domain, https).
-ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
-ENV NEXT_PUBLIC_RWA_CONTRACT_ADDRESS=$NEXT_PUBLIC_RWA_CONTRACT_ADDRESS
-ENV NEXT_PUBLIC_USDC_CONTRACT_ADDRESS=$NEXT_PUBLIC_USDC_CONTRACT_ADDRESS
-ENV NEXT_PUBLIC_ALCHEMY_RPC_URL=$NEXT_PUBLIC_ALCHEMY_RPC_URL
-ENV NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT=$NEXT_PUBLIC_PLATFORM_FEE_RECIPIENT
-ENV NEXT_PUBLIC_PLATFORM_FEE_BPS=$NEXT_PUBLIC_PLATFORM_FEE_BPS
-
-# Required addresses must be non-empty at docker build (otherwise client bundle ships with a runtime crash).
-RUN if [ -z "${NEXT_PUBLIC_RWA_CONTRACT_ADDRESS:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_RWA_CONTRACT_ADDRESS must be non-empty at docker build."; \
-  exit 1; \
-fi
-RUN if [ -z "${NEXT_PUBLIC_USDC_CONTRACT_ADDRESS:-}" ]; then \
-  echo "ERROR: NEXT_PUBLIC_USDC_CONTRACT_ADDRESS must be non-empty at docker build."; \
-  exit 1; \
-fi
-
-# Standalone build (next.config.ts → output: 'standalone')
 RUN pnpm build
 
 # ── Stage 3: 실행 (최소 이미지) ──────────────────────────────────
