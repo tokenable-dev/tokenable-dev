@@ -210,13 +210,15 @@ export function PortfolioPageView({
   const historyTabActive = portfolioMainTab === "history";
   const bidsTabActiveEarly = portfolioMainTab === "bids";
 
+  /**
+   * Load activity as soon as the portfolio mounts so the Transactions tab
+   * count is accurate (mint-only rows under-count until fulfilled trades load).
+   * Poll only while the history tab is open.
+   */
   const activityQuery = useQuery({
     queryKey: rq.portfolioActivity(portfolioAddress ?? "", chainId),
     queryFn: () => getPortfolioActivityOrders(portfolioAddress!),
-    enabled:
-      portfolioDataEnabled &&
-      Boolean(portfolioAddress?.trim()) &&
-      historyTabActive,
+    enabled: portfolioDataEnabled && Boolean(portfolioAddress?.trim()),
     staleTime: 30_000,
     refetchInterval: historyTabActive ? 60_000 : false,
     refetchIntervalInBackground: false,
@@ -1020,7 +1022,8 @@ export function PortfolioPageView({
             assets: holdingsDisplayCount,
             redeem: redeemInProgressCount,
             bids: myBids.bidsListFetched ? myBids.activeBids.length : undefined,
-            history: txRows.length,
+            // Hide until activity is fetched — otherwise mint-only rows look like TX=20 then jump.
+            history: activityQuery.isFetched ? txRows.length : undefined,
           }}
           onTabChange={(tab) => {
             setPortfolioMainTab(tab);

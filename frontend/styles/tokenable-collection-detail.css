@@ -126,7 +126,7 @@
   letter-spacing: var(--letter-spacing--1_14, -1.14px);
 }
 
-/* Sealed-box hero cover — no PSA frame chrome; sit a bit higher than mid-align. */
+/* Sealed-box hero cover — no PSA frame chrome; flush left like a normal cover. */
 .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
 .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__thumb--empty,
 .collection-detail-page--sealed-box
@@ -139,7 +139,9 @@
   border-radius: 0 !important;
   filter: none !important;
   align-self: flex-start !important;
-  margin-top: -12px;
+  margin-top: 0;
+  margin-left: 0 !important;
+  overflow: hidden !important;
 }
 
 .collection-detail-page--sealed-box
@@ -155,12 +157,16 @@
   border-radius: 0 !important;
   box-shadow: none !important;
   background: transparent !important;
+  aspect-ratio: unset !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* Desktop sealed hero — larger box art (mock left column). */
+/* Desktop sealed hero — box art flush with chart-card left edge. */
 @media (min-width: 1141px) {
   .collection-detail-page--sealed-box .cd-hero-bar--embed {
     gap: 28px 36px;
+    padding-left: 0;
   }
 
   .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
@@ -171,7 +177,8 @@
     max-width: 154px;
     min-width: 154px;
     aspect-ratio: 1 / 1.15;
-    margin-top: -16px;
+    margin-top: 0;
+    margin-left: -6px;
   }
 
   .collection-detail-page--sealed-box
@@ -195,6 +202,7 @@
     width: 100% !important;
     height: 100% !important;
     max-height: none !important;
+    aspect-ratio: unset !important;
   }
 
   .collection-detail-page--sealed-box
@@ -205,7 +213,7 @@
     max-width: 100% !important;
     max-height: 100% !important;
     object-fit: contain !important;
-    object-position: center bottom;
+    object-position: center;
   }
 
   .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__copy,
@@ -413,13 +421,16 @@
     .cd-hero-md-panel__row
     .cd-hero-stats__cell:nth-child(3n + 1) {
     justify-self: start;
+    transform: none;
   }
 
+  /* Vol 1Yr / Gem rate — desktop nudges +16px; pull back left on mobile. */
   .collection-detail-page
     .cd-mobile-scroll__chart
     .cd-hero-md-panel__row
     .cd-hero-stats__cell:nth-child(3n + 2) {
     justify-self: start;
+    transform: translateX(-4px);
   }
 
   .collection-detail-page
@@ -427,6 +438,7 @@
     .cd-hero-md-panel__row
     .cd-hero-stats__cell:nth-child(3n) {
     justify-self: end;
+    transform: translateX(-16px);
   }
 
 
@@ -517,9 +529,13 @@
     justify-content: flex-start;
   }
 
-  /* Card.html `#similar-items{order:50;margin-top:24px}` */
+  /* Same rhythm as book → details (avoid stacking __similar + .cd-similar-items margins). */
   .collection-detail-page .cd-mobile-scroll__similar {
-    margin-top: 24px;
+    margin-top: 16px;
+  }
+
+  .collection-detail-page .cd-mobile-scroll__similar .cd-similar-items {
+    margin-top: 0;
   }
 
   /* Card.html `#listings-section{order:99;margin-top:24px}` — last in column */
@@ -1956,6 +1972,7 @@
     grid-row: 1 / -1 !important;
     align-self: start !important;
     justify-self: start !important;
+    box-sizing: border-box !important;
     width: 105px !important;
     min-width: 105px !important;
     max-width: 105px !important;
@@ -1966,6 +1983,7 @@
     filter: none;
     margin: 0 !important;
     overflow: hidden !important;
+    z-index: 0;
   }
 
   /* PSA slab — beat tokenable-collection-psa-slab.css embed breakpoints (overflow + 122/210px). */
@@ -2071,6 +2089,9 @@
     justify-self: stretch !important;
     width: 100%;
     min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    z-index: 1;
     gap: 6px !important;
   }
 
@@ -2081,7 +2102,7 @@
     justify-content: center !important;
   }
 
-  /* Sealed-box mobile — keep image | text side-by-side (same grid as cards). */
+  /* Sealed-box mobile — image | text side-by-side; clip so art never overlaps copy. */
   .collection-detail-page--sealed-box
     .cd-mobile-scroll__chart
     .cd-hero-bar--embed
@@ -2096,27 +2117,30 @@
     .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
     grid-column: 1 !important;
     grid-row: 1 / -1 !important;
-    width: 128px !important;
-    min-width: 128px !important;
-    max-width: 128px !important;
+    box-sizing: border-box !important;
+    width: 112px !important;
+    min-width: 112px !important;
+    max-width: 112px !important;
     height: auto !important;
     min-height: 0 !important;
-    max-height: none !important;
+    max-height: 148px !important;
     aspect-ratio: 1 / 1.15 !important;
     align-self: start !important;
     justify-self: start !important;
-    margin: -6px 0 0 !important;
+    margin: 0 0 0 -6px !important;
     border: 0 !important;
     box-shadow: none !important;
     background: transparent !important;
     border-radius: 0 !important;
     filter: none !important;
+    overflow: hidden !important;
+    z-index: 0;
   }
 
   .collection-detail-page--sealed-box .cd-mobile-scroll__chart .cd-hero-bar--embed {
-    grid-template-columns: 128px minmax(0, 1fr) !important;
-    column-gap: 20px !important;
-    gap: 8px 20px !important;
+    grid-template-columns: 112px minmax(0, 1fr) !important;
+    column-gap: 16px !important;
+    gap: 8px 16px !important;
   }
 
   /* Mobile sealed type scale — slightly tighter than desktop Figma. */
@@ -2165,13 +2189,16 @@
     .cd-hero-bar--embed
     .cd-hero-bar__thumb-btn:has(> .psa-slab-frame)
     .psa-slab {
+    box-sizing: border-box !important;
     width: 100% !important;
+    max-width: 100% !important;
     height: 100% !important;
-    max-height: none !important;
+    max-height: 100% !important;
     border: 0 !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     background: transparent !important;
+    overflow: hidden !important;
   }
 
   .collection-detail-page--sealed-box
@@ -2179,6 +2206,12 @@
     .cd-hero-bar--embed
     .psa-slab--plain {
     background: transparent;
+    aspect-ratio: unset !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow: hidden !important;
   }
 
   .collection-detail-page--sealed-box
@@ -2190,7 +2223,7 @@
     max-width: 100% !important;
     max-height: 100% !important;
     object-fit: contain !important;
-    object-position: center bottom;
+    object-position: center;
   }
 
   .collection-detail-page--sealed-box
@@ -2205,6 +2238,23 @@
     grid-row: 1 / -1 !important;
     align-items: flex-start !important;
     text-align: left;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    overflow: hidden;
+    z-index: 1;
+  }
+
+  .collection-detail-page--sealed-box
+    .cd-mobile-scroll__chart
+    .cd-hero-bar--embed
+    .cd-hero-bar__title,
+  .collection-detail-page--sealed-box
+    .cd-mobile-scroll__chart
+    .cd-hero-bar--embed
+    #hero-title {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   /* Card.html: title sits beside image (not full-width above). */
@@ -3847,8 +3897,9 @@
 }
 
 @media (max-width: 1140px) {
+  /* Margin owned by `.cd-mobile-scroll__similar` — do not double-stack. */
   .cd-similar-items {
-    margin-top: 24px;
+    margin-top: 0;
   }
 }
 
