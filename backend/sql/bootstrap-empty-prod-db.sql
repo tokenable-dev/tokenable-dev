@@ -29,6 +29,10 @@ BEGIN;
 \ir schema/072_pricecharting_sources.sql
 \ir schema/073_pricecharting_price_history.sql
 \ir schema/074_pricecharting_listings.sql
+\ir schema/075_sealed_box_mints.sql
+\ir schema/076_pricecharting_product_cover.sql
+\ir schema/077_pricecharting_is_sealed_box.sql
+\ir schema/078_pricecharting_trade_history.sql
 \ir schema/900_triggers.sql
 
 COMMIT;

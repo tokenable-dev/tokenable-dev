@@ -22,12 +22,7 @@ export function TkFooter() {
           <img src={ASSETS.logo.tokenableDs} alt="Tokenable" />
           <span className="tk-footer__copy">Collectibles markets © 2026</span>
         </div>
-        <nav className="tk-footer__nav" aria-label="Footer">
-          {/* data-faq-open → FaqDrawerHost bottom drawer; href=/faq is no-JS fallback */}
-          <Link href="/faq" className="navlink" data-faq-open>
-            FAQ
-          </Link>
-          <span className="navlink">Terms</span>
+        <div className="tk-footer__end">
           <span className="tk-footer__socials">
             <a
               className="tk-footer__social"
@@ -68,7 +63,14 @@ export function TkFooter() {
               </svg>
             </a>
           </span>
-        </nav>
+          <nav className="tk-footer__nav" aria-label="Footer">
+            {/* data-faq-open → FaqDrawerHost bottom drawer; href=/faq is no-JS fallback */}
+            <Link href="/faq" className="navlink" data-faq-open>
+              FAQ
+            </Link>
+            <span className="navlink">Terms</span>
+          </nav>
+        </div>
       </div>
     </footer>
   );

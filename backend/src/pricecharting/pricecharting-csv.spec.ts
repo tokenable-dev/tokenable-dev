@@ -3,6 +3,7 @@ import {
   mergeManualHistoryPrices,
   manualHistoryPricePatch,
   parseManualHistoryCsv,
+  parseManualTradesCsv,
   parsePricechartingCsv,
   usdToCents,
 } from './pricecharting-csv';
@@ -142,5 +143,40 @@ describe('parseManualHistoryCsv', () => {
     expect(() =>
       parseManualHistoryCsv('foo,bar\n1,2\n'),
     ).toThrow(/product_id/);
+  });
+});
+
+describe('parseManualTradesCsv', () => {
+  it('parses dollar prices with default eBay Buy It Now', () => {
+    const csv = [
+      'product_id,traded_on,price,source,sale_type',
+      '5490667,2025-11-02,168.50,eBay,Buy It Now',
+      '5490667,2025-11-04,$172.00,eBay,Buy It Now',
+    ].join('\n');
+    const parsed = parseManualTradesCsv(csv);
+    expect(parsed).toEqual([
+      {
+        line: 2,
+        productId: '5490667',
+        tradedOn: '2025-11-02',
+        priceCents: 16850,
+        marketplace: 'eBay',
+        saleType: 'Buy It Now',
+        saleUrl: null,
+      },
+      {
+        line: 3,
+        productId: '5490667',
+        tradedOn: '2025-11-04',
+        priceCents: 17200,
+        marketplace: 'eBay',
+        saleType: 'Buy It Now',
+        saleUrl: null,
+      },
+    ]);
+  });
+
+  it('requires product_id, traded_on, and price', () => {
+    expect(() => parseManualTradesCsv('a,b\n1,2\n')).toThrow(/product_id/);
   });
 });

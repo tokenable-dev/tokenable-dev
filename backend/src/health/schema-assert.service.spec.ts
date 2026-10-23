@@ -73,6 +73,14 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes pricecharting_trade_history (sealed-box trades CSV)', () => {
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) => r.kind === 'table' && r.name === 'pricecharting_trade_history',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes pricecharting_products.cover_image_url', () => {
     expect(
       REQUIRED_SCHEMA.some(

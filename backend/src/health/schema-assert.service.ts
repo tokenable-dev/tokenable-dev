@@ -42,6 +42,11 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
   },
   {
     kind: 'table',
+    name: 'pricecharting_trade_history',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'table',
     name: 'pricecharting_listings',
     fix: DEPLOY_SYNC_FIX,
   },

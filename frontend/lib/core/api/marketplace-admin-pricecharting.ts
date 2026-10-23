@@ -235,3 +235,30 @@ export async function uploadPricechartingHistoryCsv(
   if (!res.ok) throw new Error(await readError(res));
   return res.json() as Promise<PricechartingHistoryBulkResult>;
 }
+
+export type PricechartingTradesBulkResult = {
+  filename: string;
+  rowCount: number;
+  ok: number;
+  productIds: string[];
+  failed: Array<{ line: number; productId: string; error: string }>;
+};
+
+/** Replace external trades CSV for sealed-box collection tape. */
+export async function uploadPricechartingTradesCsv(
+  file: File,
+): Promise<PricechartingTradesBulkResult> {
+  const body = new FormData();
+  body.append("file", file);
+  const res = await backendFetch(
+    `${getApiUrl()}/marketplace/admin/pricecharting/trades/bulk`,
+    {
+      method: "POST",
+      credentials: "include",
+      body,
+      timeoutMs: 300_000,
+    },
+  );
+  if (!res.ok) throw new Error(await readError(res));
+  return res.json() as Promise<PricechartingTradesBulkResult>;
+}

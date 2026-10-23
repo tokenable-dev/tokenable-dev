@@ -107,6 +107,14 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
   if (pathname === "/api/webhooks/sumsub" && method.toUpperCase() === "POST") {
     return true;
   }
+  // Admin console has its own password. Login also mints site_access for API data.
+  if (
+    pathname === "/marketplace/admin" ||
+    pathname.startsWith("/marketplace/admin/")
+  ) {
+    return true;
+  }
+  if (isMarketplaceAdminAuthPublicPath(pathname, method)) return true;
   if (isSwaggerPublicPath(pathname, method)) return true;
   if (pathname.startsWith("/api/auth/")) return true;
   if (pathname.startsWith("/_next/")) return true;
@@ -117,6 +125,24 @@ export function isSiteAccessPublicPath(pathname: string, method: string): boolea
     pathname === "/apple-icon.png" ||
     pathname === "/robots.txt"
   ) {
+    return true;
+  }
+  return false;
+}
+
+/** Admin auth endpoints — reachable before the site-access cookie exists. */
+export function isMarketplaceAdminAuthPublicPath(
+  pathname: string,
+  method: string,
+): boolean {
+  const m = method.toUpperCase();
+  if (pathname === "/api/marketplace/admin/auth/session" && m === "GET") {
+    return true;
+  }
+  if (pathname === "/api/marketplace/admin/auth/login" && m === "POST") {
+    return true;
+  }
+  if (pathname === "/api/marketplace/admin/auth/logout" && m === "POST") {
     return true;
   }
   return false;

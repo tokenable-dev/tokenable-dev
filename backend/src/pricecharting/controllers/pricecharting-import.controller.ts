@@ -188,6 +188,36 @@ export class PricechartingImportController {
     });
   }
 
+  @Post('trades/bulk')
+  @ApiConsumes('multipart/form-data')
+  @ApiOperation({
+    summary: '[Admin] Replace pricecharting_trade_history from CSV',
+    description:
+      'CSV columns: product_id, traded_on (YYYY-MM-DD), price (dollars), optional source/marketplace (default eBay), sale_type (default Buy It Now), sale_url. Replaces all trades for each product_id in the file. Max 5 MB / 5000 rows. Powers sealed-box collection trades tape.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: {
+        file: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  importTradesCsv(
+    @Req() req: Request,
+    @UploadedFile() file: Express.Multer.File | undefined,
+  ) {
+    this.admin.assertAdminSession(req);
+    if (!file) {
+      throw new BadRequestException('CSV file is required');
+    }
+    return this.imports.importManualTradesCsv(file);
+  }
+
   @Post('products/:id/cover')
   @ApiConsumes('multipart/form-data')
   @ApiOperation({

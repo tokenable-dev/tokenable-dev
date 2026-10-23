@@ -16,7 +16,9 @@ SITE_ACCESS_SECRET=your-long-random-secret
 
 When `SITE_ACCESS_ENABLED=true` (local `.env` included), every host asks for the password. `app.tokenable.io` and `tokenable-dev.com` (including `www`) ask even if that flag is off. The KBW event window does **not** skip this gate.
 
-KBW `/event` and the mystery-card offer still work after the visitor passes this gate (password → `site_access` cookie). The event window does **not** bypass the gate. Marketplace admin login is separate.
+KBW `/event` and the mystery-card offer still work after the visitor passes this gate (password → `site_access` cookie). The event window does **not** bypass the gate.
+
+**Marketplace admin:** `/marketplace/admin` and `/api/marketplace/admin/auth/*` skip the site-access redirect so operators can open the admin login without entering `717171` first. Successful admin login (and an authenticated `GET …/auth/session`) also mints/refreshes the `site_access` cookie, so admin data APIs work without a prior `/site-access` visit.
 
 ---
 
@@ -50,7 +52,10 @@ Read-only gate state for the browser (`enabled` / `granted`). Implemented in `fr
 | `/api/health` | GET |
 | `/api/webhooks/cardhedger/price-updates` | POST |
 | Auth public paths | `GET /api/auth/session`, `POST /api/auth/privy/session`, `POST /api/auth/logout` (`isAuthPublicApiPath`) |
+| Admin auth | `GET /api/marketplace/admin/auth/session`, `POST …/login`, `POST …/logout` |
 | Swagger paths | per `site-access-swagger.util.ts` |
+
+Next.js page proxy also allows `/marketplace/admin` (and subpaths) without a prior site-access cookie.
 
 All other API calls without a valid `site_access` cookie return:
 

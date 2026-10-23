@@ -2,6 +2,7 @@ import { Module, forwardRef } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { BlockchainModule } from '../../blockchain/blockchain.module';
 import { CardhedgerModule } from '../../cardhedger/cardhedger.module';
+import { PricechartingModule } from '../../pricecharting/pricecharting.module';
 import { PsaModule } from '../../psa/psa.module';
 import { VaultCycle } from '../../vault/entities/vault-cycle.entity';
 import { VaultModule } from '../../vault/vault.module';
@@ -58,6 +59,7 @@ import { MintEventListenerService } from './mint-event-listener.service';
     MarketplacePartnersModule,
     BlockchainModule,
     CardhedgerModule,
+    PricechartingModule,
     PsaModule,
     VaultModule,
     UserModule,

@@ -14,6 +14,7 @@ import {
   mergeManualHistoryPrices,
   manualHistoryPricePatch,
   parseManualHistoryCsv,
+  parseManualTradesCsv,
   parsePricechartingCsv,
   type PricechartingCsvRow,
 } from './pricecharting-csv';
@@ -23,6 +24,8 @@ const MAX_BYTES = 50 * 1024 * 1024;
 const MAX_ROWS = 250_000;
 const MAX_HISTORY_CSV_BYTES = 5 * 1024 * 1024;
 const MAX_HISTORY_CSV_ROWS = 5_000;
+const MAX_TRADES_CSV_BYTES = 5 * 1024 * 1024;
+const MAX_TRADES_CSV_ROWS = 5_000;
 
 const TEXT_COLUMNS = [
   'id',
@@ -615,6 +618,159 @@ export class PricechartingImportService {
       `PriceCharting history CSV ${filename}: ${ok}/${rows.length} ok`,
     );
     return { filename, rowCount: rows.length, ok, failed };
+  }
+
+  /**
+   * Admin bulk trades CSV — replaces all stored trades for each product_id
+   * present in the file, then inserts the new rows.
+   */
+  async importManualTradesCsv(file: {
+    buffer: Buffer;
+    originalname?: string;
+    size?: number;
+  }): Promise<{
+    filename: string;
+    rowCount: number;
+    ok: number;
+    productIds: string[];
+    failed: Array<{ line: number; productId: string; error: string }>;
+  }> {
+    const size = file.size ?? file.buffer?.length ?? 0;
+    if (!file.buffer?.length || size <= 0) {
+      throw new BadRequestException('CSV file is required');
+    }
+    if (size > MAX_TRADES_CSV_BYTES) {
+      throw new BadRequestException('Trades CSV must be at most 5 MB');
+    }
+    const filename = (file.originalname ?? 'trades.csv').slice(0, 256);
+    let rows;
+    try {
+      rows = parseManualTradesCsv(file.buffer.toString('utf8'));
+    } catch (err) {
+      throw new BadRequestException(
+        err instanceof Error ? err.message : 'Invalid trades CSV',
+      );
+    }
+    if (rows.length === 0) {
+      throw new BadRequestException('CSV has no data rows');
+    }
+    if (rows.length > MAX_TRADES_CSV_ROWS) {
+      throw new BadRequestException(
+        `Trades CSV allows at most ${MAX_TRADES_CSV_ROWS} rows`,
+      );
+    }
+
+    const byProduct = new Map<string, typeof rows>();
+    for (const row of rows) {
+      const list = byProduct.get(row.productId) ?? [];
+      list.push(row);
+      byProduct.set(row.productId, list);
+    }
+
+    const failed: Array<{ line: number; productId: string; error: string }> = [];
+    let ok = 0;
+    const productIds = [...byProduct.keys()];
+
+    await this.dataSource.transaction(async (manager) => {
+      for (const [productId, productRows] of byProduct) {
+        const exists = (await manager.query(
+          `SELECT 1 FROM pricecharting_products WHERE id = $1 LIMIT 1`,
+          [productId],
+        )) as unknown[];
+        if (exists.length === 0) {
+          for (const row of productRows) {
+            failed.push({
+              line: row.line,
+              productId,
+              error: 'product_id not found in catalog',
+            });
+          }
+          continue;
+        }
+        await manager.query(
+          `DELETE FROM pricecharting_trade_history WHERE product_id = $1`,
+          [productId],
+        );
+        for (const row of productRows) {
+          try {
+            await manager.query(
+              `INSERT INTO pricecharting_trade_history
+                 (product_id, traded_on, price_cents, marketplace, sale_type, sale_url)
+               VALUES ($1, $2::date, $3, $4, $5, $6)`,
+              [
+                row.productId,
+                row.tradedOn,
+                row.priceCents,
+                row.marketplace,
+                row.saleType,
+                row.saleUrl,
+              ],
+            );
+            ok += 1;
+          } catch (err) {
+            failed.push({
+              line: row.line,
+              productId: row.productId,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        }
+      }
+    });
+
+    this.logger.log(
+      `PriceCharting trades CSV ${filename}: ${ok}/${rows.length} ok · products=${productIds.join(',')}`,
+    );
+    return { filename, rowCount: rows.length, ok, productIds, failed };
+  }
+
+  /** External comps for sealed-box trades tape (newest first). */
+  async listTradesForProduct(
+    productId: string,
+    limit = 500,
+  ): Promise<
+    Array<{
+      t: number;
+      v: number;
+      saleType: string;
+      platform: string;
+      saleUrl: string | null;
+    }>
+  > {
+    const id = productId.trim();
+    if (!/^\d+$/.test(id)) return [];
+    const cap = Math.min(Math.max(1, Math.floor(limit)), 2_000);
+    const rows = (await this.dataSource.query(
+      `SELECT to_char(traded_on, 'YYYY-MM-DD') AS traded_on,
+              price_cents, marketplace, sale_type, sale_url
+       FROM pricecharting_trade_history
+       WHERE product_id = $1
+       ORDER BY traded_on DESC, id DESC
+       LIMIT $2`,
+      [id, cap],
+    )) as Array<{
+      traded_on: string;
+      price_cents: number;
+      marketplace: string;
+      sale_type: string;
+      sale_url: string | null;
+    }>;
+    return rows
+      .map((row) => {
+        const t = Math.floor(
+          Date.parse(`${row.traded_on}T12:00:00Z`) / 1000,
+        );
+        const v = Number(row.price_cents) / 100;
+        if (!Number.isFinite(t) || !Number.isFinite(v) || v <= 0) return null;
+        return {
+          t,
+          v,
+          saleType: row.sale_type || 'Buy It Now',
+          platform: row.marketplace || 'eBay',
+          saleUrl: row.sale_url,
+        };
+      })
+      .filter((row): row is NonNullable<typeof row> => row != null);
   }
 
   /** Chart series for one product: every stored Seoul date, oldest first. */

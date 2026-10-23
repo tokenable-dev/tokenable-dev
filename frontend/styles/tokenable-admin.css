@@ -1,6 +1,29 @@
 /* Marketplace admin chrome — layout + sidebar from `admin/` HTML prototypes.
    Page bodies keep existing adminUi.ts components; do not use dark tk-* here. */
 
+/*
+ * Admin sits inside the global dark marketplace shell (body / .tk-shell-scroll).
+ * Without this, scrolling past the white console reveals a long black strip.
+ * Same idea as sell-flow: paint the outer shell white and lock page overflow.
+ */
+html:has(.admin-console),
+body:has(.admin-console) {
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.tk-shell-scroll:has(.admin-console),
+.tk-shell-main:has(.admin-console),
+.mobile-page-root:has(.admin-console) {
+  background: #ffffff;
+  color: #171717;
+  height: 100dvh;
+  min-height: 100dvh;
+  max-height: 100dvh;
+  overflow: hidden;
+  padding: 0;
+}
+
 .admin-console {
   --admin-canvas: #ffffff;
   --admin-paper: #f5f5f5;

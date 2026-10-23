@@ -12,6 +12,7 @@ import { PricechartingListingPhoto } from './entities/pricecharting-listing-phot
 import { PricechartingListing } from './entities/pricecharting-listing.entity';
 import { PricechartingPriceHistory } from './entities/pricecharting-price-history.entity';
 import { PricechartingProduct } from './entities/pricecharting-product.entity';
+import { PricechartingTradeHistory } from './entities/pricecharting-trade-history.entity';
 import { PricechartingArchive } from './pricecharting-archive';
 import { PricechartingCatalogSearch } from './pricecharting-catalog-search';
 import { PricechartingImportService } from './pricecharting-import.service';
@@ -29,6 +30,7 @@ import { PricechartingService } from './pricecharting.service';
       PricechartingImportRun,
       PricechartingCatalogSource,
       PricechartingPriceHistory,
+      PricechartingTradeHistory,
       PricechartingListing,
       PricechartingListingPhoto,
     ]),
@@ -48,6 +50,6 @@ import { PricechartingService } from './pricecharting.service';
     PricechartingCatalogSearch,
     CatalogCoverS3Service,
   ],
-  exports: [PricechartingService],
+  exports: [PricechartingService, PricechartingImportService],
 })
 export class PricechartingModule {}

@@ -12,6 +12,10 @@ import { ConfigService } from '@nestjs/config';
 import { ApiBody, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { resolveCookieSecure } from '../../auth/auth-session.util';
+import {
+  maybeRefreshSiteAccessCookie,
+  siteAccessHostFromRequest,
+} from '../../site-access/site-access.util';
 import { apiBodyDefault } from '../../swagger/api-body.util';
 import { SWAGGER_BODY_EXAMPLES } from '../../swagger/examples';
 import { MarketplaceAdminService } from './marketplace-admin.service';
@@ -30,9 +34,27 @@ export class MarketplaceAdminAuthController {
   ) {}
 
   @Get('session')
-  @ApiOperation({ summary: '[Admin] Current admin session' })
-  session(@Req() req: Request): { authenticated: boolean; username: string | null } {
+  @ApiOperation({
+    summary: '[Admin] Current admin session',
+    description:
+      'Authenticated admin sessions also refresh the site-access cookie so admin data APIs work without a prior /site-access visit.',
+  })
+  session(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ): { authenticated: boolean; username: string | null } {
     const username = this.admin.getSessionUsername(req);
+    if (username) {
+      const frontBase = this.config
+        .getOrThrow<string>('FRONTEND_URL')
+        .replace(/\/$/, '');
+      maybeRefreshSiteAccessCookie(
+        res,
+        process.env,
+        resolveCookieSecure(this.config, frontBase),
+        siteAccessHostFromRequest(req),
+      );
+    }
     return {
       authenticated: Boolean(username),
       username,
@@ -44,11 +66,12 @@ export class MarketplaceAdminAuthController {
   @ApiOperation({
     summary: '[Admin] Sign in with username and password',
     description:
-      '성공 시 `marketplace_admin` HttpOnly 쿠키. 이후 marketplace-admin 태그 API는 별도 Bearer 없이 쿠키로 인증됩니다 (동일 origin Try it out).',
+      '성공 시 `marketplace_admin` HttpOnly 쿠키 + site-access 쿠키. 이후 marketplace-admin 태그 API는 별도 Bearer 없이 쿠키로 인증됩니다 (동일 origin Try it out). Site access 게이트를 따로 통과할 필요 없음.',
   })
   @ApiBody(apiBodyDefault(MarketplaceAdminLoginDto, SWAGGER_BODY_EXAMPLES.adminLogin))
   async login(
     @Body() body: MarketplaceAdminLoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<{ ok: true; username: string; expiresIn: number }> {
     const username = await this.admin.verifyCredentials(
@@ -77,6 +100,12 @@ export class MarketplaceAdminAuthController {
       path: '/',
       maxAge: sessionSeconds * 1000,
     });
+    maybeRefreshSiteAccessCookie(
+      res,
+      process.env,
+      secure,
+      siteAccessHostFromRequest(req),
+    );
 
     return { ok: true, username, expiresIn: sessionSeconds };
   }

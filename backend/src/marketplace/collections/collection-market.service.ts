@@ -59,6 +59,7 @@ import {
 } from '../utils/market-snapshot-normalize.util';
 import { nmHistoryDaysForBundleWindow } from '../utils/market-grade-strip.util';
 import type { MarketplaceCollection } from '../entities/marketplace-collection.entity';
+import { PricechartingImportService } from '../../pricecharting/pricecharting-import.service';
 
 export type PriceHistoryDuration =
   | '7d'
@@ -252,6 +253,7 @@ export class CollectionMarketService {
     @InjectRepository(Order)
     private readonly orderRepo: Repository<Order>,
     private readonly cardhedgerMarket: CardhedgerMarketDataService,
+    private readonly pricechartingImports: PricechartingImportService,
   ) {}
 
   private touchAndMaybeRefreshStale(
@@ -853,8 +855,29 @@ export class CollectionMarketService {
       );
 
       if (isSealedBoxCollectionComponents(col?.components)) {
-        const volume = computeCollectionTradesVolumeStats(platformTrades);
-        return { platformUsd, trades: platformTrades, volume };
+        const productId = String(
+          col?.components?.pricechartingProductId ?? '',
+        ).trim();
+        let externalTrades: PlatformTapeFillRow[] = [];
+        if (/^\d+$/.test(productId)) {
+          const raw = await this.pricechartingImports.listTradesForProduct(
+            productId,
+            500,
+          );
+          externalTrades = cardhedgerRawSalesToTapeRows(raw, productId).map(
+            (row) => ({
+              ...row,
+              // Reuse cardhedger tape shape so existing UI (eBay / Buy it now) works.
+              orderHash: row.orderHash.replace(/^cardhedger:/, 'pricecharting:'),
+            }),
+          );
+        }
+        const merged = mergePlatformAndCardhedgerTape(
+          platformTrades,
+          externalTrades,
+        );
+        const volume = computeCollectionTradesVolumeStats(merged);
+        return { platformUsd, trades: merged, volume };
       }
 
       const cardhedgerGrade = String(opts?.cardhedgerGrade ?? '').trim();

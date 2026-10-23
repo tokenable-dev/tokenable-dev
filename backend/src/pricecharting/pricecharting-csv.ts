@@ -147,6 +147,112 @@ export type ManualHistoryCsvRow = {
  * Required: product_id (or id), observed_on (or date).
  * Price columns are dollars (e.g. loose_price / loose_price_cents header → cents column).
  */
+export type ManualTradeCsvRow = {
+  line: number;
+  productId: string;
+  tradedOn: string;
+  priceCents: number;
+  marketplace: string;
+  saleType: string;
+  saleUrl: string | null;
+};
+
+/**
+ * Admin bulk trades CSV for sealed-box comps tape.
+ * Required: product_id, traded_on (or date), price (dollars).
+ * Optional: source/marketplace (default eBay), sale_type (default Buy It Now), sale_url.
+ */
+export function parseManualTradesCsv(text: string): ManualTradeCsvRow[] {
+  const normalized = text
+    .replace(/^\uFEFF/, '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\r/g, '\n');
+  const lines = normalized.split('\n').filter((line) => line.trim().length > 0);
+  if (lines.length < 2) {
+    throw new Error('CSV needs a header row and at least one data row');
+  }
+  const delimiter = detectDelimiter(lines[0]!);
+  const headers = splitDelimitedLine(lines[0]!, delimiter).map((h) =>
+    h.trim().toLowerCase(),
+  );
+  const productIdx = headers.findIndex(
+    (h) => h === 'product_id' || h === 'id' || h === 'product-id',
+  );
+  const dateIdx = headers.findIndex(
+    (h) =>
+      h === 'traded_on' ||
+      h === 'traded-on' ||
+      h === 'observed_on' ||
+      h === 'observed-on' ||
+      h === 'date' ||
+      h === 'day',
+  );
+  const priceIdx = headers.findIndex(
+    (h) =>
+      h === 'price' ||
+      h === 'loose_price' ||
+      h === 'loose-price' ||
+      h === 'sold_price' ||
+      h === 'sold-price',
+  );
+  const marketplaceIdx = headers.findIndex(
+    (h) =>
+      h === 'source' ||
+      h === 'marketplace' ||
+      h === 'platform' ||
+      h === 'sale_platform',
+  );
+  const saleTypeIdx = headers.findIndex(
+    (h) => h === 'sale_type' || h === 'sale-type' || h === 'type',
+  );
+  const saleUrlIdx = headers.findIndex(
+    (h) => h === 'sale_url' || h === 'sale-url' || h === 'url',
+  );
+  if (productIdx < 0 || dateIdx < 0 || priceIdx < 0) {
+    throw new Error(
+      'CSV header must include product_id, traded_on (or date), and price',
+    );
+  }
+
+  const out: ManualTradeCsvRow[] = [];
+  for (let i = 1; i < lines.length; i += 1) {
+    const cols = splitDelimitedLine(lines[i]!, delimiter);
+    const productId = (cols[productIdx] ?? '').trim();
+    const tradedOn = (cols[dateIdx] ?? '').trim();
+    if (!productId && !tradedOn) continue;
+    const priceCents = usdToCents(cols[priceIdx]);
+    if (priceCents == null || priceCents <= 0) {
+      throw new Error(`line ${i + 1}: price must be a positive dollar amount`);
+    }
+    if (!/^\d+$/.test(productId)) {
+      throw new Error(`line ${i + 1}: product_id must be numeric`);
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(tradedOn)) {
+      throw new Error(`line ${i + 1}: traded_on must be YYYY-MM-DD`);
+    }
+    const marketplace =
+      marketplaceIdx >= 0
+        ? (cols[marketplaceIdx] ?? '').trim() || 'eBay'
+        : 'eBay';
+    const saleType =
+      saleTypeIdx >= 0
+        ? (cols[saleTypeIdx] ?? '').trim() || 'Buy It Now'
+        : 'Buy It Now';
+    const saleUrlRaw =
+      saleUrlIdx >= 0 ? (cols[saleUrlIdx] ?? '').trim() : '';
+    out.push({
+      line: i + 1,
+      productId,
+      tradedOn,
+      priceCents,
+      marketplace: marketplace.slice(0, 64),
+      saleType: saleType.slice(0, 64),
+      saleUrl: saleUrlRaw ? saleUrlRaw.slice(0, 2000) : null,
+    });
+  }
+  return out;
+}
+
 export function parseManualHistoryCsv(text: string): ManualHistoryCsvRow[] {
   const normalized = text
     .replace(/^\uFEFF/, '')

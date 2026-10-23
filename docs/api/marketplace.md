@@ -416,7 +416,7 @@ Returns a chart bundle: platform fills (USDC) plus reference prices and window %
 
 ### `GET /api/marketplace/collections/:key/platform-trades`
 
-Returns platform fulfilled listings (chart `platformUsd`) plus a merged trades tape: Tokenable fills + Cardhedger comps raw (max **100** individual sales). `volume.windows` sums comps + platform fills per calendar window.
+Returns platform fulfilled listings (chart `platformUsd`) plus a merged trades tape: Tokenable fills + Cardhedger comps raw (max **100** individual sales). Sealed boxes skip Cardhedger and instead merge admin-uploaded `pricecharting_trade_history` rows for `components.pricechartingProductId` (CSV via `POST /marketplace/admin/pricecharting/trades/bulk`). `volume.windows` sums comps + platform fills per calendar window.
 
 ---
 

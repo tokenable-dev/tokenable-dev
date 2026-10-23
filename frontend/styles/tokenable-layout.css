@@ -1364,18 +1364,38 @@
     display: flex !important;
   }
 
+  /* Mobile mock: wordmark + burger only. Open search from Markets / hero / event. */
   .gnb-search-mobile {
-    display: flex !important;
-  }
-
-  .tk-header__logo-full {
     display: none !important;
   }
 
-  .tk-header__logo-symbol {
+  /* Mobile GNB: full wordmark (T + TOKENABLE), not symbol-only. */
+  .tk-header__logo-full {
     display: block !important;
-    height: 26px !important;
-    width: 26px !important;
+    height: 22px !important;
+    max-height: 22px !important;
+    width: auto !important;
+  }
+
+  .tk-header__logo-symbol {
+    display: none !important;
+  }
+
+  .burger-lines {
+    width: 22px;
+    gap: 7px;
+  }
+
+  .burger-lines span {
+    height: 1.5px;
+  }
+
+  .gnb-burger.is-open .burger-lines span:first-child {
+    transform: translateY(4.25px) rotate(45deg);
+  }
+
+  .gnb-burger.is-open .burger-lines span:last-child {
+    transform: translateY(-4.25px) rotate(-45deg);
   }
 }
 
@@ -1514,6 +1534,13 @@ body.tk-dialog-open .mobile-page-root {
   text-align: center;
 }
 
+.tk-footer__end {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 32px;
+}
+
 .tk-footer__nav {
   display: flex;
   gap: 32px;
@@ -1559,28 +1586,51 @@ body.tk-dialog-open .mobile-page-root {
   }
 }
 
+/* Mobile: socials → FAQ/Terms → logo + © (mock stack, centered). */
 @media (max-width: 767.98px) {
   .tk-footer__inner {
     flex-direction: column;
     justify-content: center;
+    align-items: center;
     text-align: center;
-    gap: 40px;
-    padding-top: 44px;
-    padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+    gap: 36px;
+    padding-top: 48px;
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tk-footer__end {
+    display: contents;
+  }
+
+  .tk-footer__socials {
+    order: 1;
+    gap: 14px;
+  }
+
+  .tk-footer__nav {
+    order: 2;
+    justify-content: center;
+    gap: 28px;
   }
 
   .tk-footer__brand {
+    order: 3;
     align-items: center;
+    gap: 10px;
+  }
+
+  .tk-footer__brand img {
+    height: 28px;
   }
 
   .tk-footer__copy {
     text-align: center;
   }
 
-  .tk-footer__nav {
-    justify-content: center;
-    order: -1;
-    gap: 28px;
+  .tk-footer__social {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
   }
 }
 

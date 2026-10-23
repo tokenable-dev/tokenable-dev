@@ -74,5 +74,20 @@ function isSiteAccessPublicApiPath(path: string, method: string): boolean {
   if (path === '/api/webhooks/sumsub' && method.toUpperCase() === 'POST') {
     return true;
   }
+  // Admin login mints site_access; these must work without the gate cookie.
+  if (isMarketplaceAdminAuthPublicApiPath(path, method)) {
+    return true;
+  }
+  return false;
+}
+
+function isMarketplaceAdminAuthPublicApiPath(
+  path: string,
+  method: string,
+): boolean {
+  const m = method.toUpperCase();
+  if (path === '/api/marketplace/admin/auth/session' && m === 'GET') return true;
+  if (path === '/api/marketplace/admin/auth/login' && m === 'POST') return true;
+  if (path === '/api/marketplace/admin/auth/logout' && m === 'POST') return true;
   return false;
 }
