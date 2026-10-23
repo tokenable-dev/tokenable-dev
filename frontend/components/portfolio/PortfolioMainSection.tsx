@@ -50,7 +50,7 @@ export function PortfolioMainSection({
     assets: number;
     redeem: number;
     bids: number | undefined;
-    history: number;
+    history: number | undefined;
   };
   variant?: "default" | "partner";
   collectiblesPanel: ReactNode;

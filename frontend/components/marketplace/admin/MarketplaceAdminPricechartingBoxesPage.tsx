@@ -12,16 +12,27 @@ import {
   downloadPricechartingSampleHistoryCsv,
   normalizeSampleHistoryProductId,
 } from "@/lib/marketplace/admin/pricechartingSampleHistoryCsv";
+import { AdminSectionTitle } from "./AdminAnalyticsWidgets";
 import {
   ADMIN_BTN_PRIMARY,
   ADMIN_BTN_SECONDARY,
   ADMIN_INPUT,
   ADMIN_LABEL,
   ADMIN_PANEL,
+  ADMIN_TEXT_EMPTY,
+  ADMIN_TEXT_ERROR,
+  ADMIN_TEXT_META,
+  ADMIN_TEXT_MUTED,
+  ADMIN_TEXT_SECONDARY,
+  ADMIN_TOOLBAR,
 } from "./adminUi";
 import { MarketplaceAdminPageHeader } from "./MarketplaceAdminPageHeader";
 
 const PAGE_SIZE = 40;
+
+const HISTORY_CSV_EXAMPLE = `product_id,observed_on,loose_price
+7292337,2024-01-15,245.00
+7292337,2024-01-16,251.50`;
 
 export function MarketplaceAdminPricechartingBoxesPage() {
   const [items, setItems] = useState<PricechartingProductHit[]>([]);
@@ -106,38 +117,37 @@ export function MarketplaceAdminPricechartingBoxesPage() {
     }
   }
 
+  function applyFilter() {
+    setPage(1);
+    setQ(qDraft.trim());
+  }
+
   return (
-    <article className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6 sm:px-6">
+    <article className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 py-6 sm:gap-6 sm:px-6">
       <MarketplaceAdminPageHeader
         title="Sealed boxes"
-        subtitle="DB에 있는 sealed box를 전부 리스팅합니다. 컬렉션이 없어도 대표 이미지를 올리고, 아래에서 과거 가격 CSV를 넣을 수 있습니다."
+        subtitle="카탈로그 sealed box 전체 · 대표 이미지 · 과거 가격 CSV"
       />
 
-      <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-          <label className={`${ADMIN_LABEL} min-w-0 flex-1`}>
-            목록 필터 (선택)
-            <input
-              className={`${ADMIN_INPUT} mt-1.5`}
-              placeholder="비우면 전체 박스 · 예: 151 booster"
-              value={qDraft}
-              onChange={(e) => setQDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  setPage(1);
-                  setQ(qDraft.trim());
-                }
-              }}
-            />
-          </label>
+      <div className={ADMIN_TOOLBAR}>
+        <label className={`${ADMIN_LABEL} mb-0 min-w-0 flex-1`}>
+          검색
+          <input
+            className={`${ADMIN_INPUT} mt-1.5`}
+            placeholder="비우면 전체 · 예: 151 booster"
+            value={qDraft}
+            onChange={(e) => setQDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") applyFilter();
+            }}
+          />
+        </label>
+        <div className="flex flex-wrap items-center gap-2 sm:pb-0.5">
           <button
             type="button"
             className={ADMIN_BTN_SECONDARY}
             disabled={loading}
-            onClick={() => {
-              setPage(1);
-              setQ(qDraft.trim());
-            }}
+            onClick={applyFilter}
           >
             적용
           </button>
@@ -152,85 +162,115 @@ export function MarketplaceAdminPricechartingBoxesPage() {
                 setPage(1);
               }}
             >
-              전체 보기
+              전체
             </button>
           ) : null}
-          <label className="flex items-center gap-2 text-sm text-zinc-700">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700">
             <input
               type="checkbox"
+              className="rounded border-zinc-300"
               checked={missingCoverOnly}
               onChange={(e) => {
                 setPage(1);
                 setMissingCoverOnly(e.target.checked);
               }}
             />
-            대표 이미지 없는 것만
+            커버 없음만
           </label>
         </div>
-        <p className="text-sm text-zinc-600">
-          총 {total.toLocaleString()}개 · {page}/{pageCount} 페이지
-          {loading ? " · 불러오는 중…" : ""}
-        </p>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        <ul className="divide-y divide-zinc-200 rounded-md border border-zinc-200">
-          {items.map((box) => (
-            <li
-              key={box.id}
-              className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="flex min-w-0 items-start gap-3">
-                {box.coverImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={box.coverImageUrl}
-                    alt=""
-                    className="h-16 w-14 shrink-0 rounded border border-zinc-200 object-cover"
-                  />
-                ) : (
-                  <div className="flex h-16 w-14 shrink-0 items-center justify-center rounded border border-dashed border-zinc-300 bg-zinc-50 text-[10px] text-zinc-500">
-                    No cover
+      </div>
+
+      <section className={`${ADMIN_PANEL} overflow-hidden`}>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-100 px-4 py-3 sm:px-5">
+          <div>
+            <p className="text-sm font-semibold text-zinc-900">박스 목록</p>
+            <p className={`mt-0.5 text-xs ${ADMIN_TEXT_META}`}>
+              총 {total.toLocaleString()}개
+              {q ? ` · “${q}”` : ""}
+              {missingCoverOnly ? " · 커버 없음" : ""}
+              {loading ? " · 불러오는 중…" : ""}
+            </p>
+          </div>
+          <p className={`text-xs font-medium ${ADMIN_TEXT_SECONDARY}`}>
+            {page} / {pageCount}
+          </p>
+        </div>
+
+        {error ? (
+          <p className={`border-b border-zinc-100 px-4 py-3 ${ADMIN_TEXT_ERROR} sm:px-5`}>
+            {error}
+          </p>
+        ) : null}
+
+        <ul className="divide-y divide-zinc-100">
+          {items.map((box) => {
+            const uploading = uploadingId === box.id;
+            return (
+              <li
+                key={box.id}
+                className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5"
+              >
+                <div className="flex min-w-0 items-start gap-3">
+                  <div className="relative h-16 w-14 shrink-0 overflow-hidden rounded-md border border-zinc-200 bg-zinc-50">
+                    {box.coverImageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={box.coverImageUrl}
+                        alt=""
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div
+                        className={`flex h-full w-full items-center justify-center border border-dashed border-zinc-300 text-[10px] ${ADMIN_TEXT_EMPTY}`}
+                      >
+                        No cover
+                      </div>
+                    )}
                   </div>
-                )}
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900">
-                    {box.productName}
-                  </p>
-                  <p className="truncate text-xs text-zinc-600">
-                    {box.consoleName}
-                    {box.loosePriceCents != null
-                      ? ` · Loose $${(box.loosePriceCents / 100).toFixed(2)}`
-                      : ""}
-                    {" · "}
-                    <span className="font-mono">{box.id}</span>
-                  </p>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">
+                      {box.productName}
+                    </p>
+                    <p className={`mt-0.5 truncate text-xs ${ADMIN_TEXT_MUTED}`}>
+                      {box.consoleName}
+                      {box.loosePriceCents != null
+                        ? ` · $${(box.loosePriceCents / 100).toFixed(2)}`
+                        : ""}
+                    </p>
+                    <p className={`mt-0.5 font-mono text-[11px] ${ADMIN_TEXT_META}`}>
+                      {box.id}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <label className="shrink-0 text-sm font-medium text-zinc-800">
-                <span className="sr-only">Upload cover for {box.productName}</span>
-                <input
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="block w-full max-w-[14rem] text-xs"
-                  disabled={uploadingId === box.id}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    e.target.value = "";
-                    if (file) void onUploadCover(box, file);
-                  }}
-                />
-                {uploadingId === box.id ? (
-                  <span className="mt-1 block text-xs text-zinc-500">
-                    올리는 중…
-                  </span>
-                ) : null}
-              </label>
-            </li>
-          ))}
+                <label
+                  className={`inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-zinc-300 bg-white px-3 py-2 text-xs font-medium text-zinc-800 transition-colors hover:bg-zinc-50 ${
+                    uploading ? "pointer-events-none opacity-50" : ""
+                  }`}
+                >
+                  {uploading ? "올리는 중…" : box.coverImageUrl ? "커버 교체" : "커버 올리기"}
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="sr-only"
+                    disabled={uploading}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void onUploadCover(box, file);
+                    }}
+                  />
+                </label>
+              </li>
+            );
+          })}
           {!loading && items.length === 0 ? (
-            <li className="p-4 text-sm text-zinc-500">맞는 박스가 없습니다.</li>
+            <li className={`px-4 py-10 text-center text-sm ${ADMIN_TEXT_EMPTY} sm:px-5`}>
+              맞는 박스가 없습니다.
+            </li>
           ) : null}
         </ul>
-        <div className="flex gap-2">
+
+        <div className="flex items-center justify-between gap-2 border-t border-zinc-100 px-4 py-3 sm:px-5">
           <button
             type="button"
             className={ADMIN_BTN_SECONDARY}
@@ -239,6 +279,10 @@ export function MarketplaceAdminPricechartingBoxesPage() {
           >
             이전
           </button>
+          <span className={`text-xs ${ADMIN_TEXT_META}`}>
+            {(page - 1) * PAGE_SIZE + (items.length ? 1 : 0)}–
+            {(page - 1) * PAGE_SIZE + items.length} / {total.toLocaleString()}
+          </span>
           <button
             type="button"
             className={ADMIN_BTN_SECONDARY}
@@ -250,116 +294,127 @@ export function MarketplaceAdminPricechartingBoxesPage() {
         </div>
       </section>
 
-      <section className={`${ADMIN_PANEL} space-y-4 p-4 sm:p-5`}>
-        <h2 className="text-sm font-semibold text-zinc-900">
-          과거 가격 CSV 일괄 적재
-        </h2>
-        <p className="text-sm text-zinc-600">
-          컬렉션이 없어도 <code className="font-mono text-xs">pricecharting_price_history</code>에
-          날짜별 가격을 넣습니다. 기본은 카탈로그 최신 Loose를 바꾸지 않습니다.
-        </p>
-        <pre className="overflow-x-auto rounded-md bg-zinc-50 p-3 text-xs text-zinc-800">{`product_id,observed_on,loose_price
-7292337,2024-01-15,245.00
-7292337,2024-01-16,251.50`}</pre>
-        <p className="text-xs text-zinc-500">
-          선택 열: cib_price, new_price, graded_price, manual_only_price(PSA 10) 등
-          (달러). 최대 5MB / 5,000행.
-        </p>
-        <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50/80 p-3">
-          <p className="text-sm font-medium text-zinc-800">
-            샘플 히스토리 CSV (차트 근사 · DB 미적용)
-          </p>
-          <p className="text-xs text-zinc-500">
-            2023-09-01~2026-10-22 Ungraded(loose) 일별 근사값(~1,100행). 26년
-            4~10월은 차트 기준(10/22 = $261). DB에 넣지 않으니 받은 뒤 아래
-            업로드로 직접 넣어 보세요.
-            숫자 <code className="font-mono text-[11px]">product_id</code>를
-            반드시 입력한 뒤 다운로드하세요 (예: 위 박스 목록의 id).
-          </p>
-          <label className={`${ADMIN_LABEL} block`}>
-            product_id (필수 · 숫자)
-            <input
-              className={`${ADMIN_INPUT} mt-1`}
-              value={sampleProductId}
-              onChange={(e) => {
-                setSampleProductId(e.target.value);
-                setSampleCsvError(null);
+      <section className={`${ADMIN_PANEL} p-4 sm:p-5`}>
+        <AdminSectionTitle
+          title="과거 가격 CSV"
+          subtitle="컬렉션 없이도 pricecharting_price_history에 날짜별 가격을 넣습니다. 기본은 카탈로그 최신 Loose를 바꾸지 않습니다."
+        />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="space-y-2 rounded-md border border-zinc-200 bg-zinc-50/60 p-3 sm:p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
+              포맷
+            </p>
+            <pre className="overflow-x-auto rounded-md border border-zinc-200 bg-white p-3 text-xs leading-relaxed text-zinc-800">
+              {HISTORY_CSV_EXAMPLE}
+            </pre>
+            <p className={`text-xs ${ADMIN_TEXT_META}`}>
+              선택 열: cib_price, new_price, graded_price, manual_only_price(PSA 10) 등
+              (달러). 최대 5MB / 5,000행.
+            </p>
+          </div>
+
+          <div className="space-y-3 rounded-md border border-zinc-200 bg-zinc-50/60 p-3 sm:p-4">
+            <div>
+              <p className="text-sm font-medium text-zinc-900">샘플 CSV</p>
+              <p className={`mt-0.5 text-xs ${ADMIN_TEXT_META}`}>
+                2023-09-01~2026-10-22 Ungraded 근사(~1,100행). DB에 넣지 않으니 받은 뒤
+                아래에서 직접 업로드하세요.
+              </p>
+            </div>
+            <label className={`${ADMIN_LABEL} mb-0 block`}>
+              product_id
+              <input
+                className={`${ADMIN_INPUT} mt-1.5 font-mono`}
+                value={sampleProductId}
+                onChange={(e) => {
+                  setSampleProductId(e.target.value);
+                  setSampleCsvError(null);
+                }}
+                placeholder="예: 7292337"
+                inputMode="numeric"
+              />
+            </label>
+            <button
+              type="button"
+              className={ADMIN_BTN_SECONDARY}
+              disabled={!sampleProductIdOk}
+              onClick={() => {
+                try {
+                  setSampleCsvError(null);
+                  downloadPricechartingSampleHistoryCsv(sampleProductId);
+                } catch (err) {
+                  setSampleCsvError(
+                    err instanceof Error
+                      ? err.message
+                      : "product_id must be numeric",
+                  );
+                }
               }}
-              placeholder="예: 7292337"
-              inputMode="numeric"
+            >
+              샘플 다운로드
+            </button>
+            {sampleCsvError ? (
+              <p className={ADMIN_TEXT_ERROR}>{sampleCsvError}</p>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-3 rounded-md border border-zinc-200 p-3 sm:p-4">
+          <p className="text-sm font-medium text-zinc-900">업로드</p>
+          <label className="flex cursor-pointer flex-col gap-1.5 rounded-md border border-dashed border-zinc-300 bg-zinc-50/80 px-4 py-3 transition-colors hover:border-zinc-400 hover:bg-zinc-50">
+            <span className={`text-xs font-medium ${ADMIN_TEXT_SECONDARY}`}>CSV 선택</span>
+            <span
+              className={`truncate text-sm ${historyFile ? "text-zinc-900" : ADMIN_TEXT_EMPTY}`}
+            >
+              {historyFile ? historyFile.name : "파일을 선택하세요"}
+            </span>
+            <input
+              type="file"
+              accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+              className="sr-only"
+              onChange={(e) => setHistoryFile(e.target.files?.[0] ?? null)}
             />
+          </label>
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-zinc-700">
+            <input
+              type="checkbox"
+              className="rounded border-zinc-300"
+              checked={syncCurrent}
+              onChange={(e) => setSyncCurrent(e.target.checked)}
+            />
+            Loose가 있으면 카탈로그 현재 가격도 갱신 (컬렉션 spot 포함)
           </label>
           <button
             type="button"
-            className={ADMIN_BTN_SECONDARY}
-            disabled={!sampleProductIdOk}
-            onClick={() => {
-              try {
-                setSampleCsvError(null);
-                downloadPricechartingSampleHistoryCsv(sampleProductId);
-              } catch (err) {
-                setSampleCsvError(
-                  err instanceof Error
-                    ? err.message
-                    : "product_id must be numeric",
-                );
-              }
-            }}
+            className={ADMIN_BTN_PRIMARY}
+            disabled={!historyFile || historyBusy}
+            onClick={() => void onUploadHistory()}
           >
-            샘플 CSV 다운로드
+            {historyBusy ? "적재 중…" : "CSV 업로드"}
           </button>
-          {sampleCsvError ? (
-            <p className="text-sm text-red-600">{sampleCsvError}</p>
+          {historyError ? <p className={ADMIN_TEXT_ERROR}>{historyError}</p> : null}
+          {historyResult ? (
+            <div className="space-y-2 text-sm">
+              <p className="text-emerald-700">
+                {historyResult.filename}: {historyResult.ok.toLocaleString()}/
+                {historyResult.rowCount.toLocaleString()}행 성공
+                {historyResult.failed.length
+                  ? ` · 실패 ${historyResult.failed.length}`
+                  : ""}
+              </p>
+              {historyResult.failed.length > 0 ? (
+                <ul className="max-h-40 overflow-y-auto rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
+                  {historyResult.failed.slice(0, 40).map((row) => (
+                    <li key={`${row.line}-${row.productId}`}>
+                      line {row.line} · {row.productId || "?"} · {row.error}
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
           ) : null}
         </div>
-        <label className="block text-sm font-medium text-zinc-800">
-          CSV
-          <input
-            type="file"
-            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
-            className="mt-2 block w-full text-sm"
-            onChange={(e) => setHistoryFile(e.target.files?.[0] ?? null)}
-          />
-        </label>
-        <label className="flex items-center gap-2 text-sm text-zinc-700">
-          <input
-            type="checkbox"
-            checked={syncCurrent}
-            onChange={(e) => setSyncCurrent(e.target.checked)}
-          />
-          Loose가 있으면 카탈로그 현재 가격도 갱신 (컬렉션 spot 포함)
-        </label>
-        <button
-          type="button"
-          className={ADMIN_BTN_PRIMARY}
-          disabled={!historyFile || historyBusy}
-          onClick={() => void onUploadHistory()}
-        >
-          {historyBusy ? "적재 중…" : "CSV 업로드"}
-        </button>
-        {historyError ? (
-          <p className="text-sm text-red-600">{historyError}</p>
-        ) : null}
-        {historyResult ? (
-          <div className="space-y-2 text-sm">
-            <p className="text-emerald-700">
-              {historyResult.filename}: {historyResult.ok.toLocaleString()}/
-              {historyResult.rowCount.toLocaleString()}행 성공
-              {historyResult.failed.length
-                ? ` · 실패 ${historyResult.failed.length}`
-                : ""}
-            </p>
-            {historyResult.failed.length > 0 ? (
-              <ul className="max-h-40 overflow-y-auto rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                {historyResult.failed.slice(0, 40).map((row) => (
-                  <li key={`${row.line}-${row.productId}`}>
-                    line {row.line} · {row.productId || "?"} · {row.error}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
       </section>
     </article>
   );
