@@ -54,12 +54,29 @@ const FULL_LOGIN_OVERFLOW: LoginMethodOverflow = [
   "sms",
 ];
 
-/** Extra wallets under "More options" (MetaMask is on the primary row).
- * Do not put `wallet_connect` here — Privy expands it to 100+ registry icons.
+/**
+ * Popular wallets on the login primary / walletList top row.
+ * Trust / Rabby have no first-class Privy ids (Trust → WC More; Rabby deprecated).
+ * 5th named slot: Binance (Asia + mobile reach).
  */
-const DEFAULT_WALLET_OVERFLOW: LoginMethodOverflow = [
+export const PRIVY_FEATURED_WALLETS = [
+  "metamask",
   "coinbase_wallet",
   "rainbow",
+  "okx_wallet",
+  "binance",
+] as const;
+
+/**
+ * Login "More options" after MetaMask / Google / email on the primary row.
+ * Featured wallets first, then `wallet_connect` for the rest of the registry.
+ */
+const DEFAULT_LOGIN_OVERFLOW: LoginMethodOverflow = [
+  "coinbase_wallet",
+  "rainbow",
+  "okx_wallet",
+  "binance",
+  "wallet_connect",
 ];
 
 /** Client-side login methods — intersected with Privy Dashboard enabled methods. */
@@ -83,12 +100,12 @@ export function resolvePrivyLoginMethodsOrder(): NonNullable<
   if (isPrivyFullLoginEnabled()) {
     return {
       primary: ["metamask", "google", "email"],
-      overflow: [...FULL_LOGIN_OVERFLOW, ...DEFAULT_WALLET_OVERFLOW],
+      overflow: [...FULL_LOGIN_OVERFLOW, ...DEFAULT_LOGIN_OVERFLOW],
     };
   }
   return {
     primary: ["metamask", "google", "email"],
-    overflow: [...DEFAULT_WALLET_OVERFLOW],
+    overflow: [...DEFAULT_LOGIN_OVERFLOW],
   };
 }
 
@@ -105,10 +122,10 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
   },
   {
     id: "wallet-login",
-    label: "Sign in / sign up with external wallet (MetaMask, Coinbase, Rainbow)",
+    label: "Sign in / sign up with external wallet (featured + More → WC)",
     hook: "useLogin / loginMethods wallet",
     status: "enabled",
-    note: "walletList uses named wallets only — never bare wallet_connect (100+ registry). " +
+    note: "Top: MetaMask, Coinbase, Rainbow, OKX, Binance. More: wallet_connect (full registry). " +
       "Wallet-first users get an embedded wallet auto-created (createOnLogin). " +
       "Embedded stays signing primary for email/social users; " +
       "external wallet is signing primary for wallet-first users.",

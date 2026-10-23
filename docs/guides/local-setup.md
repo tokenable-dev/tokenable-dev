@@ -213,7 +213,8 @@ Create `frontend/.env`:
 ```env
 # Privy auth
 NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-# Default: MetaMask + Google + email on the primary login row (Coinbase/Rainbow under "More options").
+# Default: MetaMask + Google + email on the primary login row; featured wallets
+# (Coinbase, Rainbow, OKX, Binance) + wallet_connect (full registry) under More / walletList.
 # Wallet-first users get their MetaMask as primary signing wallet.
 # Email/social users get their Privy embedded wallet as primary signing wallet.
 # Dashboard requirements: External wallets → ON (Ethereum), "Allow new users to sign up with external wallets" ON.

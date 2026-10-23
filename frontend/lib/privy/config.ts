@@ -9,6 +9,7 @@ import {
 } from "@/lib/chains/registry";
 import type { SupportedChainId } from "@/lib/chains/types";
 import {
+  PRIVY_FEATURED_WALLETS,
   PRIVY_LOGIN_METHODS_ORDER,
   resolvePrivyLoginMethodsOrder,
 } from "./features";
@@ -20,6 +21,7 @@ export {
   isPrivyMoonpaySandboxEnabled,
   resolvePrivyLoginMethods,
   resolvePrivyLoginMethodsOrder,
+  PRIVY_FEATURED_WALLETS,
   PRIVY_LOGIN_METHODS_ORDER,
   PRIVY_CLIENT_FEATURE_MATRIX,
 } from "./features";
@@ -55,15 +57,15 @@ export function isPrivyGoogleLoginEnabled(): boolean {
  * PrivyProvider config flip after hydrate on iPhone, which aborts in-flight
  * WalletConnect and leaves Privy on "Waiting for MetaMask… Retry".
  *
- * Never include bare `wallet_connect` (expands to 100+ registry icons).
- * Named wallets deeplink on mobile; `detected_ethereum_wallets` is a no-op there.
+ * Featured wallets first (MetaMask → Coinbase → Rainbow → OKX → Binance),
+ * then detected extensions, then `wallet_connect` for the rest of the registry
+ * (Trust etc. appear there — no first-class Privy id).
  */
 export function resolvePrivyExternalWalletList(): WalletListEntry[] {
   return [
-    "metamask",
-    "coinbase_wallet",
-    "rainbow",
+    ...PRIVY_FEATURED_WALLETS,
     "detected_ethereum_wallets",
+    "wallet_connect",
   ];
 }
 
@@ -119,7 +121,7 @@ export function buildPrivyClientConfig(options?: {
       // Tokenable wordmark at top of the login / connect modal (same as GNB).
       logo: privyModalLogoUrl(),
       // Link/connect modals (linkWallet, UserPill) — separate from loginMethods.
-      // Never use bare `wallet_connect` (100+ registry icons).
+      // Includes wallet_connect so More / connect lists the full WC registry.
       walletList: isPrivyEnabled() ? resolvePrivyExternalWalletList() : [],
       showWalletLoginFirst: false,
     },
