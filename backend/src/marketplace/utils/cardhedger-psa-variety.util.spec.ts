@@ -5,6 +5,8 @@ import {
   psaVarietyIsPokemonCenterSpecialBoxLine,
   cardhedgerRowIsPrintFinishOnly,
   cardhedgerRowMatchesPsaVariety,
+  compTitlesMissParallelTokenSeenOnSibling,
+  parallelTokensBeyondColor,
   psaVarietyHasNamedCollectibleIdentity,
 } from './cardhedger-psa-variety.util';
 
@@ -174,6 +176,63 @@ describe('cardhedgerRowMatchesPsaVariety — JP 151 Gengar finishes', () => {
     expect(cardhedgerCertRowUsableForPsaVariety(null, 'REVERSE HOLO')).toBe(
       true,
     );
+  });
+
+  it('accepts a cert Base row when PSA only abbreviates the stamp line', () => {
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        {
+          variant: 'Base',
+          description: 'Ditto 2025 Pokemon Korean Promo Metamong Project',
+          name: 'Ditto',
+          set: '2025 Pokemon Korean Promo',
+          number: '173',
+        },
+        'METAMONG PROJECT STMP RLY',
+      ),
+    ).toBe(true);
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        {
+          variant: 'Base',
+          description: 'Gengar Pokemon Japanese 151',
+          name: 'Gengar',
+          number: '094',
+        },
+        'MASTER BALL REVERSE HOLO',
+      ),
+    ).toBe(false);
+  });
+
+  it('accepts a cert Blue row when PSA only abbreviates the insert line', () => {
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        {
+          variant: 'Blue ',
+          description:
+            'Shai Gilgeous-Alexander 2021 Panini Recon Called To Excellence Signatures Basketball Blue',
+          name: 'Shai Gilgeous-Alexander',
+          set: '2021 Panini Recon Basketball',
+          number: 'CES-SGA',
+        },
+        'CLLD/EXCLNC.SIG-BLUE',
+      ),
+    ).toBe(true);
+  });
+
+  it('accepts a cert Base row for Mega Festa when the catalog names the event', () => {
+    expect(
+      cardhedgerCertRowUsableForPsaVariety(
+        {
+          variant: 'Base',
+          description: 'Magikarp 2026 Pokemon Korean Promo Mega Festa',
+          name: 'Magikarp',
+          set: '2026 Pokemon Korean Promo',
+          number: '40',
+        },
+        'MEGA FESTA 2026',
+      ),
+    ).toBe(true);
   });
 });
 
@@ -767,6 +826,46 @@ describe('cardhedgerRowMatchesPsaVariety — Pokémon RGB Rare channel lines', (
           number: '150',
         },
         'RGB RARE',
+      ),
+    ).toBe(false);
+  });
+});
+
+describe('compTitlesMissParallelTokenSeenOnSibling', () => {
+  it('treats refractor as the parallel token on a color refractor', () => {
+    expect(parallelTokensBeyondColor('PINK REFRACTOR')).toEqual(['refractor']);
+    expect(parallelTokensBeyondColor('PINK')).toEqual([]);
+  });
+
+  it('drops a grade whose titles omit refractor when a sibling grade spells it', () => {
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'PINK REFRACTOR',
+        [
+          '2023 Topps Chrome #17 Shohei Ohtani Pink PSA 10 Pop 16',
+          'Shohei Ohtani 2023 Topps Chrome Pink #17 PSA 10 Angels Low Pop',
+        ],
+        ['2023 TOPPS CHROME PINK REFRACTOR #17 SHOHEI OHTANI PSA 9'],
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps the grade when every grade omits the parallel word', () => {
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'PINK REFRACTOR',
+        ['Shohei Ohtani 2023 Topps Chrome Pink #17 PSA 10'],
+        ['Shohei Ohtani 2023 Topps Chrome Pink #17 PSA 9'],
+      ),
+    ).toBe(false);
+  });
+
+  it('keeps the grade when its own titles include refractor', () => {
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'PINK REFRACTOR',
+        ['2023 Topps Chrome Pink Refractor #17 PSA 10'],
+        ['2023 Topps Chrome Pink #17 PSA 9'],
       ),
     ).toBe(false);
   });

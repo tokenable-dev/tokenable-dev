@@ -37,6 +37,8 @@ import {
 import {
   cardhedgerCatalogVariantSpecificity,
   cardhedgerCertRowRelaxedGemRateLink,
+  certLinkedBaseRowCoversNamedVariety,
+  certLinkedVariantCoveredByPsa,
   cardhedgerRowIsPrintFinishOnly,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
@@ -598,6 +600,19 @@ export class CardhedgerResolveService {
           row as Record<string, unknown>,
           pv,
         )
+      ) {
+        return false;
+      }
+      if (
+        certLinkedBaseRowCoversNamedVariety(
+          row as Record<string, unknown>,
+          pv,
+        )
+      ) {
+        return false;
+      }
+      if (
+        certLinkedVariantCoveredByPsa(row as Record<string, unknown>, pv)
       ) {
         return false;
       }

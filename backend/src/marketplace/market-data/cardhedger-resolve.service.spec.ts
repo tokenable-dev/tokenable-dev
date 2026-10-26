@@ -636,6 +636,48 @@ describe('CardhedgerResolveService — cert Path 0 vs stored id / UI titles', ()
     expect(forwardJson).not.toHaveBeenCalled();
   });
 
+  it('uses the cert Base row when PSA abbreviates a stamp line the catalog still names', async () => {
+    const certRow = {
+      card_id: '1792814586153x766509520282714100',
+      description: 'Ditto 2025 Pokemon Korean Promo Metamong Project',
+      name: 'Ditto',
+      set: '2025 Pokemon Korean Promo',
+      number: '173',
+      variant: 'Base',
+    };
+    const forwardJson = jest.fn(async () => ({ cards: [] }));
+    const getCardRowByCert = jest.fn(async () => ({ row: certRow }));
+    const svc = serviceWithMocks(forwardJson, false, {
+      recordResolvePath: jest.fn(),
+      recordResolvePath2Pilot: jest.fn(),
+    } as unknown as CardhedgerMetricsService, getCardRowByCert);
+
+    const result = await svc.resolveCardForCollection({
+      collectionKey: 'ditto-svp-173',
+      displayLabel: 'Ditto · 173 · PSA 10',
+      queryUsed: null,
+      components: {
+        cardName: 'ditto',
+        cardSet: 'pokemon korean sv-p promo',
+        cardNumber: '173',
+        psaSubject: 'DITTO',
+        psaBrand: 'POKEMON KOREAN SV-P PROMO',
+        psaVariety: 'METAMONG PROJECT STMP RLY',
+        psaYear: '2025',
+      },
+      coverImageUrl: null,
+      psaCertNumber: '121822111',
+      bucketKeyVersion: 2,
+      reviewStatus: 'active',
+      tokenContract: '0xrwa1',
+      createdAt: new Date(),
+    } satisfies MarketplaceCollection);
+
+    expect(result.row?.card_id).toBe('1792814586153x766509520282714100');
+    expect(result.confidence).toBe('verified');
+    expect(forwardJson).not.toHaveBeenCalled();
+  });
+
   it('uses details-by-certs Base row for FULL ART/subject even when a stored card_id exists', async () => {
     const certRow = {
       card_id: 'cert-sylveon-fa',

@@ -347,7 +347,10 @@ export class CollectionMarketSnapshotService {
     }
   }
 
-  /** PriceCharting loose history → snapshot. No Cardhedger / circuit gate. */
+  /**
+   * PriceCharting loose history → snapshot. No Cardhedger / circuit gate.
+   * Spot: newest admin trade when present, else components.loosePriceCents.
+   */
   private async refreshSealedBoxSnapshot(
     key: string,
     col: { components: Record<string, unknown> | null },
@@ -356,7 +359,7 @@ export class CollectionMarketSnapshotService {
   ): Promise<CollectionMarketSnapshot | null> {
     const productId = String(col.components?.pricechartingProductId ?? '').trim();
     const looseCents = col.components?.loosePriceCents;
-    const spotFromComponents =
+    const spotFromLoose =
       typeof looseCents === 'number' && Number.isFinite(looseCents) && looseCents > 0
         ? looseCents / 100
         : null;
@@ -364,6 +367,7 @@ export class CollectionMarketSnapshotService {
       typeof col.components?.genre === 'string' ? col.components.genre.trim() : '';
 
     let historyPoints: { t: number; v: number }[] = [];
+    let spotFromTrade: number | null = null;
     if (/^\d+$/.test(productId)) {
       const rows = await this.snapshotRepo.manager.query<
         { observed_on: string; loose_price_cents: number | null }[]
@@ -382,12 +386,26 @@ export class CollectionMarketSnapshotService {
             row.loose_price_cents == null ? null : Number(row.loose_price_cents),
         })),
       );
+      const tradeRows = await this.snapshotRepo.manager.query<
+        { price_cents: number }[]
+      >(
+        `SELECT price_cents
+         FROM pricecharting_trade_history
+         WHERE product_id = $1
+         ORDER BY traded_on DESC, id DESC
+         LIMIT 1`,
+        [productId],
+      );
+      const cents = tradeRows[0]?.price_cents;
+      if (typeof cents === 'number' && Number.isFinite(cents) && cents > 0) {
+        spotFromTrade = cents / 100;
+      }
     }
 
     const payload = buildSealedBoxMaterializedSnapshotPayload({
       collectionKey: key,
       historyPoints,
-      spotUsd: spotFromComponents,
+      spotUsd: spotFromTrade ?? spotFromLoose,
       categoryLabel: genre || null,
     });
     const row = await this.upsertPayload(payload);

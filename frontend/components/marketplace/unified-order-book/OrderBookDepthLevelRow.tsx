@@ -39,11 +39,10 @@ export const OrderBookDepthLevelRow = memo(function OrderBookDepthLevelRow({
     ? "absolute inset-y-0 right-0 bg-gradient-to-l from-neg/35 to-neg/[0.07] transition-[width]"
     : "absolute inset-y-0 left-0 bg-gradient-to-r from-pos/35 to-pos/[0.07] transition-[width]";
 
-  const interactive = isAsk;
+  /* Collection-detail Listings is view-only — no row click / Buy. */
+  const interactive = isAsk && !collectionDetail;
   const rowClass = collectionDetail
-    ? `cd-ob-book-row cd-ob-book-row--${side}${
-        selected && interactive ? " cd-ob-book-row--selected" : ""
-      }`
+    ? `cd-ob-book-row cd-ob-book-row--${side}`
     : flush
       ? `relative flex h-[22px] min-h-[22px] max-h-[22px] w-full items-center overflow-hidden rounded-[2px] text-left ${
           interactive ? "cursor-pointer transition-colors focus:outline-none" : "cursor-default"

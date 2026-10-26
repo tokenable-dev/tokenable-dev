@@ -171,11 +171,10 @@
 
   .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__thumb-btn,
   .collection-detail-page--sealed-box .cd-hero-bar--embed .cd-hero-bar__thumb--empty {
-    /* ~30% smaller than prior 220px hero art */
-    flex: 0 0 154px;
-    width: 154px;
-    max-width: 154px;
-    min-width: 154px;
+    flex: 0 0 208px;
+    width: 208px;
+    max-width: 208px;
+    min-width: 208px;
     aspect-ratio: 1 / 1.15;
     margin-top: 0;
     margin-left: -6px;
@@ -184,9 +183,9 @@
   .collection-detail-page--sealed-box
     .cd-hero-bar--embed
     .cd-hero-bar__thumb-btn:has(> .psa-slab-frame) {
-    width: 154px !important;
-    min-width: 154px !important;
-    max-width: 154px !important;
+    width: 208px !important;
+    min-width: 208px !important;
+    max-width: 208px !important;
     aspect-ratio: 1 / 1.15 !important;
     height: auto !important;
   }
@@ -497,19 +496,19 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs {
-    padding: 0 16px !important;
+    padding: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
     flex: 0 0 auto;
     box-sizing: border-box;
     display: flex;
     align-items: stretch;
-    justify-content: flex-start;
+    justify-content: stretch;
   }
 
   .collection-detail-page .cd-mobile-scroll__book .cd-ob-tabs .cd-ob-tab {
     display: flex;
     align-items: center;
-    justify-content: flex-start;
+    justify-content: center;
   }
 
   /* Card.html — Details / PSA directly under trades rail */
@@ -524,8 +523,21 @@
   }
 
   .collection-detail-page .cd-mobile-scroll__details .cd-ob-tabs {
-    padding: 0 16px !important;
+    padding: 0 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    justify-content: stretch;
+  }
+
+  .collection-detail-page--sealed-box .cd-mobile-scroll__book .cd-ob-tabs,
+  .collection-detail-page--sealed-box .cd-mobile-scroll__details .cd-ob-tabs {
+    padding: 0 16px !important;
+    justify-content: flex-start;
+  }
+
+  .collection-detail-page--sealed-box
+    .cd-mobile-scroll__book
+    .cd-ob-tabs
+    .cd-ob-tab {
     justify-content: flex-start;
   }
 
@@ -2118,12 +2130,12 @@
     grid-column: 1 !important;
     grid-row: 1 / -1 !important;
     box-sizing: border-box !important;
-    width: 112px !important;
-    min-width: 112px !important;
-    max-width: 112px !important;
+    width: 140px !important;
+    min-width: 140px !important;
+    max-width: 140px !important;
     height: auto !important;
     min-height: 0 !important;
-    max-height: 148px !important;
+    max-height: 180px !important;
     aspect-ratio: 1 / 1.15 !important;
     align-self: start !important;
     justify-self: start !important;
@@ -2138,7 +2150,7 @@
   }
 
   .collection-detail-page--sealed-box .cd-mobile-scroll__chart .cd-hero-bar--embed {
-    grid-template-columns: 112px minmax(0, 1fr) !important;
+    grid-template-columns: 140px minmax(0, 1fr) !important;
     column-gap: 16px !important;
     gap: 8px 16px !important;
   }
@@ -2804,6 +2816,13 @@
     align-items: start !important;
     gap: 8px 14px !important;
     padding: 14px !important;
+  }
+
+  /* Phone rule above resets the hero track to 105px. Keep the sealed thumb
+     inside its own column so the box does not paint under the title. */
+  .collection-detail-page--sealed-box .cd-mobile-scroll__chart .cd-hero-bar--embed {
+    grid-template-columns: 140px minmax(0, 1fr) !important;
+    gap: 8px 18px !important;
   }
 
   .cd-hero-bar:not(.cd-hero-bar--embed) .cd-hero-bar__price {
@@ -5096,49 +5115,56 @@
   line-height: 1;
 }
 
-/* Tabs — left-packed labels; azure underline = text width (not 50/50 halves). */
+/*
+ * Graded card tabs — equal-width segments (50/50). Azure underline spans the
+ * full tab button area, not just the label text.
+ * Sealed box overrides below keep left-packed, text-width underlines.
+ */
 .collection-detail-page .cd-ob-tabs {
-  padding: 0 16px !important;
+  padding: 0 !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
   background: transparent;
   display: flex;
   align-items: stretch;
-  justify-content: flex-start;
+  justify-content: stretch;
   width: 100%;
   box-sizing: border-box;
 }
 
 .collection-detail-page .cd-sidebar-details .cd-ob-tabs {
-  padding: 0 16px !important;
+  padding: 0 !important;
 }
 
 .collection-detail-page .cd-ob-tabs > [role="tablist"],
 .collection-detail-page .cd-ob-tabs > .flex {
   display: flex;
-  width: auto;
+  width: 100%;
   max-width: 100%;
   min-width: 0;
-  gap: 24px;
+  gap: 0;
   align-items: stretch;
-  justify-content: flex-start;
-  flex: 0 0 auto;
+  justify-content: stretch;
+  flex: 1 1 auto;
 }
 
 .collection-detail-page .cd-ob-tab {
   position: relative;
-  flex: 0 0 auto;
+  display: flex;
+  flex: 1 1 0;
+  align-items: center;
+  justify-content: center;
   min-width: 0;
   width: auto;
   margin-bottom: -1px;
   border: 0;
   border-bottom: 2px solid transparent;
-  padding: 14px 0;
+  padding: 14px 12px;
   font-family: var(--font-sans);
   font-size: var(--tk-ui-fs-section);
   font-weight: 600;
   line-height: var(--tk-ui-lh-section);
   color: var(--t3);
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   background: transparent;
 }
@@ -5156,6 +5182,29 @@
 
 .collection-detail-page .cd-ob-tab:not(.cd-ob-tab--active):hover {
   color: rgba(255, 255, 255, 0.75);
+}
+
+/* Sealed box — left-packed labels; underline = text / button content width. */
+.collection-detail-page--sealed-box .cd-ob-tabs,
+.collection-detail-page--sealed-box .cd-sidebar-details .cd-ob-tabs {
+  padding: 0 16px !important;
+  justify-content: flex-start;
+}
+
+.collection-detail-page--sealed-box .cd-ob-tabs > [role="tablist"],
+.collection-detail-page--sealed-box .cd-ob-tabs > .flex {
+  width: auto;
+  gap: 24px;
+  justify-content: flex-start;
+  flex: 0 0 auto;
+}
+
+.collection-detail-page--sealed-box .cd-ob-tab {
+  display: block;
+  flex: 0 0 auto;
+  justify-content: flex-start;
+  padding: 14px 0;
+  text-align: left;
 }
 
 /* Trades tab — Card.html `#tab-trades` / `#trades-scroll` */
@@ -5368,50 +5417,11 @@
 }
 
 .collection-detail-page .cd-ob-book-row--ask {
-  cursor: pointer;
-  transition: background 0.15s ease;
-}
-
-.collection-detail-page .cd-ob-book-row--ask:hover {
-  background: rgba(245, 51, 44, 0.08);
-}
-
-.collection-detail-page .cd-ob-book-row--ask:active {
-  background: rgba(245, 51, 44, 0.16);
+  cursor: default;
 }
 
 .collection-detail-page .cd-ob-book-row--ask .cd-ob-book-row__total {
   padding-right: 16px;
-}
-
-.collection-detail-page .cd-ob-book-row--ask::after {
-  content: "\2039";
-  position: absolute;
-  right: 10px;
-  top: 0;
-  bottom: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body-lg);
-  color: var(--t3);
-  transform: rotate(180deg);
-  pointer-events: none;
-}
-
-.collection-detail-page .cd-ob-book-row--ask:hover::after {
-  content: "Buy";
-  right: 12px;
-  transform: none;
-  font-size: var(--tk-ui-fs-label);
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #fff;
-  background: var(--ob-neg);
-  padding: 3px 8px;
-  border-radius: 5px;
 }
 
 .collection-detail-page .cd-ob-book-row--bid {
@@ -5426,12 +5436,7 @@
   background: transparent;
 }
 
-.collection-detail-page .cd-ob-book-row--ask:focus-visible {
-  outline: 2px solid var(--brand-400);
-  outline-offset: -2px;
-}
-
-.collection-detail-page .cd-ob-book-row:focus-visible:not(.cd-ob-book-row--ask) {
+.collection-detail-page .cd-ob-book-row:focus-visible {
   outline: none;
 }
 

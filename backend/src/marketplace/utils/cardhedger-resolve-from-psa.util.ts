@@ -1,7 +1,6 @@
 import { catalogTcgPrefixedNumberCompatible } from './card-match.util';
 import {
   cardhedgerCatalogVariantSpecificity,
-  cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerCertRowUsableForPsaVariety,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
@@ -93,8 +92,7 @@ export function cardhedgerCertCatalogRowUsable(
   psaVariety: string | null | undefined,
 ): boolean {
   if (!card) return false;
-  if (cardhedgerCertRowUsableForPsaVariety(card, psaVariety)) return true;
-  return cardhedgerCertRowRelaxedGemRateLink(card, psaVariety);
+  return cardhedgerCertRowUsableForPsaVariety(card, psaVariety);
 }
 
 export function cardhedgerCatalogFromCertCard(

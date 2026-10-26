@@ -76,6 +76,8 @@ collection_market_snapshots     hot reads (UI)
 
 `POST /v1/cards/prices-by-cert` is **mint image / optional estimate**, not the collection comps tape. Comps always use `/v1/cards/comps` with the gated `card_id`. Empty comps on a correct overlay (no CardHedge sales) stay empty — do not substitute sibling Base rows.
 
+A correct `card_id` can still carry another parallel's sales. When PSA Variety has a non-color parallel token (`refractor` on `PINK REFRACTOR`) and this grade's comp titles omit it while PSA 10/9/8 on the same card spell it, that grade's spot, history, grade-catalog price, and trades are left empty (`parallel_comps_mismatch`). Titles that omit the word on every grade are kept.
+
 ---
 
 `CardhedgerService.forwardJson` is also called internally from:

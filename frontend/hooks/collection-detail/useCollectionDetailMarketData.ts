@@ -237,8 +237,26 @@ export function useCollectionDetailMarketData(params: {
     return fromSeries;
   }, [marketPreview, marketSeries?.gradePrices, marketSeries?.spotPriceBasis, comp]);
 
-  const gradeAwareExternalUsd =
-    gradeChart.selectedPriceUsd ?? resolvedExternal.usd;
+  /** Sealed box hero only: newest trades-tape sale, else PriceCharting loose. */
+  const latestSealedBoxTradeUsd = useMemo(() => {
+    if (!sealedBox) return null;
+    if (
+      sessionFillPoint != null &&
+      Number.isFinite(sessionFillPoint.v) &&
+      sessionFillPoint.v > 0
+    ) {
+      return sessionFillPoint.v;
+    }
+    // platform-trades merges newest-first (Tokenable + pricecharting_trade_history).
+    const v = countableTapeFills(platformTradesData?.trades ?? [])[0]?.priceUsdc;
+    return typeof v === "number" && Number.isFinite(v) && v > 0 ? v : null;
+  }, [sealedBox, sessionFillPoint, platformTradesData?.trades]);
+
+  const gradeAwareExternalUsd = sealedBox
+    ? (latestSealedBoxTradeUsd ??
+      gradeChart.selectedPriceUsd ??
+      resolvedExternal.usd)
+    : (gradeChart.selectedPriceUsd ?? resolvedExternal.usd);
   /*
    * Headline % must match list / Indices ticker / Markets cards:
    * server `marketChangePct` on full archive (1Y best window) — not recomputed from

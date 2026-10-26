@@ -6,13 +6,13 @@ import { HomeHeroSearch } from "@/components/home/HomeHeroSearch";
 
 const HERO_POINTS = [
   {
-    title: "Graded",
-    copy: "PSA, BGS & CGC certified",
+    title: "Authenticated",
+    copy: "PSA and BGS certified",
     icon: ASSETS.home.heroIconGraded,
   },
   {
     title: "Vaulted",
-    copy: "Stored & insured for you",
+    copy: "Stored and insured",
     icon: ASSETS.home.heroIconVaulted,
   },
   {

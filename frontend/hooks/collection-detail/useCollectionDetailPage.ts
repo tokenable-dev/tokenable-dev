@@ -12,7 +12,7 @@ import {
   type MarketplaceCollectionDetail,
 } from "@/lib/core";
 import { invalidateAfterCollectionUpdate } from "@/lib/core/invalidation";
-import type { BookRowSelection, TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
+import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 import { useCollectionDetailHeadline } from "./useCollectionDetailHeadline";
 import { useCollectionDetailListings } from "./useCollectionDetailListings";
 import { useCollectionDetailMarketData } from "./useCollectionDetailMarketData";
@@ -70,7 +70,6 @@ export function useCollectionDetailPage() {
     typeof rawCollectionKey === "string" ? decodeURIComponent(rawCollectionKey) : "";
 
   const [tradeCelebration, setTradeCelebration] = useState<TradeCelebrationKind | null>(null);
-  const [orderBookAskPicker, setOrderBookAskPicker] = useState<BookRowSelection | null>(null);
   useCollectionDetailMobile();
   const [sessionFillPoint, setSessionFillPoint] = useState<{
     t: number;
@@ -162,8 +161,8 @@ export function useCollectionDetailPage() {
       collectionKey: data.collection.collectionKey,
       asks,
       collectionBids,
-      selectedLevelKey: orderBookAskPicker?.levelKey ?? null,
-      onSelectLevel: () => {},
+      selectedLevelKey: null,
+      onSelectLevel: undefined,
       lastTradePriceUsdc: market.orderBookLastSaleUsdc,
       tapeFills: market.orderBookTapeFills,
       tapeLoading: market.platformTradesLoading,
@@ -181,7 +180,6 @@ export function useCollectionDetailPage() {
     data?.collection,
     asks,
     collectionBids,
-    orderBookAskPicker?.levelKey,
     market.orderBookLastSaleUsdc,
     market.orderBookTapeFills,
     market.platformTradesLoading,
@@ -207,8 +205,6 @@ export function useCollectionDetailPage() {
     collectionOrderBookProps,
     tradeCelebration,
     setTradeCelebration,
-    orderBookAskPicker,
-    setOrderBookAskPicker,
     showOrderBook,
     setShowOrderBook,
   };

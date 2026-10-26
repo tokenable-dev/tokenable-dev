@@ -10,6 +10,7 @@ import {
   isPrivyEnabled,
   wagmiPrivyConfig,
 } from "@/lib/privy/config";
+import { binanceWalletButtonsToHide } from "@/lib/privy/features";
 import {
   resolveFundingTargetChainId,
   resolvePrivyFundingEnvironment,
@@ -38,6 +39,40 @@ import { SignOutClientStateBridge } from "@/providers/SignOutClientStateBridge";
 import { SignOutNavigationBridge } from "@/providers/SignOutNavigationBridge";
 import { PerfObservers } from "@/lib/perf/PerfObservers";
 import { FiatAggregatorFundingHost } from "@/lib/privy/FiatAggregatorFundingHost";
+
+/** Privy injects a second Binance button beside Binance Wallet. Keep one. */
+function hideExtraBinanceWalletButtons(root: ParentNode) {
+  const buttons = [...root.querySelectorAll("button")];
+  const labels = buttons.map((button) =>
+    (button.textContent ?? "").replace(/\s+/g, " ").trim(),
+  );
+  const hide = binanceWalletButtonsToHide(labels);
+  buttons.forEach((button, index) => {
+    if (hide[index]) {
+      button.dataset.tkBinanceHidden = "1";
+      button.style.setProperty("display", "none", "important");
+      return;
+    }
+    if (button.dataset.tkBinanceHidden) {
+      delete button.dataset.tkBinanceHidden;
+      button.style.removeProperty("display");
+    }
+  });
+}
+
+function PrivyBinanceWalletDedupe() {
+  useEffect(() => {
+    const apply = () => {
+      const dialog = document.getElementById("privy-dialog");
+      if (dialog) hideExtraBinanceWalletButtons(dialog);
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+  return null;
+}
 
 /** Mount once inside PrivyProvider — silently selects the account embedded wallet only. */
 function AccountWalletAligner() {
@@ -110,6 +145,7 @@ function PrivyAppTree({ children }: { children: ReactNode }) {
           <PortfolioQueryPersistence />
           <SignOutClientStateBridge />
           <SignOutNavigationBridge />
+          <PrivyBinanceWalletDedupe />
           <PrivySignInLauncher />
           <PrivyWalletLauncher />
           <PrivySessionBridge />

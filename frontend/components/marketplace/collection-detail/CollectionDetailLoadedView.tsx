@@ -13,7 +13,6 @@ import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CollectionOverviewBoard } from "@/components/marketplace/collection-overview";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import { CollectionDetailsKvCard, CollectionHeroDetailsTabs } from "@/components/marketplace/collection-hero";
-import { CollectionChooseCopyModal } from "./CollectionChooseCopyModal";
 import { TradeCelebrationModal } from "@/components/marketplace/trade";
 import type { CollectionDetailLoadedProps } from "@/hooks/collection-detail";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
@@ -33,7 +32,6 @@ import { buildCollectionDetailMarketsSlots } from "./buildCollectionDetailMarket
 import {
   bestAskFromRows,
   bestBidFromRows,
-  priceLevelKey,
   priceUsdcFromOrder,
 } from "@/lib/marketplace/unified-order-book";
 import {
@@ -41,12 +39,7 @@ import {
   listingVaultBadge,
 } from "@/lib/marketplace/collectionListingModalHelpers";
 import { formatAssetDetailLine1 } from "@/lib/marketplace/assetDetailHeadline";
-import {
-  sealedBoxHeroSetTitle,
-  sealedBoxProductTypeLabel,
-} from "@/lib/marketplace/buildCollectionMarketDetailCards";
 import { sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
-import type { BookRowSelection } from "@/lib/marketplace/marketplaceTradingTypes";
 import type { Order } from "@/lib/core";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
@@ -63,8 +56,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     collectionOrderBookProps,
     tradeCelebration,
     setTradeCelebration,
-    orderBookAskPicker,
-    setOrderBookAskPicker,
     showOrderBook,
     setShowOrderBook,
   } = detail;
@@ -263,39 +254,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     [runTradeAccessGate, tradeDirect.placeBid],
   );
 
-  /**
-   * Order-book ask click: 1 copy → Privy fulfill; 2+ → choose-copy, then fulfill.
-   */
-  const openBuyForAskOrders = useCallback(
-    (orders: Order[], priceUsd: number) => {
-      const active = orders.filter((o) => o.status === "active");
-      if (active.length === 0) return;
-      if (active.length === 1) {
-        handleTradeBuy(Number(active[0]!.tokenId));
-        return;
-      }
-      const price = priceUsd > 0 ? priceUsd : priceUsdcFromOrder(active[0]!);
-      setOrderBookAskPicker({
-        side: "ask",
-        levelKey: `ask-${priceLevelKey(price)}`,
-        price,
-        orders: active,
-      });
-    },
-    [handleTradeBuy, setOrderBookAskPicker],
-  );
-
-  const handleOrderBookSelectLevel = useCallback(
-    (sel: BookRowSelection) => {
-      if (sel.side === "ask" && sel.orders.length >= 1) {
-        openBuyForAskOrders(sel.orders, sel.price);
-        return;
-      }
-      collectionOrderBookProps?.onSelectLevel?.(sel);
-    },
-    [collectionOrderBookProps, openBuyForAskOrders],
-  );
-
   const highestBidUsd = useMemo(
     () => bestBidFromRows(collectionBids),
     [collectionBids],
@@ -334,7 +292,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
   const orderBookPropsWithActions = useMemo(
     () => ({
       ...collectionOrderBookProps,
-      onSelectLevel: handleOrderBookSelectLevel,
+      onSelectLevel: undefined,
       onPlaceBid: () => {
         const mobile =
           typeof window !== "undefined" &&
@@ -351,7 +309,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
     }),
     [
       collectionOrderBookProps,
-      handleOrderBookSelectLevel,
       focusTrade,
       openMobileTradeSheet,
       listingAlertActive,
@@ -435,21 +392,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
       focusBidUsd={tradeFocus.bidUsd}
     />
   );
-
-  const chooseCopyLine1 = (() => {
-    if (!sealedBox) {
-      return (
-        formatAssetDetailLine1(headline.collectionHeadlineParts, {
-          grade: headline.headlineGrade ?? market.gradeAwareTierLabel,
-        }) || headline.collectionHeadlineDisplayTitle
-      );
-    }
-    const set = sealedBoxHeroSetTitle(comp);
-    const typeLabel = sealedBoxProductTypeLabel(comp);
-    return [set, typeLabel].filter(Boolean).join(" · ") || set;
-  })();
-
-  const chooseCopyMetaLine = headline.collectionHeadlineMetaStrip;
 
   const similarPanel = (
     <CollectionSimilarItemsSection collectionKey={collectionKey} />
@@ -579,22 +521,6 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
         open={tradeCelebration != null}
         kind={tradeCelebration ?? "purchase"}
         onClose={() => setTradeCelebration(null)}
-      />
-
-      <CollectionChooseCopyModal
-        open={orderBookAskPicker?.side === "ask"}
-        onClose={() => setOrderBookAskPicker(null)}
-        variant={sealedBox ? "box" : "card"}
-        collectionTitle={chooseCopyLine1}
-        itemMetaLine={chooseCopyMetaLine}
-        coverImageUrl={collectionCoverUrl}
-        price={orderBookAskPicker?.price ?? 0}
-        orders={orderBookAskPicker?.side === "ask" ? orderBookAskPicker.orders : []}
-        batchMetadata={listingsBatchMetadata}
-        onConfirm={(tokenId) => {
-          setOrderBookAskPicker(null);
-          handleTradeBuy(tokenId);
-        }}
       />
     </div>
   );

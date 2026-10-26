@@ -152,6 +152,7 @@ Frontend perf toggle uses `localStorage` keys (`PERF_LOG`, `PERF_THRESHOLD_MS`).
 | `PRICECHARTING_CSV_URL` | backend | Legendary CSV download URL (optional until configured) |
 | `PRICECHARTING_S3_BUCKET` | backend | Private bucket for original PriceCharting CSVs. Production writes only |
 | `PRICECHARTING_S3_PREFIX` | backend | Archive prefix, `pricecharting/raw/` |
+| `PRICECHARTING_GUIDE_CRON_ENABLED` | backend | Daily 10:00 KST guide refresh. Default on in production only |
 | `PSA_PUBLIC_API_TOKENS` | backend | PSA cert lookup — comma-separated multi-token pool |
 | `MARKET_SNAPSHOT_*` | backend | Collection market snapshot worker tuning |
 | `REDIS_URL` | backend | Identity cache L2 (optional) |

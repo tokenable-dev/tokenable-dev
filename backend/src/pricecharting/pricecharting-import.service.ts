@@ -721,6 +721,9 @@ export class PricechartingImportService {
     this.logger.log(
       `PriceCharting trades CSV ${filename}: ${ok}/${rows.length} ok · products=${productIds.join(',')}`,
     );
+    if (ok > 0) {
+      void this.enqueueSealedBoxSnapshots(productIds);
+    }
     return { filename, rowCount: rows.length, ok, productIds, failed };
   }
 

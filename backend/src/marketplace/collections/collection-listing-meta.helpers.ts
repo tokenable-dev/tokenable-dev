@@ -4,13 +4,14 @@ export function cardhedgerFromRwaMetadata(meta: Record<string, unknown>): {
   cardId: string | null;
   searchQuery: string | null;
   psaSpecId: string | null;
+  cardIdSource: string | null;
 } {
   const props = meta.properties as Record<string, unknown> | undefined;
   const graded = (props?.graded ?? meta.graded) as
     | Record<string, unknown>
     | undefined;
   if (!graded || typeof graded !== 'object') {
-    return { cardId: null, searchQuery: null, psaSpecId: null };
+    return { cardId: null, searchQuery: null, psaSpecId: null, cardIdSource: null };
   }
   const ch = graded.cardhedger as Record<string, unknown> | undefined;
   const cardId =
@@ -29,7 +30,11 @@ export function cardhedgerFromRwaMetadata(meta: Record<string, unknown>): {
       : typeof specRaw === 'string' && specRaw.trim()
         ? specRaw.trim()
         : null;
-  return { cardId, searchQuery, psaSpecId };
+  const cardIdSource =
+    typeof ch?.cardIdSource === 'string' && ch.cardIdSource.trim()
+      ? ch.cardIdSource.trim()
+      : null;
+  return { cardId, searchQuery, psaSpecId, cardIdSource };
 }
 
 export function mintVariantFromGradedMeta(meta: Record<string, unknown>): string {

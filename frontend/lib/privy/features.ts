@@ -36,7 +36,7 @@ const ALL_LOGIN_METHODS: LoginMethod[] = [
 
 /**
  * Default production login surface.
- * Primary: MetaMask, then Google + email. Other wallets stay under "More options".
+ * Primary: Binance / Coinbase / MetaMask / OKX. Google + email under "More options".
  */
 const DEFAULT_LOGIN_METHODS: LoginMethod[] = ["email", "google", "wallet"];
 
@@ -55,27 +55,50 @@ const FULL_LOGIN_OVERFLOW: LoginMethodOverflow = [
 ];
 
 /**
- * Popular wallets on the login primary / walletList top row.
- * Trust / Rabby have no first-class Privy ids (Trust → WC More; Rabby deprecated).
- * 5th named slot: Binance (Asia + mobile reach).
+ * Privy expands one `binance` entry into two buttons (Binance Wallet and
+ * Binance DeFi Wallet). Keep a single Binance Wallet button.
+ * Returns true for each label that should be hidden.
  */
-export const PRIVY_FEATURED_WALLETS = [
-  "metamask",
-  "coinbase_wallet",
-  "rainbow",
-  "okx_wallet",
+export function binanceWalletButtonsToHide(labels: readonly string[]): boolean[] {
+  const isBinance = labels.map((label) => /binance/i.test(label));
+  const indexes = isBinance.flatMap((match, index) => (match ? [index] : []));
+  const hide = labels.map(() => false);
+  if (indexes.length <= 1) return hide;
+  const keep =
+    indexes.find((index) => !/defi/i.test(labels[index] ?? "")) ?? indexes[0]!;
+  for (const index of indexes) {
+    if (index !== keep) hide[index] = true;
+  }
+  return hide;
+}
+
+/** Primary login row — Privy shows at most four methods on the landing screen. */
+const DEFAULT_LOGIN_PRIMARY = [
   "binance",
+  "coinbase_wallet",
+  "metamask",
+  "okx_wallet",
 ] as const;
 
 /**
- * Login "More options" after MetaMask / Google / email on the primary row.
- * Featured wallets first, then `wallet_connect` for the rest of the registry.
+ * Popular wallets on the login primary / walletList top row.
+ * Trust / Rabby have no first-class Privy ids (Trust → WC More; Rabby deprecated).
+ */
+export const PRIVY_FEATURED_WALLETS = [
+  "binance",
+  "coinbase_wallet",
+  "metamask",
+  "okx_wallet",
+  "rainbow",
+] as const;
+
+/**
+ * Login "More options": Google + email first, then Rainbow / WalletConnect registry.
  */
 const DEFAULT_LOGIN_OVERFLOW: LoginMethodOverflow = [
-  "coinbase_wallet",
+  "google",
+  "email",
   "rainbow",
-  "okx_wallet",
-  "binance",
   "wallet_connect",
 ];
 
@@ -99,12 +122,15 @@ export function resolvePrivyLoginMethodsOrder(): NonNullable<
   }
   if (isPrivyFullLoginEnabled()) {
     return {
-      primary: ["metamask", "google", "email"],
-      overflow: [...FULL_LOGIN_OVERFLOW, ...DEFAULT_LOGIN_OVERFLOW],
+      primary: [...DEFAULT_LOGIN_PRIMARY],
+      overflow: [
+        ...DEFAULT_LOGIN_OVERFLOW,
+        ...FULL_LOGIN_OVERFLOW,
+      ],
     };
   }
   return {
-    primary: ["metamask", "google", "email"],
+    primary: [...DEFAULT_LOGIN_PRIMARY],
     overflow: [...DEFAULT_LOGIN_OVERFLOW],
   };
 }
@@ -125,7 +151,7 @@ export const PRIVY_CLIENT_FEATURE_MATRIX = [
     label: "Sign in / sign up with external wallet (featured + More → WC)",
     hook: "useLogin / loginMethods wallet",
     status: "enabled",
-    note: "Top: MetaMask, Coinbase, Rainbow, OKX, Binance. More: wallet_connect (full registry). " +
+    note: "Primary: Binance, Coinbase, MetaMask, OKX. More: Google, email, Rainbow, wallet_connect. " +
       "Wallet-first users get an embedded wallet auto-created (createOnLogin). " +
       "Embedded stays signing primary for email/social users; " +
       "external wallet is signing primary for wallet-first users.",

@@ -532,7 +532,6 @@ export function CollectionDetailStatMain({
                       {NO_EXTERNAL_PRICE}
                     </div>
                   )}
-                  {!omitUnavailableMarket ? (
                   <div className="cd-hero-bar__chg" id="hero-chg">
                     {changeLoading && changePct == null ? (
                       <span
@@ -568,7 +567,6 @@ export function CollectionDetailStatMain({
                       </TkTag>
                     )}
                   </div>
-                  ) : null}
                 </div>
               </div>
             </div>

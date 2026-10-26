@@ -157,6 +157,7 @@ PRICECHARTING_API_TOKEN=your_pricecharting_token
 # Raw CSV archive. Uploads run only when NODE_ENV=production. Local does not write the bucket.
 # PRICECHARTING_S3_BUCKET=tokenable-pricecharting-raw
 # PRICECHARTING_S3_PREFIX=pricecharting/raw/
+# PRICECHARTING_GUIDE_CRON_ENABLED=false   # daily 10:00 KST guide refresh (default: prod only)
 
 # Cardhedger
 CARDHEDGER_API_KEY=your_cardhedger_key
@@ -213,9 +214,9 @@ Create `frontend/.env`:
 ```env
 # Privy auth
 NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
-# Default: MetaMask + Google + email on the primary login row; featured wallets
-# (Coinbase, Rainbow, OKX, Binance) + wallet_connect (full registry) under More / walletList.
-# Wallet-first users get their MetaMask as primary signing wallet.
+# Default: Binance + Coinbase + MetaMask + OKX on the primary login row.
+# Google + email + Rainbow + wallet_connect (full registry) under More / walletList.
+# Wallet-first users get their external wallet as primary signing wallet.
 # Email/social users get their Privy embedded wallet as primary signing wallet.
 # Dashboard requirements: External wallets → ON (Ethereum), "Allow new users to sign up with external wallets" ON.
 # Overrides:

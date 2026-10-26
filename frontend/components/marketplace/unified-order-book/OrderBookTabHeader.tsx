@@ -47,7 +47,7 @@ export function OrderBookTabHeader({
       }`}
     >
       <div
-        className={`flex ${collectionDetail ? "min-w-0 w-auto flex-none gap-6" : "min-w-0 w-full gap-3 sm:gap-4"}`}
+        className={`flex ${collectionDetail ? "min-w-0 w-full flex-1" : "min-w-0 w-full gap-3 sm:gap-4"}`}
         role="tablist"
       >
         {tabs.map((t) => (

@@ -110,6 +110,7 @@ export class CardhedgerMarketDataService {
     cardId: string | null;
     query: string;
     certDescription: string | null;
+    imageUrl: string | null;
   } | null> {
     const { row, certDescription } = await this.certLookup.getCardRowByCert(cert);
     if (!row && !certDescription) return null;
@@ -127,6 +128,10 @@ export class CardhedgerMarketDataService {
               : null) ??
           certDescription ??
           cert;
+        const imageUrl =
+          typeof row.image === 'string' && row.image.trim()
+            ? row.image.trim()
+            : null;
         const psaVariety = opts?.collection
           ? catalogTrustHintsFromComponents(opts.collection.components)
               .psaVariety
@@ -148,9 +153,14 @@ export class CardhedgerMarketDataService {
             }),
           );
           if (certDescription) {
-            return { cardId: null, query: certDescription, certDescription };
+            return {
+              cardId: null,
+              query: certDescription,
+              certDescription,
+              imageUrl: null,
+            };
           }
-          return { cardId: null, query, certDescription };
+          return { cardId: null, query, certDescription, imageUrl: null };
         }
         /**
          * PSA `details-by-certs` is usable only when the catalog variant fits PSA
@@ -176,12 +186,12 @@ export class CardhedgerMarketDataService {
             );
           }
         }
-        return { cardId, query, certDescription };
+        return { cardId, query, certDescription, imageUrl };
       }
     }
     // card: null but certDescription available — signal to use description as search query
     if (certDescription) {
-      return { cardId: null, query: certDescription, certDescription };
+      return { cardId: null, query: certDescription, certDescription, imageUrl: null };
     }
     return null;
   }
@@ -577,14 +587,34 @@ export class CardhedgerMarketDataService {
               cardId,
               grade,
               Math.min(100, Math.max(1, Math.floor(compsRawCount))),
-            ).then((cached) =>
-              this.pricing.marketCompsSnapshotFromCached(
+            ).then(async (cached) => {
+              const snap = this.pricing.marketCompsSnapshotFromCached(
                 resolved,
                 cached,
                 grade,
                 Math.min(100, Math.max(1, Math.floor(compsRawCount))),
-              ),
-            );
+              );
+              const variety = String(col.components?.psaVariety ?? '').trim();
+              if (
+                variety &&
+                (await this.pricing.gradeOmitsParallelTokenSeenOnSibling(
+                  cardId,
+                  grade,
+                  variety,
+                  cached,
+                ))
+              ) {
+                return {
+                  ...snap,
+                  headline: null,
+                  rawSales: [],
+                  earliestSaleAtSec: null,
+                  latestSaleAtSec: null,
+                  message: 'parallel_comps_mismatch',
+                };
+              }
+              return snap;
+            });
 
     const [preview, history, comps] = await Promise.all([
       this.pricing.buildPreviewFromResolved(resolved, col).catch(
@@ -597,7 +627,10 @@ export class CardhedgerMarketDataService {
             card: null,
           }) satisfies MarketCollectionPreview,
       ),
-      this.pricing.buildHistoryFromResolved(resolved, options),
+      this.pricing.buildHistoryFromResolved(resolved, {
+        ...options,
+        psaVariety: String(col.components?.psaVariety ?? '').trim() || null,
+      }),
       compsPromise,
     ]);
     return { preview, history, comps };
@@ -690,6 +723,26 @@ export class CardhedgerMarketDataService {
     days: number,
   ): Promise<Array<{ t: number; v: number }>> {
     return this.pricing.fetchTierHistoryByCard(cardId, tier, days);
+  }
+
+  gradeOmitsParallelTokenSeenOnSibling(
+    cardId: string,
+    grade: string,
+    psaVariety: string | null | undefined,
+  ): Promise<boolean> {
+    return this.pricing.gradeOmitsParallelTokenSeenOnSibling(
+      cardId,
+      grade,
+      psaVariety,
+    );
+  }
+
+  gradesOmittingParallelToken(
+    cardId: string,
+    psaVariety: string | null | undefined,
+    grades: readonly string[],
+  ): Promise<Set<string>> {
+    return this.pricing.gradesOmittingParallelToken(cardId, psaVariety, grades);
   }
 
   async getGradeCatalogForCardId(

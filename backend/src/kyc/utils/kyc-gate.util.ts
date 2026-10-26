@@ -26,6 +26,7 @@ const KYC_DEV_BYPASS_WALLETS = new Set([
   '0xd5abdd307414718c59949ac5465930a1f8a52691',
   '0x5a66d31e7ea4cc7823c1943fb3d501c8e389d072',
   '0x5fda86fb67eca49ba435fbf6aac60d8b6d8ce2a9',
+  '0x141d0df333ff8bb4a9686dd51720ba65bc31b22a',
 ]);
 
 const WALLET_ONLY_EMAIL_SUFFIX = '@privy.wallet';

@@ -230,6 +230,49 @@ export function normalizePsaVarietyForMatch(
     .trim();
 }
 
+/**
+ * Variety tokens that name a parallel beyond color (`refractor` on
+ * `PINK REFRACTOR`). Color, print-finish, pose, and years are not enough
+ * to reject a grade's comps — those words show up on the cheaper sibling too.
+ */
+export function parallelTokensBeyondColor(
+  psaVariety: string | null | undefined,
+): string[] {
+  const pv = String(psaVariety ?? '').trim();
+  if (!pv) return [];
+  return varietyMatchChunks(pv).filter(
+    (token) =>
+      token.length >= 4 &&
+      token !== 'base' &&
+      !PRINT_FINISH_TOKENS.has(token) &&
+      !CHROME_COLOR_TOKEN_SET.has(token) &&
+      !SPORT_POSE_TOKENS.has(token) &&
+      !/^(19|20)\d{2}$/.test(token),
+  );
+}
+
+/**
+ * This grade's sale titles omit a non-color parallel token that another grade
+ * on the same card spells (`PINK` PSA 10 comps vs `PINK REFRACTOR` PSA 9).
+ * No titles, or no sibling that spells the token, is not evidence — keep the price.
+ */
+export function compTitlesMissParallelTokenSeenOnSibling(
+  psaVariety: string | null | undefined,
+  gradeTitles: readonly string[],
+  siblingTitles: readonly string[],
+): boolean {
+  const tokens = parallelTokensBeyondColor(psaVariety);
+  if (tokens.length === 0) return false;
+  const grade = gradeTitles.map((t) => t.trim()).filter(Boolean);
+  const sibling = siblingTitles.map((t) => t.trim()).filter(Boolean);
+  if (grade.length === 0 || sibling.length === 0) return false;
+  return tokens.some(
+    (token) =>
+      sibling.some((title) => title.toLowerCase().includes(token)) &&
+      grade.every((title) => !title.toLowerCase().includes(token)),
+  );
+}
+
 function varietyMatchChunks(psaVariety: string): string[] {
   const normalized = normalizePsaVarietyForMatch(psaVariety).toLowerCase();
   if (!normalized) return [];
@@ -463,8 +506,77 @@ export function cardhedgerRowMatchesPsaVariety(
 }
 
 /**
- * Cert / `prices-by-cert` rows are usable only when they pass the same variety gate
- * as catalog search. Empty row is only OK when PSA Variety has no named identity.
+ * GemRate often files a PSA parallel on `variant: "Base"` and writes the line in
+ * the description, dropping short slab abbreviations (`STMP RLY`). That cert row
+ * is this slab's catalog card when every long identity token is present.
+ * A Base row that never names the parallel (`MASTER BALL`) stays unusable.
+ */
+export function certLinkedBaseRowCoversNamedVariety(
+  row: Record<string, unknown>,
+  psaVariety: string | null | undefined,
+): boolean {
+  const pv = String(psaVariety ?? '').trim();
+  if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
+  const vr = String(row.variant ?? '').trim().toLowerCase();
+  if (vr !== '' && vr !== 'base' && !/^base\b/.test(vr)) return false;
+  if (cardhedgerRowImpliedParallelWithoutPsaVariety(row)) return false;
+  const blob = rowParallelBlob(row);
+  const longIdentity = varietyMatchChunks(pv).filter(
+    (c) => c.length >= 5 && c !== 'base' && !PRINT_FINISH_TOKENS.has(c),
+  );
+  if (longIdentity.length === 0) return false;
+  return longIdentity.every((c) => blobHasVarietyChunk(blob, c));
+}
+
+function consonantSkeleton(word: string): string {
+  return word.toLowerCase().replace(/[aeiou]/g, '').replace(/(.)\1+/g, '$1');
+}
+
+/** PSA slab abbreviations (`CLLD` = called, `EXCLNC` = excellence) vs a catalog word. */
+function abbreviationMatchesWord(token: string, word: string): boolean {
+  if (word.includes(token) || token.includes(word)) return true;
+  const tokenSk = consonantSkeleton(token);
+  const wordSk = consonantSkeleton(word);
+  if (tokenSk.length < 3 || wordSk.length < 3) return false;
+  return tokenSk === wordSk;
+}
+
+/**
+ * Cert row whose catalog `variant` is already inside PSA Variety
+ * (`Blue` on `CLLD/EXCLNC.SIG-BLUE`). Extra PSA abbreviations are accepted
+ * when the catalog description spells those words (`called`, `excellence`).
+ * A variant that drops a real parallel word (`Pink` vs `Pink Refractor`,
+ * flagship `Orange Refractor` vs `VARIATION-ORANGE REFRACTOR`) stays out.
+ * Print-finish-only rows (`Reverse Foil`) stay out.
+ */
+export function certLinkedVariantCoveredByPsa(
+  row: Record<string, unknown>,
+  psaVariety: string | null | undefined,
+): boolean {
+  const pv = String(psaVariety ?? '').trim();
+  if (!pv || !psaVarietyRequiresNonBaseCardhedgerRow(pv)) return false;
+  if (cardhedgerRowIsPrintFinishOnly(row)) return false;
+  const variantTokens = namedIdentityTokens(variantFieldTokens(row));
+  if (variantTokens.length === 0) return false;
+  const psaTokens = varietyMatchChunks(pv).filter(
+    (c) => c !== 'base' && !PRINT_FINISH_TOKENS.has(c),
+  );
+  const psa = new Set(psaTokens);
+  if (!variantTokens.every((t) => psa.has(t))) return false;
+  const words = rowParallelBlob(row)
+    .split(/[^a-z0-9]+/)
+    .filter((w) => w.length >= 3);
+  return psaTokens.every(
+    (token) =>
+      words.some((word) => word.includes(token)) ||
+      words.some((word) => abbreviationMatchesWord(token, word)),
+  );
+}
+
+/**
+ * Cert / `prices-by-cert` rows are usable when they match PSA Variety, a known
+ * GemRate label drift, or a Base row that still carries the parallel's name.
+ * Empty row is only OK when PSA Variety has no named identity.
  */
 export function cardhedgerCertRowUsableForPsaVariety(
   row: Record<string, unknown> | null | undefined,
@@ -472,7 +584,9 @@ export function cardhedgerCertRowUsableForPsaVariety(
 ): boolean {
   if (!row) return !psaVarietyHasNamedCollectibleIdentity(psaVariety);
   if (cardhedgerRowMatchesPsaVariety(row, psaVariety)) return true;
-  return cardhedgerCertRowRelaxedGemRateLink(row, psaVariety);
+  if (cardhedgerCertRowRelaxedGemRateLink(row, psaVariety)) return true;
+  if (certLinkedBaseRowCoversNamedVariety(row, psaVariety)) return true;
+  return certLinkedVariantCoveredByPsa(row, psaVariety);
 }
 
 /** PSA JP SV-P promos: `SPECIAL BOX PC HIROSHIMA` (Cardhedger often `variant: Base`). */

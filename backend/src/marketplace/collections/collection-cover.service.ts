@@ -7,12 +7,14 @@ import { IpfsGatewayResolverService } from '../../blockchain/ipfs-gateway-resolv
 import { CardhedgerService } from '../../cardhedger/cardhedger.service';
 import { mergePsaVarietyWithMintVariant } from '../../psa/psa-variety-catalog.util';
 import {
-  cardhedgerCertRowRelaxedGemRateLink,
   cardhedgerCertRowUsableForPsaVariety,
   cardhedgerRowMatchesPsaVariety,
   psaVarietyHasNamedCollectibleIdentity,
 } from '../utils/cardhedger-psa-variety.util';
-import { catalogTcgPrefixedNumberCompatible } from '../utils/card-match.util';
+import {
+  CARDHEDGER_CARD_ID_SOURCE_PSA_CERT,
+  catalogTcgPrefixedNumberCompatible,
+} from '../utils/card-match.util';
 import {
   pickCardhedgerRowFromSearchResults,
   psaCardhedgerSearchQueryList,
@@ -113,6 +115,7 @@ export class CollectionCoverService {
     let cardId = '';
     let imageUrl = '';
     let searchQuery = '';
+    let certCardAccepted = false;
     const psaVariety = psaVarietyFromMintMeta(meta);
 
     try {
@@ -143,16 +146,9 @@ export class CollectionCoverService {
         if (card && typeof card === 'object') {
           const id =
             typeof card.card_id === 'string' ? card.card_id.trim() : '';
-          const varietyOk = cardhedgerCertRowUsableForPsaVariety(
-            card,
-            psaVariety,
-          );
-          const relaxedCertLink = cardhedgerCertRowRelaxedGemRateLink(
-            card,
-            psaVariety,
-          );
-          if (id && (varietyOk || relaxedCertLink)) {
+          if (id && cardhedgerCertRowUsableForPsaVariety(card, psaVariety)) {
             cardId = id;
+            certCardAccepted = true;
             const img =
               typeof card.image === 'string' ? card.image.trim() : '';
             if (img) imageUrl = img;
@@ -222,7 +218,12 @@ export class CollectionCoverService {
         ? { ...(gradedBase.cardhedger as Record<string, unknown>) }
         : {};
 
-    if (cardId && !existingCh.cardId) existingCh.cardId = cardId;
+    if (cardId && !existingCh.cardId) {
+      existingCh.cardId = cardId;
+      if (certCardAccepted) {
+        existingCh.cardIdSource = CARDHEDGER_CARD_ID_SOURCE_PSA_CERT;
+      }
+    }
     if (imageUrl && !existingCh.imageUrl) existingCh.imageUrl = imageUrl;
     if (searchQuery && !existingCh.searchQuery) {
       existingCh.searchQuery = searchQuery;

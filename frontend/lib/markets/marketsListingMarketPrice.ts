@@ -18,6 +18,8 @@ export function resolveMarketsListingMarketUsd(
   snapshot: CollectionListMarketSnapshot | undefined,
 ): number | null {
   const comp = parseCollectionComponents(collection.components);
+  // Sealed box: snapshot spot is newest trade when present, else PriceCharting loose
+  // (see refreshSealedBoxSnapshot). Fall back to components.loosePriceCents.
   if (comp.assetKind === "sealed_box") {
     const raw = snapshot?.gradePrices?.raw;
     if (typeof raw === "number" && Number.isFinite(raw) && raw > 0) return raw;

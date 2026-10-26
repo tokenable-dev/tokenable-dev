@@ -193,41 +193,6 @@ export class BlockchainService {
     return kept;
   }
 
-  /** Wallet-owned ids via live supply + ownerOf (fills gaps when DB owner_wallet lags). */
-  async listTokenIdsOwnedOnChain(
-    wallet: string,
-    chainId?: SupportedChainId,
-  ): Promise<number[]> {
-    const expected = wallet.trim().toLowerCase();
-    if (!ETH_ADDRESS.test(expected)) return [];
-    const chain = chainId ?? this.chainConfig.getDefaultChainId();
-    const contract = this.chainConfig.getRwaAddress(chain).toLowerCase();
-    const live = await this.listLiveTokenIds(chain);
-    if (live.length === 0) return [];
-
-    const parallel = Math.max(1, Math.min(rpcOwnerScanConcurrency(), 8));
-    const owned: number[] = [];
-    for (let i = 0; i < live.length; i += parallel) {
-      const chunk = live.slice(i, i + parallel);
-      await Promise.all(
-        chunk.map(async (tokenId) => {
-          try {
-            const onChain = await this.getRwaTokenOwner(tokenId, chain);
-            if (onChain !== expected) return;
-            owned.push(tokenId);
-            void this.ownerIndex
-              .recordOwner(contract, tokenId, onChain)
-              .catch(() => undefined);
-          } catch {
-            /* skip */
-          }
-        }),
-      );
-    }
-    owned.sort((a, b) => a - b);
-    return owned;
-  }
-
   async getRwaTokenURI(
     tokenId: number,
     chainId?: SupportedChainId,

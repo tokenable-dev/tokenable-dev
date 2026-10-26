@@ -4643,6 +4643,40 @@ button.pf-table-card-cell--activate {
   width: 100%;
 }
 
+/*
+ * Sealed boxes have no PSA label, so a natural-height cover sits high next to
+ * a slab. Use the same slot and anchor the box art toward the card window.
+ */
+#portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) {
+  aspect-ratio: 416 / 700;
+  height: auto !important;
+  padding: 0 !important;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: hidden;
+}
+
+#portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) > .psa-slab-frame,
+#portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) .psa-slab--plain {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  aspect-ratio: unset;
+  box-sizing: border-box;
+  padding: 22% 8% 3%;
+}
+
+#portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) .psa-slab__plain-img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+}
+
 #portfolio-panel-bids .pf-ux-mc__body {
   display: flex;
   flex-direction: column;
@@ -4738,6 +4772,15 @@ button.pf-table-card-cell--activate {
   #portfolio-panel-bids .pf-ux-mc__thumb {
     aspect-ratio: 0.85;
     padding: 8px;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) {
+    aspect-ratio: 416 / 700;
+    padding: 0 !important;
+  }
+
+  #portfolio-panel-bids .pf-ux-mc__thumb:has(.psa-slab--plain) .psa-slab--plain {
+    padding: 16% 6% 2%;
   }
 
   #portfolio-panel-bids .pf-ux-mc__body {

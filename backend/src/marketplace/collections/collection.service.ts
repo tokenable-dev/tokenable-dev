@@ -604,7 +604,10 @@ export class CollectionService {
     // "Missing cardhedgerCardId" while a fire-and-forget seed races the UI.
     if (ch.cardId) {
       compRecord.cardhedgerCardId = ch.cardId;
-      if (opts.catalogSource === 'admin_psa_cert') {
+      if (
+        opts.catalogSource === 'admin_psa_cert' ||
+        ch.cardIdSource === CARDHEDGER_CARD_ID_SOURCE_PSA_CERT
+      ) {
         compRecord.cardhedgerCardIdSource = CARDHEDGER_CARD_ID_SOURCE_PSA_CERT;
       }
     }

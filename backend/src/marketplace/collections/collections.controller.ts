@@ -569,11 +569,15 @@ export class CollectionsController {
   getCollectionGradeCatalog(
     @Param('key') key: string,
     @Query('live') live?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     const preferLive = live === '1' || live === 'true';
     return this.collectionMarketService.getCollectionGradeCatalog(
       this.normalizeKey(key),
-      { preferLive },
+      {
+        preferLive,
+        chainId: this.chainConfig.resolveChainId(chainHeader),
+      },
     );
   }
 
@@ -587,6 +591,7 @@ export class CollectionsController {
     @Param('key') key: string,
     @Query('grade') grade?: string,
     @Query('days') days?: string,
+    @Headers(CHAIN_ID_HEADER) chainHeader?: string,
   ) {
     if (!grade?.trim()) {
       throw new BadRequestException('grade query parameter is required');
@@ -596,6 +601,7 @@ export class CollectionsController {
       this.normalizeKey(key),
       grade.trim(),
       Number.isFinite(daysNum) ? daysNum : 365,
+      this.chainConfig.resolveChainId(chainHeader),
     );
   }
 

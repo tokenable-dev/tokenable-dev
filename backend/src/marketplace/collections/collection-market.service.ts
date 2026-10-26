@@ -348,9 +348,105 @@ export class CollectionMarketService {
     const out = sealedBox
       ? bundle
       : await this.overlayLiveCardhedgerWhenThin(bundle, key, window, chainId);
+    const guarded =
+      sealedBox || !catalog
+        ? out
+        : await this.hideGradeWhenParallelCompsMismatch(out, catalog);
     return {
-      ...out,
-      cardhedgerPreview: sanitizeMarketCollectionPreview(out.cardhedgerPreview),
+      ...guarded,
+      cardhedgerPreview: sanitizeMarketCollectionPreview(
+        guarded.cardhedgerPreview,
+      ),
+    };
+  }
+
+  /**
+   * Cardhedger sometimes files a cheaper parallel's sales on the right card_id
+   * (PINK slabs on a PINK REFRACTOR card). Drop that grade's published price
+   * when a sibling grade's titles spell the parallel word and this grade does not.
+   */
+  private async withoutParallelMismatchedGrades(
+    col: MarketplaceCollection,
+    cardId: string,
+    grades: CollectionGradeCatalogEntry[],
+  ): Promise<CollectionGradeCatalogEntry[]> {
+    const id = cardId.trim();
+    const variety = String(col.components?.psaVariety ?? '').trim();
+    if (!id || !variety || grades.length === 0) return grades;
+    const bad = await this.cardhedgerMarket.gradesOmittingParallelToken(
+      id,
+      variety,
+      grades.map((g) => g.grade),
+    );
+    if (bad.size === 0) return grades;
+    return grades.filter((g) => !bad.has(g.grade));
+  }
+
+  private async hideGradeWhenParallelCompsMismatch(
+    bundle: CollectionMarketBundle,
+    col: MarketplaceCollection,
+  ): Promise<CollectionMarketBundle> {
+    const variety = String(col.components?.psaVariety ?? '').trim();
+    const grade = String(bundle.collectionGrade ?? '').trim();
+    const cardId = String(
+      col.components?.cardhedgerCardId ??
+        bundle.cardhedgerPreview?.card?.id ??
+        '',
+    ).trim();
+    if (!variety || !grade || !cardId) return bundle;
+    const omit = await this.cardhedgerMarket.gradeOmitsParallelTokenSeenOnSibling(
+      cardId,
+      grade,
+      variety,
+    );
+    if (!omit) return bundle;
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'parallel_comps_mismatch',
+        collectionKey: bundle.collectionKey,
+        cardId,
+        grade,
+        psaVariety: variety,
+      }),
+    );
+    const gradePrices: GradePriceStrip = { ...bundle.gradePrices };
+    if (bundle.historyTier === 'PSA_9') gradePrices.psa9 = null;
+    else if (bundle.historyTier === 'PSA_10' || bundle.historyTier == null) {
+      gradePrices.psa10 = null;
+    }
+    const preview = bundle.cardhedgerPreview;
+    const pricesByGrade = { ...(preview.card?.pricesByGrade ?? {}) };
+    delete pricesByGrade[grade];
+    const tierKey =
+      bundle.historyTier ??
+      (grade === 'PSA 10' ? 'PSA_10' : grade === 'PSA 9' ? 'PSA_9' : null);
+    const ebayPsaTiers = { ...(preview.card?.ebayPsaTiers ?? {}) };
+    if (tierKey) ebayPsaTiers[tierKey] = null;
+    const clearPsa10 = tierKey === 'PSA_10' || grade === 'PSA 10';
+    const clearPsa9 = tierKey === 'PSA_9' || grade === 'PSA 9';
+    return {
+      ...bundle,
+      gradePrices,
+      externalUsd: [],
+      marketChangePct: null,
+      marketChangeSource: null,
+      spotPriceBasis: null,
+      allGradePrices: bundle.allGradePrices.filter((g) => g.grade !== grade),
+      cardhedgerPreview: preview.card
+        ? {
+            ...preview,
+            card: {
+              ...preview.card,
+              topPrice: null,
+              pricesByGrade,
+              ebayPsa10: clearPsa10 ? null : preview.card.ebayPsa10,
+              ebayPsa9: clearPsa9 ? null : preview.card.ebayPsa9,
+              ebayPsaTiers,
+              spotPriceBasis: null,
+              pricingSuppressedReason: 'parallel_comps_mismatch',
+            },
+          }
+        : preview,
     };
   }
 
@@ -369,7 +465,10 @@ export class CollectionMarketService {
     let storedId = String(col.components?.cardhedgerCardId ?? '').trim();
     if (!storedId) {
       const updated =
-        await this.collectionService.ensureCardhedgerCardIdFromListings(key);
+        await this.collectionService.ensureCardhedgerCardIdFromListings(
+          key,
+          resolved,
+        );
       if (updated) {
         this.snapshotScheduler.enqueue(key, 'stale_swr');
         col =
@@ -395,6 +494,20 @@ export class CollectionMarketService {
           this.snapshotScheduler.enqueue(key, 'stale_swr');
           col =
             (await this.collectionService.findOne(key, resolved)) ?? col;
+          const certImage = resolvedCert.imageUrl?.trim() ?? '';
+          if (certImage && !col.coverImageUrl?.trim()) {
+            try {
+              col = await this.collectionService.setCollectionCoverImageAdmin(
+                key,
+                certImage,
+                resolved,
+              );
+            } catch (coverErr) {
+              this.logger.debug(
+                `cert cover skipped key=${key}: ${coverErr instanceof Error ? coverErr.message : String(coverErr)}`,
+              );
+            }
+          }
         }
       } catch (e) {
         this.logger.debug(
@@ -562,10 +675,10 @@ export class CollectionMarketService {
    */
   async getCollectionGradeCatalog(
     collectionKey: string,
-    opts?: { preferLive?: boolean },
+    opts?: { preferLive?: boolean; chainId?: SupportedChainId },
   ): Promise<CollectionGradeCatalogResponse> {
     const key = collectionKey.toLowerCase();
-    const col = await this.collectionService.findOne(key);
+    const col = await this.collectionForMarketRead(key, opts?.chainId);
     if (!col) {
       throw new NotFoundException(`Collection not found: ${key}`);
     }
@@ -574,7 +687,11 @@ export class CollectionMarketService {
     const cardId = String(col.components?.cardhedgerCardId ?? '').trim();
 
     if (opts?.preferLive && cardId) {
-      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      const grades = await this.withoutParallelMismatchedGrades(
+        col,
+        cardId,
+        await this.cardhedgerMarket.getGradeCatalogForCardId(cardId),
+      );
       if (grades.length > 0) {
         return {
           collectionKey: key,
@@ -590,19 +707,28 @@ export class CollectionMarketService {
     const row = await this.snapshotService.findByKey(key);
     const preview = row?.previewJson;
     if (preview?.card?.pricesByGrade) {
+      const grades = await this.withoutParallelMismatchedGrades(
+        col,
+        preview.card.id?.trim() || cardId,
+        catalogFromPricesByGradeMap(preview.card.pricesByGrade),
+      );
       return {
         collectionKey: key,
         cardhedgerCardId:
           preview.card.id?.trim() || cardId || null,
         collectionGrade,
         historyTier,
-        grades: catalogFromPricesByGradeMap(preview.card.pricesByGrade),
+        grades,
         source: 'snapshot',
       };
     }
 
     if (cardId) {
-      const grades = await this.cardhedgerMarket.getGradeCatalogForCardId(cardId);
+      const grades = await this.withoutParallelMismatchedGrades(
+        col,
+        cardId,
+        await this.cardhedgerMarket.getGradeCatalogForCardId(cardId),
+      );
       return {
         collectionKey: key,
         cardhedgerCardId: cardId,
@@ -630,6 +756,7 @@ export class CollectionMarketService {
     collectionKey: string,
     gradeLabel: string,
     daysRaw?: number,
+    chainId?: SupportedChainId,
   ): Promise<CollectionGradePriceSeries> {
     const key = collectionKey.toLowerCase();
     const grade = String(gradeLabel ?? '').trim();
@@ -641,7 +768,7 @@ export class CollectionMarketService {
       Math.max(1, Math.floor(Number(daysRaw ?? 365) || 365)),
     );
 
-    const col = await this.collectionService.findOne(key);
+    const col = await this.collectionForMarketRead(key, chainId);
     if (!col) {
       throw new NotFoundException(`Collection not found: ${key}`);
     }
@@ -657,6 +784,25 @@ export class CollectionMarketService {
         { collection: col },
       );
       cardId = String(resolved?.cardId ?? '').trim();
+    }
+
+    const variety = String(col.components?.psaVariety ?? '').trim();
+    if (
+      cardId &&
+      variety &&
+      (await this.cardhedgerMarket.gradeOmitsParallelTokenSeenOnSibling(
+        cardId,
+        grade,
+        variety,
+      ))
+    ) {
+      return {
+        collectionKey: key,
+        grade,
+        cardhedgerCardId: cardId,
+        points: [],
+        days,
+      };
     }
 
     const points = cardId

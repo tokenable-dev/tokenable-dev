@@ -60,6 +60,54 @@ describe('CollectionCoverService.attachCardhedgerFromPsaCert', () => {
     );
   });
 
+  it('attaches the cert Base row for a PSA stamp abbreviation', async () => {
+    const forwardJson = jest.fn().mockResolvedValue({
+      results: [
+        {
+          cert_info: {
+            cert: '121822111',
+            description:
+              '2025 Pokemon Korean SV-P Promo Ditto Metamong Project Ditto QR Stamp Rally 173',
+          },
+          card: {
+            card_id: '1792814586153x766509520282714100',
+            variant: 'Base',
+            description: 'Ditto 2025 Pokemon Korean Promo Metamong Project',
+            name: 'Ditto',
+            set: '2025 Pokemon Korean Promo',
+            number: '173',
+            image:
+              'https://s3.amazonaws.com/appforest_uf/f1646616667617x757010808190190600/Pokemon.jpg',
+          },
+        },
+      ],
+    });
+    const svc = buildService(forwardJson);
+    const meta = {
+      properties: {
+        graded: {
+          psa: {
+            certNumber: '121822111',
+            cardNameHint: 'Ditto',
+            cardNumberHint: '173',
+            Variety: 'METAMONG PROJECT STMP RLY',
+            brand: 'POKEMON KOREAN SV-P PROMO',
+          },
+        },
+      },
+    };
+
+    const out = await svc.attachCardhedgerFromPsaCert(meta, '121822111');
+    const ch = (
+      out.properties as { graded: { cardhedger: Record<string, string> } }
+    ).graded.cardhedger;
+
+    expect(ch.cardId).toBe('1792814586153x766509520282714100');
+    expect(ch.cardIdSource).toBe('psa_cert');
+    expect(ch.imageUrl).toContain('Pokemon.jpg');
+    expect(forwardJson).toHaveBeenCalledTimes(1);
+  });
+
   it('prefers Pink Refractor search when cert links color-only Pink (PSA PINK REFRACTOR)', async () => {
     const forwardJson = jest
       .fn()

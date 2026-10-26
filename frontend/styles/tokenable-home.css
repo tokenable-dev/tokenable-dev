@@ -403,8 +403,9 @@
   width: 340px;
   height: 52px;
   padding: 0 20px;
-  border-radius: 14px;
-  background: #7b4fff;
+  border-radius: 12px;
+  background: #997dff;
+  box-shadow: 0 6px 18px 0 rgba(153, 125, 255, 0.35);
   font-family: var(--font-sans);
   font-size: 16px;
   font-weight: 600;
@@ -413,7 +414,7 @@
 }
 
 .home-hero__browse:hover {
-  background: #6a3df0;
+  background: #8a70e6;
   color: #fff;
 }
 
@@ -899,7 +900,7 @@
     width: calc(100% - 40px);
     max-width: calc(100% - 40px);
     height: 56px;
-    border-radius: 16px;
+    border-radius: 12px;
     font-size: 16px;
   }
 

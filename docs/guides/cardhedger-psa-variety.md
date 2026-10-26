@@ -212,6 +212,10 @@ Sibling rows **do** have comps and must not be used for this slab:
 
 Preview reason `cardhedger_no_sales_for_grade` is this 404, not a Tokenable wiring miss. Do not fall back to Base comps or `segment_fallback` FMV (~$58 on the 2023 One Piece bucket). Last price stays empty until Cardhedger attributes sales to the Championship `card_id`.
 
+### Same card_id, mixed parallel comps
+
+Cert → `card_id` can be the right Pink Refractor row while PSA 10 comps on that id are PINK slabs (eBay titles omit `Refractor`; a sibling grade's titles include it). Collection create still keeps the card. Before publishing that grade, `compTitlesMissParallelTokenSeenOnSibling` drops the grade's price, history, and trades. If no grade's titles spell the parallel word, the price stays — sellers often shorten titles.
+
 ### 관련 코드 (참고)
 
 - `frontend/components/vault/MintForm.tsx` / `frontend/lib/vault/buildMintMetadata.ts` — 민팅 시 `graded.psa.Variety` 저장.

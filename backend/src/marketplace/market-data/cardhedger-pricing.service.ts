@@ -36,6 +36,10 @@ import {
 } from './cardhedger-fmv.util';
 import type { CardhedgerCertPriceResult } from './cardhedger-cert-price.util';
 import { sanitizeMarketCollectionPreview } from '../utils/market-preview-user-message.util';
+import {
+  compTitlesMissParallelTokenSeenOnSibling,
+  parallelTokensBeyondColor,
+} from '../utils/cardhedger-psa-variety.util';
 
 export type { CardhedgerFmvResult } from './cardhedger-fmv.util';
 
@@ -53,6 +57,8 @@ export type BuildPreviewOptions = {
   skipCatalogFetches?: boolean;
   /** When true, `preFetchedFmv` came from `batch-price-estimate` (sparse cert fallback). */
   preFetchedEstimate?: boolean;
+  /** PSA Variety for the collection. Used to drop comps from a cheaper sibling parallel. */
+  psaVariety?: string | null;
 };
 
 /** Card Hedge `POST /v1/cards/prices-by-card` documents rolling `days` in [1, **365**] only. */
@@ -709,6 +715,11 @@ export class CardhedgerPricingService {
             ? saleUrlRaw.trim()
             : null;
         const platform = inferExternalSalePlatform({ saleUrl, priceSource });
+        const titleRaw = (item as { title?: unknown }).title;
+        const title =
+          typeof titleRaw === 'string' && titleRaw.trim()
+            ? titleRaw.trim()
+            : null;
         rawPoints.push({
           t: Math.floor(ms / 1000),
           v: price,
@@ -716,6 +727,7 @@ export class CardhedgerPricingService {
           priceSource,
           saleUrl,
           platform,
+          title,
         });
       }
     }
@@ -816,6 +828,105 @@ export class CardhedgerPricingService {
     cardId: string,
   ): Promise<CardhedgerCompsCached | null> {
     return this.fetchCompsCached(cardId, 'PSA 10');
+  }
+
+  private compTitles(cached: CardhedgerCompsCached | null | undefined): string[] {
+    return (cached?.rawPoints ?? [])
+      .map((p) => p.title?.trim() ?? '')
+      .filter(Boolean);
+  }
+
+  /**
+   * True when this grade's comps omit a non-color parallel token (`refractor`)
+   * that PSA 10/9/8 on the same card_id spell. Empty comps are not a mismatch.
+   */
+  async gradeOmitsParallelTokenSeenOnSibling(
+    cardId: string,
+    grade: string,
+    psaVariety: string | null | undefined,
+    known?: CardhedgerCompsCached | null,
+  ): Promise<boolean> {
+    const id = String(cardId ?? '').trim();
+    const gradeKey = String(grade ?? '').trim();
+    const tokens = parallelTokensBeyondColor(psaVariety);
+    if (!id || !gradeKey || tokens.length === 0) return false;
+    const own =
+      known ??
+      (await this.fetchCompsCached(
+        id,
+        gradeKey,
+        CARDHEDGER_COMPS_HEADLINE_COUNT,
+      ));
+    const ownTitles = this.compTitles(own);
+    if (ownTitles.length === 0) return false;
+    const missing = tokens.filter((token) =>
+      ownTitles.every((title) => !title.toLowerCase().includes(token)),
+    );
+    if (missing.length === 0) return false;
+    const siblings = ['PSA 10', 'PSA 9', 'PSA 8'].filter(
+      (g) => g.toLowerCase() !== gradeKey.toLowerCase(),
+    );
+    const siblingCached = await Promise.all(
+      siblings.map((g) =>
+        this.fetchCompsCached(id, g, CARDHEDGER_COMPS_HEADLINE_COUNT),
+      ),
+    );
+    const siblingTitles = siblingCached.flatMap((cached) => this.compTitles(cached));
+    return compTitlesMissParallelTokenSeenOnSibling(
+      psaVariety,
+      ownTitles,
+      siblingTitles,
+    );
+  }
+
+  /** Grades whose comps look like a cheaper parallel than a sibling grade. */
+  async gradesOmittingParallelToken(
+    cardId: string,
+    psaVariety: string | null | undefined,
+    grades: readonly string[],
+  ): Promise<Set<string>> {
+    const id = String(cardId ?? '').trim();
+    const tokens = parallelTokensBeyondColor(psaVariety);
+    const unique = [...new Set(grades.map((g) => g.trim()).filter(Boolean))].slice(
+      0,
+      12,
+    );
+    if (!id || tokens.length === 0 || unique.length === 0) return new Set();
+    const titles = new Map<string, string[]>();
+    await Promise.all(
+      unique.map(async (grade) => {
+        const cached = await this.fetchCompsCached(
+          id,
+          grade,
+          CARDHEDGER_COMPS_HEADLINE_COUNT,
+        );
+        titles.set(grade, this.compTitles(cached));
+      }),
+    );
+    const bad = new Set<string>();
+    for (const grade of unique) {
+      const own = titles.get(grade) ?? [];
+      const sibling = unique
+        .filter((g) => g !== grade)
+        .flatMap((g) => titles.get(g) ?? []);
+      if (compTitlesMissParallelTokenSeenOnSibling(psaVariety, own, sibling)) {
+        bad.add(grade);
+      }
+    }
+    return bad;
+  }
+
+  private blankCompsSnapshotForParallelMismatch(
+    snap: MarketCompsSnapshot,
+  ): MarketCompsSnapshot {
+    return {
+      ...snap,
+      headline: null,
+      rawSales: [],
+      earliestSaleAtSec: null,
+      latestSaleAtSec: null,
+      message: 'parallel_comps_mismatch',
+    };
   }
 
   emptyMarketCompsSnapshot(
@@ -935,6 +1046,7 @@ export class CardhedgerPricingService {
       rawCount?: number;
       searchQuery?: string;
       catalogRow?: CardhedgerCardRow | null;
+      psaVariety?: string | null;
     },
   ): Promise<MarketCompsSnapshot> {
     const id = String(cardId ?? '').trim();
@@ -975,12 +1087,33 @@ export class CardhedgerPricingService {
       confidence: 'verified',
     };
     const cached = await this.fetchCompsCached(id, grade, requestCount);
-    return this.marketCompsSnapshotFromCached(
+    const snap = this.marketCompsSnapshotFromCached(
       resolved,
       cached,
       grade,
       requestCount,
     );
+    const variety = String(options?.psaVariety ?? '').trim();
+    if (
+      variety &&
+      (await this.gradeOmitsParallelTokenSeenOnSibling(
+        id,
+        grade,
+        variety,
+        cached,
+      ))
+    ) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'parallel_comps_mismatch',
+          cardId: id,
+          grade,
+          psaVariety: variety,
+        }),
+      );
+      return this.blankCompsSnapshotForParallelMismatch(snap);
+    }
+    return snap;
   }
 
   /** Cardhedger `POST /v1/cards/comps` for a collection row (resolve + up to 100 raw sales). */
@@ -1045,6 +1178,7 @@ export class CardhedgerPricingService {
       rawCount: requestCount,
       searchQuery: resolved.query,
       catalogRow: resolved.row,
+      psaVariety: String(col.components?.psaVariety ?? ''),
     });
   }
 
@@ -1291,7 +1425,8 @@ export class CardhedgerPricingService {
         ? this.fetchFmvByCard(cardId, chGrade).catch(() => null)
         : Promise.resolve(null);
 
-    const [allPrices, tierHistory, compsCached, fmvResult] = await Promise.all([
+    const [allPrices, tierHistoryFetched, compsFetched, fmvResult] =
+      await Promise.all([
       cardId && !skipCatalog
         ? this.fetchAllPricesByCard(cardId)
         : Promise.resolve([]),
@@ -1307,9 +1442,32 @@ export class CardhedgerPricingService {
         : Promise.resolve(null),
       fmvPromise,
     ]);
+    const psaVariety = String(previewOpts?.psaVariety ?? '').trim();
+    const parallelMismatch =
+      Boolean(cardId && psaVariety) &&
+      (await this.gradeOmitsParallelTokenSeenOnSibling(
+        cardId,
+        chGrade,
+        psaVariety,
+        compsFetched,
+      ));
+    if (parallelMismatch) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'parallel_comps_mismatch',
+          cardId,
+          grade: chGrade,
+          psaVariety,
+        }),
+      );
+    }
+    const tierHistory = parallelMismatch ? [] : tierHistoryFetched;
+    const compsCached = parallelMismatch ? null : compsFetched;
     const compsHeadline = compsCached?.headline ?? null;
     const merged = allPrices.length > 0 ? { ...row, prices: allPrices } : row;
-    const tierCatalogRaw = this.readGradePrice(merged, chGrade);
+    const tierCatalogRaw = parallelMismatch
+      ? null
+      : this.readGradePrice(merged, chGrade);
     const latestPt = this.latestHistoryPoint(tierHistory);
     const sales7d = this.parseCount(merged['7 Day Sales']);
     const sales30d = this.parseCount(merged['30 Day Sales']);
@@ -1423,7 +1581,11 @@ export class CardhedgerPricingService {
       }
     };
 
-    if (useCertHeadline && certPrice) {
+    if (parallelMismatch) {
+      spotUsd = null;
+      spotPriceBasis = null;
+      allowTierPricing = false;
+    } else if (useCertHeadline && certPrice) {
       spotUsd = certPrice.price;
       spotPriceBasis = 'cert_estimate';
       priceSource = 'cardhedger_estimate';
@@ -1479,7 +1641,7 @@ export class CardhedgerPricingService {
     // FMV fallback: when comps/history produced no spot price, use CardHedger's
     // Winsorized-median FMV with movement-index projection for stale cards.
     // Segment-level fallbacks (too broad) and no_data are excluded.
-    if (!useCertHeadline && spotUsd == null && fmvResult != null) {
+    if (!parallelMismatch && !useCertHeadline && spotUsd == null && fmvResult != null) {
       const fmvPriceRaw = fmvResult.price;
       const fmvGrade_ = fmvResult.confidence_grade;
       const fmvMethod_ = fmvResult.method;
@@ -1524,8 +1686,9 @@ export class CardhedgerPricingService {
 
     const compsNoSales = compsCached?.noSalesForGrade === true;
     // Only suppress when FMV didn't recover a price (spotUsd still null after fallback).
-    const pricingSuppressedReason =
-      compsNoSales && spotUsd == null
+    const pricingSuppressedReason = parallelMismatch
+      ? 'parallel_comps_mismatch'
+      : compsNoSales && spotUsd == null
         ? 'cardhedger_no_sales_for_grade'
         : !anyTierSignal && spotUsd == null
           ? 'no_tier_price_in_source'
@@ -1572,6 +1735,9 @@ export class CardhedgerPricingService {
       ].includes(spotPriceBasis);
     if (spotUsd != null && basisForPricesByGrade) {
       pricesByGrade[chGrade] = spotUsd;
+    }
+    if (parallelMismatch) {
+      delete pricesByGrade[chGrade];
     }
     // Pre-compute band metadata outside closures; TypeScript's CFA aggressively
     // narrows spotPriceBasis inside closures and removes valid union members
@@ -1752,8 +1918,14 @@ export class CardhedgerPricingService {
       });
     }
     const tier = this.historyTierForCollection(col ?? null);
+    const psaVariety =
+      previewOpts?.psaVariety ??
+      (String(col?.components?.psaVariety ?? '').trim() || null);
     return sanitizeMarketCollectionPreview(
-      await this.rowToPreview(r.row, r.query, r.confidence, tier, previewOpts),
+      await this.rowToPreview(r.row, r.query, r.confidence, tier, {
+        ...previewOpts,
+        psaVariety,
+      }),
     );
   }
 
@@ -1768,6 +1940,7 @@ export class CardhedgerPricingService {
       period: MarketHistoryPeriod;
       maxCalendarDays: number;
       maxRequests?: number;
+      psaVariety?: string | null;
     },
   ): Promise<MarketPriceHistoryResult> {
     const days = Math.min(
@@ -1804,7 +1977,12 @@ export class CardhedgerPricingService {
     }
 
     const resolved = await this.resolve.resolveCardForCollection(col);
-    return this.buildHistoryFromResolved(resolved, options);
+    return this.buildHistoryFromResolved(resolved, {
+      ...options,
+      psaVariety:
+        options.psaVariety ??
+        (String(col.components?.psaVariety ?? '').trim() || null),
+    });
   }
 
   async buildHistoryFromResolved(
@@ -1814,6 +1992,7 @@ export class CardhedgerPricingService {
       period: MarketHistoryPeriod;
       maxCalendarDays: number;
       maxRequests?: number;
+      psaVariety?: string | null;
     },
   ): Promise<MarketPriceHistoryResult> {
     const days = Math.min(
@@ -1838,6 +2017,37 @@ export class CardhedgerPricingService {
     }
 
     const resolvedCardId = String(resolved.row.card_id ?? '').trim();
+    const variety = String(options.psaVariety ?? '').trim();
+    if (
+      resolvedCardId &&
+      variety &&
+      (await this.gradeOmitsParallelTokenSeenOnSibling(
+        resolvedCardId,
+        cardhedgerGradeFromHistoryTier(tier),
+        variety,
+      ))
+    ) {
+      this.logger.warn(
+        JSON.stringify({
+          msg: 'parallel_comps_mismatch',
+          cardId: resolvedCardId,
+          grade: cardhedgerGradeFromHistoryTier(tier),
+          psaVariety: variety,
+        }),
+      );
+      return {
+        enabled: true,
+        searchQuery: resolved.query,
+        matched: true,
+        matchConfidence: resolved.confidence,
+        days,
+        tier,
+        period: options.period,
+        points: [],
+        source: `cardhedger:${tier}:parallel_comps_mismatch`,
+        upstreamRequests: 1,
+      };
+    }
 
     let history: Array<{ t: number; v: number }> = [];
     let historyUpstreamHits = 0;

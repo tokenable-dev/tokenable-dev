@@ -43,6 +43,8 @@ export type CardhedgerCompRawPoint = {
   saleUrl?: string | null;
   /** Inferred marketplace label from {@link saleUrl} / {@link priceSource}. */
   platform?: string | null;
+  /** Cardhedger comps `title` — seller listing title, used to spot a mixed parallel. */
+  title?: string | null;
 };
 
 export type CardhedgerCompsCached = {

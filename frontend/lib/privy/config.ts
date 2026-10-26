@@ -57,7 +57,7 @@ export function isPrivyGoogleLoginEnabled(): boolean {
  * PrivyProvider config flip after hydrate on iPhone, which aborts in-flight
  * WalletConnect and leaves Privy on "Waiting for MetaMask… Retry".
  *
- * Featured wallets first (MetaMask → Coinbase → Rainbow → OKX → Binance),
+ * Featured wallets first (Binance → Coinbase → MetaMask → OKX → Rainbow),
  * then detected extensions, then `wallet_connect` for the rest of the registry
  * (Trust etc. appear there — no first-class Privy id).
  */

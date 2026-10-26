@@ -1,4 +1,10 @@
-import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  HttpException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
+import { PRICECHARTING_NOT_CONFIGURED_CODE } from './pricecharting-errors';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { runWithPgSessionAdvisoryLock } from '../database/pg-session-advisory-lock.util';
@@ -15,6 +21,18 @@ import {
 
 const LOCK_KEY = 872314520;
 const GAP_MS = 3_000;
+
+export type PricechartingGuideRunResult = {
+  key: string;
+  ok: boolean;
+  rowCount: number | null;
+  error: string | null;
+};
+
+export type PricechartingGuidesRun = {
+  skipped: boolean;
+  results: PricechartingGuideRunResult[];
+};
 const GUIDE_URL = 'https://www.pricecharting.com/price-guide/download-custom';
 
 export const PRICECHARTING_GUIDES = [
@@ -96,6 +114,16 @@ function sleep(ms: number): Promise<void> {
 
 function scrub(message: string): string {
   return message.replace(/([?&]t=)[^&\s]+/gi, '$1').slice(0, 500);
+}
+
+function isNotConfigured(err: unknown): boolean {
+  if (!(err instanceof HttpException)) return false;
+  const body = err.getResponse();
+  return (
+    body != null &&
+    typeof body === 'object' &&
+    (body as { code?: string }).code === PRICECHARTING_NOT_CONFIGURED_CODE
+  );
 }
 
 function errorText(err: unknown): string {
@@ -257,45 +285,127 @@ export class PricechartingSyncService {
     }
   }
 
+  /**
+   * Same import as each admin 「갱신」 button, one guide after another.
+   * Skips when a sync is already running in this process or another replica holds the lock.
+   */
+  async runAllGuides(options?: { gapMs?: number }): Promise<PricechartingGuidesRun> {
+    if (this.inFlight) {
+      this.logger.warn('PriceCharting guide run skipped: a sync is already running');
+      return { skipped: true, results: [] };
+    }
+    this.inFlight = true;
+    const gapMs = options?.gapMs ?? GAP_MS;
+    try {
+      const lock = await runWithPgSessionAdvisoryLock(
+        this.dataSource,
+        LOCK_KEY,
+        () => this.runGuidesSequentially(gapMs),
+      );
+      if (!lock.acquired) {
+        this.logger.warn('PriceCharting guide run skipped: advisory lock busy');
+        return { skipped: true, results: [] };
+      }
+      return { skipped: false, results: lock.value };
+    } finally {
+      this.inFlight = false;
+    }
+  }
+
+  private async runGuidesSequentially(
+    gapMs: number,
+  ): Promise<PricechartingGuideRunResult[]> {
+    const results: PricechartingGuideRunResult[] = [];
+    for (let i = 0; i < PRICECHARTING_GUIDES.length; i += 1) {
+      if (i > 0 && gapMs > 0) await sleep(gapMs);
+      const guide = PRICECHARTING_GUIDES[i]!;
+      this.guideJobs.set(guide.key, {
+        status: 'running',
+        error: null,
+        result: null,
+      });
+      try {
+        const done = await this.executeGuide(guide);
+        this.guideJobs.set(guide.key, {
+          status: 'success',
+          error: null,
+          result: done,
+        });
+        results.push({
+          key: guide.key,
+          ok: true,
+          rowCount: done.rowCount,
+          error: null,
+        });
+      } catch (err) {
+        const message = errorText(err);
+        this.guideJobs.set(guide.key, {
+          status: 'error',
+          error: message,
+          result: null,
+        });
+        this.logger.error(`PriceCharting guide ${guide.key} failed: ${message}`);
+        results.push({
+          key: guide.key,
+          ok: false,
+          rowCount: null,
+          error: message,
+        });
+        if (isNotConfigured(err)) break;
+      }
+    }
+    const ok = results.filter((row) => row.ok).length;
+    this.logger.log(
+      `PriceCharting guide run finished: ${ok}/${results.length} ok`,
+    );
+    return results;
+  }
+
   /** Download + upsert one fixed guide. The download URL is not returned to the client. */
   private async runOneLocked(
     guide: (typeof PRICECHARTING_GUIDES)[number],
   ): Promise<PricechartingGuideSyncDone> {
-    const lock = await runWithPgSessionAdvisoryLock(this.dataSource, LOCK_KEY, async () => {
-      const buffer = await this.pricecharting.downloadPriceList(
-        guideDownloadUrl(guide.category),
-      );
-      const imported = await this.imports.importFile(
-        {
-          buffer,
-          originalname: `${guide.key}.csv`,
-          size: buffer.length,
-        },
-        { archiveSegments: [guide.key] },
-      );
-      const day = seoulCalendarDay();
-      const archive = await writePricechartingCsv(
-        guide.key,
-        `${guide.key}-${day}.csv`,
-        buffer,
-      );
-      return { imported, archive };
-    });
+    const lock = await runWithPgSessionAdvisoryLock(this.dataSource, LOCK_KEY, () =>
+      this.executeGuide(guide),
+    );
     if (!lock.acquired) {
       throw new BadRequestException('A PriceCharting sync is already running');
     }
+    return lock.value;
+  }
+
+  private async executeGuide(
+    guide: (typeof PRICECHARTING_GUIDES)[number],
+  ): Promise<PricechartingGuideSyncDone> {
+    const buffer = await this.pricecharting.downloadPriceList(
+      guideDownloadUrl(guide.category),
+    );
+    const imported = await this.imports.importFile(
+      {
+        buffer,
+        originalname: `${guide.key}.csv`,
+        size: buffer.length,
+      },
+      { archiveSegments: [guide.key] },
+    );
+    const day = seoulCalendarDay();
+    const archive = await writePricechartingCsv(
+      guide.key,
+      `${guide.key}-${day}.csv`,
+      buffer,
+    );
     this.logger.log(
-      `PriceCharting guide ${guide.key} upserted ${lock.value.imported.rowCount} rows (${lock.value.imported.historyCount} price rows). CSV ${lock.value.archive}`,
+      `PriceCharting guide ${guide.key} upserted ${imported.rowCount} rows (${imported.historyCount} price rows). CSV ${archive}`,
     );
     return {
       key: guide.key,
       label: guide.label,
-      rowCount: lock.value.imported.rowCount,
-      historyCount: lock.value.imported.historyCount,
-      totalProducts: lock.value.imported.totalProducts,
+      rowCount: imported.rowCount,
+      historyCount: imported.historyCount,
+      totalProducts: imported.totalProducts,
       imported: true,
-      archived: lock.value.imported.archived,
-      archiveError: lock.value.imported.archiveError,
+      archived: imported.archived,
+      archiveError: imported.archiveError,
     };
   }
 

@@ -86,9 +86,7 @@ export class PortfolioAssetsPageService {
 
     const ownedTokenIds = opts.bootstrapFirstPage
       ? await this.resolveOwnedTokenIdsForBootstrap(wallet, chain)
-      : await this.resolveOwnedTokenIds(wallet, chain, {
-          skipOnChainUnion: false,
-        });
+      : await this.resolveOwnedTokenIds(wallet, chain);
 
     if (opts.ownedIdsOnly && !opts.bootstrapFirstPage) {
       return {
@@ -183,15 +181,11 @@ export class PortfolioAssetsPageService {
   }
 
   /**
-   * DB owner index only on the My Assets hot path. Registry heal can take tens
-   * of seconds — always run it in the background. Never block empty wallets on
-   * a full-supply ownerOf scan (`getRwaTokensByOwner`).
+   * Owner index is the list. `ownerOf` only those ids so a sold card drops off.
+   * A mint or transfer the index has not written yet shows up after background
+   * registry heal, not by scanning every live token on this request.
    */
-  /**
-   * Cold My Assets bootstrap: verify newest-first head and tail in parallel
-   * (same RPC count, lower wall-clock before metadata). Skips full supply scan.
-   */
-  private async resolveOwnedTokenIdsForBootstrap(
+  private async dbOwnedIdsNewestFirst(
     wallet: string,
     chainId: SupportedChainId,
   ): Promise<number[]> {
@@ -199,16 +193,16 @@ export class PortfolioAssetsPageService {
       .healOwnerRegistryIfIncomplete(chainId)
       .catch(() => undefined);
     const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
-      wallet,
-      chainId,
-    );
-    const sorted = this.sortOwnedNewestFirst([
-      ...new Set([...fromDb, ...onChain]),
-    ]);
-    if (sorted.length === 0) {
-      return [];
-    }
+    return this.sortOwnedNewestFirst(fromDb);
+  }
+
+  /** Cold bootstrap: verify the newest page and the remainder together. */
+  private async resolveOwnedTokenIdsForBootstrap(
+    wallet: string,
+    chainId: SupportedChainId,
+  ): Promise<number[]> {
+    const sorted = await this.dbOwnedIdsNewestFirst(wallet, chainId);
+    if (sorted.length === 0) return [];
     const splitAt = Math.min(
       sorted.length,
       PORTFOLIO_ASSETS_BOOTSTRAP_FIRST_PAINT,
@@ -227,34 +221,12 @@ export class PortfolioAssetsPageService {
   private async resolveOwnedTokenIds(
     wallet: string,
     chainId: SupportedChainId,
-    options?: { skipOnChainUnion?: boolean },
   ): Promise<number[]> {
-    void this.blockchain
-      .healOwnerRegistryIfIncomplete(chainId)
-      .catch(() => undefined);
-    const fromDb = await this.ownerIndex.getTokenIdsByOwner(wallet, chainId);
-    if (options?.skipOnChainUnion) {
-      if (fromDb.length === 0) return [];
-      const verifiedDb = await this.blockchain.filterTokenIdsOwnedByWallet(
-        wallet,
-        fromDb,
-        chainId,
-      );
-      return this.sortOwnedNewestFirst(verifiedDb);
-    }
-    const onChain = await this.blockchain.listTokenIdsOwnedOnChain(
-      wallet,
-      chainId,
-    );
-    const candidates = this.sortOwnedNewestFirst([
-      ...new Set([...fromDb, ...onChain]),
-    ]);
-    if (candidates.length === 0) {
-      return [];
-    }
+    const sorted = await this.dbOwnedIdsNewestFirst(wallet, chainId);
+    if (sorted.length === 0) return [];
     const verified = await this.blockchain.filterTokenIdsOwnedByWallet(
       wallet,
-      candidates,
+      sorted,
       chainId,
     );
     return this.sortOwnedNewestFirst(verified);
