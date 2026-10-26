@@ -252,6 +252,18 @@ export function parallelTokensBeyondColor(
 }
 
 /**
+ * Sale titles spell `X-Fractor` / `X Fractor`; the variety token is `xfractor`.
+ * PSA slab abbreviations (`STMP`) match the spelled word (`stamp`).
+ */
+function titleContainsMatchToken(title: string, token: string): boolean {
+  const normalized = normalizePsaVarietyForMatch(title).toLowerCase();
+  if (normalized.includes(token)) return true;
+  if (normalized.replace(/[^a-z0-9]/g, '').includes(token)) return true;
+  const words = normalized.split(/[^a-z0-9]+/).filter((word) => word.length >= 3);
+  return words.some((word) => abbreviationMatchesWord(token, word));
+}
+
+/**
  * This grade's sale titles omit a non-color parallel token that another grade
  * on the same card spells (`PINK` PSA 10 comps vs `PINK REFRACTOR` PSA 9).
  * No titles, or no sibling that spells the token, is not evidence — keep the price.
@@ -268,8 +280,8 @@ export function compTitlesMissParallelTokenSeenOnSibling(
   if (grade.length === 0 || sibling.length === 0) return false;
   return tokens.some(
     (token) =>
-      sibling.some((title) => title.toLowerCase().includes(token)) &&
-      grade.every((title) => !title.toLowerCase().includes(token)),
+      sibling.some((title) => titleContainsMatchToken(title, token)) &&
+      grade.every((title) => !titleContainsMatchToken(title, token)),
   );
 }
 

@@ -83,7 +83,7 @@ PSA often prints **`BLUE REFRACTOR`** (or blank on base) and **does not** encode
 
 **Rule:** Sports **pose** tokens (`pitching`, `batting`, `fielding`, …) are optional on the catalog row when PSA Variety omits them — same class as print-finish tokens, **not** parallel flavors like Wave. If PSA Variety **includes** a pose, the Cardhedger row must carry that pose. Wave / Superfractor / color still reject when PSA does not name them.
 
-**Limit:** When PSA SpecID is shared across poses (both certs above → SpecID `2634238`, Variety `BLUE REFRACTOR`) and GemRate maps both slabs to one pose row, Tokenable cannot invent a sibling pose from the label alone.
+**Limit:** When PSA SpecID is shared across poses (both certs above → SpecID `2634238`, Variety `BLUE REFRACTOR`) and GemRate maps both slabs to one pose row, Tokenable cannot invent a sibling pose from the label alone. The cert still keeps that `card_id`. A title that adds `Pitching` is not a second product: 2018 Topps Chrome Ohtani #150 is one photo, PSA prints `X-FRACTOR` on some slabs and `PITCHING-X-FRACTOR` on others, and CardHedger has a single `Pitching X-Fractor` card for both.
 
 ### Authority model (mint / collections / comps) — no per-card hardcoding
 

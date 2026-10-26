@@ -869,4 +869,29 @@ describe('compTitlesMissParallelTokenSeenOnSibling', () => {
       ),
     ).toBe(false);
   });
+
+  it('treats X-Fractor and xfractor as the same parallel token', () => {
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'X-FRACTOR',
+        ['2018 Topps Chrome X-Fractor #150 Shohei Ohtani PSA 10'],
+        ['2018 Topps Chrome SHOHEI OHTANI xfractor PSA 8'],
+      ),
+    ).toBe(false);
+  });
+
+  it('treats PSA STMP as the word stamp on Ditto Metamong titles', () => {
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'METAMONG PROJECT STMP RLY',
+        [
+          '2025 Pokemon Korean Sv-P Promo Ditto #173 PSA 10',
+          '2025 Pokemon Scarlet and Violet Promo Korean Metamong Project Stamp Rally Ditto #173 PSA 10',
+        ],
+        [
+          '2025 Pokemon Korean SV-P Promo #173 Ditto Metamong Project STMP RLY MINT PSA 9',
+        ],
+      ),
+    ).toBe(false);
+  });
 });
