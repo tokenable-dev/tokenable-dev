@@ -192,16 +192,6 @@
   object-position: center;
 }
 
-/* Listing slots are the tall slab frame. Cover fills that frame and the image
-   box clips the art, so a box cannot paint over the next card. */
-.markets-grid .card__img .psa-slab__plain-img,
-.watchlist-grid .card__img .psa-slab__plain-img,
-.home-page .markets-grid .card__img .psa-slab__plain-img,
-.cd-si-card__media .psa-slab__plain-img {
-  object-fit: cover !important;
-  object-position: center;
-}
-
 .psa-slab__card {
   position: absolute;
   top: calc(188.5 * var(--u));
