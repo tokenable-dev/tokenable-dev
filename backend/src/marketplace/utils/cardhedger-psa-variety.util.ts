@@ -240,6 +240,9 @@ export function parallelTokensBeyondColor(
 ): string[] {
   const pv = String(psaVariety ?? '').trim();
   if (!pv) return [];
+  // SAR / SIR / IR are the card slot. Sellers write "SAR" or skip the words.
+  // One sibling title that pastes "SPECIAL ART RARE" is not a cheaper parallel.
+  if (psaVarietyIsPokemonRarityLabel(pv)) return [];
   return varietyMatchChunks(pv).filter(
     (token) =>
       token.length >= 4 &&

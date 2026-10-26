@@ -837,6 +837,19 @@ describe('compTitlesMissParallelTokenSeenOnSibling', () => {
     expect(parallelTokensBeyondColor('PINK')).toEqual([]);
   });
 
+  it('does not treat a Pokemon rarity slot as a parallel token', () => {
+    expect(parallelTokensBeyondColor('SPECIAL ART RARE')).toEqual([]);
+    expect(
+      compTitlesMissParallelTokenSeenOnSibling(
+        'SPECIAL ART RARE',
+        ['Mega Gengar ex 240 M2a: Mega Dream Ex Holo (Japanese) PSA 10'],
+        [
+          '2025 POKEMON JAPANESE MEGA DREAM EX SPECIAL ART RARE #240 MEGA GENGAR EX PSA 9',
+        ],
+      ),
+    ).toBe(false);
+  });
+
   it('drops a grade whose titles omit refractor when a sibling grade spells it', () => {
     expect(
       compTitlesMissParallelTokenSeenOnSibling(
