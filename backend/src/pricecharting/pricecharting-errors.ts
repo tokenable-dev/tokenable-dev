@@ -19,14 +19,36 @@ function isAbortMessage(msg: string): boolean {
   return m.includes('aborted') || m.includes('abort');
 }
 
-/** Upstream closed the socket while the CSV body was still arriving. */
-export function isPricechartingConnectionReset(err: unknown): boolean {
+function errorBlob(err: unknown): string {
   const cause =
     err && typeof err === 'object' && 'cause' in err
       ? (err as { cause?: { code?: string; message?: string } }).cause
       : undefined;
-  const raw = `${err instanceof Error ? err.message : String(err)} ${cause?.code ?? ''} ${cause?.message ?? ''}`;
-  return /terminated|econnreset|socket hang up|econnrefused|etimedout/i.test(raw);
+  let message = err instanceof Error ? err.message : String(err);
+  if (err instanceof HttpException) {
+    const body = err.getResponse();
+    if (typeof body === 'string') message = body;
+    else if (body && typeof body === 'object' && 'message' in body) {
+      const nested = (body as { message?: string | string[] }).message;
+      message = Array.isArray(nested) ? nested.join(' ') : (nested ?? message);
+    }
+  }
+  return `${message} ${cause?.code ?? ''} ${cause?.message ?? ''}`;
+}
+
+/** Upstream closed the socket, or its proxy died before response headers. */
+export function isPricechartingConnectionReset(err: unknown): boolean {
+  return /terminated|termination|before headers|upstream connect error|econnreset|socket hang up|econnrefused|etimedout/i.test(
+    errorBlob(err),
+  );
+}
+
+/** Transient download failure. A bad token or a 4xx is not retried. */
+export function isRetryablePricechartingDownload(err: unknown): boolean {
+  if (isPricechartingConnectionReset(err)) return true;
+  if (!(err instanceof HttpException)) return false;
+  const status = err.getStatus();
+  return status === 502 || status === 503 || status === 504;
 }
 
 export function throwPricechartingNotConfigured(): never {

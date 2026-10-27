@@ -11,9 +11,8 @@ import {
   clearRedeemDraft,
   clearRedeemShipmentReceived,
   clearSavedRedeemAddress,
-  isRedeemPreparingPhase,
-  isRedeemTransitPhase,
   markRedeemAddressMigrated,
+  scopeRedeemStatusRows,
   parseRedeemViewQuery,
   readRedeemDraft,
   redeemViewForStatus,
@@ -482,70 +481,37 @@ export function useRedeemFlow() {
           const rows = await getMyRedemptions(chainId);
           if (cancelled) return;
           const draftCards = readRedeemDraft()?.cards ?? [];
-          const filtered = rows.filter((r) => {
-            if (viewParam === "done") return r.status === "completed";
-            return (
-              isRedeemTransitPhase(r.status, r.trackingNumber) ||
-              isRedeemPreparingPhase(r.status, r.trackingNumber)
-            );
+          const scoped = scopeRedeemStatusRows({
+            view: viewParam === "done" ? "done" : "transit",
+            rows,
+            batchId: batchParam,
           });
-          /* Prefer batches that already have at least one tracked card. */
-          const trackedBatchIds = new Set(
-            rows
-              .filter((r) => r.trackingNumber?.trim() && r.paymentBatchId)
-              .map((r) => r.paymentBatchId!),
-          );
-          const transitScope =
-            trackedBatchIds.size > 0
-              ? filtered.filter(
-                  (r) =>
-                    r.paymentBatchId && trackedBatchIds.has(r.paymentBatchId),
-                )
-              : filtered.filter((r) =>
-                  isRedeemTransitPhase(r.status, r.trackingNumber),
-                );
           const cards = await cardsFromRedemptionRowsEnriched(
-            transitScope.length > 0 ? transitScope : filtered,
+            scoped.rows,
             draftCards,
           );
-          let scopeRows = transitScope.length > 0 ? transitScope : filtered;
-          const preferredBatch =
-            (batchParam &&
-            scopeRows.some((r) => r.paymentBatchId === batchParam)
-              ? batchParam
-              : null) ||
-            scopeRows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ||
-            null;
-          if (preferredBatch) {
-            scopeRows = scopeRows.filter(
-              (r) => r.paymentBatchId === preferredBatch,
-            );
-          }
-          const nextShipments = applyShipmentsFromRows(scopeRows, cards);
+          const nextShipments = applyShipmentsFromRows(scoped.rows, cards);
           setShipments(nextShipments);
-          const tracked = scopeRows.find((r) => r.trackingNumber?.trim());
+          const tracked = scoped.rows.find((r) => r.trackingNumber?.trim());
           setShipmentTracking({
             trackingNumber: tracked?.trackingNumber ?? null,
             trackingCarrier: tracked?.trackingCarrier ?? null,
           });
           const batchId =
-            scopeRows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
+            scoped.rows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
             null;
           setPaymentBatchId(batchId);
-          setDisplayCards(
-            preferredBatch
-              ? cards.filter((c) =>
-                  scopeRows.some((r) => Number(r.tokenId) === c.tokenId),
-                )
-              : cards,
-          );
-          setStep(viewParam === "done" ? "done" : "transit");
+          setDisplayCards(cards);
+          setStep(scoped.view);
           setSubmitted(true);
           setHydrated(true);
           if (typeof window !== "undefined") {
-            const nextView = viewParam === "done" ? "done" : "transit";
-            if (shouldCanonicalizeUrl || (batchId && batchParam !== batchId)) {
-              router.replace(buildRedeemStatusHref(nextView, batchId));
+            if (
+              shouldCanonicalizeUrl ||
+              scoped.view !== viewParam ||
+              (batchId && batchParam !== batchId)
+            ) {
+              router.replace(buildRedeemStatusHref(scoped.view, batchId));
             }
           }
           return;
@@ -565,86 +531,37 @@ export function useRedeemFlow() {
           const draftCards = readRedeemDraft()?.cards ?? [];
 
           if (viewParam === "preparing") {
-            const preparingRows = rows.filter((r) =>
-              isRedeemPreparingPhase(r.status, r.trackingNumber),
-            );
-            const trackedRows = rows.filter((r) =>
-              isRedeemTransitPhase(r.status, r.trackingNumber),
-            );
-
-            /* Any vault tracking → In transit (other vaults may still be preparing). */
-            if (trackedRows.length > 0) {
-              const batchIds = new Set(
-                trackedRows
-                  .map((r) => r.paymentBatchId)
-                  .filter((id): id is string => Boolean(id)),
-              );
-              const scope = rows.filter(
-                (r) =>
-                  r.paymentBatchId &&
-                  batchIds.has(r.paymentBatchId) &&
-                  (isRedeemPreparingPhase(r.status, r.trackingNumber) ||
-                    isRedeemTransitPhase(r.status, r.trackingNumber)),
-              );
+            const scoped = scopeRedeemStatusRows({
+              view: "preparing",
+              rows,
+              batchId: batchParam,
+            });
+            if (scoped.rows.length > 0) {
               const cards = await cardsFromRedemptionRowsEnriched(
-                scope,
+                scoped.rows,
                 draftCards,
               );
-              setShipments(applyShipmentsFromRows(scope, cards));
-              const tracked = scope.find((r) => r.trackingNumber?.trim());
+              setShipments(applyShipmentsFromRows(scoped.rows, cards));
+              const tracked = scoped.rows.find((r) => r.trackingNumber?.trim());
               setShipmentTracking({
                 trackingNumber: tracked?.trackingNumber ?? null,
                 trackingCarrier: tracked?.trackingCarrier ?? null,
               });
-              setPaymentBatchId(
-                scope.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
-                  null,
-              );
-              setDisplayCards(cards);
-              setStep("transit");
-              setSubmitted(true);
-              setHydrated(true);
-              if (typeof window !== "undefined") {
-                const bid =
-                  scope.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
-                  null;
-                router.replace(buildRedeemStatusHref("transit", bid));
-              }
-              return;
-            }
-
-            if (preparingRows.length > 0) {
-              const preferredBatch =
-                (batchParam &&
-                preparingRows.some((r) => r.paymentBatchId === batchParam)
-                  ? batchParam
-                  : null) ||
-                preparingRows.find((r) => r.paymentBatchId?.trim())
-                  ?.paymentBatchId ||
-                null;
-              const scoped = preferredBatch
-                ? preparingRows.filter(
-                    (r) => r.paymentBatchId === preferredBatch,
-                  )
-                : preparingRows;
               const batchId =
-                scoped.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ??
-                null;
-              const cards = await cardsFromRedemptionRowsEnriched(
-                scoped,
-                draftCards,
-              );
-              setShipments(applyShipmentsFromRows(scoped, cards));
+                scoped.rows.find((r) => r.paymentBatchId?.trim())
+                  ?.paymentBatchId ?? null;
               setPaymentBatchId(batchId);
               setDisplayCards(cards);
-              setStep("preparing");
+              setStep(scoped.view);
               setSubmitted(true);
               setHydrated(true);
               if (
                 typeof window !== "undefined" &&
-                (shouldCanonicalizeUrl || (batchId && batchParam !== batchId))
+                (shouldCanonicalizeUrl ||
+                  scoped.view !== "preparing" ||
+                  (batchId && batchParam !== batchId))
               ) {
-                router.replace(buildRedeemStatusHref("preparing", batchId));
+                router.replace(buildRedeemStatusHref(scoped.view, batchId));
               }
               return;
             }

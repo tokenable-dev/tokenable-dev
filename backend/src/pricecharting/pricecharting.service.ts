@@ -1,7 +1,7 @@
 import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
-  isPricechartingConnectionReset,
+  isRetryablePricechartingDownload,
   throwPricechartingCsvCooldown,
   throwPricechartingCsvNotConfigured,
   throwPricechartingFetchFailed,
@@ -14,6 +14,8 @@ const JSON_MIN_INTERVAL_MS = 1_000;
 const CSV_COOLDOWN_MS = 10 * 60 * 1_000;
 const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 const CSV_HTTP_TIMEOUT_MS = 120_000;
+const DOWNLOAD_ATTEMPTS = 3;
+const DOWNLOAD_RETRY_MS = 15_000;
 
 const CATALOG_HOSTS = new Set([
   'pricecharting.com',
@@ -255,24 +257,25 @@ export class PricechartingService {
    * Admin catalog fetch. Separate from the single-URL `/csv` proxy so a list
    * of guides is not blocked by that route's 10-minute cooldown.
    */
-  async downloadPriceList(rawUrl: string): Promise<Buffer> {
+  async downloadPriceList(rawUrl: string, retryDelayMs = DOWNLOAD_RETRY_MS): Promise<Buffer> {
     const token = this.getApiToken();
     if (!token) throwPricechartingNotConfigured();
 
     const url = buildCatalogDownloadUrl(rawUrl, token);
     const timeoutMs = CSV_HTTP_TIMEOUT_MS;
-    const attempts = 3;
-    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
       try {
         return await this.readPriceList(url, timeoutMs);
       } catch (err) {
-        if (err instanceof HttpException) throw err;
-        const again = attempt < attempts && isPricechartingConnectionReset(err);
-        if (!again) throwPricechartingFetchFailed(err, timeoutMs);
+        const again = attempt < DOWNLOAD_ATTEMPTS && isRetryablePricechartingDownload(err);
+        if (!again) {
+          if (err instanceof HttpException) throw err;
+          throwPricechartingFetchFailed(err, timeoutMs);
+        }
         this.logger.warn(
-          `PriceCharting download connection reset (attempt ${attempt} of ${attempts})`,
+          `PriceCharting download failed before the CSV arrived (attempt ${attempt} of ${DOWNLOAD_ATTEMPTS})`,
         );
-        await sleep(4_000 * attempt);
+        await sleep(retryDelayMs * attempt);
       }
     }
     throwPricechartingFetchFailed(new Error('terminated'), timeoutMs);

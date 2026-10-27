@@ -27,7 +27,24 @@ type BoxDraft = {
   product: CatalogProductHit;
   photo: File | null;
   photoUrl: string | null;
+  /** This draft only. Does not change the admin catalog cover. */
+  coverDismissed: boolean;
 };
+
+function boxImageReady(box: BoxDraft): boolean {
+  return Boolean(box.photo) || (!box.coverDismissed && Boolean(box.product.coverImageUrl));
+}
+
+function draftFromProduct(hit: CatalogProductHit): BoxDraft {
+  return {
+    localId: crypto.randomUUID(),
+    clientRequestId: crypto.randomUUID(),
+    product: hit,
+    photo: null,
+    photoUrl: null,
+    coverDismissed: false,
+  };
+}
 
 const BOX_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -84,22 +101,14 @@ export function SellFlowPartnerBoxes({
     };
   }, []);
 
-  const boxesReady = boxes.filter(
-    (box) => box.photo || box.product.coverImageUrl,
-  );
+  const boxesReady = boxes.filter(boxImageReady);
   const boxesMissingPhoto = boxes.length - boxesReady.length;
   const locked = otherBusy || boxSearchBusy || boxMintBusy;
 
   const addBox = (hit: CatalogProductHit) => {
     setBoxes((prev) => [
       ...prev,
-      {
-        localId: crypto.randomUUID(),
-        clientRequestId: crypto.randomUUID(),
-        product: hit,
-        photo: null,
-        photoUrl: null,
-      },
+      draftFromProduct(hit),
     ]);
     setBoxQuery("");
     setBoxMenuOpen(false);
@@ -137,8 +146,19 @@ export function SellFlowPartnerBoxes({
     );
   };
 
+  const clearBoxImage = (localId: string) => {
+    setBoxes((prev) =>
+      prev.map((box) => {
+        if (box.localId !== localId) return box;
+        if (box.photoUrl) URL.revokeObjectURL(box.photoUrl);
+        return { ...box, photo: null, photoUrl: null, coverDismissed: true };
+      }),
+    );
+    setBoxMintError(null);
+  };
+
   const mintBoxes = async () => {
-    const ready = boxes.filter((box) => box.photo || box.product.coverImageUrl);
+    const ready = boxes.filter(boxImageReady);
     if (ready.length === 0 || boxMintBusy) return;
     if (!runAccessGate()) return;
     setBoxMintBusy(true);
@@ -329,28 +349,50 @@ export function SellFlowPartnerBoxes({
             <div className="sell-flow-cards-box">
               <ul className="sell-flow-cards-list">
                 {boxes.map((box) => {
-                  const previewUrl = box.photoUrl ?? box.product.coverImageUrl ?? null;
-                  const usingCover = !box.photo && Boolean(box.product.coverImageUrl);
+                  const previewUrl =
+                    box.photoUrl ??
+                    (box.coverDismissed ? null : box.product.coverImageUrl) ??
+                    null;
+                  const usingCover = !box.photo && !box.coverDismissed && Boolean(box.product.coverImageUrl);
                   return (
                   <li key={box.localId} className="sell-flow-cardrow sell-flow-boxrow">
+                    <div className="sell-flow-boxrow__media">
                     {previewUrl ? (
-                      <button
-                        type="button"
-                        className="sell-flow-boxrow__shot"
-                        disabled={boxMintBusy}
-                        aria-label={
-                          usingCover
-                            ? `Representative image for ${box.product.productName}. Upload your own to replace it.`
-                            : `Replace photo for ${box.product.productName}`
-                        }
-                        onClick={() => {
-                          boxPhotoTargetRef.current = box.localId;
-                          boxPhotoInputRef.current?.click();
-                        }}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={previewUrl} alt="" className="sell-flow-boxrow__thumb" />
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          className="sell-flow-boxrow__shot"
+                          disabled={boxMintBusy}
+                          aria-label={
+                            usingCover
+                              ? `Representative image for ${box.product.productName}. Upload your own to replace it.`
+                              : `Replace photo for ${box.product.productName}`
+                          }
+                          onClick={() => {
+                            boxPhotoTargetRef.current = box.localId;
+                            boxPhotoInputRef.current?.click();
+                          }}
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={previewUrl} alt="" className="sell-flow-boxrow__thumb" />
+                        </button>
+                        <button
+                          type="button"
+                          className="sell-flow-boxrow__clear"
+                          disabled={boxMintBusy}
+                          aria-label={
+                            usingCover
+                              ? `Remove representative image for ${box.product.productName}`
+                              : `Remove photo for ${box.product.productName}`
+                          }
+                          onClick={() => clearBoxImage(box.localId)}
+                        >
+                          <svg width="7" height="7" viewBox="0 0 7 7" fill="none" aria-hidden>
+                            <path d="M0.6875 0.6875L6.1875 6.1875" stroke="white" strokeWidth="1.375" strokeLinecap="round" />
+                            <path d="M6.1875 0.6875L0.6875 6.1875" stroke="white" strokeWidth="1.375" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </>
                     ) : (
                       <button
                         type="button"
@@ -369,6 +411,7 @@ export function SellFlowPartnerBoxes({
                         Upload image
                       </button>
                     )}
+                    </div>
                     <div className="sell-flow-cardrow__body">
                       <div className="sell-flow-cardrow__name">{box.product.productName}</div>
                       <div className="sell-flow-cardrow__sub">{boxHitSubtitle(box.product)}</div>
@@ -395,8 +438,8 @@ export function SellFlowPartnerBoxes({
           {boxesMissingPhoto > 0 ? (
             <p className="sell-flow-box-need-photo" role="status">
               {boxesMissingPhoto === 1
-                ? "1 box needs a photo or a representative image before it can be minted."
-                : `${boxesMissingPhoto} boxes need a photo or a representative image before they can be minted.`}
+                ? "1 box needs your photo before it can be minted."
+                : `${boxesMissingPhoto} boxes need your photo before they can be minted.`}
             </p>
           ) : null}
           <div className="sell-flow-cards-cta">

@@ -287,6 +287,79 @@ export function parseRedeemViewQuery(
   return raw;
 }
 
+export type RedeemStatusRow = {
+  status: string;
+  trackingNumber?: string | null;
+  paymentBatchId?: string | null;
+};
+
+function rowsForPaymentBatch<T extends RedeemStatusRow>(
+  rows: T[],
+  batchId: string | null,
+): T[] {
+  if (batchId) {
+    const matched = rows.filter((r) => r.paymentBatchId === batchId);
+    if (matched.length > 0) return matched;
+  }
+  const first = rows.find((r) => r.paymentBatchId?.trim())?.paymentBatchId;
+  if (!first) return rows;
+  return rows.filter((r) => r.paymentBatchId === first);
+}
+
+/**
+ * Status screen shows one payment batch.
+ * The batch in the URL wins. Another open shipment that already has a
+ * tracking number must not replace it — that was showing a different card
+ * after pay + custody (Luffy preparing, older Togedemaru still in transit).
+ * With no batch, an in-transit shipment is the landing page, and preparing
+ * cards in that same batch stay with it.
+ */
+export function scopeRedeemStatusRows<T extends RedeemStatusRow>(input: {
+  view: "transit" | "preparing" | "done";
+  rows: T[];
+  batchId?: string | null;
+}): { view: "done" | "transit" | "preparing"; rows: T[] } {
+  const batchId = input.batchId?.trim() || null;
+
+  if (input.view === "done") {
+    const completed = input.rows.filter((r) => r.status === "completed");
+    return { view: "done", rows: rowsForPaymentBatch(completed, batchId) };
+  }
+
+  const open = input.rows.filter(
+    (r) =>
+      isRedeemTransitPhase(r.status, r.trackingNumber) ||
+      isRedeemPreparingPhase(r.status, r.trackingNumber),
+  );
+
+  if (batchId && open.some((r) => r.paymentBatchId === batchId)) {
+    const batchRows = open.filter((r) => r.paymentBatchId === batchId);
+    const view = batchRows.some((r) =>
+      isRedeemTransitPhase(r.status, r.trackingNumber),
+    )
+      ? "transit"
+      : "preparing";
+    return { view, rows: batchRows };
+  }
+
+  const tracked = open.filter((r) =>
+    isRedeemTransitPhase(r.status, r.trackingNumber),
+  );
+  if (tracked.length > 0) {
+    const id =
+      tracked.find((r) => r.paymentBatchId?.trim())?.paymentBatchId ?? null;
+    const rows = id
+      ? open.filter((r) => r.paymentBatchId === id)
+      : tracked;
+    return { view: "transit", rows };
+  }
+
+  const preparing = open.filter((r) =>
+    isRedeemPreparingPhase(r.status, r.trackingNumber),
+  );
+  return { view: "preparing", rows: rowsForPaymentBatch(preparing, batchId) };
+}
+
 export function redeemViewForStatus(
   status?: string | null,
   trackingNumber?: string | null,

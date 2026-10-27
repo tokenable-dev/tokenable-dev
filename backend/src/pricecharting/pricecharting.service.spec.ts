@@ -127,4 +127,48 @@ describe('PricechartingService', () => {
       expect(body.code).toBe(PRICECHARTING_CSV_COOLDOWN_CODE);
     }
   });
+
+  it('retries a guide download when the proxy dies before headers, then keeps the CSV', async () => {
+    const envoy =
+      'upstream connect error or disconnect/reset before headers. reset reason: connection termination';
+    let calls = 0;
+    globalThis.fetch = jest.fn(async () => {
+      calls += 1;
+      if (calls < 3) return new Response(envoy, { status: 503 });
+      return new Response('id,product-name\n1,Box\n', {
+        status: 200,
+        headers: { 'content-type': 'text/csv' },
+      });
+    }) as unknown as typeof fetch;
+
+    const svc = new PricechartingService(
+      mockConfig({ PRICECHARTING_API_TOKEN: 'server-token' }),
+    );
+    const buf = await svc.downloadPriceList(
+      'https://www.pricecharting.com/price-guide/download-custom?category=pokemon-cards',
+      0,
+    );
+
+    expect(calls).toBe(3);
+    expect(buf.toString('utf8')).toContain('Box');
+  });
+
+  it('does not retry a guide download when the token is rejected', async () => {
+    let calls = 0;
+    globalThis.fetch = jest.fn(async () => {
+      calls += 1;
+      return new Response('invalid token', { status: 401 });
+    }) as unknown as typeof fetch;
+
+    const svc = new PricechartingService(
+      mockConfig({ PRICECHARTING_API_TOKEN: 'server-token' }),
+    );
+    await expect(
+      svc.downloadPriceList(
+        'https://www.pricecharting.com/price-guide/download-custom?category=pokemon-cards',
+        0,
+      ),
+    ).rejects.toBeInstanceOf(HttpException);
+    expect(calls).toBe(1);
+  });
 });

@@ -186,15 +186,15 @@ describe('RwaRedeemService fees (multi-shipment)', () => {
     const partner = est.shipments.find((s) => s.provider === 'partner');
     expect(psa?.shippingUsd).toBe(5.99);
     expect(psa?.retrievalFeeTotalUsd).toBe(1.99);
-    expect(partner?.shippingUsd).toBe(12.99);
+    expect(partner?.shippingUsd).toBe(40);
     expect(partner?.retrievalFeeTotalUsd).toBe(0);
     expect(partner?.vaultLabel).toBe('Tokenable Vault');
     expect(partner?.shippingSource).toBe('fedex_stub');
     expect(partner?.shippingDestinationCountry).toBe('US');
     expect(partner?.shippingQuoteExpiresAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
     expect(est.shippingQuoteExpiresAt).toBe(partner?.shippingQuoteExpiresAt);
-    expect(est.shippingUsd).toBe(18.98);
-    expect(est.totalUsd).toBe(roundish(18.98 + 1.99));
+    expect(est.shippingUsd).toBe(45.99);
+    expect(est.totalUsd).toBe(roundish(45.99 + 1.99));
   });
 
   it('partner estimate without shipTo fails clearly', async () => {

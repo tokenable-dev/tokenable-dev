@@ -6,7 +6,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { requireIso2CountryCode } from './destination-country';
 import {
-  isRetryableFedExRateError,
   mapFedExRateError,
   mapFedExRateErrorFromResponse,
   mappedNoQuotesError,
@@ -51,8 +50,13 @@ type RateCandidate = {
 /**
  * FedEx Rates and Transit Times API.
  * Sandbox: FEDEX_API_BASE_URL=https://apis-sandbox.fedex.com
- * When FEDEX_RATE_ENABLED is off → env stub (PARTNER_VAULT_SHIPPING_*).
+ *
+ * Redeem `quote()` does not call Rate. Sandbox quotes were succeeding on Pay
+ * and failing on the estimate screen, so the buyer saw $40 then a different
+ * charge. Partner shipping is a flat $40 until Rate is wired back into `quote`.
+ * Admin probe still calls the live API when FEDEX_RATE_ENABLED is on.
  */
+const REDEEM_FLAT_SHIPPING_USD = 40;
 @Injectable()
 export class FedExRateClient implements ShippingRateClient {
   readonly carrier = 'fedex' as const;
@@ -80,37 +84,20 @@ export class FedExRateClient implements ShippingRateClient {
       'destination.country',
     );
     assertFedExLaneSupported(originIso, destIso);
+    return this.flatShippingQuote();
+  }
 
-    if (!this.rateEnabled()) {
-      return this.stubQuote(input);
-    }
-    try {
-      return await this.liveQuote(input);
-    } catch (e) {
-      let err: unknown = e;
-      if (isRetryableFedExRateError(err)) {
-        this.logger.warn(
-          `FedEx Rate transient failure — retrying once: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-        try {
-          return await this.liveQuote(input);
-        } catch (e2) {
-          err = e2;
-        }
-      }
-      if (err instanceof BadRequestException) throw err;
-      if (truthy(this.config, 'FEDEX_RATE_FALLBACK_STUB')) {
-        this.logger.warn(
-          `FedEx Rate failed — falling back to stub: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-        );
-        return this.stubQuote(input);
-      }
-      throw err;
-    }
+  /** Flat partner shipping. liveQuote stays in this file and is not used by redeem. */
+  private flatShippingQuote(): ShippingRateQuote {
+    return {
+      shippingUsd: REDEEM_FLAT_SHIPPING_USD,
+      carrier: 'fedex',
+      serviceType: 'FLAT_40',
+      quoteId: null,
+      rateType: null,
+      source: 'fedex_stub',
+      expiresAt: this.quoteExpiresAtIso(),
+    };
   }
 
   private stubQuote(_input: ShippingRateQuoteInput): ShippingRateQuote {

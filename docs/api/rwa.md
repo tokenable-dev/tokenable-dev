@@ -226,7 +226,7 @@ Then sets all rows to `completed` + `vault_released_at` + `receipt_confirmed_via
 
 **Guard:** `JwtAuthGuard` · `x-tokenable-chain-id` **required**
 
-Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(vault_redemptions.chain_id, vault_cycles.chain_id)`), excluding `failed` / `cancelled` — for portfolio badges and redeem status surfaces, including **`completed`** (Redeem tab history). Each row’s `tokenId` is the `rwa_tokens` copy whose PSA cert matches the cycle’s `vault_assets` row — not every token that happens to share `vault_cycle_id`.
+Lists the signed-in user's redemption rows on the **active chain** (`COALESCE(vault_redemptions.chain_id, vault_cycles.chain_id)`), excluding `failed` / `cancelled` — for portfolio badges and redeem status surfaces, including **`completed`** (Redeem tab history). Each row’s `tokenId` is the `rwa_tokens` copy whose PSA cert matches the cycle’s `vault_assets` row — not every token that happens to share `vault_cycle_id`. The status screen (`/portfolio/redeem?view=preparing|transit&batch=`) shows only that payment batch. An older shipment that already has a tracking number does not replace the batch in the URL.
 
 **Query:** `tokenIds` (optional CSV of numeric token IDs)
 
@@ -248,7 +248,7 @@ Estimates may group tokens into **multiple shipments** (one USDC total):
 | Provider | How detected | Shipping |
 |----------|--------------|----------|
 | PSA Vault | `rwa_tokens.settlement_policy = standard` | Published PSA schedule |
-| Partner Self vault | `settlement_policy = self_vault_hold` + `vault_partner_id` | FedEx Rate client (`FEDEX_RATE_ENABLED`) or stub (`PARTNER_VAULT_SHIPPING_*`) from partner Origin → ship-to |
+| Partner Self vault | `settlement_policy = self_vault_hold` + `vault_partner_id` | Flat **$40** per Partner shipment. `FedExRateClient.quote()` does not call Rate (sandbox quotes disagreed with the estimate screen). Admin Rate probe can still call the API. |
 
 PSA schedule:
 
@@ -258,13 +258,11 @@ PSA schedule:
 | Early withdrawal | `+$4.99` / card if vaulted &lt; 90d |
 | Shipping | US `$5.99` · CA `$24.99` · intl `$31.99` once per **PSA** shipment ≤50 |
 
-Partner path: no retrieval/early; shipping once per Partner Origin shipment via **FedEx Rates API** when `FEDEX_RATE_ENABLED=true` (else `PARTNER_VAULT_SHIPPING_*` stub). Partner Origin missing → `400` `COMPANY_ADDRESS_REQUIRED`. **Korea → Korea** Partner lanes are unsupported (no stub price) — buyer sees an English message to change the vault ship-from country.
+Partner path: no retrieval/early; shipping is a flat **$40** once per Partner Origin shipment on both estimate and pay. `quote()` does not call FedEx Rate. Partner Origin missing → `400` `COMPANY_ADDRESS_REQUIRED`. **Korea → Korea** Partner lanes are unsupported — buyer sees an English message to change the vault ship-from country.
 
 Destination country for FedEx must be **ISO-3166 alpha-2** via `shipTo.countryCode` (required when fee bucket `country` is `intl`). Buckets `us`/`ca` map to `US`/`CA` when `countryCode` is omitted. Backend **never** infers country from phone or uses `XX`.
 
-FedEx selects the **cheapest** service among ACCOUNT-priced rows when available (else LIST). Quotes include `expiresAt` (default 15 minutes, `FEDEX_RATE_QUOTE_TTL_MINUTES`) surfaced on Partner shipments / estimate as `shippingQuoteExpiresAt`.
-
-Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RATE_RETRYABLE`, `FEDEX_RATE_INVALID_ADDRESS`) — buyers see the friendly `message`; server logs keep the raw FedEx code/text. Transient failures (FedEx 5xx/429, network errors) are **retried once** before falling back to the stub (`FEDEX_RATE_FALLBACK_STUB`) or surfacing the error.
+Buyer estimate and pay both use the flat $40 (`shippingSource=fedex_stub`, `serviceType=FLAT_40`). Quotes still include `expiresAt` (default 15 minutes, `FEDEX_RATE_QUOTE_TTL_MINUTES`) on Partner shipments. The live Rate picker (cheapest ACCOUNT, else LIST) and its error mapping remain on the admin probe and `liveQuote`, not on the buyer quote.
 
 **Query (GET):** `country`, `cardCount?`, `tokenIds?` (CSV)
 
@@ -275,7 +273,7 @@ Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RA
 | Env | Purpose |
 |-----|---------|
 | `PSA_VAULT_*` | PSA fee schedule |
-| `FEDEX_RATE_ENABLED` | `true` to call FedEx Rate (sandbox or prod base URL) |
+| `FEDEX_RATE_ENABLED` | Admin Rate probe only. Buyer `quote()` does not call Rate |
 | `FEDEX_API_BASE_URL` | Default `https://apis-sandbox.fedex.com` |
 | `FEDEX_CLIENT_ID` / `FEDEX_CLIENT_SECRET` / `FEDEX_ACCOUNT_NUMBER` | Ship, Rate & other APIs project |
 | `FEDEX_TRACK_CLIENT_ID` / `FEDEX_TRACK_CLIENT_SECRET` | Basic Integrated Visibility (Track) project — separate from Rate |
@@ -283,7 +281,7 @@ Rate failures return a stable body `{ code, category, message }` (e.g. `FEDEX_RA
 | `FEDEX_RATE_QUOTE_TTL_MINUTES` | Quote validity window (default `15`) |
 | `FEDEX_RATE_FALLBACK_STUB` | Optional: stub on *any* Rate failure. **KR→KR is never stubbed** — estimate fails with a clear message instead. |
 | `FEDEX_TRACK_ENABLED` | `true` to poll Track for redeem delivery → auto receipt (see confirm-received) |
-| `PARTNER_VAULT_SHIPPING_US/CA/INTL_USD` | Stub when Rate disabled |
+| `PARTNER_VAULT_SHIPPING_US/CA/INTL_USD` | Unused by buyer quote (flat $40). Still used by the admin probe stub when Rate is off |
 | `PLATFORM_FEE_RECIPIENT` | USDC pay destination |
 
 Architecture: `RedeemShippingFeeCalculator` + `ShippingRateClient` (`FedExRateClient`) under `backend/src/rwa/` — UPS/DHL can add parallel clients later.
@@ -315,7 +313,7 @@ Mints one sealed box to the partner wallet. Order: S3 photo, IPFS image + metada
 |-------|----------|-------------|
 | `pricechartingProductId` | Yes | Catalog product id (`pricecharting_products.id`) |
 | `clientRequestId` | Yes | UUID. A repeat of a submitted mint does not mint a second token |
-| `image` | No, when the product has `cover_image_url` | JPEG, PNG, or WebP, max 10 MB. Omitted, the mint copies the admin representative image. A partner upload replaces it for that token only |
+| `image` | No, when the product has `cover_image_url` | JPEG, PNG, or WebP, max 10 MB. Omitted, the mint copies the admin representative image. A partner upload replaces it for that token only. On Enter item info the partner can clear that preview for the draft and upload their own photo. Clearing does not change `pricecharting_products.cover_image_url` |
 | `recipientAddress` | No | Linked wallet. Omitted uses the primary wallet |
 
 **Response:** `{ id, status: "minted", tokenId, tokenURI, displayImageUrl, txHash, chainId, productName }`

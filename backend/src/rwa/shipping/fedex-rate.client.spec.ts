@@ -170,6 +170,8 @@ describe('FedExRateClient quote expiration', () => {
     expect(exp).toBeGreaterThanOrEqual(before + 14 * 60_000);
     expect(exp).toBeLessThanOrEqual(after + 16 * 60_000);
     expect(quote.source).toBe('fedex_stub');
+    expect(quote.shippingUsd).toBe(40);
+    expect(quote.serviceType).toBe('FLAT_40');
   });
 
   it('honors FEDEX_RATE_QUOTE_TTL_MINUTES', async () => {
