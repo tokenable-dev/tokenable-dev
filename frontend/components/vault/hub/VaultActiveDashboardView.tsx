@@ -4,6 +4,7 @@ import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { VaultThumb } from "@/components/vault/VaultThumb";
+import { ASSETS } from "@/constants/assets";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
 import {
   cancelVaultSubmission,
@@ -34,6 +35,10 @@ const TABS: { id: TabFilter; label: string }[] = [
   { id: "vaulted", label: "Vaulted" },
   { id: "reject", label: "Rejected" },
 ];
+
+function vaultDashImage(src: string): string {
+  return src.trim() || ASSETS.icons.tokenableMintPlaceholder;
+}
 
 const PILL: Record<VaultHubVState, string> = {
   transit: "Shipped",
@@ -94,7 +99,7 @@ function PackageRow({
       <span className="vault-dash-stack" aria-hidden>
         {pkg.cards.slice(0, 3).map((card, i) => (
           <span key={card.id} className="vault-dash-stack__slot" style={{ "--i": i } as CSSProperties}>
-            <VaultThumb src={card.imageUrl} width={44} height={64} className="vault-dash-stack__img" alt="" />
+            <VaultThumb src={vaultDashImage(card.imageUrl)} width={44} height={64} className="vault-dash-stack__img" alt="" />
           </span>
         ))}
       </span>
@@ -169,7 +174,7 @@ function PackageRow({
         <div className="vault-dash-list">
           {shown.map((card) => (
             <div key={card.id} className="vault-dash-c">
-              <VaultThumb src={card.imageUrl} width={28} height={40} className="vault-dash-c__img" alt="" />
+              <VaultThumb src={vaultDashImage(card.imageUrl)} width={28} height={40} className="vault-dash-c__img" alt="" />
               <span className="vault-dash-c__name">{card.title}</span>
               <span className="vault-dash-c__cert">{card.cert ? `Cert #${card.cert}` : ""}</span>
               <span className={cn("vault-dash-c__st", `vault-dash-c__st--${card.state}`)}>{card.statusLabel}</span>
