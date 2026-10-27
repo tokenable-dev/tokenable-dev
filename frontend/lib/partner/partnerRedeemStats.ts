@@ -35,7 +35,7 @@ export function isPartnerRedeemDueSoon(requestedAt: string, now = Date.now()): b
 
 export function partnerRedeemDueSoonBannerText(count: number): string {
   const noun = count === 1 ? "1 shipment" : `${count} shipments`;
-  return `${noun} due within 24h — ship now to avoid auto-cancellation.`;
+  return `${noun} due within 24h · ship now to avoid auto-cancellation`;
 }
 
 const MS_HOUR = 60 * 60 * 1000;

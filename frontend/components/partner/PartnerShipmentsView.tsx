@@ -36,7 +36,7 @@ import {
   usePartnerRedeemMetadata,
 } from "@/hooks/partner/usePartnerRedeemMetadataImages";
 import type { PartnerRedeemRow, RwaMetadata } from "@/lib/core";
-import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
+import { useToastStore } from "@/store/toastStore";
 
 type TabId = PartnerShipmentTab;
 type ShipmentGroup = ReturnType<typeof groupPartnerRedeems>[number];
@@ -49,13 +49,65 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "all", label: "All" },
 ];
 
-const CARRIERS = [
+const INLINE_CARRIERS = [
   { value: "fedex", label: "FedEx" },
   { value: "ups", label: "UPS" },
   { value: "dhl", label: "DHL" },
-  { value: "usps", label: "USPS" },
-  { value: "other", label: "Other" },
 ];
+
+const MODAL_CARRIERS = [
+  { value: "dhl", label: "DHL" },
+  { value: "fedex", label: "FedEx" },
+  { value: "ups", label: "UPS" },
+];
+
+function openRedemptionIds(group: ShipmentGroup): string[] {
+  return group.items
+    .filter(
+      (row) =>
+        row.status !== "completed" &&
+        row.status !== "cancelled" &&
+        row.status !== "refunded" &&
+        row.status !== "failed",
+    )
+    .map((row) => row.id);
+}
+
+function notifyTrackingSaved(isEdit: boolean) {
+  useToastStore.getState().push({
+    tone: "positive",
+    title: isEdit
+      ? "Tracking updated · buyer notified."
+      : "Tracking added · buyer notified.",
+    durationMs: 3000,
+  });
+}
+
+function statusChipClass(key: string): string {
+  if (key === "new") return "partner-ship__st--new";
+  if (key === "preparing") return "partner-ship__st--prep";
+  if (key === "shipped" || key === "delivered") return "partner-ship__st--ship";
+  return "partner-ship__st--other";
+}
+
+function CarrierChevron({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      width="12"
+      height="12"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
 
 function TrackingModal({
   group,
@@ -74,29 +126,28 @@ function TrackingModal({
     group.trackingNumber ?? "",
   );
   const [carrier, setCarrier] = useState(
-    group.trackingCarrier?.toLowerCase() || "fedex",
+    group.trackingCarrier?.toLowerCase() || "dhl",
   );
   const [error, setError] = useState<string | null>(null);
   const isEdit = Boolean(group.trackingNumber?.trim());
+  const carrierOptions = MODAL_CARRIERS.some((c) => c.value === carrier)
+    ? MODAL_CARRIERS
+    : [
+        { value: carrier, label: formatCarrierLabel(carrier) || carrier },
+        ...MODAL_CARRIERS,
+      ];
 
   const mutation = useMutation({
     mutationFn: () =>
       patchPartnerRedeemBatchTracking({
         batchId: group.paymentBatchId,
         shipmentKey: group.shipmentKey,
-        redemptionIds: group.items
-          .filter(
-            (row) =>
-              row.status !== "completed" &&
-              row.status !== "cancelled" &&
-              row.status !== "refunded" &&
-              row.status !== "failed",
-          )
-          .map((row) => row.id),
-        trackingNumber: trackingNumber.trim(),
-        trackingCarrier: carrier === "other" ? undefined : carrier,
+        redemptionIds: openRedemptionIds(group),
+        trackingNumber: trackingNumber.replace(/\s+/g, ""),
+        trackingCarrier: carrier,
       }),
     onSuccess: () => {
+      notifyTrackingSaved(isEdit);
       onSaved();
       onClose();
     },
@@ -109,6 +160,15 @@ function TrackingModal({
     group.requestedAt,
     group.tab === "to_ship",
   );
+
+  function submit() {
+    const num = trackingNumber.replace(/\s+/g, "");
+    if (num.length < 6) {
+      setError("Enter a valid tracking number");
+      return;
+    }
+    mutation.mutate();
+  }
 
   return (
     <div
@@ -129,9 +189,6 @@ function TrackingModal({
             <h2 id="partner-ship-modal-title" className="partner-ship-modal__title">
               {isEdit ? "Edit tracking" : "Add tracking"}
             </h2>
-            <p className="partner-ship-modal__copy">
-              The buyer will see this and can track their shipment.
-            </p>
           </div>
           <button
             type="button"
@@ -144,11 +201,9 @@ function TrackingModal({
         </div>
 
         <div className="partner-ship-modal__panel">
-          <div className="partner-ship-modal__eyebrow">
-            In this shipment{" "}
-            <span className="partner-ship-modal__count">
-              ({group.items.length} card{group.items.length === 1 ? "" : "s"})
-            </span>
+          <div className="partner-ship-modal__plain">
+            ({group.items.length}) Card{group.items.length === 1 ? "" : "s"} to
+            be shipped
           </div>
           <ul className="partner-ship-modal__cards">
             {group.items.map((item) => (
@@ -159,13 +214,13 @@ function TrackingModal({
                   className="partner-ship__thumb--sm"
                 />
                 <span className="partner-ship__cardtext">
-                  <span
-                    className={`partner-ship__cname partner-ship__cname--sm ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                  >
-                    {partnerRedeemCardTitle(item, metadataByTokenId)}
+                  <span className="partner-ship__cname partner-ship__cname--sm">
+                    <span className="partner-ship__cname-t">
+                      {partnerRedeemCardTitle(item, metadataByTokenId)}
+                    </span>
                   </span>
                   {partnerCardCertLine(item, metadataByTokenId) ? (
-                    <span className="partner-ship__cid tkl-mono">
+                    <span className="partner-ship__cid">
                       {partnerCardCertLine(item, metadataByTokenId)}
                     </span>
                   ) : null}
@@ -174,7 +229,7 @@ function TrackingModal({
             ))}
           </ul>
           <p className="partner-ship-modal__hint">
-            One tracking number covers the whole shipment.
+            One tracking number is used for the entire shipment
           </p>
           <hr className="partner-ship-modal__rule" />
           <div className="partner-ship-modal__eyebrow">Ship to</div>
@@ -184,7 +239,7 @@ function TrackingModal({
             ))}
           </div>
           <div className="partner-ship-modal__deadline">
-            <span className="partner-ship-modal__eyebrow">Deadline</span>
+            <span className="partner-ship-modal__plain">Deadline</span>
             <span
               className={`partner-ship__dl${deadline.warn ? " partner-ship__dl--warn" : ""}`}
             >
@@ -200,7 +255,7 @@ function TrackingModal({
               value={carrier}
               onChange={(e) => setCarrier(e.target.value)}
             >
-              {CARRIERS.map((c) => (
+              {carrierOptions.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.label}
                 </option>
@@ -226,33 +281,59 @@ function TrackingModal({
         </div>
 
         <div className="partner-ship-modal__callout">
-          <UrgencyIcon />
+          <CalloutIcon />
           <span>
             {isEdit
-              ? "Editing the tracking number does not reverse the cancellation lock — the buyer still cannot cancel this redemption."
+              ? "Editing the tracking number does not reverse the cancellation lock · the buyer still cannot cancel this redemption."
               : "Once you add tracking, the buyer can no longer cancel this redemption. Make sure the parcel is on its way."}
           </span>
         </div>
 
         <div className="partner-ship-modal__actions">
-          <TkButton type="button" variant="subtle" onClick={onClose}>
-            Cancel
-          </TkButton>
           <TkButton
             type="button"
             variant="primary"
-            disabled={!trackingNumber.trim() || mutation.isPending}
-            onClick={() => mutation.mutate()}
+            className="partner-ship-modal__submit"
+            disabled={mutation.isPending}
+            onClick={submit}
           >
             {mutation.isPending
-              ? "Saving…"
+              ? isEdit
+                ? "Saving…"
+                : "Adding tracking…"
               : isEdit
                 ? "Save tracking"
-                : "Add tracking and mark shipped"}
+                : "Add tracking no."}
+          </TkButton>
+          <TkButton
+            type="button"
+            variant="ghost"
+            className="partner-ship-modal__cancel"
+            onClick={onClose}
+          >
+            Cancel
           </TkButton>
         </div>
       </div>
     </div>
+  );
+}
+
+function CalloutIcon() {
+  return (
+    <svg
+      width="18"
+      height="18"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      aria-hidden
+    >
+      <path d="M12 2 2 20h20L12 2z" />
+      <line x1="12" y1="9" x2="12" y2="14" />
+      <line x1="12" y1="17" x2="12" y2="17" />
+    </svg>
   );
 }
 
@@ -338,6 +419,97 @@ function ShipmentSkeletonRows() {
   );
 }
 
+function InlineTracking({
+  group,
+  onSaved,
+}: {
+  group: ShipmentGroup;
+  onSaved: () => void;
+}) {
+  const [number, setNumber] = useState("");
+  const [carrier, setCarrier] = useState("fedex");
+  const [invalid, setInvalid] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const mutation = useMutation({
+    mutationFn: () =>
+      patchPartnerRedeemBatchTracking({
+        batchId: group.paymentBatchId,
+        shipmentKey: group.shipmentKey,
+        redemptionIds: openRedemptionIds(group),
+        trackingNumber: number.replace(/\s+/g, ""),
+        trackingCarrier: carrier,
+      }),
+    onSuccess: () => {
+      notifyTrackingSaved(false);
+      onSaved();
+    },
+    onError: (err) => {
+      setError(err instanceof Error ? err.message : "Failed to save tracking");
+    },
+  });
+
+  function submit() {
+    const num = number.replace(/\s+/g, "");
+    if (num.length < 6) {
+      setInvalid(true);
+      return;
+    }
+    setError(null);
+    mutation.mutate();
+  }
+
+  return (
+    <div className="partner-ship__trk-wrap">
+      <div className="partner-ship__trk">
+        <span className="partner-ship__trk-car-wrap">
+          <select
+            className="partner-ship__trk-car"
+            aria-label="Carrier"
+            value={carrier}
+            onChange={(e) => setCarrier(e.target.value)}
+          >
+            {INLINE_CARRIERS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+          <CarrierChevron className="partner-ship__trk-chev" />
+        </span>
+        <input
+          type="text"
+          className={`partner-ship__trk-in${invalid ? " partner-ship__trk-in--err" : ""}`}
+          value={number}
+          placeholder="Tracking number"
+          autoComplete="off"
+          aria-invalid={invalid || undefined}
+          onChange={(e) => {
+            setNumber(e.target.value);
+            setInvalid(false);
+            setError(null);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              submit();
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="partner-ship__trk-add"
+          disabled={mutation.isPending}
+          onClick={submit}
+        >
+          Add
+        </button>
+      </div>
+      {error ? <span className="partner-ship__trk-msg">{error}</span> : null}
+    </div>
+  );
+}
+
 function ShipmentRow({
   group,
   expanded,
@@ -347,6 +519,7 @@ function ShipmentRow({
   onToggleExpand,
   onToggleMenu,
   onEnterTracking,
+  onSaved,
 }: {
   group: ShipmentGroup;
   expanded: boolean;
@@ -356,6 +529,7 @@ function ShipmentRow({
   onToggleExpand: () => void;
   onToggleMenu: () => void;
   onEnterTracking: () => void;
+  onSaved: () => void;
 }) {
   const first = group.items[0]!;
   const extra = group.items.length - 1;
@@ -392,11 +566,16 @@ function ShipmentRow({
         <div className="partner-ship__cardcell">
           <CardThumb item={first} metadataImages={metadataImages} />
           <span className="partner-ship__cardtext">
-            <span className={`partner-ship__cname ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}>
-              {partnerRedeemCardTitle(first, metadataByTokenId)}
+            <span className="partner-ship__cname">
+              <span className="partner-ship__cname-t">
+                {partnerRedeemCardTitle(first, metadataByTokenId)}
+              </span>
+              <span className={`partner-ship__st ${statusChipClass(statusKey)}`}>
+                {status.label}
+              </span>
             </span>
             {partnerCardCertLine(first, metadataByTokenId) ? (
-              <span className="partner-ship__cid tkl-mono">
+              <span className="partner-ship__cid">
                 {partnerCardCertLine(first, metadataByTokenId)}
               </span>
             ) : null}
@@ -436,27 +615,14 @@ function ShipmentRow({
 
         <div>
           <span className="partner-ship__cellk">Status</span>
-          <span
-            className="partner-ship__status-pill"
-            style={{ background: status.bg, color: status.fg }}
-          >
-            {status.label}
-          </span>
+          <span className="partner-ship__status-pill">{status.label}</span>
         </div>
 
         <div>
           <div className="partner-ship__action">
             {group.tab === "to_ship" ? (
               <>
-                <TkButton
-                  type="button"
-                  variant="primary"
-                  size="sm"
-                  className="partner-ship__enter-btn"
-                  onClick={onEnterTracking}
-                >
-                  Enter tracking
-                </TkButton>
+                <InlineTracking group={group} onSaved={onSaved} />
                 <RowMenu
                   open={menuOpen}
                   onToggle={onToggleMenu}
@@ -530,13 +696,13 @@ function ShipmentRow({
                     className="partner-ship__thumb--xs"
                   />
                   <span className="partner-ship__cardtext">
-                    <span
-                      className={`partner-ship__cname partner-ship__cname--sm ${CARD_DISPLAY_LINE1_CLAMP_CLASS}`}
-                    >
-                      {partnerRedeemCardTitle(item, metadataByTokenId)}
+                    <span className="partner-ship__cname partner-ship__cname--sm">
+                      <span className="partner-ship__cname-t">
+                        {partnerRedeemCardTitle(item, metadataByTokenId)}
+                      </span>
                     </span>
                     {partnerCardCertLine(item, metadataByTokenId) ? (
-                      <span className="partner-ship__cid tkl-mono">
+                      <span className="partner-ship__cid">
                         {partnerCardCertLine(item, metadataByTokenId)}
                       </span>
                     ) : null}
@@ -685,20 +851,13 @@ export function PartnerShipmentsView() {
         <div className="partner-redeem-page__head-copy">
           <h1 className="partner-redeem-page__title">Redeem requests</h1>
           <p className="partner-redeem-page__sub">
-            Buyers redeeming cards you hold. Ship each one and add tracking within 5 days.
+            You must input tracking numbers on all redeem requests within 5 days
           </p>
         </div>
         <div className="partner-redeem-page__pills" aria-label="Shipment summary">
           <span className="partner-redeem-page__pill partner-redeem-page__pill--neutral">
-            <span>{counts.to_ship}</span>
-            &nbsp;to ship
+            ({counts.to_ship})&nbsp;to ship
           </span>
-          {dueSoonCount > 0 ? (
-            <span className="partner-redeem-page__pill partner-redeem-page__pill--soon">
-              <span>{dueSoonCount}</span>
-              &nbsp;due soon
-            </span>
-          ) : null}
         </div>
       </div>
 
@@ -761,6 +920,11 @@ export function PartnerShipmentsView() {
                     setMenuKey((k) => (k === g.key ? null : g.key))
                   }
                   onEnterTracking={() => setEditing(g)}
+                  onSaved={() => {
+                    void qc.invalidateQueries({
+                      queryKey: rq.partnerRedeems(),
+                    });
+                  }}
                 />
               ))
             )}
@@ -783,10 +947,7 @@ export function PartnerShipmentsView() {
                 <EmptyCheckIcon />
               </div>
               <div className="partner-ship__empty-title">
-                All caught up — nothing to ship right now.
-              </div>
-              <div className="partner-ship__empty-sub">
-                New redemption requests will appear here.
+                All caught up · nothing to ship right now
               </div>
             </div>
           ) : !query.isLoading && filtered.length === 0 ? (
