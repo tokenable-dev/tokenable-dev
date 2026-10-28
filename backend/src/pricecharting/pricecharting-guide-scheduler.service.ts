@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Cron } from '@nestjs/schedule';
+import { sanitizePricechartingLogText } from './pricecharting-errors';
 import { PricechartingSyncService } from './pricecharting-sync.service';
+
+/** 04:00:00 every day. Nest cron is second minute hour day month dow. */
+export const PRICECHARTING_GUIDE_CRON = '0 0 4 * * *';
+export const PRICECHARTING_GUIDE_CRON_TZ = 'Asia/Seoul';
 
 /**
  * Daily PriceCharting guide refresh. Same download + upsert as the admin
@@ -24,8 +29,8 @@ export class PricechartingGuideSchedulerService {
     return this.config.get<string>('NODE_ENV') === 'production';
   }
 
-  /** 10:00 Asia/Seoul. Guide files regenerate about once a day. */
-  @Cron('0 0 10 * * *', { timeZone: 'Asia/Seoul' })
+  /** 04:00 Asia/Seoul. Guide files regenerate about once a day. */
+  @Cron(PRICECHARTING_GUIDE_CRON, { timeZone: PRICECHARTING_GUIDE_CRON_TZ })
   async handleDailyKst(): Promise<void> {
     if (!this.cronEnabled()) return;
     await this.run('cron');
@@ -48,6 +53,12 @@ export class PricechartingGuideSchedulerService {
           skipped: result.skipped,
           ok: result.results.filter((row) => row.ok).length,
           failed: result.results.filter((row) => !row.ok).length,
+          failures: result.results
+            .filter((row) => !row.ok)
+            .map((row) => ({
+              key: row.key,
+              error: row.error ? sanitizePricechartingLogText(row.error, 500) : null,
+            })),
         }),
       );
     } catch (err) {
@@ -55,7 +66,10 @@ export class PricechartingGuideSchedulerService {
         JSON.stringify({
           msg: 'pricecharting_guide_cron_failed',
           trigger,
-          error: err instanceof Error ? err.message : String(err),
+          error: sanitizePricechartingLogText(
+            err instanceof Error ? err.message : 'sync failed',
+            500,
+          ),
         }),
       );
     }

@@ -1,5 +1,7 @@
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
+import { portfolioCostBasisUnit } from "@/lib/portfolio/portfolioTableHelpers";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
 import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
-import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
 
 export function formatPortfolioPassportId(tokenId: number): string {
   const n = Math.max(0, Math.floor(tokenId));
@@ -12,11 +14,11 @@ export function formatWalletShort(address: string | null | undefined): string {
   return `${a.slice(0, 4)}…${a.slice(-3)}`;
 }
 
-export function formatCertDate(iso: string | null | undefined): string {
+export function formatCertDate(iso: string | null | undefined, locale = "en-US"): string {
   if (!iso?.trim()) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -147,17 +149,22 @@ export function buildCertPricing(input: {
   };
 }
 
-/** Stub row: `+$250 · +2.9%`. Pricing line uses `+$250 (+2.9%)`. */
+/**
+ * Value change is a USD-mark difference. A marketplace USDC fill is not
+ * subtracted from the CardHedger mark.
+ */
 export function formatCertValueChange(
   marketUsd: number | null,
-  paidUsd: number | null,
+  paid: number | null,
+  source?: PortfolioCostBasisSource | null,
 ): { usdLabel: string; pctLabel: string; tone: "pos" | "neg" | "flat" } | null {
-  if (marketUsd == null || paidUsd == null || !(paidUsd > 0)) return null;
-  const delta = marketUsd - paidUsd;
-  const pct = (delta / paidUsd) * 100;
+  if (marketUsd == null || paid == null || !(paid > 0)) return null;
+  if (portfolioCostBasisUnit(source) !== "usd_reference") return null;
+  const delta = marketUsd - paid;
+  const pct = (delta / paid) * 100;
   const rounded = Math.round(delta);
-  const absUsd = Math.abs(rounded).toLocaleString("en-US");
-  const usdLabel = rounded > 0 ? `+$${absUsd}` : rounded < 0 ? `−$${absUsd}` : "$0";
+  const absLabel = formatDisplayMoney(Math.abs(rounded));
+  const usdLabel = rounded > 0 ? `+${absLabel}` : rounded < 0 ? `−${absLabel}` : absLabel;
   const absPct = Math.abs(pct);
   const pctBody =
     absPct === 0 || absPct >= 10 ? String(Math.round(absPct)) : absPct.toFixed(1);

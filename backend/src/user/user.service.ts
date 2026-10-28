@@ -28,6 +28,10 @@ import {
   type UserWalletSource,
 } from './entities/user-wallet.entity';
 import {
+  canonicalizeLocale,
+  isSupportedDisplayCurrency,
+} from '../fx/supported-currencies';
+import {
   DEFAULT_EMAIL_NOTIF_PREFS,
   MAX_SHIPPING_ADDRESSES_PER_USER,
   normalizeEmailNotifPrefs,
@@ -748,6 +752,19 @@ export class UserService {
         dto.emailNotifPrefs,
         normalizeEmailNotifPrefs(user.emailNotifPrefs),
       );
+    }
+    if (dto.preferredLocale !== undefined) {
+      const locale = canonicalizeLocale(dto.preferredLocale);
+      if (!locale) {
+        throw new BadRequestException('Unsupported language');
+      }
+      user.preferredLocale = locale;
+    }
+    if (dto.preferredCurrency !== undefined) {
+      if (!isSupportedDisplayCurrency(dto.preferredCurrency)) {
+        throw new BadRequestException('Unsupported currency');
+      }
+      user.preferredCurrency = dto.preferredCurrency;
     }
     if (
       user.emailNotifPrefs == null ||

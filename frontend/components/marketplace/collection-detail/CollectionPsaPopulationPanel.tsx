@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { PsaPopulationByGrade } from "@/lib/market/psaPopulationByGrade";
 import { formatPsaPopulationCount } from "@/lib/market";
 
@@ -39,6 +40,7 @@ export function CollectionPsaPopulationPanel({
   totalPop?: number | null;
   highlightGrade?: string;
 }) {
+  const t = useTranslations("CollectionDetail");
   const total =
     totalPop ??
     (byGrade
@@ -47,7 +49,7 @@ export function CollectionPsaPopulationPanel({
 
   if (!byGrade && total == null) {
     return (
-      <p className="cd-psa-panel__empty">PSA population data is not available for this card.</p>
+      <p className="cd-psa-panel__empty">{t("psaEmpty")}</p>
     );
   }
 
@@ -60,9 +62,9 @@ export function CollectionPsaPopulationPanel({
   return (
     <div className="cd-psa-panel">
       <div className="cd-psa-panel__head">
-        <span>Grade</span>
-        <span>Count</span>
-        <span>% of Pop</span>
+        <span>{t("psaGrade")}</span>
+        <span>{t("psaCount")}</span>
+        <span>{t("psaShare")}</span>
       </div>
       {GRADE_ROWS.map((row) => {
         let count: number | null = null;
@@ -100,7 +102,7 @@ export function CollectionPsaPopulationPanel({
       })}
       {total != null && total > 0 ? (
         <div className="cd-psa-panel__row cd-psa-panel__row--total">
-          <span className="cd-psa-panel__grade cd-psa-panel__grade--muted">Total Pop</span>
+          <span className="cd-psa-panel__grade cd-psa-panel__grade--muted">{t("totalPop")}</span>
           <span className="cd-psa-panel__count">{formatPsaPopulationCount(total)}</span>
           <span className="cd-psa-panel__pct">100%</span>
         </div>

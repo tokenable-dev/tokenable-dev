@@ -4,7 +4,10 @@ import {
   Injectable,
   Logger,
 } from '@nestjs/common';
-import { PRICECHARTING_NOT_CONFIGURED_CODE } from './pricecharting-errors';
+import {
+  PRICECHARTING_NOT_CONFIGURED_CODE,
+  sanitizePricechartingLogText,
+} from './pricecharting-errors';
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm';
 import { DataSource, QueryFailedError, Repository } from 'typeorm';
 import { runWithPgSessionAdvisoryLock } from '../database/pg-session-advisory-lock.util';
@@ -113,7 +116,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function scrub(message: string): string {
-  return message.replace(/([?&]t=)[^&\s]+/gi, '$1').slice(0, 500);
+  return sanitizePricechartingLogText(message, 500);
 }
 
 function isNotConfigured(err: unknown): boolean {

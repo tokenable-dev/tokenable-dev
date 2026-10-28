@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useTranslations } from "next-intl";
 import {
   ORDER_BOOK_THREE_COL_GRID,
   orderBookBookSizeColCls,
@@ -58,6 +59,7 @@ export const OrderBookDepthLevelRow = memo(function OrderBookDepthLevelRow({
   const totalLabel = formatOrderBookTotalUsdc(totalUsdc);
   const flushGridClass = `pointer-events-none relative z-10 ${ORDER_BOOK_THREE_COL_GRID} w-full items-center py-0.5 leading-none ${orderBookRowValueCls}`;
   const legacyGridClass = `relative z-10 grid grid-cols-[1fr_44px] gap-1.5 w-full px-2 py-1 items-center leading-none pointer-events-none ${orderBookRowValueCls}`;
+  const tDetail = useTranslations("CollectionDetail");
   const priceLabel = formatCollectionDetailBookPriceUsdc(level.price);
   const depthPct = `${Math.min(100, Math.max(0, level.depth * 100))}%`;
 
@@ -115,7 +117,7 @@ export const OrderBookDepthLevelRow = memo(function OrderBookDepthLevelRow({
     <button
       key={level.key}
       type="button"
-      title={collectionDetail ? `Buy at ${priceLabel}` : undefined}
+      title={collectionDetail ? tDetail("buyAt", { amount: priceLabel }) : undefined}
       onClick={() =>
         onSelectLevel?.({
           side,

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { COLLECTION_ORDER_BOOK_FLUSH_INSET } from "@/components/marketplace/collectionOverviewChrome";
 import { orderBookTabLabelCls } from "@/components/marketplace/price-metrics-strip/theme";
 import type { OrderBookTab } from "@/lib/marketplace/unified-order-book";
@@ -15,11 +16,12 @@ export function OrderBookTabHeader({
   flush?: boolean;
   collectionDetail?: boolean;
 }) {
+  const t = useTranslations("OrderBook");
   const tabs = [
-    { id: "trades" as const, label: "Trades" },
+    { id: "trades" as const, label: t("trades") },
     {
       id: "book" as const,
-      label: collectionDetail ? "Listings" : "Offers",
+      label: collectionDetail ? t("listings") : t("offers"),
     },
   ];
   const tabBase = collectionDetail

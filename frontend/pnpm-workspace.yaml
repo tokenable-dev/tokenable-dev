@@ -3,6 +3,8 @@ packages:
 
 # pnpm 11+ — 네이티브 optional deps 빌드 허용 (v10의 onlyBuiltDependencies 대체)
 allowBuilds:
+  "@swc/core": false
+  "@parcel/watcher": false
   sharp: true
   bufferutil: true
   utf-8-validate: true

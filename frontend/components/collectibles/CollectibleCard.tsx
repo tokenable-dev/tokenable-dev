@@ -1,19 +1,19 @@
 "use client";
 
 import { memo } from "react";
+import { useLocale } from "next-intl";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
-import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import {
-  ListingCardChange,
-  listingCardChangeGlyph,
-} from "@/components/collectibles/ListingCardChange";
+  ListingGradeCardLines,
+  buildListingGradeCardChange,
+} from "@/components/collectibles/ListingGradeCardLines";
 import {
   buildMarketsCollectionHoverTitle,
-  buildMarketsCollectionMeta,
   buildMarketsCollectionTitle,
   gradeLabelFromComp,
 } from "@/lib/markets/marketsCollectionTitle";
@@ -26,46 +26,6 @@ import { rememberCollectionCoverImage } from "@/lib/marketplace/collectionCoverS
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-type CardSub = {
-  glyph?: string;
-  pctLabel: string;
-  period: string;
-  tone: "up" | "down" | "muted" | "accent";
-};
-
-function formatCardChangePeriod(snapshot: CollectionListMarketSnapshot | undefined): string {
-  if (!snapshot) return "1Y";
-  const w = snapshot.marketChangeWindow;
-  if (snapshot.marketChangeIsFullYear || w === "365d") return "1Y";
-  if (w === "180d") return "180d";
-  if (w === "90d") return "90d";
-  if (w === "30d") return "30d";
-  if (w === "7d") return "7d";
-  return "1Y";
-}
-
-function formatChangeSub(
-  snapshot: CollectionListMarketSnapshot | undefined,
-  changePct: number | null,
-  changeLoading: boolean,
-  periodLabel?: string,
-): CardSub {
-  if (changeLoading) {
-    return { pctLabel: "…", period: "", tone: "muted" };
-  }
-  if (changePct == null || !Number.isFinite(changePct)) {
-    return { pctLabel: "—", period: "", tone: "muted" };
-  }
-  const window = periodLabel?.trim() || formatCardChangePeriod(snapshot);
-  const display = resolveReferencePercentChangeDisplay(changePct);
-  return {
-    glyph: listingCardChangeGlyph(display),
-    pctLabel: display.pctLabel,
-    period: display.showGlyph ? window : "",
-    tone: display.tone,
-  };
-}
-
 export const CollectibleCard = memo(function CollectibleCard({
   collection,
   snapshot,
@@ -77,7 +37,6 @@ export const CollectibleCard = memo(function CollectibleCard({
   onBeforeNavigate,
   shell = "wrap",
   position,
-  showCatalogSubtitle = false,
   titleOverride,
 }: {
   collection: MarketplaceCollectionSummary;
@@ -90,34 +49,30 @@ export const CollectibleCard = memo(function CollectibleCard({
   onBeforeNavigate?: () => void;
   shell?: "wrap" | "none";
   position?: number;
-  /** Search results — Line 2 `{Year} · {Set} {Language} · {Variant}` under Line 1. */
-  showCatalogSubtitle?: boolean;
   /** List-level collision resolver can append the smallest differentiator. */
   titleOverride?: string;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
+  useLocale();
+  useDisplayFx();
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
   const grade = gradeLabelFromComp(comp);
   const line1Title =
     titleOverride?.trim() ||
-    buildMarketsCollectionTitle(
-      { collection, comp },
-      { splitGradeToSecondLine: true },
-    );
+    buildMarketsCollectionTitle({ collection, comp });
   const titleHover = buildMarketsCollectionHoverTitle({ collection, comp });
-  const catalogSubtitle = showCatalogSubtitle
-    ? buildMarketsCollectionMeta({ collection, comp })
-    : "";
   const priceUsd = resolveMarketsListingMarketUsd(collection, snapshot);
   const changePct =
     marketChangePctOverride !== undefined
       ? marketChangePctOverride
       : resolveMarketsListingMarketChangePct(snapshot);
-  const changePeriod =
-    marketChangePeriodLabel?.trim() || formatCardChangePeriod(snapshot);
-
-  const sub = formatChangeSub(snapshot, changePct, changeLoading, changePeriod);
+  const change = buildListingGradeCardChange({
+    snapshot,
+    changePct,
+    changeLoading,
+    periodLabel: marketChangePeriodLabel,
+  });
 
   const href = `/marketplace/collections/${encodeURIComponent(collection.collectionKey)}`;
 
@@ -159,20 +114,12 @@ export const CollectibleCard = memo(function CollectibleCard({
         />
       </div>
       <div className="card__body">
-        <div className="card__title" title={titleHover || line1Title}>
-          {line1Title}
-        </div>
-        <div className="card__grade-line">{grade}</div>
-        {catalogSubtitle ? <div className="card__set">{catalogSubtitle}</div> : null}
-        <div className="card__price-row">
-          <span className="card__price">{formatUsdCompact(priceUsd)}</span>
-          <ListingCardChange
-            pctLabel={sub.pctLabel}
-            tone={sub.tone}
-            glyph={sub.glyph}
-            period={sub.period}
-          />
-        </div>
+        <ListingGradeCardLines
+          title={line1Title}
+          titleHover={titleHover}
+          priceLabel={formatUsdCompact(priceUsd)}
+          change={change}
+        />
       </div>
     </Link>
   );

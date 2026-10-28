@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { useLocale } from "next-intl";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
 import { CollectibleCard } from "@/components/collectibles/CollectibleCard";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { pickCollectionSummaryDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { cardDisplayPartsFromAssetDetail } from "@/lib/marketplace/assetDetailHeadline";
 import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
@@ -41,7 +43,6 @@ export function MarketsCollectionGrid({
   changeLoading = false,
   snapshotsFetching = false,
   onBeforeNavigate,
-  showCatalogSubtitle = false,
 }: {
   collections: MarketplaceCollectionSummary[];
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
@@ -50,8 +51,8 @@ export function MarketsCollectionGrid({
   /** True while a later snapshot batch is in flight — only missing cards show “…”. */
   snapshotsFetching?: boolean;
   onBeforeNavigate?: () => void;
-  showCatalogSubtitle?: boolean;
 }) {
+  const locale = useLocale();
   const seenKeysRef = useRef(new Set<string>());
   const enterKeys = useMemo(() => {
     const enter = new Set<string>();
@@ -70,6 +71,7 @@ export function MarketsCollectionGrid({
     }
   }, [collections]);
 
+  const catalogNames = useCatalogNameRevision();
   const titleByCollectionKey = useMemo(() => {
     return resolveCardDisplayLine1Collisions(
       collections.map((collection) => {
@@ -82,9 +84,8 @@ export function MarketsCollectionGrid({
           ),
         };
       }),
-      { omitGrade: true },
     );
-  }, [collections]);
+  }, [collections, catalogNames, locale]);
 
   return (
     <div className="markets-grid">
@@ -113,7 +114,6 @@ export function MarketsCollectionGrid({
               }
               position={index}
               onBeforeNavigate={onBeforeNavigate}
-              showCatalogSubtitle={showCatalogSubtitle}
               titleOverride={titleByCollectionKey.get(collection.collectionKey)}
             />
           </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { memo, useRef } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import {
   ORDER_BOOK_TRADES_FOUR_COL_GRID,
   orderBookColEndCls,
@@ -14,11 +15,11 @@ import {
   orderBookTradesTimeHeaderColCls,
 } from "@/components/marketplace/price-metrics-strip/theme";
 import type { CollectionPlatformTapeFill } from "@/lib/core";
+import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   formatCollectionDetailTapeDate,
   formatTapeDate,
   formatTapeTimeFull,
-  formatTradesTapePriceUsdc,
   tapeSideDisplay,
   tapeSourceDisplay,
   tradesTapePriceClassName,
@@ -44,6 +45,7 @@ const TradesTapeRow = memo(function TradesTapeRow({
   collectionDetail?: boolean;
   rowGridClass: string;
 }) {
+  const fx = useDisplayFx();
   const side = tapeSideDisplay(row);
   const rawSource = tapeSourceDisplay(row);
   const source =
@@ -70,7 +72,10 @@ const TradesTapeRow = memo(function TradesTapeRow({
       : platformSideLabel
     : side.label;
 
-  const priceText = `$${formatTradesTapePriceUsdc(row.priceUsdc)}`;
+  const priceText =
+    row.source === "cardhedger"
+      ? formatDisplayMoney(row.priceUsdc, fx)
+      : formatUsdcAmount(row.priceUsdc);
 
   return (
     <div
@@ -90,7 +95,7 @@ const TradesTapeRow = memo(function TradesTapeRow({
         }
         title={collectionDetail ? priceText : undefined}
       >
-        {collectionDetail ? priceText : formatTradesTapePriceUsdc(row.priceUsdc)}
+        {priceText}
       </span>
       {flush ? (
         <>

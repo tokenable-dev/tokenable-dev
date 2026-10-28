@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import { cn } from "@/lib/ds/cn";
+import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
 import { bumpWholeDollarByOnePercent } from "@/lib/marketplace/wholeDollarPercent";
 import { useListRwaPriceSuggestions } from "@/hooks/list-rwa/useListRwaPriceSuggestions";
 
 const ADJUST_PCTS = [-20, -10, 0, 10, 20] as const;
 
-function money(n: number): string {
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+function usdcLabel(n: number): string {
+  return formatUsdcAmount(n);
 }
 
 function parsePriceInput(raw: string): number {
@@ -71,6 +73,7 @@ export function ListRwaPriceInput({
   /** Portfolio.html `TKPrice` — ±1% inside the field, no percent chips. */
   steppers?: boolean;
 }) {
+  const fx = useDisplayFx();
   const suggestions = useListRwaPriceSuggestions({
     tokenId,
     collectionKey,
@@ -158,7 +161,7 @@ export function ListRwaPriceInput({
           {lowest > 0 ? (
             <PriceRefRow
               label="Lowest ask"
-              amount={lowest}
+              amount={usdcLabel(lowest)}
               selected={refSelected(lowest)}
               disabled={disabled}
               selectTone={steppers ? "line" : "fill"}
@@ -168,7 +171,11 @@ export function ListRwaPriceInput({
           {market > 0 ? (
             <PriceRefRow
               label="Last price"
-              amount={market}
+              amount={
+                fx.currency === "USD" || fx.fallbackToUsd
+                  ? formatDisplayMoney(market)
+                  : `${formatDisplayMoney(market)} · ${usdcLabel(market)}`
+              }
               selected={refSelected(market)}
               disabled={disabled}
               selectTone={steppers ? "line" : "fill"}
@@ -178,7 +185,7 @@ export function ListRwaPriceInput({
           {showLast ? (
             <PriceRefRow
               label="Last sold"
-              amount={last}
+              amount={usdcLabel(last)}
               selected={refSelected(last)}
               disabled={disabled}
               onUse={() => setFromRef(last)}
@@ -187,7 +194,7 @@ export function ListRwaPriceInput({
           {showBid ? (
             <PriceRefRow
               label="Highest bid"
-              amount={highBid}
+              amount={usdcLabel(highBid)}
               selected={refSelected(highBid)}
               disabled={disabled}
               bid
@@ -292,13 +299,13 @@ export function ListRwaPriceInput({
         <>
           <div className="tk-price__fee">
             <span className="tk-price__ref-lbl">Platform fee ({feePercent}%)</span>
-            <span className="tk-price__fee-amt tkl-mono">−{money(feeAmt)}</span>
+            <span className="tk-price__fee-amt tkl-mono">−{usdcLabel(feeAmt)}</span>
           </div>
           <div className="tk-price__net">
             <span className="tk-price__ref-lbl tk-price__net-lbl">
               {cross ? "You receive" : "Net sale amount"}
             </span>
-            <span className="tk-price__net-val tkl-mono">{money(netAmt)}</span>
+            <span className="tk-price__net-val tkl-mono">{usdcLabel(netAmt)}</span>
           </div>
           {payoutNote ? <p className="tk-price__payout-note">{payoutNote}</p> : null}
         </>
@@ -317,7 +324,7 @@ function PriceRefRow({
   onUse,
 }: {
   label: string;
-  amount: number;
+  amount: string;
   selected: boolean;
   disabled: boolean;
   bid?: boolean;
@@ -345,7 +352,7 @@ function PriceRefRow({
             bid && "tk-price__ref-val--bid",
           )}
         >
-          {money(amount)}
+          {amount}
         </span>
         <button
           type="button"

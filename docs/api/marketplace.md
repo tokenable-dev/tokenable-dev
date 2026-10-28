@@ -648,7 +648,7 @@ Honors `x-tokenable-chain-id`.
 
 **Auth:** JWT cookie. Body `{ walletAddress }` (wallet is validated; burn is keyed to the session user’s contact email only). Not an on-chain NFT burn. Afterward, Portfolio hides the synthetic card for that email on every linked wallet.
 
-**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` cost basis vs live mark. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or legacy `manual` value.
+**Portfolio totals:** `portfolio_daily_snapshots` (09:00 KST cron + read-path backfill if today's row is missing + event-driven recapture after mint/buy/deliver/hide/burn) drives **Portfolio value** and **24h P/L** in the hero/chart. Per-row **My Assets P/L** uses `portfolio_holdings` only when the stored cost is a USD mark (`vault_delivery`, legacy `manual`). A `marketplace_buy` row is the USDC fill price and is not subtracted from the USD mark. The stored number is not rewritten. The My Assets grid refreshes cost basis from `POST …/holdings/batch` after buys (the assets-page BFF cache is not the live SSOT for purchase price). The holdings batch may lag the client paint; a live `marketplace_buy` row is kept until the batch returns a priced `marketplace_buy` or legacy `manual` value.
 
 ---
 

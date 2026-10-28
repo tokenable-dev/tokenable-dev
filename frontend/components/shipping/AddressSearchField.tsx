@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { AddressSearchDetails, AddressSearchSuggestion } from "@/lib/core/api/shipping-addresses";
 import {
   getAddressAutocomplete,
@@ -38,6 +39,7 @@ export function AddressSearchField({
   line1FieldId?: string;
   onPick: (place: AddressSearchDetails) => void;
 }) {
+  const t = useTranslations("Ship");
   const listId = useId();
   const rootRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef(newSessionToken());
@@ -105,8 +107,8 @@ export function AddressSearchField({
       if (place.blocked) {
         setBlockedNote(
           place.blockedName
-            ? `We can’t ship an insured vault package to ${place.blockedName}. Pick another destination, or contact support about a forwarding agent.`
-            : "We can’t ship an insured vault package to this destination.",
+            ? t("blockedNamed", { place: place.blockedName })
+            : t("blocked"),
         );
       } else {
         setBlockedNote(null);
@@ -152,7 +154,7 @@ export function AddressSearchField({
           aria-autocomplete="list"
           autoComplete="off"
           spellCheck={false}
-          placeholder="Start typing an address…"
+          placeholder={t("startTyping")}
           disabled={disabled}
           value={q}
           onChange={(e) => {
@@ -181,7 +183,7 @@ export function AddressSearchField({
         <button
           type="button"
           className="tka__clear"
-          aria-label="Clear"
+          aria-label={t("clear")}
           onClick={() => {
             setQ("");
             setRows([]);

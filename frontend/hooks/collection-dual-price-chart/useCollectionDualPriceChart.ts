@@ -1,7 +1,10 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLocale } from "next-intl";
 import type { EChartsOption } from "echarts";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
+import { resolveLocale } from "@/lib/i18n/preferences";
 import {
   buildCollectionDualPriceChartOption,
   mergeExternalChartSeries,
@@ -28,6 +31,8 @@ export function useCollectionDualPriceChart(input: {
     compactTab,
     colorTheme = "default",
   } = input;
+  const fx = useDisplayFx();
+  const locale = resolveLocale(useLocale());
 
   const seriesLen = externalRollingUsd?.length ?? 0;
   const nowSec = useMemo(
@@ -57,6 +62,7 @@ export function useCollectionDualPriceChart(input: {
         isMobileChart,
         compactTab,
         colorTheme,
+        locale,
       }),
     [
       merged,
@@ -66,6 +72,11 @@ export function useCollectionDualPriceChart(input: {
       isMobileChart,
       compactTab,
       colorTheme,
+      locale,
+      fx.currency,
+      fx.observationDate,
+      fx.stale,
+      fx.fallbackToUsd,
     ],
   );
 

@@ -103,6 +103,14 @@ export class User {
     market: boolean;
   };
 
+  /** UI language. Phase 1 allows `en` only. Null until the user saves a preference. */
+  @Column({ name: 'preferred_locale', type: 'varchar', length: 16, nullable: true })
+  preferredLocale: string | null;
+
+  /** Display currency for USD reference prices. Null until the user saves one. */
+  @Column({ name: 'preferred_currency', type: 'varchar', length: 8, nullable: true })
+  preferredCurrency: string | null;
+
   /** One-time welcome email (Privy signup with real inbox, or first contact email after `@privy.wallet`). */
   @Column({ name: 'welcome_email_sent_at', type: 'timestamptz', nullable: true })
   welcomeEmailSentAt: Date | null;

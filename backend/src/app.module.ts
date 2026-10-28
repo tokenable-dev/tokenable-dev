@@ -71,6 +71,8 @@ import { SealedBoxMint } from './rwa/entities/sealed-box-mint.entity';
 import { MarketplaceNotification } from './marketplace/entities/marketplace-notification.entity';
 import { SelfVaultSettlement } from './marketplace/entities/self-vault-settlement.entity';
 import { VaultModule } from './vault/vault.module';
+import { FxModule } from './fx/fx.module';
+import { FxRate } from './fx/fx-rate.entity';
 
 /**
  * Rate-limit tracker keyed by real client IP. nginx sets X-Real-IP from
@@ -180,6 +182,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
           SealedBoxMint,
           MarketplaceNotification,
           SelfVaultSettlement,
+          FxRate,
         ],
         // Schema sync is always disabled in production — use SQL migration scripts
         // under backend/sql/schema/ instead. Enabled only in non-production
@@ -217,6 +220,7 @@ class ClientIpThrottlerGuard extends ThrottlerGuard {
     MarketplaceModule,
     CardhedgerAdminModule,
     KycModule,
+    FxModule,
   ],
   providers: [{ provide: APP_GUARD, useClass: ClientIpThrottlerGuard }],
 })

@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { marketCategoryMessageId } from "@/lib/market";
 
 export function CollectionDetailBreadcrumb({
   categoryLabel,
@@ -9,12 +11,17 @@ export function CollectionDetailBreadcrumb({
   categoryLabel?: string | null;
   trailLabel: string;
 }) {
-  const category = categoryLabel?.trim();
+  const tNav = useTranslations("Nav");
+  const t = useTranslations("CollectionDetail");
+  const tMarkets = useTranslations("Markets");
+  const rawCategory = categoryLabel?.trim();
+  const categoryKey = marketCategoryMessageId(rawCategory);
+  const category = categoryKey ? tMarkets(categoryKey) : rawCategory;
   const trail = trailLabel.trim();
 
   return (
-    <nav className="cd-breadcrumb" aria-label="Breadcrumb">
-      <Link href="/markets">Markets</Link>
+    <nav className="cd-breadcrumb" aria-label={t("breadcrumb")}>
+      <Link href="/markets">{tNav("markets")}</Link>
       {category ? (
         <>
           <span className="cd-breadcrumb__sep" aria-hidden>

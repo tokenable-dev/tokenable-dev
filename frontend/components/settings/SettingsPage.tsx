@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { AuthUser } from "@/lib/auth";
 import { cn } from "@/lib/ds/cn";
@@ -18,14 +19,10 @@ import {
 
 const NAV: {
   id: SettingsSectionId;
-  label: string;
-  shortLabel: string;
   icon: ReactNode;
 }[] = [
   {
     id: "profile",
-    label: "Profile",
-    shortLabel: "Profile",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -35,8 +32,6 @@ const NAV: {
   },
   {
     id: "notifications",
-    label: "Notifications",
-    shortLabel: "Alerts",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
@@ -46,8 +41,6 @@ const NAV: {
   },
   {
     id: "wallet",
-    label: "Wallet & balance",
-    shortLabel: "Wallet",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="2" y="5" width="20" height="14" rx="2" />
@@ -57,8 +50,6 @@ const NAV: {
   },
   {
     id: "addresses",
-    label: "Addresses",
-    shortLabel: "Address",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z" />
@@ -68,8 +59,6 @@ const NAV: {
   },
   {
     id: "identity",
-    label: "Identity",
-    shortLabel: "Identity",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="4" width="18" height="16" rx="2" />
@@ -80,8 +69,6 @@ const NAV: {
   },
   {
     id: "legal",
-    label: "Legal & consents",
-    shortLabel: "Legal",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
@@ -91,8 +78,6 @@ const NAV: {
   },
   {
     id: "security",
-    label: "Security",
-    shortLabel: "Security",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
         <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -103,6 +88,7 @@ const NAV: {
 ];
 
 export function SettingsPage({ user }: { user: AuthUser }) {
+  const t = useTranslations("Settings");
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -137,7 +123,7 @@ export function SettingsPage({ user }: { user: AuthUser }) {
       <nav
         ref={snavRef}
         className="tk-settings__snav"
-        aria-label="Settings sections"
+        aria-label={t("sections")}
       >
         {NAV.map((item) => (
           <button
@@ -149,8 +135,8 @@ export function SettingsPage({ user }: { user: AuthUser }) {
           >
             <span className="tk-settings__snav-label">
               {item.icon}
-              <span className="tk-settings__lbltxt--full">{item.label}</span>
-              <span className="tk-settings__lbltxt--short">{item.shortLabel}</span>
+              <span className="tk-settings__lbltxt--full">{t(`nav.${item.id}`)}</span>
+              <span className="tk-settings__lbltxt--short">{t(`navShort.${item.id}`)}</span>
             </span>
           </button>
         ))}

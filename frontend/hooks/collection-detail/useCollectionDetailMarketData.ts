@@ -357,8 +357,8 @@ export function useCollectionDetailMarketData(params: {
       return {
         median30dUsd: null as number | null,
         periodLabel: null as string | null,
-        periodVolumeUsdc: null as number | null,
-        volume1yUsdc: null as number | null,
+        volume1yPlatformUsdc: null as number | null,
+        volume1yExternalUsd: null as number | null,
         velocityPct: null as number | null,
       };
     }
@@ -377,8 +377,8 @@ export function useCollectionDetailMarketData(params: {
     return {
       median30dUsd,
       periodLabel: activity.periodLabel,
-      periodVolumeUsdc: activity.periodVolumeUsdc,
-      volume1yUsdc: activity.volume1yUsdc,
+      volume1yPlatformUsdc: activity.volume1yPlatformUsdc,
+      volume1yExternalUsd: activity.volume1yExternalUsd,
       velocityPct: activity.velocityPct,
     };
   }, [platformTradesData, sessionFillPoint, marketCapComputation?.usd]);

@@ -51,12 +51,13 @@ import {
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { feePercent } from "@/lib/seaport/orders/platformFee";
 import { useToastStore } from "@/store/toastStore";
+import { useTranslations } from "next-intl";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 export type CollectionTradeBusy = "buy" | "bid" | "sell" | null;
 
 function moneyLabel(n: number): string {
-  if (!(n > 0) || !Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatUsdcAmount(n);
 }
 
 export type CollectionTradeToastMeta = {
@@ -83,6 +84,7 @@ export function useCollectionTradeDirectActions(input: {
   toastCardTitle?: string | null;
   certNumberForToken?: (tokenId: number) => string | null;
 }) {
+  const tDetail = useTranslations("CollectionDetail");
   const {
     collectionKey,
     askMap,
@@ -345,7 +347,7 @@ export function useCollectionTradeDirectActions(input: {
         ]);
         if (usdcBalRaw < bidUnits) {
           throw new Error(
-            `Insufficient USDC. Need ${moneyLabel(priceUsd)} — add funds and try again.`,
+            tDetail("needFunds", { amount: moneyLabel(priceUsd) }),
           );
         }
         try {
@@ -422,6 +424,7 @@ export function useCollectionTradeDirectActions(input: {
       onInvalidate,
       pushToast,
       resolveToastMeta,
+      tDetail,
       ownCriteriaBid,
       hasMintedCopies,
       activeAsks,

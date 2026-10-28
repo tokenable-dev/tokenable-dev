@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import type { HeaderNavGateResult } from "@/lib/auth/accountAccess";
 import type { KycStatus } from "@/lib/auth/auth";
@@ -9,44 +10,45 @@ type GateAction = HeaderNavGateResult["action"];
 function gateCopy(
   action: Exclude<GateAction, "allow">,
   kycStatus: KycStatus | undefined,
+  t: ReturnType<typeof useTranslations<"AuthGate">>,
 ): { title: string; body: string; sub: string | null; cta: string } {
   if (action === "sign-in") {
     return {
-      title: "Sign in to ship a card",
-      body: "Shipping moves a physical card out of the vault, so we need to know whose account it is leaving.",
+      title: t("shipTitle"),
+      body: t("shipBody"),
       sub: null,
-      cta: "Sign in",
+      cta: t("signIn"),
     };
   }
   if (action === "connect-wallet") {
     return {
-      title: "Connect a wallet to ship a card",
-      body: "Your cards live in the wallet linked to this account. Connect it so we can release the right ones.",
+      title: t("walletTitle"),
+      body: t("walletBody"),
       sub: null,
-      cta: "Connect wallet",
+      cta: t("connectWallet"),
     };
   }
   if (kycStatus === "pending") {
     return {
-      title: "Verification in progress",
-      body: "We'll email you when verification completes.",
-      sub: "Your address and cards are saved. Nothing is charged until you pay.",
-      cta: "Continue verification",
+      title: t("pendingTitle"),
+      body: t("pendingBody"),
+      sub: t("pendingSub"),
+      cta: t("pendingCta"),
     };
   }
   if (kycStatus === "rejected") {
     return {
-      title: "Verification needs another look",
-      body: "We couldn’t approve your identity yet. Resubmit your ID and liveness check so we can ship a physical card to you.",
-      sub: "Buying, selling and moving funds don’t need this.",
-      cta: "Try again",
+      title: t("rejectedTitle"),
+      body: t("rejectedBody"),
+      sub: t("rejectedSub"),
+      cta: t("rejectedCta"),
     };
   }
   return {
-    title: "Verify your identity",
-    body: "We ship only to a verified owner, so your card reaches the right hands.",
-    sub: "One time only.",
-    cta: "Verify identity",
+    title: t("verifyTitle"),
+    body: t("verifyBody"),
+    sub: t("verifySub"),
+    cta: t("verifyCta"),
   };
 }
 
@@ -64,7 +66,8 @@ export function RedeemAccessGate({
   kycStatus?: KycStatus;
   onContinue: () => void;
 }) {
-  const { title, body, sub, cta } = gateCopy(action, kycStatus);
+  const t = useTranslations("AuthGate");
+  const { title, body, sub, cta } = gateCopy(action, kycStatus, t);
 
   return (
     <div className="pf-redeem-gate">
@@ -99,6 +102,7 @@ export function RedeemAccessGate({
 }
 
 export function RedeemVerifiedChip() {
+  const t = useTranslations("AuthGate");
   return (
     <p className="pf-redeem-verified">
       <svg
@@ -112,7 +116,7 @@ export function RedeemVerifiedChip() {
       >
         <polyline points="20 6 9 17 4 12" />
       </svg>
-      Identity verified
+      {t("verified")}
     </p>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { TkButton } from "@/components/ds";
 import { useClientMounted } from "@/hooks/ui/useClientMounted";
 import "@/styles/tokenable-action-complete.css";
@@ -27,7 +29,7 @@ type KindConfig = {
 
 function formatUsd(priceUsdc?: number | null): string | null {
   if (priceUsdc == null || !Number.isFinite(priceUsdc) || priceUsdc <= 0) return null;
-  return Math.round(priceUsdc).toLocaleString("en-US");
+  return formatUsdcAmount(priceUsdc);
 }
 
 export function actionCompleteConfig(
@@ -55,11 +57,11 @@ export function actionCompleteConfig(
           : null;
       return {
         tone: "pos",
-        title: price ? `Sold at $${price}` : "Sale complete",
+        title: price ? `Sold at ${price}` : "Sale complete",
         sub:
           override ??
           (feeNet
-            ? `$${feeNet} paid to your account.`
+            ? `${feeNet} paid to your account.`
             : "Your listing matched — USDC should appear in your wallet shortly."),
       };
     }
@@ -70,17 +72,17 @@ export function actionCompleteConfig(
         sub:
           override ??
           (price
-            ? `Your bid of $${price} is live. We'll notify you if it's matched — no funds are held until then.`
+            ? `Your bid of ${price} is live. We'll notify you if it's matched — no funds are held until then.`
             : "Your bid is live. We'll notify you if it's matched — no funds are held until then."),
       };
     case "listed":
       return {
         tone: "pos",
-        title: price ? `Listed at $${price}` : "Listed successfully",
+        title: price ? `Listed at ${price}` : "Listed successfully",
         sub:
           override ??
           (price
-            ? `You get $${price} when it sells.`
+            ? `You get ${price} when it sells.`
             : "You get paid when it sells."),
       };
     case "price-updated":
@@ -90,7 +92,7 @@ export function actionCompleteConfig(
         sub:
           override ??
           (price
-            ? `Listed at $${price}.`
+            ? `Listed at ${price}.`
             : "Your ask price was updated."),
       };
     case "fill-failed":
@@ -153,7 +155,7 @@ export function ActionCompleteModal({
   priceUsdc,
   title,
   sub,
-  primaryLabel = "Done",
+  primaryLabel,
   secondaryLabel,
   secondaryHref,
   onPrimary,
@@ -175,9 +177,55 @@ export function ActionCompleteModal({
   extra?: ReactNode;
 }) {
   const mounted = useClientMounted();
+  const t = useTranslations("Complete");
   const cfg = actionCompleteConfig(kind, { priceUsdc, sub });
-  const resolvedTitle = title ?? cfg.title;
-  const resolvedSub = (sub ?? cfg.sub) || undefined;
+  const price = formatUsd(priceUsdc);
+  const feeNet =
+    kind === "sale" && priceUsdc != null && Number.isFinite(priceUsdc)
+      ? formatUsd(priceUsdc * 0.95)
+      : null;
+  const localizedTitle =
+    kind === "purchase"
+      ? t("purchaseTitle")
+      : kind === "sale"
+        ? price
+          ? t("soldAt", { price })
+          : t("saleComplete")
+        : kind === "bid"
+          ? t("bidTitle")
+          : kind === "listed"
+            ? price
+              ? t("listedAt", { price })
+              : t("listedOk")
+            : kind === "price-updated"
+              ? t("priceUpdated")
+              : kind === "fill-failed"
+                ? t("fillFailed")
+                : t("success");
+  const localizedSub =
+    kind === "purchase"
+      ? t("purchaseSub")
+      : kind === "sale"
+        ? feeNet
+          ? t("paidNet", { amount: feeNet })
+          : t("saleFallback")
+        : kind === "bid"
+          ? price
+            ? t("bidLive", { price })
+            : t("bidLivePlain")
+          : kind === "listed"
+            ? price
+              ? t("youGet", { price })
+              : t("youGetPaid")
+            : kind === "price-updated"
+              ? price
+                ? t("listedAtShort", { price })
+                : t("askUpdated")
+              : kind === "fill-failed"
+                ? t("priceUnchanged")
+                : "";
+  const resolvedTitle = title ?? localizedTitle;
+  const resolvedSub = (sub?.trim() ? sub : localizedSub) || undefined;
   const hasSecondary = Boolean(secondaryLabel && (secondaryHref || onSecondary));
 
   useEffect(() => {
@@ -218,10 +266,10 @@ export function ActionCompleteModal({
         </h2>
         {resolvedSub ? <p className="tk-sale-result__sub">{resolvedSub}</p> : null}
         {extra ? <div className="tk-sale-result__extra">{extra}</div> : null}
-        {cfg.statusLabel && cfg.statusValue ? (
+        {kind === "purchase" ? (
           <div className="tk-sale-result__status">
-            <span className="tk-sale-result__status-label">{cfg.statusLabel}</span>
-            <span className="tk-sale-result__status-value">{cfg.statusValue}</span>
+            <span className="tk-sale-result__status-label">{t("status")}</span>
+            <span className="tk-sale-result__status-value">{t("owned")}</span>
           </div>
         ) : null}
         <div className="tk-sale-result__actions">
@@ -245,7 +293,7 @@ export function ActionCompleteModal({
             size="md"
             onClick={onPrimary ?? onClose}
           >
-            {primaryLabel}
+            {primaryLabel ?? t("done")}
           </TkButton>
         </div>
       </div>

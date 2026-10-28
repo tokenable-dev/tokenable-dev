@@ -3,6 +3,10 @@
  * See docs/guides/card-display-name.md
  */
 
+import {
+  localizeCatalogPhrase,
+  localizeDisplayedCardName,
+} from "@/lib/marketplace/catalogNameTranslation";
 import { displayEditionLanguage } from "@/lib/marketplace/collectionEditionLanguage";
 import {
   formatHeadlineCardNumber,
@@ -342,9 +346,11 @@ export function formatDetailBreadcrumbTrail(params: {
     const nameWithoutCode = setName
       .replace(new RegExp(`^${escapeRegExp(setCode)}\\b\\s*`, "i"), "")
       .trim();
-    node = nameWithoutCode ? `${setCode} ${nameWithoutCode}` : setCode;
+    node = nameWithoutCode
+      ? `${setCode} ${localizeCatalogPhrase(nameWithoutCode)}`
+      : setCode;
   } else {
-    node = setCode || setName;
+    node = setCode || localizeCatalogPhrase(setName);
   }
   if (!node) return "";
   if (lang) return `${node} (${lang})`;
@@ -702,7 +708,7 @@ function formatLine2SetLanguageChunk(
     language?.trim() ??
     pulled.extractedLang ??
     "";
-  const set = pulled.set;
+  const set = localizeCatalogPhrase(pulled.set);
   if (!set && !lang) return "";
   if (!lang) return set;
   if (!set) return lang;
@@ -735,8 +741,9 @@ export function formatCardDisplayLine1(
   parts: CardDisplayNameParts,
   opts?: { abbrev?: boolean; omitGrade?: boolean },
 ): string {
-  const name =
-    stripTrailingDisplayGrade(parts.cardName, parts.grade) || "";
+  const name = localizeDisplayedCardName(
+    stripTrailingDisplayGrade(parts.cardName, parts.grade) || "",
+  );
   const number =
     splitTcgCollectorNumber(parts.cardNumber).number ??
     formatHeadlineCardNumber(parts.cardNumber) ??
@@ -786,11 +793,12 @@ export function formatCardDisplayLine2(
   const setChunk = omitSet
     ? ""
     : formatLine2SetLanguageChunk(parts.setName, parts.language);
-  const variant = displayVariantIfNotSetDuplicate(
+  const variantSource = displayVariantIfNotSetDuplicate(
     parts.variant,
     parts.setName,
     { language: parts.language },
   );
+  const variant = variantSource ? localizeCatalogPhrase(variantSource) : "";
   return joinCardDisplaySegments([year, setChunk, variant]);
 }
 
@@ -844,7 +852,10 @@ export function resolveCardDisplayLine1Collisions(
     if (!diffs) continue;
     for (const item of group) {
       const d = diffs.get(item.id);
-      if (d) out.set(item.id, joinCardDisplaySegments([base, d]));
+      if (d) {
+        const shown = /^\d{4}$/.test(d) ? d : localizeCatalogPhrase(d);
+        out.set(item.id, joinCardDisplaySegments([base, shown]));
+      }
     }
   }
 

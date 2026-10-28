@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { useTokenableSessionActive } from "@/lib/auth/sessionActive";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,7 +24,10 @@ import {
 } from "@/lib/notifications/notifications";
 import { useAuthStore } from "@/store/authStore";
 
-function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
+function toDrawerItem(
+  row: MarketplaceNotificationItem,
+  time: (iso: string) => string,
+): NotificationItem {
   const type =
     row.type === "trade" ||
     row.type === "bid" ||
@@ -39,7 +43,7 @@ function toDrawerItem(row: MarketplaceNotificationItem): NotificationItem {
     color: style.color,
     title: row.title,
     desc: row.body,
-    time: formatNotificationTime(row.createdAt),
+    time: time(row.createdAt),
     createdAt: row.createdAt,
     imageUrl: row.imageUrl ?? row.payload.imageUrl ?? undefined,
     href: row.href,
@@ -63,6 +67,22 @@ function useForegroundTab(): boolean {
 /** Inbox for the signed-in user on the active app chain. */
 export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
   const user = useAuthStore((s) => s.user);
+  const tTime = useTranslations("Notify");
+  const formatTime = useMemo(
+    () => (iso: string) =>
+      formatNotificationTime(iso, Date.now(), {
+        justNow: tTime("justNow"),
+        minAgoOne: tTime("minAgoOne"),
+        minAgo: (count) => tTime("minAgo", { count }),
+        hourAgoOne: tTime("hourAgoOne"),
+        hourAgo: (count) => tTime("hourAgo", { count }),
+        yesterday: tTime("yesterday"),
+        daysAgo: (count) => tTime("daysAgo", { count }),
+        weekAgoOne: tTime("weekAgoOne"),
+        weeksAgo: (count) => tTime("weeksAgo", { count }),
+      }),
+    [tTime],
+  );
   const userId = user?.id ?? "";
   const signedIn = useTokenableSessionActive();
   const hasAccount = Boolean(userId);
@@ -90,7 +110,7 @@ export function useMarketplaceNotifications(options?: { enabled?: boolean }) {
     retryDelay: marketplaceApiRetryDelay,
   });
 
-  const items = hasAccount ? (query.data?.items ?? []).map(toDrawerItem) : [];
+  const items = hasAccount ? (query.data?.items ?? []).map((row) => toDrawerItem(row, formatTime)) : [];
   const liveUnread = hasAccount
     ? items.reduce((n, item) => n + (item.unread ? 1 : 0), 0)
     : 0;

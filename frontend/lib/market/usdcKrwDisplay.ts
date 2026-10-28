@@ -1,23 +1,24 @@
+import { formatDisplayMoney, formatUsdcAmount, getDisplayFx } from "@/lib/market/displayMoney";
+
 /**
- * Display-only KRW hint — not a live FX feed.
- * Override with `NEXT_PUBLIC_USD_KRW_RATE` if needed.
+ * Display-only KRW hint. Uses the loaded ECB rate.
+ * Does not invent a rate when KRW is missing.
  */
-const DEFAULT_USD_KRW_RATE = 1500;
-
-export function usdToKrwRate(): number {
-  const raw = process.env.NEXT_PUBLIC_USD_KRW_RATE;
-  const n = raw != null ? Number(raw) : NaN;
-  return Number.isFinite(n) && n > 0 ? n : DEFAULT_USD_KRW_RATE;
-}
-
-/** Mobile listing line — e.g. `USDC $3,333` */
-export function formatUsdcPricePrimary(usd: number): string {
-  const amount = Math.round(usd).toLocaleString("en-US");
-  return `USDC $${amount}`;
-}
-
-/** Approximate KRW — e.g. `약 KRW 535,354` */
 export function formatApproxKrwFromUsd(usd: number): string {
-  const krw = Math.round(usd * usdToKrwRate());
-  return `약 KRW ${krw.toLocaleString("en-US")}`;
+  const fx = getDisplayFx();
+  const rate = fx.rates.KRW;
+  if (rate == null || !Number.isFinite(rate) || rate <= 0) {
+    return formatDisplayMoney(usd, { ...fx, currency: "USD", fallbackToUsd: true });
+  }
+  return formatDisplayMoney(usd, {
+    ...fx,
+    currency: "KRW",
+    rates: { ...fx.rates, KRW: rate },
+    fallbackToUsd: false,
+  });
+}
+
+/** USDC settlement line, shown as `$` at 1:1. Not converted. */
+export function formatUsdcPricePrimary(usd: number): string {
+  return formatUsdcAmount(usd);
 }

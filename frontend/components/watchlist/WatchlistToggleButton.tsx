@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/ds/cn";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useWatchlistToggle } from "@/hooks/watchlist/useWatchlist";
@@ -19,6 +20,7 @@ export function WatchlistToggleButton({
   /** Current market price in USD — used for watchlist_added analytics. */
   price?: number;
 }) {
+  const t = useTranslations("Search");
   const pathname = usePathname();
   const { runTradeAccessGate } = useTradeAccessGate(pathname || "/markets");
   const { isWatched, canToggle, pending, toggle } = useWatchlistToggle(collectionKey);
@@ -26,7 +28,7 @@ export function WatchlistToggleButton({
   return (
     <button
       type="button"
-      aria-label={isWatched ? "Remove from watchlist" : "Add to watchlist"}
+      aria-label={isWatched ? t("removeWatch") : t("addWatch")}
       aria-pressed={isWatched}
       disabled={pending}
       onClick={(e) => {

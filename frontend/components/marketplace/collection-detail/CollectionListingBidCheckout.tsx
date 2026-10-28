@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslations } from "next-intl";
 import type { Order } from "@/lib/core";
 import { TkButton } from "@/components/ds";
 import { useTradeAccessGate } from "@/hooks/auth/useTradeAccessGate";
 import { useTokenOffer } from "@/hooks/token-offer/useTokenOffer";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { bestBidFromRows } from "@/lib/marketplace/unified-order-book";
 import { shortenWalletAddress } from "@/lib/wallet/walletMenuDisplay";
 import { askPriceMicros } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
@@ -20,11 +22,6 @@ function formatBidInputDisplay(raw: string): string {
   if (!intDigits) return "";
   const intNum = parseInt(intDigits, 10);
   return Number.isFinite(intNum) ? intNum.toLocaleString("en-US") : intDigits;
-}
-
-function formatCheckoutUsd(n: number): string {
-  if (!(n > 0) || !Number.isFinite(n)) return "—";
-  return Math.round(n).toLocaleString("en-US");
 }
 
 /**
@@ -70,6 +67,8 @@ export function CollectionListingBidCheckout({
   /** Lets parent modals block dismiss while approve/sign is in flight. */
   onWalletFlowBusyChange?: (busy: boolean) => void;
 }) {
+  const t = useTranslations("CollectionDetail");
+  const tTrade = useTranslations("TradePanel");
   const inputRef = useRef<HTMLInputElement>(null);
   const { runTradeAccessGate } = useTradeAccessGate(
     `/marketplace/collections/${encodeURIComponent(collectionKey)}`,
@@ -116,20 +115,20 @@ export function CollectionListingBidCheckout({
   const marketHint = useMemo(() => {
     if (!bid.isConnected) {
       if (askDisplayUsd != null) {
-        return `Listed at $${formatCheckoutUsd(askDisplayUsd)} · connect wallet to bid`;
+        return t("listedConnect", { amount: formatUsdcAmount(askDisplayUsd) });
       }
-      return "Connect wallet to bid";
+      return t("connectBid");
     }
     const parts: string[] = [];
     if (askDisplayUsd != null) {
-      parts.push(`Listed at $${formatCheckoutUsd(askDisplayUsd)}`);
+      parts.push(t("listedAt", { amount: formatUsdcAmount(askDisplayUsd) }));
     }
     if (highestDisplayUsd != null) {
-      parts.push(`Highest offer $${formatCheckoutUsd(highestDisplayUsd)}`);
+      parts.push(t("highestOffer", { amount: formatUsdcAmount(highestDisplayUsd) }));
     }
-    if (parts.length === 0) return "Enter a bid amount to continue.";
+    if (parts.length === 0) return t("enterBid");
     return parts.join(" · ");
-  }, [bid.isConnected, askDisplayUsd, highestDisplayUsd]);
+  }, [bid.isConnected, askDisplayUsd, highestDisplayUsd, t]);
 
   const hintText =
     bid.policyHint.tone === "error" ? bid.policyHint.text : marketHint;
@@ -138,19 +137,20 @@ export function CollectionListingBidCheckout({
   const showSuccess = bid.step === "success";
   const placedBidLabel = useMemo(() => {
     if (!Number.isFinite(bid.priceUsdc) || bid.priceUsdc <= 0) return null;
-    return formatCheckoutUsd(bid.priceUsdc);
+    return formatUsdcAmount(bid.priceUsdc);
   }, [bid.priceUsdc]);
-  const expiryLabel = tokenBidDurationOptionLabel(bid.durationDays);
+  const expiryLabel =
+    bid.durationDays === 1 ? t("dayOne") : t("dayMany", { count: bid.durationDays });
 
   useEffect(() => {
     onHeaderTitleChange?.(
       showSuccess
         ? bid.lastOutcome === "instant"
-          ? "Receipt"
-          : "Bid placed"
-        : "Place a bid",
+          ? t("receipt")
+          : t("bidPlaced")
+        : tTrade("placeBid"),
     );
-  }, [showSuccess, bid.lastOutcome, onHeaderTitleChange]);
+  }, [showSuccess, bid.lastOutcome, onHeaderTitleChange, t, tTrade]);
 
   useEffect(() => {
     if (showSuccess) return;
@@ -170,12 +170,12 @@ export function CollectionListingBidCheckout({
 
   if (showSuccess) {
     const instant = bid.lastOutcome === "instant";
-    const doneTitle = instant ? "Purchase complete" : "Bid submitted";
+    const doneTitle = instant ? t("purchaseComplete") : t("bidSubmitted");
     const doneMsg = instant
       ? null
       : placedBidLabel
-        ? `Your bid of $${placedBidLabel} is live for ${expiryLabel}.`
-        : `Your bid is live for ${expiryLabel}.`;
+        ? t("bidLiveFor", { amount: placedBidLabel, expiry: expiryLabel })
+        : t("bidLivePlainFor", { expiry: expiryLabel });
 
     return (
       <div className="cd-listing-checkout__done" id="tkb-done">
@@ -237,13 +237,13 @@ export function CollectionListingBidCheckout({
     <div id="tkb-form">
       <div id="tkb-bid">
         <label className="cd-listing-checkout__label" htmlFor="tkb-bidamt">
-          Your bid
+          {t("yourBid")}
         </label>
 
-        <div className="cd-listing-checkout__bid-stats" aria-label="Market context">
+        <div className="cd-listing-checkout__bid-stats" aria-label={t("marketContext")}>
           <div className="cd-listing-checkout__bid-stat">
             <div className="cd-listing-checkout__bid-stat-label tkl-mono">
-              Ask price
+              {t("askPrice")}
             </div>
             <div className="cd-listing-checkout__bid-stat-value">
               {askDisplayUsd != null ? formatUsdListing(askDisplayUsd) : "—"}
@@ -251,7 +251,7 @@ export function CollectionListingBidCheckout({
           </div>
           <div className="cd-listing-checkout__bid-stat">
             <div className="cd-listing-checkout__bid-stat-label tkl-mono">
-              Highest bid
+              {t("highestBid")}
             </div>
             <div className="cd-listing-checkout__bid-stat-value cd-listing-checkout__bid-stat-value--pos">
               {highestDisplayUsd != null
@@ -289,12 +289,12 @@ export function CollectionListingBidCheckout({
           {hintText}
         </div>
 
-        <div className="cd-listing-checkout__label">Valid for</div>
+        <div className="cd-listing-checkout__label">{t("validFor")}</div>
         <div
           className="cd-listing-checkout__expiry"
           id="tkb-expiry"
           role="radiogroup"
-          aria-label="Valid for"
+          aria-label={t("validFor")}
         >
           {TOKEN_BID_UI_DURATION_DAYS.map((days) => {
             const on = bid.durationDays === days;
@@ -313,7 +313,7 @@ export function CollectionListingBidCheckout({
                 }
                 onClick={() => bid.setDurationDays(days)}
               >
-                {tokenBidDurationOptionLabel(days)}
+                {days === 1 ? t("dayOne") : t("dayMany", { count: days })}
               </button>
             );
           })}
@@ -326,7 +326,7 @@ export function CollectionListingBidCheckout({
           id="tkb-disc"
         >
           <span className="cd-listing-checkout__wallet-dot" aria-hidden />
-          <span>No wallet connected.</span>
+          <span>{t("noWallet")}</span>
         </div>
       ) : bid.address ? (
         <div
@@ -342,7 +342,7 @@ export function CollectionListingBidCheckout({
               className="cd-listing-checkout__wallet-balance tkl-mono"
               id="tkb-bal"
             >
-              {bid.balanceUsdc.toLocaleString("en-US")} USDC
+              {formatUsdcAmount(bid.balanceUsdc)}
             </span>
           ) : null}
         </div>
@@ -365,7 +365,7 @@ export function CollectionListingBidCheckout({
       </TkButton>
 
       <p className="cd-listing-checkout__fine tkl-mono" id="tkb-foot">
-        No bid fee.
+        {t("noBidFee")}
       </p>
     </div>
   );

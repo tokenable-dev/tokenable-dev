@@ -1,24 +1,25 @@
 import type { SendTransactionModalUIOptions } from "@privy-io/react-auth";
 import { formatUnits } from "viem";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 function wholeUsdcLabel(amountMicros: bigint): string {
   const n = Number(formatUnits(amountMicros, 6));
   if (!Number.isFinite(n)) return formatUnits(amountMicros, 6);
-  return Math.round(n).toLocaleString("en-US");
+  return formatUsdcAmount(n);
 }
 
 export function redeemUsdcFeePrivyUi(amountMicros: bigint): SendTransactionModalUIOptions {
   const usdc = wholeUsdcLabel(amountMicros);
   return {
-    description: `Redeem fee: ${usdc} USDC to Tokenable (plus network gas in ETH).`,
+    description: `Redeem fee: ${usdc} to Tokenable (plus network gas in ETH).`,
     buttonText: "Pay redeem fee",
     transactionInfo: {
       title: "Details",
-      action: `Send ${usdc} USDC`,
+      action: `Send ${usdc}`,
       contractInfo: { name: "USDC" },
     },
     successHeader: "Payment complete",
-    successDescription: `You paid ${usdc} USDC for this redeem. Open Details for the ETH network fee.`,
+    successDescription: `You paid ${usdc} for this redeem. Open Details for the ETH network fee.`,
   };
 }
 
@@ -59,13 +60,13 @@ export function sellSeaportMatchPrivyUi(): SendTransactionModalUIOptions {
 /** Seaport fulfillOrder during Buy now (embedded wallet). */
 export function buyFulfillAskPrivyUi(priceUsdc: string): SendTransactionModalUIOptions {
   const n = Number(priceUsdc);
-  const label = Number.isFinite(n) ? Math.round(n).toLocaleString("en-US") : priceUsdc;
+  const label = Number.isFinite(n) ? formatUsdcAmount(n) : priceUsdc;
   return {
-    description: `Pay $${label} USDC for this card (plus network gas in ETH).`,
+    description: `Pay ${label} for this card (plus network gas in ETH).`,
     buttonText: "Confirm purchase",
     transactionInfo: {
       title: "Details",
-      action: `Buy for $${label} USDC`,
+      action: `Buy for ${label}`,
       contractInfo: { name: "Seaport" },
     },
     successHeader: "Purchase complete",

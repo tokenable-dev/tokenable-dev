@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
   COLLECTION_ORDER_BOOK_SCROLL_CLASS,
@@ -35,13 +36,14 @@ function TradesColumnHeader({
   gridClass: string;
   collectionDetail?: boolean;
 }) {
+  const t = useTranslations("OrderBook");
   if (collectionDetail) {
     return (
       <div className="cd-ob-trades-hdr shrink-0">
-        <span>Price</span>
-        <span>Side</span>
-        <span>Source</span>
-        <span>Date</span>
+        <span>{t("price")}</span>
+        <span>{t("side")}</span>
+        <span>{t("source")}</span>
+        <span>{t("date")}</span>
       </div>
     );
   }
@@ -53,10 +55,10 @@ function TradesColumnHeader({
       <div
         className={`${ORDER_BOOK_TRADES_FOUR_COL_GRID} shrink-0 bg-zinc-950/50 py-1 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookTradesFlushHeaderCls} ${TRADES_TAPE_FLUSH_HEADER_CLASS}`}
       >
-        <span className={orderBookTradesPriceHeaderColCls}>Price</span>
-        <span className={orderBookTradesSideColCls}>Side</span>
-        <span className={orderBookTradesSourceHeaderColCls}>Source</span>
-        <span className={orderBookTradesTimeHeaderColCls}>Time</span>
+        <span className={orderBookTradesPriceHeaderColCls}>{t("price")}</span>
+        <span className={orderBookTradesSideColCls}>{t("side")}</span>
+        <span className={orderBookTradesSourceHeaderColCls}>{t("source")}</span>
+        <span className={orderBookTradesTimeHeaderColCls}>{t("time")}</span>
       </div>
     );
   }
@@ -65,11 +67,11 @@ function TradesColumnHeader({
     <div
       className={`${gridClass} shrink-0 px-2.5 py-1.5 sm:px-3 ${headerCls}`}
     >
-      <span className={orderBookTradesPriceHeaderColCls}>Price</span>
-      <span className={orderBookColMidCls}>Side</span>
-      <span className={orderBookTradesSourceHeaderColCls}>Source</span>
-      <span className={orderBookColEndCls}>Token</span>
-      <span className={orderBookTradesTimeHeaderColCls}>Time</span>
+      <span className={orderBookTradesPriceHeaderColCls}>{t("price")}</span>
+      <span className={orderBookColMidCls}>{t("side")}</span>
+      <span className={orderBookTradesSourceHeaderColCls}>{t("source")}</span>
+      <span className={orderBookColEndCls}>{t("token")}</span>
+      <span className={orderBookTradesTimeHeaderColCls}>{t("time")}</span>
     </div>
   );
 }
@@ -93,6 +95,7 @@ export function OrderBookTradesTab({
   collectionDetail?: boolean;
   emptyLabel?: string;
 }) {
+  const t = useTranslations("OrderBook");
   const gridClass = flush ? ORDER_BOOK_TRADES_FOUR_COL_GRID : TRADES_GRID_LEGACY;
   const rowValueCls = orderBookTradesContentValueCls;
   const rootClass = flush
@@ -151,7 +154,7 @@ export function OrderBookTradesTab({
 
       {tapeLoading && !hasRows ? (
         <div className={`${emptyClass} px-3`}>
-          <span className={`${rowValueCls} text-zinc-500`}>Loading trades…</span>
+          <span className={`${rowValueCls} text-zinc-500`}>{t("loadingTrades")}</span>
         </div>
       ) : !hasRows ? (
         <div className={emptyClass}>

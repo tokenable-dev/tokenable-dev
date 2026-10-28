@@ -87,19 +87,47 @@ export function formatUnreadBadgeCount(count: number): string {
  * Relative time for the notifications drawer — parity with tk-notifications.js
  * (`Just now`, `2 min ago`, `1 hour ago`, `Yesterday`, …).
  */
-export function formatNotificationTime(iso: string, nowMs = Date.now()): string {
+export type NotificationTimeCopy = {
+  justNow: string;
+  minAgoOne: string;
+  minAgo: (count: number) => string;
+  hourAgoOne: string;
+  hourAgo: (count: number) => string;
+  yesterday: string;
+  daysAgo: (count: number) => string;
+  weekAgoOne: string;
+  weeksAgo: (count: number) => string;
+};
+
+const EN_NOTIFICATION_TIME: NotificationTimeCopy = {
+  justNow: "Just now",
+  minAgoOne: "1 min ago",
+  minAgo: (count) => `${count} min ago`,
+  hourAgoOne: "1 hour ago",
+  hourAgo: (count) => `${count} hours ago`,
+  yesterday: "Yesterday",
+  daysAgo: (count) => `${count} days ago`,
+  weekAgoOne: "1 week ago",
+  weeksAgo: (count) => `${count} weeks ago`,
+};
+
+export function formatNotificationTime(
+  iso: string,
+  nowMs = Date.now(),
+  copy: NotificationTimeCopy = EN_NOTIFICATION_TIME,
+): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
   const sec = Math.max(0, Math.floor((nowMs - t) / 1000));
-  if (sec < 60) return "Just now";
+  if (sec < 60) return copy.justNow;
   const min = Math.floor(sec / 60);
-  if (min < 60) return min === 1 ? "1 min ago" : `${min} min ago`;
+  if (min < 60) return min === 1 ? copy.minAgoOne : copy.minAgo(min);
   const hr = Math.floor(min / 60);
-  if (hr < 24) return hr === 1 ? "1 hour ago" : `${hr} hours ago`;
+  if (hr < 24) return hr === 1 ? copy.hourAgoOne : copy.hourAgo(hr);
   const day = Math.floor(hr / 24);
-  if (day === 1) return "Yesterday";
-  if (day < 7) return `${day} days ago`;
-  if (day < 14) return "1 week ago";
-  if (day < 30) return `${Math.floor(day / 7)} weeks ago`;
+  if (day === 1) return copy.yesterday;
+  if (day < 7) return copy.daysAgo(day);
+  if (day < 14) return copy.weekAgoOne;
+  if (day < 30) return copy.weeksAgo(Math.floor(day / 7));
   return new Date(t).toLocaleDateString();
 }

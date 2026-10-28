@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import { getRedeemEstimate } from "@/lib/core/api/rwa-redeem";
 import { composeShipToPhone } from "@/lib/shipping/shipToValidation";
@@ -12,23 +13,27 @@ import type {
 } from "@/lib/portfolio/redeemDraft";
 import type { RedeemPayPhase } from "@/hooks/portfolio/useRedeemFlow";
 import { useAppChain } from "@/providers/AppChainProvider";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { useAppStore } from "@/store";
 import { RedeemCostBreakdown } from "./RedeemCostBreakdown";
 
-function busyLabel(phase: RedeemPayPhase): string {
+function busyLabel(
+  phase: RedeemPayPhase,
+  t: ReturnType<typeof useTranslations<"Portfolio">>,
+): string {
   switch (phase?.kind) {
     case "quote":
-      return "Confirming final cost…";
+      return t("confirmingCost");
     case "pay":
-      return "Confirm the USDC payment in your wallet…";
+      return t("confirmPay");
     case "record":
-      return "Recording your payment…";
+      return t("recording");
     case "custody":
       return phase.total > 1
-        ? `Transferring card ${phase.current} of ${phase.total} — confirm in wallet…`
-        : "Transferring your card — confirm in wallet…";
+        ? t("transferringMany", { current: phase.current, total: phase.total })
+        : t("transferring");
     default:
-      return "Working…";
+      return t("working");
   }
 }
 
@@ -57,6 +62,8 @@ export function RedeemPayPanel({
   custodyPending?: boolean;
   onResumeCustody?: () => void;
 }) {
+  const t = useTranslations("Portfolio");
+  const ui = useTranslations("RedeemUi");
   const { chainId } = useAppChain();
   const usdcBalanceFormatted = useAppStore((s) => s.usdcBalanceFormatted);
   const tokenIds = cards.map((c) => c.tokenId);
@@ -106,17 +113,14 @@ export function RedeemPayPanel({
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-eyebrow">Redeem · Step 2 of 2</div>
+      <div className="pf-redeem-eyebrow">{ui("step2")}</div>
       <h1
         className={`pf-redeem-h1${custodyPending ? "" : " pf-redeem-h1--review"}`}
       >
-        {custodyPending ? "Finish RWA transfer" : "Review"}
+        {custodyPending ? ui("finishTransferTitle") : ui("review")}
       </h1>
       {custodyPending ? (
-        <p className="pf-redeem-sub">
-          Your USDC payment is already recorded. Confirm each RWA transfer into
-          Tokenable custody to continue — do not pay again.
-        </p>
+        <p className="pf-redeem-sub">{ui("finishTransferSub")}</p>
       ) : null}
 
       {!custodyPending ? (
@@ -131,17 +135,16 @@ export function RedeemPayPanel({
         </div>
       ) : (
         <div className="pf-redeem-cost">
-          <div className="pf-redeem-cost__title">Payment status</div>
+          <div className="pf-redeem-cost__title">{ui("paymentStatus")}</div>
           <p className="pf-redeem-cost__copy" style={{ marginTop: 0 }}>
-            Paid — waiting for RWA custody transfers. You can leave and return
-            later; we&rsquo;ll pick up where you left off.
+            {ui("paidWaiting")}
           </p>
         </div>
       )}
 
       <div className="pf-redeem-shipto pf-redeem-shipto--row">
         <div>
-          <div className="pf-redeem-cost__title">Ship to</div>
+          <div className="pf-redeem-cost__title">{ui("shipTo")}</div>
           <p className="pf-redeem-shipto__body">
             {form.name}
             <br />
@@ -166,7 +169,7 @@ export function RedeemPayPanel({
             onClick={onEditAddress}
             disabled={busy}
           >
-            Edit
+            {ui("edit")}
           </TkButton>
         ) : null}
       </div>
@@ -186,12 +189,9 @@ export function RedeemPayPanel({
             disabled={busy || cards.length === 0}
             onClick={() => (onResumeCustody ? onResumeCustody() : onPay())}
           >
-            {busy ? busyLabel(payPhase) : "Finish RWA transfers"}
+            {busy ? busyLabel(payPhase, t) : t("finishTransfers")}
           </TkButton>
-          <p className="pf-redeem-hint-below">
-            Your wallet will ask you to transfer each remaining card into
-            custody. No additional USDC is charged.
-          </p>
+          <p className="pf-redeem-hint-below">{ui("custodyHint")}</p>
         </>
       ) : (
         <>
@@ -204,17 +204,17 @@ export function RedeemPayPanel({
             }
             onClick={onPay}
           >
-            {busy ? busyLabel(payPhase) : "Pay"}
+            {busy ? busyLabel(payPhase, t) : t("pay")}
           </TkButton>
           <p className="pf-redeem-hint-below">
-            Account balance{" "}
+            {ui("balanceLead")}{" "}
             <span className="tkl-mono pf-redeem-paybox__bal">
               {Number.isFinite(Number(usdcBalanceFormatted))
-                ? Math.round(Number(usdcBalanceFormatted)).toLocaleString("en-US")
-                : "—"}{" "}
-              USDC
+                ? formatUsdcAmount(Number(usdcBalanceFormatted))
+                : "—"}
             </span>
-            · charged as a USDC transfer to the Tokenable fee wallet.
+            {" · "}
+            {ui("balanceTail")}
           </p>
         </>
       )}

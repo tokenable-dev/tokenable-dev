@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds/Button";
 import { ASSETS } from "@/constants/assets";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
@@ -14,12 +15,13 @@ const PARTNER_LOGOS = [
 ] as const;
 
 export function HomePartners() {
+  const t = useTranslations("Home");
   const navigate = useHeaderNavGate();
 
   return (
     <section className="tkl-wrap home-partners-section">
       <div className="home-partners__row">
-        <span className="home-partners__label">Data and information sources</span>
+        <span className="home-partners__label">{t("sources")}</span>
         <div className="home-partners__logos">
           {PARTNER_LOGOS.map((logo) => (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -36,11 +38,9 @@ export function HomePartners() {
       <div className="home-partners__cta notch">
         <div className="home-partners__cta-glow" aria-hidden />
         <div className="home-partners__cta-copy">
-          <span className="home-partners__cta-eyebrow">Get started</span>
-          <h2 className="home-partners__cta-title">Vault it. Trade it.</h2>
-          <p className="home-partners__cta-sub">
-            The safest and fastest way to trade collectibles.
-          </p>
+          <span className="home-partners__cta-eyebrow">{t("getStarted")}</span>
+          <h2 className="home-partners__cta-title">{t("vaultTrade")}</h2>
+          <p className="home-partners__cta-sub">{t("vaultTradeCopy")}</p>
         </div>
         <div className="home-partners__cta-actions">
           <TkButton
@@ -49,7 +49,7 @@ export function HomePartners() {
             className="home-partners__cta-btn"
             onClick={() => navigate("/vault", 0)}
           >
-            Start selling
+            {t("startSelling")}
           </TkButton>
         </div>
       </div>

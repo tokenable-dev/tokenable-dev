@@ -30,6 +30,15 @@ export class AuthSessionUserDto {
   @ApiPropertyOptional()
   emailNotificationsEnabled?: boolean;
 
+  @ApiPropertyOptional({ nullable: true, description: 'Saved UI language. Phase 1: en or null.' })
+  preferredLocale?: string | null;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description: 'Saved display currency for USD reference prices. Not a settlement currency.',
+  })
+  preferredCurrency?: string | null;
+
   @ApiPropertyOptional({
     description: 'Email category prefs: trades, bids, price, vault, listing, market',
   })

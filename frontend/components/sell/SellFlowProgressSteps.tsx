@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 /** PSA-Shipping.html step rail: Submit → Ship → PSA → Live */
 export type SellProgressPhase = "submit" | "ship" | "psa" | "live";
@@ -51,14 +52,15 @@ export function SellFlowProgressSteps({
   onShip,
   onLive,
 }: Props) {
+  const t = useTranslations("Sell");
   return (
-    <div className="psa-ship-steps" role="list" aria-label="Progress">
+    <div className="psa-ship-steps" role="list" aria-label={t("progress")}>
       <div className="psa-ship-step" role="listitem">
         <StepButton onClick={onSubmit && canGoSubmit ? onSubmit : undefined}>
           <div className="psa-ship-step__circle psa-ship-step__circle--done">
             <Check />
           </div>
-          <div className="psa-ship-step__label psa-ship-step__label--done">Submit</div>
+          <div className="psa-ship-step__label psa-ship-step__label--done">{t("submit")}</div>
         </StepButton>
       </div>
       <div className="psa-ship-step__line psa-ship-step__line--done" aria-hidden />
@@ -67,7 +69,7 @@ export function SellFlowProgressSteps({
           <div className="psa-ship-step__circle psa-ship-step__circle--active">
             <span className="psa-ship-step__spin" />
           </div>
-          <div className="psa-ship-step__label">Ship</div>
+          <div className="psa-ship-step__label">{t("ship")}</div>
           {shipSublabel ? <div className="psa-ship-step__sub">{shipSublabel}</div> : null}
         </StepButton>
       </div>
@@ -76,7 +78,7 @@ export function SellFlowProgressSteps({
         <div className="psa-ship-step__circle psa-ship-step__circle--idle">
           <span className="psa-ship-step__dot" />
         </div>
-        <div className="psa-ship-step__label psa-ship-step__label--idle">PSA</div>
+        <div className="psa-ship-step__label psa-ship-step__label--idle">{t("psa")}</div>
       </div>
       <div className="psa-ship-step__line" aria-hidden />
       <div className="psa-ship-step" role="listitem">
@@ -84,7 +86,7 @@ export function SellFlowProgressSteps({
           <div className="psa-ship-step__circle psa-ship-step__circle--idle">
             <span className="psa-ship-step__dot" />
           </div>
-          <div className="psa-ship-step__label psa-ship-step__label--idle">Live</div>
+          <div className="psa-ship-step__label psa-ship-step__label--idle">{t("live")}</div>
         </StepButton>
       </div>
     </div>

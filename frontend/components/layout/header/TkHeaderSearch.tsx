@@ -11,6 +11,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { TkSearchField } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type {
@@ -48,7 +50,6 @@ import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailCom
 import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 
-const SEARCH_PLACEHOLDER = "Search cards by name";
 
 /**
  * Mobile / overlay typeahead fetch size. The scroll viewport shows ~5 rows;
@@ -207,10 +208,12 @@ export function SearchResultsList({
   coverUrlMap: Map<string, string>;
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
 }) {
+  const t = useTranslations("Search");
+  useCatalogNameRevision();
   if (hits.length === 0) {
     return (
       <div className="gnb-search-overlay__empty">
-        <p>{isSearching ? "Searching…" : "No cards or collections found"}</p>
+        <p>{isSearching ? t("searching") : t("empty")}</p>
       </div>
     );
   }
@@ -329,6 +332,7 @@ export function TkHeaderSearch({
   /** Mobile viewport, or desktop when the 420px bar no longer fits. */
   overlayMode?: boolean;
 }) {
+  const tSearch = useTranslations("Search");
   const gnbMobile = useGnbMobile();
   const useOverlay = overlayMode ?? gnbMobile;
   const [desktopOpen, setDesktopOpen] = useState(false);
@@ -550,7 +554,7 @@ export function TkHeaderSearch({
             className={cn("gnb-search-overlay", mobileOverlayOpen && "open")}
             role="dialog"
             aria-modal
-            aria-label="Search collections"
+            aria-label={tSearch("ariaCollections")}
           >
             <div className="gnb-search-overlay__bar">
               <span className="gnb-search-overlay__bar-icon" aria-hidden>
@@ -569,7 +573,7 @@ export function TkHeaderSearch({
                   onChange={(e) => setQuery(e.target.value)}
                   onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder={SEARCH_PLACEHOLDER}
+                  placeholder={tSearch("header")}
                   autoComplete="off"
                   autoCorrect="off"
                   spellCheck={false}
@@ -594,7 +598,7 @@ export function TkHeaderSearch({
               {!query.trim() ? (
                 <div className="gnb-search-overlay__empty">
                   <p>Find a collection</p>
-                  <p>Search by card name, set, player, or cert.</p>
+                  <p>{tSearch("prompt")}</p>
                 </div>
               ) : (
                 <>
@@ -646,7 +650,7 @@ export function TkHeaderSearch({
             onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
             onFocus={() => setDesktopOpen(true)}
             onKeyDown={handleKeyDown}
-            placeholder={SEARCH_PLACEHOLDER}
+            placeholder={tSearch("header")}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
@@ -693,12 +697,13 @@ export function TkHeaderSearchMobileButton({
   onClick: () => void;
   className?: string;
 }) {
+  const tSearch = useTranslations("Search");
   return (
     <button
       type="button"
       className={cn("gnb-search-mobile", className)}
       onClick={onClick}
-      aria-label="Search collections"
+      aria-label={tSearch("ariaCollections")}
     >
       <SearchIcon />
     </button>

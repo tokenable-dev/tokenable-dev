@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ASSETS } from "@/constants/assets";
 
 const APPLE = "\uF8FF";
@@ -120,6 +121,7 @@ function tokens(): Tok[] {
 
 /** index.html `.pay-sec` — conveyor + checkout phone (design system-23). */
 export function HomePaySection() {
+  const t = useTranslations("HomePay");
   const loop = tokens();
   const belt = [...loop, ...loop];
 
@@ -141,25 +143,22 @@ export function HomePaySection() {
         <div className="home-pay__grid">
           <div className="home-pay__copy">
             <h2 id="home-pay-title" className="tkl-sec-title">
-              Pay and get paid,
+              {t("title1")}
               <br />
-              however you like.
+              {t("title2")}
             </h2>
-            <p className="tkl-sec-sub home-pay__sub">
-              Card, bank, Apple & Google Pay, or crypto. It all pays into your Tokenable
-              balance in USD.
-            </p>
+            <p className="tkl-sec-sub home-pay__sub">{t("copy")}</p>
             <div className="home-pay__chips">
-              <span className="home-pay__chip">Card</span>
-              <span className="home-pay__chip">Apple / Google Pay</span>
+              <span className="home-pay__chip">{t("card")}</span>
+              <span className="home-pay__chip">{t("apple")}</span>
               <span className="home-pay__chip-break home-pay__chip-break--after-apple" aria-hidden />
-              <span className="home-pay__chip">Bank</span>
-              <span className="home-pay__chip">Crypto</span>
+              <span className="home-pay__chip">{t("bank")}</span>
+              <span className="home-pay__chip">{t("crypto")}</span>
               <span className="home-pay__chip-break home-pay__chip-break--before-usd" aria-hidden />
-              <span className="home-pay__chip home-pay__chip--pos">USD balance</span>
+              <span className="home-pay__chip home-pay__chip--pos">{t("usdBalance")}</span>
             </div>
             <Link href="/markets" className="tk-btn tk-btn--primary home-pay__cta">
-              Start trading
+              {t("start")}
             </Link>
           </div>
 
@@ -169,7 +168,7 @@ export function HomePaySection() {
               <div className="home-pay__bezel">
                 <div className="home-pay__screen">
                   <div className="home-pay__checkout">
-                    <div className="home-pay__checkout-title">Checkout</div>
+                    <div className="home-pay__checkout-title">{t("checkout")}</div>
                     <div className="home-pay__item">
                       <div className="home-pay__item-thumb">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -177,15 +176,15 @@ export function HomePaySection() {
                       </div>
                       <div className="home-pay__item-copy">
                         <div className="home-pay__item-name">Charizard ex</div>
-                        <div className="home-pay__item-meta tkl-mono">PSA 10 vaulted</div>
+                        <div className="home-pay__item-meta tkl-mono">{t("vaulted")}</div>
                       </div>
                       <div className="home-pay__item-price tkl-mono">$9,000</div>
                     </div>
-                    <div className="home-pay__paywith tkl-mono">Pay with</div>
+                    <div className="home-pay__paywith tkl-mono">{t("payWith")}</div>
                     <div className="home-pay__methods">
                       <div className="home-pay__method home-pay__method--on">
                         <span className="home-pay__method-ic home-pay__method-ic--apple">{APPLE}</span>
-                        <span className="home-pay__method-lbl">Apple Pay</span>
+                        <span className="home-pay__method-lbl">{t("applePay")}</span>
                         <span className="home-pay__radio home-pay__radio--on" aria-hidden>
                           <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round">
                             <polyline points="20 6 9 17 4 12" />
@@ -194,21 +193,21 @@ export function HomePaySection() {
                       </div>
                       <div className="home-pay__method">
                         <span className="home-pay__method-ic home-pay__method-ic--visa">VISA</span>
-                        <span className="home-pay__method-lbl">Card •••• 4242</span>
+                        <span className="home-pay__method-lbl">{t("cardMask")}</span>
                         <span className="home-pay__radio" aria-hidden />
                       </div>
                       <div className="home-pay__method">
                         <span className="home-pay__method-ic home-pay__method-ic--usdc">$</span>
-                        <span className="home-pay__method-lbl">USDC balance</span>
+                        <span className="home-pay__method-lbl">{t("usdcBalance")}</span>
                         <span className="home-pay__radio" aria-hidden />
                       </div>
                     </div>
                     <div className="home-pay__foot">
                       <div className="home-pay__total">
-                        <span className="tkl-mono">Total</span>
+                        <span className="tkl-mono">{t("total")}</span>
                         <span className="home-pay__total-n">$9,000</span>
                       </div>
-                      <span className="tk-btn tk-btn--primary home-pay__pay-btn">Pay</span>
+                      <span className="tk-btn tk-btn--primary home-pay__pay-btn">{t("pay")}</span>
                     </div>
                   </div>
                 </div>

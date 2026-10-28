@@ -1,38 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { TkButton, TkDialog } from "@/components/ds";
 
 type VaultChoice = "psa" | "self";
-
-const STEPS = [
-  { n: "1", tone: "blue", text: "Ship your PSA and BGS 10s to our vault" },
-  { n: "2", tone: "blue", text: "We mint a token to your wallet" },
-  { n: "3", tone: "green", text: "List and sell your token" },
-] as const;
-
-const AGREEMENT = [
-  {
-    title: "1. What this covers",
-    body: "This agreement applies to every card you submit for vaulting with Tokenable, through PSA Vault or an approved partner vault.",
-  },
-  {
-    title: "2. Intake and verification",
-    body: "Cards sent to PSA Vault are checked against their PSA certification at intake. Cards that don't match, are damaged, or fall outside accepted grades may be rejected and returned.",
-  },
-  {
-    title: "3. Storage and insurance",
-    body: "Storage at PSA Vault is free. Cards stored at PSA Vault are insured for full replacement value. Approved partners hold their own cards and are responsible for them.",
-  },
-  {
-    title: "4. Ownership",
-    body: "You keep ownership of your card. A token is minted to your collection once the card is vaulted, and it moves only when you sell or transfer it.",
-  },
-  {
-    title: "5. Redeeming",
-    body: "You can request the physical card at any time. A per-card redemption fee and shipping apply, shown before you confirm.",
-  },
-] as const;
 
 type Props = {
   choice: VaultChoice;
@@ -52,17 +24,30 @@ export function SellFlowChooseVault({
   onContinue,
   partnerHold,
 }: Props) {
+  const t = useTranslations("Sell");
   const [agreed, setAgreed] = useState(false);
   const [agreementOpen, setAgreementOpen] = useState(false);
   const continueDisabled = !agreed || partnerHold != null;
+  const steps = [
+    { n: "1", tone: "blue", text: t("step1") },
+    { n: "2", tone: "blue", text: t("step2") },
+    { n: "3", tone: "green", text: t("step3") },
+  ];
+  const agreement = [
+    { id: "1", title: t("agree1Title"), body: t("agree1Body") },
+    { id: "2", title: t("agree2Title"), body: t("agree2Body") },
+    { id: "3", title: t("agree3Title"), body: t("agree3Body") },
+    { id: "4", title: t("agree4Title"), body: t("agree4Body") },
+    { id: "5", title: t("agree5Title"), body: t("agree5Body") },
+  ];
 
   return (
     <section className="sell-flow-screen sell-flow-choice">
       <div className="sell-flow-col sell-flow-col--choice">
-        <h1 className="sell-flow-choice__title">Sell your cards</h1>
+        <h1 className="sell-flow-choice__title">{t("title")}</h1>
 
         <ol className="sell-flow-choice__steps">
-          {STEPS.map((step) => (
+          {steps.map((step) => (
             <li key={step.n}>
               <span className={`sell-flow-choice__step-n sell-flow-choice__step-n--${step.tone}`}>
                 {step.n}
@@ -72,9 +57,9 @@ export function SellFlowChooseVault({
           ))}
         </ol>
 
-        <h2 className="sell-flow-choice__h2">Choose a vault</h2>
+        <h2 className="sell-flow-choice__h2">{t("chooseVault")}</h2>
 
-        <div className="sell-flow-vault-grid" role="listbox" aria-label="Vault">
+        <div className="sell-flow-vault-grid" role="listbox" aria-label={t("vaultAria")}>
           <button
             type="button"
             className={`sell-flow-vault-opt${choice === "psa" ? " sell-flow-vault-opt--sel" : ""}`}
@@ -88,7 +73,7 @@ export function SellFlowChooseVault({
                 <polyline points="9 12 11 14 15 10" />
               </svg>
             </span>
-            <div className="sell-flow-vault-opt__title">PSA Vault</div>
+            <div className="sell-flow-vault-opt__title">{t("psaVault")}</div>
             <div className="sell-flow-vault-opt__feats">
               <span className="sell-flow-vault-feat">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
@@ -96,7 +81,8 @@ export function SellFlowChooseVault({
                   <polyline points="12 7 12 12 15.5 14" />
                 </svg>
                 <span>
-                  <span className="sell-flow-vault-feat__em">15+</span> days to intake at PSA
+                  <span className="sell-flow-vault-feat__em">{t("psaIntakeLead")}</span>{" "}
+                  {t("psaIntakeRest")}
                 </span>
               </span>
             </div>
@@ -117,13 +103,13 @@ export function SellFlowChooseVault({
                 <path d="M7 4v16M17 4v16" />
               </svg>
             </span>
-            <div className="sell-flow-vault-opt__title">Approved Partners</div>
+            <div className="sell-flow-vault-opt__title">{t("partners")}</div>
             <div className="sell-flow-vault-opt__feats">
               <span className="sell-flow-vault-feat">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
                   <path d="M13 2 4 14h7l-1 8 9-12h-7z" />
                 </svg>
-                <span>Approved partners can instantly vault their own cards.</span>
+                <span>{t("partnersInstant")}</span>
               </span>
             </div>
             <span className="sell-flow-vault-opt__radio" aria-hidden />
@@ -132,16 +118,16 @@ export function SellFlowChooseVault({
 
         {partnerHold === "address" ? (
           <p className="sell-flow-vault-hint sell-flow-vault-hint--partner" role="alert">
-            Add your company vault address before using Approved Partners.{" "}
+            {t("needAddress")}{" "}
             <a className="sell-flow-link" href="/settings?section=addresses#partner-origin">
-              Open Settings → Addresses
+              {t("openAddresses")}
             </a>
             .
           </p>
         ) : null}
         {partnerHold === "not-partner" ? (
           <p className="sell-flow-vault-hint" role="status">
-            Approved Partners is available to appointed partners.
+            {t("partnersOnly")}
           </p>
         ) : null}
 
@@ -153,13 +139,13 @@ export function SellFlowChooseVault({
             onChange={(e) => setAgreed(e.target.checked)}
           />
           <span>
-            <label htmlFor="sell-vault-agree">I agree to the </label>
+            <label htmlFor="sell-vault-agree">{t("agree")} </label>
             <button
               type="button"
               className="sell-flow-link"
               onClick={() => setAgreementOpen(true)}
             >
-              Vaulting Agreement
+              {t("agreement")}
             </button>
           </span>
         </div>
@@ -171,7 +157,7 @@ export function SellFlowChooseVault({
             disabled={continueDisabled}
             onClick={onContinue}
           >
-            Continue
+            {t("continue")}
           </TkButton>
         </div>
       </div>
@@ -179,11 +165,11 @@ export function SellFlowChooseVault({
       <TkDialog
         open={agreementOpen}
         onClose={() => setAgreementOpen(false)}
-        title="Vaulting Agreement"
+        title={t("agreement")}
         className="sell-flow-agreement"
       >
-        {AGREEMENT.map((section) => (
-          <section key={section.title} className="sell-flow-agreement__section">
+        {agreement.map((section) => (
+          <section key={section.id} className="sell-flow-agreement__section">
             <h3 className="sell-flow-agreement__h">{section.title}</h3>
             <p className="sell-flow-agreement__p">{section.body}</p>
           </section>

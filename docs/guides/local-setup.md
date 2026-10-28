@@ -157,7 +157,7 @@ PRICECHARTING_API_TOKEN=your_pricecharting_token
 # Raw CSV archive. Uploads run only when NODE_ENV=production. Local does not write the bucket.
 # PRICECHARTING_S3_BUCKET=tokenable-pricecharting-raw
 # PRICECHARTING_S3_PREFIX=pricecharting/raw/
-# PRICECHARTING_GUIDE_CRON_ENABLED=false   # daily 10:00 KST guide refresh (default: prod only)
+# PRICECHARTING_GUIDE_CRON_ENABLED=false   # daily 04:00 KST guide refresh (default: prod only)
 
 # Cardhedger
 CARDHEDGER_API_KEY=your_cardhedger_key

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { TkButton } from "@/components/ds";
@@ -28,6 +29,7 @@ export function RedeemPreparingPanel({
   shipments?: RedeemShipmentView[];
 }) {
   const { chainId } = useAppChain();
+  const t = useTranslations("RedeemUi");
   const count = cards.length;
   const tokenIds = cards.map((c) => c.tokenId);
   const paidQuery = useQuery({
@@ -66,23 +68,24 @@ export function RedeemPreparingPanel({
 
   return (
     <div className="pf-redeem-panel">
-      <div className="pf-redeem-eyebrow">Redeem</div>
-      <h1 className="pf-redeem-h1">Preparing your cards</h1>
-      <p className="pf-redeem-sub pf-redeem-sub--prep">
-        Tokenable holds ownership until delivery. They can&rsquo;t be sold or
-        listed until they&rsquo;re delivered.
-      </p>
+      <div className="pf-redeem-eyebrow">{t("eyebrow")}</div>
+      <h1 className="pf-redeem-h1">{t("preparingTitle")}</h1>
+      <p className="pf-redeem-sub pf-redeem-sub--prep">{t("preparingSub")}</p>
 
       <div className="pf-redeem-shipment">
-        <div className="pf-redeem-shipment__title">Shipment progress</div>
+        <div className="pf-redeem-shipment__title">{t("shipmentProgress")}</div>
         {progressRows.map((sh) => (
           <div className="pf-redeem-prep-row" key={sh.shipmentKey}>
             <span>
-              Shipment {sh.idx} · {sh.vaultLabel} ({sh.cardCount || "—"} card
-              {(sh.cardCount || 0) === 1 ? "" : "s"})
+              {t("shipmentLine", {
+                index: sh.idx,
+                vault: sh.vaultLabel ? ` · ${sh.vaultLabel}` : "",
+                count: sh.cardCount || "—",
+                unit: (sh.cardCount || 0) === 1 ? t("cardOne") : t("cardMany"),
+              })}
             </span>
             <span className="pf-redeem-status-pill pf-redeem-status-pill--warn">
-              {sh.state === "on_the_way" ? "On the way" : "Preparing"}
+              {sh.state === "on_the_way" ? t("onTheWay") : t("preparing")}
             </span>
           </div>
         ))}
@@ -94,10 +97,10 @@ export function RedeemPreparingPanel({
           loading={paidQuery.isLoading}
           cardCount={count}
           embed
-          title="Paid"
-          totalLabel="Total paid"
+          title={t("paid")}
+          totalLabel={t("totalPaid")}
         />
-        <p className="pf-redeem-cost__copy">Charged at confirmation.</p>
+        <p className="pf-redeem-cost__copy">{t("charged")}</p>
       </div>
 
       <TkButton
@@ -106,16 +109,15 @@ export function RedeemPreparingPanel({
         className="pf-redeem-primary pf-redeem-cancel-btn"
         disabled
       >
-        Cancel
+        {t("cancel")}
       </TkButton>
       <p className="pf-redeem-hint-below pf-redeem-hint-below--prep">
-        Cancel until the courier is contacted. Refunded in full, and ownership
-        returns to your account.
+        {t("cancelHint")}
       </p>
 
       <Link href="/portfolio" className="pf-redeem-primary-link pf-redeem-primary-link--prep">
         <TkButton type="button" variant="primary" className="pf-redeem-primary">
-          Back to Collection
+          {t("backCollection")}
         </TkButton>
       </Link>
     </div>

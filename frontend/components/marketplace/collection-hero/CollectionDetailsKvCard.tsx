@@ -1,8 +1,40 @@
 "use client";
 
-import { type ReactNode } from "react";
 import Link from "next/link";
+import { type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import { marketCategoryMessageId } from "@/lib/market";
+import {
+  localizeCatalogPhrase,
+  localizeDisplayedCardName,
+  useCatalogNameRevision,
+} from "@/lib/marketplace/catalogNameTranslation";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
+
+const ROW_LABEL_KEY = {
+  character: "cardName",
+  category: "category",
+  series: "series",
+  set: "set",
+  "set-code": "setCode",
+  "card-number": "cardNumber",
+  variant: "variant",
+  year: "year",
+  grade: "grade",
+  grader: "grader",
+  language: "language",
+} as const;
+
+function localizeCatalogLanguage(
+  value: string,
+  t: ReturnType<typeof useTranslations<"CollectionDetail">>,
+): string {
+  if (/^english$/i.test(value)) return t("langEnglish");
+  if (/^japanese$/i.test(value)) return t("langJapanese");
+  if (/^korean$/i.test(value)) return t("langKorean");
+  if (/^chinese$/i.test(value)) return t("langChinese");
+  return value;
+}
 
 /** Card.html sidebar Details rows — same on mobile and desktop. */
 function DetailsBody({
@@ -18,6 +50,9 @@ function DetailsBody({
   rows: CollectionDetailCard[];
   footer?: ReactNode;
 }) {
+  const t = useTranslations("CollectionDetail");
+  const tMarkets = useTranslations("Markets");
+  useCatalogNameRevision();
   return (
     <article className="w-full min-w-0 bg-transparent px-0 py-0">
       <h2 className="sr-only">{title}</h2>
@@ -34,6 +69,24 @@ function DetailsBody({
         >
           {rows.map((row) => {
             const href = row.href?.trim() || null;
+            const categoryKey =
+              row.id === "category" ? marketCategoryMessageId(row.value) : null;
+            const catalogPhrase =
+              row.id === "series" ||
+              row.id === "set" ||
+              row.id === "variant" ||
+              row.id === "product" ||
+              (row.id === "category" && !categoryKey);
+            const value =
+              row.id === "language"
+                ? localizeCatalogLanguage(row.value, t)
+                : row.id === "character"
+                  ? localizeDisplayedCardName(row.value)
+                  : categoryKey
+                    ? tMarkets(categoryKey)
+                    : catalogPhrase
+                      ? localizeCatalogPhrase(row.value)
+                      : row.value;
             return (
               <div
                 key={row.id}
@@ -41,25 +94,25 @@ function DetailsBody({
                   row.id === "owner" ? " cd-details-kv__row--break" : ""
                 }`}
               >
-                <dt className="cd-details-kv__label">{row.label}</dt>
+                <dt className="cd-details-kv__label">
+                  {ROW_LABEL_KEY[row.id as keyof typeof ROW_LABEL_KEY]
+                    ? t(ROW_LABEL_KEY[row.id as keyof typeof ROW_LABEL_KEY])
+                    : row.label}
+                </dt>
                 <dd
                   className="cd-details-kv__value"
-                  title={
-                    row.suffix
-                      ? `${row.value} ${row.suffix}`
-                      : row.value
-                  }
+                  title={row.suffix ? `${value} ${row.suffix}` : value}
                 >
                   {href ? (
                     <Link
                       href={href}
                       className="cd-details-kv__attr-link"
-                      title={`Browse Markets for ${row.value}`}
+                      title={t("browseFor", { value })}
                     >
-                      <span className="cd-details-kv__attr-text">{row.value}</span>
+                      <span className="cd-details-kv__attr-text">{value}</span>
                     </Link>
                   ) : (
-                    <span className="cd-details-kv__attr-text">{row.value}</span>
+                    <span className="cd-details-kv__attr-text">{value}</span>
                   )}
                   {row.suffix ? (
                     <span className="cd-details-kv__suffix">{row.suffix}</span>

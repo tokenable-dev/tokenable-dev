@@ -215,6 +215,7 @@ export function buildCollectionDualPriceChartOption(input: {
   isMobileChart: boolean;
   compactTab: boolean;
   colorTheme?: "default" | "collection-detail";
+  locale?: string | null;
 }): EChartsOption {
   const {
     merged,
@@ -224,6 +225,7 @@ export function buildCollectionDualPriceChartOption(input: {
     isMobileChart,
     compactTab,
     colorTheme = "default",
+    locale = null,
   } = input;
 
   const isCardHtml = colorTheme === "collection-detail";
@@ -293,8 +295,8 @@ export function buildCollectionDualPriceChartOption(input: {
       : null;
   const roughTickDays = merged.fixedWindowDays ?? extentDaysCeil;
   const roughTick = isCardHtml
-    ? roughTickConfigCardHtml(roughTickDays ?? null)
-    : roughTickConfigByWindowDays(roughTickDays ?? null);
+    ? roughTickConfigCardHtml(roughTickDays ?? null, locale)
+    : roughTickConfigByWindowDays(roughTickDays ?? null, locale);
 
   const axisSpanDays =
     merged.tMax > merged.tMin ? (merged.tMax - merged.tMin) / CHART_DAY_SEC : 0;
@@ -419,6 +421,7 @@ export function buildCollectionDualPriceChartOption(input: {
                 Math.floor(value / 1000),
                 merged.tMin,
                 merged.tMax,
+                locale,
               ),
           },
         }
@@ -455,8 +458,8 @@ export function buildCollectionDualPriceChartOption(input: {
               : undefined,
             formatter: (value: number) => {
               const tSec = Math.floor(value / 1000);
-              if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec);
-              if (isYearView) return formatTickYearOrMonthLabel(tSec, merged.tMin);
+              if (!useCoarseTimeTicks) return formatTickShortMdYear(tSec, locale);
+              if (isYearView) return formatTickYearOrMonthLabel(tSec, merged.tMin, locale);
               return roughTick.formatter(tSec);
             },
           },
@@ -551,8 +554,8 @@ export function buildCollectionDualPriceChartOption(input: {
         const when =
           t != null
             ? isCardHtml
-              ? formatCardHtmlHoverWhen(t)
-              : formatHoverWhen(t)
+              ? formatCardHtmlHoverWhen(t, locale)
+              : formatHoverWhen(t, locale)
             : "";
         if (isCardHtml) {
           return [

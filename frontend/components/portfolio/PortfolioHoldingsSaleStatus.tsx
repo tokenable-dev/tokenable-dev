@@ -1,6 +1,9 @@
+"use client";
+
+import { useTranslations } from "next-intl";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   holdingsSaleKind,
-  holdingsSaleStatusLabel,
   type HoldingsSaleKind,
 } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
@@ -21,8 +24,17 @@ export function PortfolioHoldingsSaleStatus({
   redeemStatus: RedeemSurfaceBadge | null;
   listPriceUsd?: number | null;
 }) {
+  const t = useTranslations("Status");
   const kind = holdingsSaleKind(isListed, redeemStatus);
-  const label = holdingsSaleStatusLabel(kind, isListed ? listPriceUsd : null);
+  const price = isListed ? listPriceUsd : null;
+  const label =
+    kind === "listed"
+      ? price != null && Number.isFinite(price)
+        ? t("listedAt", { price: formatUsdcAmount(price) })
+        : t("listed")
+      : kind === "redeeming"
+        ? t("redeeming")
+        : t("notListed");
   return (
     <span className={`pf-sale-status ${KIND_CLASS[kind]}`}>{label}</span>
   );

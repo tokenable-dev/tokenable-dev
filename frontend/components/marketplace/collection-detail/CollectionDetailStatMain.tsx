@@ -1,6 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
+import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
+import { formatSplitHeroVolume } from "@/lib/market/tradesVolume";
 import { TkTag } from "@/components/ds";
 import {
   computeGemRatePct,
@@ -44,11 +48,22 @@ function formatChangeTag(pct: number): {
   };
 }
 
+const PERIOD_KEY = {
+  "7d": "period7d",
+  "30d": "period30d",
+  "90d": "period90d",
+  "180d": "period180d",
+  "1 yr": "period1y",
+  "1Y": "period1y",
+} as const;
+
 function periodChipLabel(
   period: ReferencePercentChangeResult | null | undefined,
+  t: ReturnType<typeof useTranslations<"CollectionDetail">>,
 ): string {
-  if (!period) return "1Y";
-  return formatReferenceChangePeriodShort(period);
+  const token = !period ? "1Y" : formatReferenceChangePeriodShort(period);
+  const key = PERIOD_KEY[token as keyof typeof PERIOD_KEY];
+  return key ? t(key) : token;
 }
 
 /** Strip segments already shown in `#hero-title` (name / number / grade). */
@@ -242,6 +257,15 @@ function HeroStatsCells({
 }
 
 function buildHeroStatCells(input: {
+  labels: {
+    mktCap: string;
+    vol1y: string;
+    volPlatform: string;
+    volExternal: string;
+    velocity: string;
+    pop: string;
+    gemRate: string;
+  };
   formatMarketCap: (n: number | null | undefined) => string;
   marketCapUsd: number | null;
   volumeDisplay: string;
@@ -250,18 +274,28 @@ function buildHeroStatCells(input: {
   gemRateLabel: string;
 }): HeroStatCell[] {
   return [
-    { label: "Mkt cap", value: input.formatMarketCap(input.marketCapUsd) },
-    { label: "Vol 1Yr", value: input.volumeDisplay },
-    { label: "Velocity", value: input.velocityDisplay },
-    { label: "Pop", value: input.popValue },
-    { label: "Gem rate", value: input.gemRateLabel },
+    { label: input.labels.mktCap, value: input.formatMarketCap(input.marketCapUsd) },
+    { label: input.labels.vol1y, value: input.volumeDisplay },
+    { label: input.labels.velocity, value: input.velocityDisplay },
+    { label: input.labels.pop, value: input.popValue },
+    { label: input.labels.gemRate, value: input.gemRateLabel },
   ];
 }
 
 function resolveHeroStatCells(input: {
+  labels: {
+    mktCap: string;
+    vol1y: string;
+    volPlatform: string;
+    volExternal: string;
+    velocity: string;
+    pop: string;
+    gemRate: string;
+  };
   formatMarketCap: (n: number | null | undefined) => string;
   marketCapUsd: number | null;
-  tradeVolumeUsdc: number | null;
+  volume1yPlatformUsdc: number | null;
+  volume1yExternalUsd: number | null;
   tradeVolumeLoading: boolean;
   velocityPct?: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
@@ -285,12 +319,19 @@ function resolveHeroStatCells(input: {
       popMetrics.totalPsaPop ?? input.totalPopulation,
     ),
   );
+  const volumeKnown =
+    input.volume1yPlatformUsdc != null || input.volume1yExternalUsd != null;
   const volumeDisplay =
-    input.tradeVolumeLoading && input.tradeVolumeUsdc == null
+    input.tradeVolumeLoading && !volumeKnown
       ? "—"
-      : input.tradeVolumeUsdc == null
-        ? "—"
-        : formatUsdCompact(input.tradeVolumeUsdc);
+      : formatSplitHeroVolume({
+          platformUsdc: input.volume1yPlatformUsdc,
+          externalUsd: input.volume1yExternalUsd,
+          formatPlatform: formatUsdcAmount,
+          formatExternal: (n) => formatDisplayMoney(n),
+          platformLabel: input.labels.volPlatform,
+          externalLabel: input.labels.volExternal,
+        });
   const velocityDisplay =
     input.tradeVolumeLoading &&
     input.velocityPct == null &&
@@ -299,6 +340,7 @@ function resolveHeroStatCells(input: {
       : formatVelocityPercent(input.velocityPct);
   return buildHeroStatCells(
     {
+      labels: input.labels,
       formatMarketCap: input.formatMarketCap,
       marketCapUsd: input.marketCapUsd,
       volumeDisplay,
@@ -311,7 +353,8 @@ function resolveHeroStatCells(input: {
 
 /** Mobile chart stats — same keys as desktop, three per row. */
 export function CollectionHeroMdPanel({
-  tradeVolumeUsdc,
+  volume1yPlatformUsdc,
+  volume1yExternalUsd,
   tradeVolumeLoading,
   marketCapUsd,
   formatMarketCap,
@@ -319,7 +362,8 @@ export function CollectionHeroMdPanel({
   totalPopulation,
   velocityPct,
 }: {
-  tradeVolumeUsdc: number | null;
+  volume1yPlatformUsdc: number | null;
+  volume1yExternalUsd: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
   formatMarketCap: (n: number | null | undefined) => string;
@@ -327,10 +371,22 @@ export function CollectionHeroMdPanel({
   totalPopulation?: number | null;
   velocityPct?: number | null;
 }) {
+  const t = useTranslations("CollectionDetail");
+  useDisplayFx();
   const cells = resolveHeroStatCells({
+    labels: {
+      mktCap: t("mktCap"),
+      vol1y: t("vol1y"),
+      volPlatform: t("volPlatform"),
+      volExternal: t("volExternal"),
+      velocity: t("velocity"),
+      pop: t("pop"),
+      gemRate: t("gemRate"),
+    },
     formatMarketCap,
     marketCapUsd,
-    tradeVolumeUsdc,
+    volume1yPlatformUsdc,
+    volume1yExternalUsd,
     tradeVolumeLoading,
     velocityPct,
     psaPopulationMetrics,
@@ -367,7 +423,8 @@ export function CollectionDetailStatMain({
   changeLoading,
   changePeriod,
   gradeLabel = "PSA 10",
-  tradeVolumeUsdc,
+  volume1yPlatformUsdc,
+  volume1yExternalUsd,
   tradeVolumeLoading,
   marketCapUsd,
   formatMarketCap,
@@ -395,7 +452,8 @@ export function CollectionDetailStatMain({
   changeLoading: boolean;
   changePeriod?: ReferencePercentChangeResult | null;
   gradeLabel?: string;
-  tradeVolumeUsdc: number | null;
+  volume1yPlatformUsdc: number | null;
+  volume1yExternalUsd: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
   formatMarketCap: (n: number | null | undefined) => string;
@@ -405,13 +463,15 @@ export function CollectionDetailStatMain({
   omitUnavailableMarket?: boolean;
   embedInChart?: boolean;
 }) {
+  useDisplayFx();
+  const t = useTranslations("CollectionDetail");
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const coverSrc = imageUrl?.trim() || null;
   const title = headlineTitle?.trim() || null;
   const meta = headlineMeta?.trim() || null;
   const sealedEyebrow =
     omitUnavailableMarket && coverComp
-      ? sealedBoxHeroEyebrow(coverComp)
+      ? sealedBoxHeroEyebrow(coverComp).replaceAll("SEALED", t("sealed"))
       : null;
 
   const changeTag =
@@ -426,9 +486,19 @@ export function CollectionDetailStatMain({
   const statCells = omitUnavailableMarket
     ? []
     : resolveHeroStatCells({
+    labels: {
+      mktCap: t("mktCap"),
+      vol1y: t("vol1y"),
+      volPlatform: t("volPlatform"),
+      volExternal: t("volExternal"),
+      velocity: t("velocity"),
+      pop: t("pop"),
+      gemRate: t("gemRate"),
+    },
     formatMarketCap,
     marketCapUsd,
-    tradeVolumeUsdc,
+    volume1yPlatformUsdc,
+    volume1yExternalUsd,
     tradeVolumeLoading,
     velocityPct,
     psaPopulationMetrics,
@@ -450,9 +520,7 @@ export function CollectionDetailStatMain({
             className="cd-hero-bar__thumb-btn"
             id="hero-img"
             onClick={() => setLightboxOpen(true)}
-            aria-label={
-              omitUnavailableMarket ? "View box image" : "View card image"
-            }
+            aria-label={omitUnavailableMarket ? t("viewBox") : t("viewCard")}
           >
             <CollectionPsaSlabFrame
               imageUrl={coverSrc}
@@ -515,7 +583,7 @@ export function CollectionDetailStatMain({
             <div className="cd-hero-bar__metrics hero-actionsrow">
               <div className="cd-hero-bar__priceblock" id="hero-priceblock">
                 <div className="cd-hero-bar__lastlbl mono" id="hero-lastlbl">
-                  {omitUnavailableMarket ? "Market Value" : "Last Price"}
+                  {omitUnavailableMarket ? t("marketValue") : t("lastPrice")}
                 </div>
                 <div className="cd-hero-bar__price-row">
                   {priceLoading && priceUsd == null ? (
@@ -558,7 +626,7 @@ export function CollectionDetailStatMain({
                         {changeTag.arrow ? " " : null}
                         {changeTag.label}{" "}
                         <span className="cd-hero-bar__period">
-                          {periodChipLabel(changePeriod)}
+                          {periodChipLabel(changePeriod, t)}
                         </span>
                       </span>
                     ) : (
@@ -591,7 +659,7 @@ export function CollectionDetailStatMain({
       <RwaImageLightbox
         open={lightboxOpen}
         src={coverSrc}
-        alt="Collection cover"
+        alt={t("coverAlt")}
         onClose={() => setLightboxOpen(false)}
       />
     </div>

@@ -2,6 +2,7 @@
 
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   CollectionDetailLoadedView,
   CollectionDetailLoadingShell,
@@ -16,6 +17,7 @@ import { formatErrorDetails } from "@/lib/ui/page-state-catalog";
 import { usePageViewedEvent } from "@/hooks/analytics/usePageViewedEvent";
 
 function CollectionDetailPageContent() {
+  const t = useTranslations("CollectionDetail");
   usePageViewedEvent("collection_detail");
   const searchParams = useSearchParams();
   const detail = useCollectionDetailPage();
@@ -39,15 +41,15 @@ function CollectionDetailPageContent() {
       <CollectionDetailStateShell>
         <AppPageState
           kind="collection_not_created"
-          primaryAction={{ label: "Go to Portfolio", href: "/portfolio", variant: "primary" }}
+          primaryAction={{ label: t("pagePortfolio"), href: "/portfolio", variant: "primary" }}
           secondaryAction={
             listingTokenId
               ? {
-                  label: "List from Portfolio",
+                  label: t("pageList"),
                   href: `/portfolio?list=${listingTokenId}`,
                   variant: "neutral",
                 }
-              : { label: "Browse Markets", href: "/markets", variant: "neutral" }
+              : { label: t("pageMarkets"), href: "/markets", variant: "neutral" }
           }
         />
       </CollectionDetailStateShell>
@@ -61,7 +63,7 @@ function CollectionDetailPageContent() {
         <AppPageState
           kind="collection_load_failed"
           primaryAction={{
-            label: "Try again",
+            label: t("pageRetry"),
             onClick: () => detail.router.refresh(),
             variant: "primary",
           }}

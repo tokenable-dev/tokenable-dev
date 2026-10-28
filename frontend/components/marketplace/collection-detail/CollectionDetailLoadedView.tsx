@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { pickCollectionDetailDisplayImageUrl } from "@/lib/marketplace/collectionDisplayImage";
 import { readRememberedCollectionCoverImage } from "@/lib/marketplace/collectionCoverSession";
 import { COLLECTION_DETAIL_SHELL_CLASS } from "@/constants/layout";
@@ -43,6 +44,8 @@ import { sortActiveAsksLowestFirst } from "@/lib/seaport/criteria/collectionCrit
 import type { Order } from "@/lib/core";
 
 export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) {
+  const t = useTranslations("CollectionDetail");
+  const tNav = useTranslations("Nav");
   const {
     collectionKey,
     router,
@@ -458,8 +461,8 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
             role="status"
           >
             {collection.reviewStatus === "pending_review"
-              ? "This collection is under review and is not yet listed on Markets."
-              : "This collection was not approved for Markets."}
+              ? t("reviewPending")
+              : t("reviewRejected")}
           </div>
         ) : null}
           <CollectionOverviewBoard
@@ -477,7 +480,7 @@ export function CollectionDetailLoadedView(detail: CollectionDetailLoadedProps) 
           populationBadge={headline.collectionPopulationBadge ?? undefined}
           headlineTitleLayout
           hideDesktopTopBarHeadline
-          badgeLabel="Collection"
+          badgeLabel={tNav("collection")}
           imageUrl={collectionCoverUrl}
           coverComp={comp}
           coverDisplayLabel={collection.displayLabel}

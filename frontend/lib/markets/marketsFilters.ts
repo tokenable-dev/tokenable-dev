@@ -21,6 +21,7 @@ import { parseFiniteGradeScore } from "@/lib/market/psaGradePolicy";
 import { formatDetailExpansionSetName } from "@/lib/marketplace/cardDisplayName";
 import { resolveMarketsListingMarketUsd } from "@/lib/markets/marketsListingMarketPrice";
 import { collectionKeyLower } from "@/lib/markets/marketsCollectionSort";
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
 
 export type MarketsPriceFilterId =
   | "any"
@@ -92,11 +93,14 @@ export function marketsPriceChipLabel(min: string, max: string): string | undefi
   const a = min.trim();
   const b = max.trim();
   if (!a && !b) return undefined;
-  const preset = MARKETS_PRICE_PRESET_CHIPS.find((p) => p.min === a && p.max === b);
-  if (preset) return preset.chipLabel;
-  if (a && b) return `$${a}–$${b}`;
-  if (a) return `$${a}+`;
-  return `Under $${b}`;
+  const money = (raw: string) => {
+    const n = Number(raw.replace(/,/g, ""));
+    if (!Number.isFinite(n)) return raw;
+    return formatDisplayMoney(n);
+  };
+  if (a && b) return `${money(a)}–${money(b)}`;
+  if (a) return `${money(a)}+`;
+  return `Under ${money(b)}`;
 }
 
 export type MarketsVaultFilterId = "psa" | "partner";

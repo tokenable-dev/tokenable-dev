@@ -1,5 +1,9 @@
 import type { Response } from 'express';
 import type { ConfigService } from '@nestjs/config';
+import {
+  canonicalizeLocale,
+  isSupportedDisplayCurrency,
+} from '../fx/supported-currencies';
 import type { User } from '../user/entities/user.entity';
 import type { UserWallet } from '../user/entities/user-wallet.entity';
 
@@ -134,6 +138,13 @@ export function serializeAuthUser(
     marketingEmailsOptIn: user.marketingEmailsOptIn ?? false,
     emailNotificationsEnabled: user.emailNotificationsEnabled ?? true,
     emailNotifPrefs,
+    preferredLocale: user.preferredLocale
+      ? canonicalizeLocale(user.preferredLocale)
+      : null,
+    preferredCurrency:
+      user.preferredCurrency && isSupportedDisplayCurrency(user.preferredCurrency)
+        ? user.preferredCurrency
+        : null,
     walletAddress: primary?.walletAddress ?? user.walletAddress ?? null,
     walletLinkedAt: primary?.linkedAt
       ? new Date(primary.linkedAt).toISOString()

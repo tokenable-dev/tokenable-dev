@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 
 type SidebarTab = "details" | "psa";
 
@@ -42,6 +43,7 @@ export function CollectionHeroDetailsTabs({
   detailsPanel: ReactNode;
   psaPanel?: ReactNode;
 }) {
+  const t = useTranslations("CollectionDetail");
   const [tab, setTab] = useState<SidebarTab>("details");
   const showPsa = psaPanel != null;
 
@@ -50,19 +52,19 @@ export function CollectionHeroDetailsTabs({
       <div
         className="cd-ob-tabs relative flex w-full shrink-0 bg-transparent"
         role="tablist"
-        aria-label="Collection information"
+        aria-label={t("infoTabs")}
       >
         <div className="flex min-w-0 w-full flex-1">
           <SidebarTabButton
             id="details"
-            label="Details"
+            label={t("details")}
             active={tab === "details"}
             onSelect={setTab}
           />
           {showPsa ? (
             <SidebarTabButton
               id="psa"
-              label="Pop."
+              label={t("popTab")}
               active={tab === "psa"}
               onSelect={setTab}
             />

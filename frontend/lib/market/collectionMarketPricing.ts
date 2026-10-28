@@ -1,18 +1,20 @@
 import type { CollectionMarketStats, CollectionUsdPoint } from "@/lib/core";
+import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
 
 /** Shown when catalog / reference USD cannot be resolved (not a prose explanation). */
 export const NO_EXTERNAL_PRICE = "N/A";
 
-/** Whole dollars everywhere except PriceCharting (`$39.99` → `$40`). */
+/**
+ * Catalog / market reference USD. Converted for display with the latest ECB rate.
+ * Call `useDisplayFx()` in memoized components so a currency change rerenders them.
+ */
 export function formatUsdCompact(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatDisplayMoney(n);
 }
 
-/** On-platform ask, bid, or listed sale — whole dollars only. */
+/** On-platform ask, bid, or listed sale. This is the USDC payment, not a reference price. */
 export function formatUsdListing(n: number | null | undefined): string {
-  if (n == null || !Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatUsdcAmount(n);
 }
 
 /** Hero velocity — whole % (reference window change). */

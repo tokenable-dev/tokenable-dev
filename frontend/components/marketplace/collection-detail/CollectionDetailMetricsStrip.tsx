@@ -25,7 +25,8 @@ export function CollectionDetailMetricsStrip({
   changeLoading,
   changePeriod,
   gradeLabel,
-  tradeVolumeUsdc,
+  volume1yPlatformUsdc,
+  volume1yExternalUsd,
   velocityPct,
   tradeVolumeLoading,
   marketCapUsd,
@@ -47,7 +48,8 @@ export function CollectionDetailMetricsStrip({
   changeLoading: boolean;
   changePeriod?: ReferencePercentChangeResult | null;
   gradeLabel?: string | null;
-  tradeVolumeUsdc: number | null;
+  volume1yPlatformUsdc: number | null;
+  volume1yExternalUsd: number | null;
   velocityPct?: number | null;
   tradeVolumeLoading: boolean;
   marketCapUsd: number | null;
@@ -72,7 +74,8 @@ export function CollectionDetailMetricsStrip({
         changeLoading={changeLoading}
         changePeriod={changePeriod}
         gradeLabel={gradeLabel ?? "PSA 10"}
-        tradeVolumeUsdc={tradeVolumeUsdc}
+        volume1yPlatformUsdc={volume1yPlatformUsdc}
+        volume1yExternalUsd={volume1yExternalUsd}
         velocityPct={velocityPct}
         tradeVolumeLoading={tradeVolumeLoading}
         marketCapUsd={marketCapUsd}

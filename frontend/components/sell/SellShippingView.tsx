@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import { VaultAuthGate } from "@/components/vault/VaultAuthGate";
 import { useSellShipping } from "@/hooks/sell/useSellShipping";
@@ -14,21 +15,19 @@ const CARRIERS: { value: SellCarrier; label: string }[] = [
   { value: "dhl", label: "DHL" },
 ];
 
-const COUNTRIES: { value: string; label: string }[] = [
-  { value: "us", label: "United States" },
-  { value: "ca", label: "Canada" },
-  { value: "gb", label: "United Kingdom" },
-  { value: "de", label: "Germany" },
-  { value: "jp", label: "Japan" },
-  { value: "kr", label: "South Korea" },
-  { value: "intl", label: "Other" },
-];
+const COUNTRY_CODES = ["us", "ca", "gb", "de", "jp", "kr", "intl"] as const;
 
-const PACK_NOTES = [
-  "Put the packing slip inside the box. PSA uses it to match the card to your Tokenable account.",
-  "Sleeve the slab and pack it in a bubble mailer or sturdy box.",
-  "Ship with a tracked carrier.",
-];
+function countryLabel(code: string, locale: string, other: string) {
+  if (!code || code === "intl") return other;
+  try {
+    return (
+      new Intl.DisplayNames([locale], { type: "region" }).of(code.toUpperCase()) ??
+      other
+    );
+  } catch {
+    return other;
+  }
+}
 
 function CheckIcon() {
   return (
@@ -57,11 +56,9 @@ function CopyIcon() {
   );
 }
 
-function countryLabel(code: string) {
-  return COUNTRIES.find((c) => c.value === code)?.label ?? code;
-}
-
 function ReturnSummary({ addr }: { addr: SellReturnAddressDraft }) {
+  const t = useTranslations("Sell");
+  const locale = useLocale();
   const street = [addr.line1.trim(), addr.line2.trim()].filter(Boolean).join(", ");
   const place = [addr.city.trim(), addr.region.trim()].filter(Boolean).join(", ");
   return (
@@ -77,12 +74,16 @@ function ReturnSummary({ addr }: { addr: SellReturnAddressDraft }) {
           <span className="psa-ship-mono">{addr.postal.trim()}</span>
         </>
       ) : null}
-      {addr.country.trim() ? `, ${countryLabel(addr.country)}` : null}
+      {addr.country.trim()
+        ? `, ${countryLabel(addr.country, locale, t("countryOther"))}`
+        : null}
     </div>
   );
 }
 
 export function SellShippingView() {
+  const t = useTranslations("Sell");
+  const locale = useLocale();
   const ship = useSellShipping();
   const [returnOpen, setReturnOpen] = useState(false);
   const [trackingAdded, setTrackingAdded] = useState(false);
@@ -113,6 +114,11 @@ export function SellShippingView() {
   }
 
   const carrierLabel = CARRIERS.find((c) => c.value === ship.carrier)?.label ?? "FedEx";
+  const packNotes = [t("pack1"), t("pack2"), t("pack3")];
+  const countries = COUNTRY_CODES.map((value) => ({
+    value,
+    label: countryLabel(value, locale, t("countryOther")),
+  }));
   const trackingReady = ship.trackingNumber.trim().length > 0 && !ship.trackingErr;
   const doneDisabled = !trackingAdded || !ship.canConfirm || ship.confirming;
 
@@ -120,29 +126,29 @@ export function SellShippingView() {
     <VaultAuthGate>
       <div className="sell-flow-page">
         <section className="psa-ship">
-          <nav className="psa-ship-crumb" aria-label="Breadcrumb">
-            <Link href="/vault">Sell</Link>
+          <nav className="psa-ship-crumb" aria-label={t("shipping")}>
+            <Link href="/vault">{t("hubTitle")}</Link>
             <span className="psa-ship-crumb__sep">›</span>
             <button type="button" onClick={ship.backToCards}>
-              Submit Card
+              {t("submitCard")}
             </button>
             <span className="psa-ship-crumb__sep">›</span>
-            <span className="psa-ship-crumb__here">Shipping</span>
+            <span className="psa-ship-crumb__here">{t("shipping")}</span>
           </nav>
 
-          <h1 className="psa-ship__title">Ship to PSA</h1>
+          <h1 className="psa-ship__title">{t("shipTitle")}</h1>
           {ship.submissionPublicId ? (
             <div className="psa-ship__subid">
-              Submission <span className="psa-ship-mono">{ship.submissionPublicId}</span>
+              {t("submission")} <span className="psa-ship-mono">{ship.submissionPublicId}</span>
             </div>
           ) : (
-            <div className="psa-ship__subid">Submission</div>
+            <div className="psa-ship__subid">{t("submission")}</div>
           )}
 
           <SellFlowProgressSteps
             phase="ship"
             submitDone
-            shipSublabel={trackingAdded ? "In transit" : "Pending"}
+            shipSublabel={trackingAdded ? t("inTransit") : t("shipPending")}
             canGoSubmit={!ship.confirmed && !ship.isTrackingEdit}
             onSubmit={ship.backToCards}
           />
@@ -150,7 +156,7 @@ export function SellShippingView() {
           {ship.packageSyncError ? (
             <div className="psa-ship-sync" role="alert">
               <div>
-                <p className="psa-ship-sync__title">Couldn&rsquo;t save package</p>
+                <p className="psa-ship-sync__title">{t("couldntSave")}</p>
                 <p className="psa-ship-sync__copy">{ship.packageSyncError}</p>
               </div>
               <TkButton
@@ -160,17 +166,17 @@ export function SellShippingView() {
                 disabled={ship.packageSyncing}
                 onClick={ship.retryPackageSync}
               >
-                {ship.packageSyncing ? "Saving…" : "Retry save"}
+                {ship.packageSyncing ? t("saving") : t("retrySave")}
               </TkButton>
             </div>
           ) : null}
 
           <article className="psa-ship-card">
             <h2>
-              <span>1</span>Pack and ship
+              <span>1</span>{t("packAndShip")}
             </h2>
             <div className="psa-ship-addr">
-              <div className="psa-ship-addr__k">Ship to</div>
+              <div className="psa-ship-addr__k">{t("shipTo")}</div>
               <div className="psa-ship-addr__v">
                 TOKENABLE LIMITED (<span className="psa-ship-mono">107038975</span>)
                 <br />
@@ -180,7 +186,7 @@ export function SellShippingView() {
               </div>
             </div>
             <ul className="psa-ship-notes">
-              {PACK_NOTES.map((note) => (
+              {packNotes.map((note) => (
                 <li key={note}>
                   <CheckIcon />
                   <span>{note}</span>
@@ -190,23 +196,23 @@ export function SellShippingView() {
             <div className="psa-ship-actions">
               <button type="button" className="psa-ship-chip" onClick={ship.onDownloadSlip}>
                 <DownloadIcon />
-                {ship.slipDownloaded ? "Downloaded" : "Download packing slip"}
+                {ship.slipDownloaded ? t("downloaded") : t("downloadSlip")}
               </button>
               <button type="button" className="psa-ship-chip" onClick={ship.copyAddress}>
                 <CopyIcon />
-                {ship.addrCopied ? "Copied" : "Copy address"}
+                {ship.addrCopied ? t("copied") : t("copyAddress")}
               </button>
             </div>
           </article>
 
           <article className="psa-ship-card">
             <h2>
-              <span>2</span>Return address
+              <span>2</span>{t("returnAddress")}
             </h2>
             {returnOpen ? (
               <div className="psa-ship-return-form">
                 <label className="psa-ship-field">
-                  <span>Sender name</span>
+                  <span>{t("senderName")}</span>
                   <input
                     value={ship.returnAddress.name}
                     disabled={ship.confirmed}
@@ -215,7 +221,7 @@ export function SellShippingView() {
                   />
                 </label>
                 <label className="psa-ship-field">
-                  <span>Address line 1</span>
+                  <span>{t("line1")}</span>
                   <input
                     value={ship.returnAddress.line1}
                     disabled={ship.confirmed}
@@ -224,7 +230,7 @@ export function SellShippingView() {
                   />
                 </label>
                 <label className="psa-ship-field">
-                  <span>Address line 2 (optional)</span>
+                  <span>{t("line2")}</span>
                   <input
                     value={ship.returnAddress.line2}
                     disabled={ship.confirmed}
@@ -234,7 +240,7 @@ export function SellShippingView() {
                 </label>
                 <div className="psa-ship-field-row">
                   <label className="psa-ship-field">
-                    <span>City</span>
+                    <span>{t("city")}</span>
                     <input
                       value={ship.returnAddress.city}
                       disabled={ship.confirmed}
@@ -243,7 +249,7 @@ export function SellShippingView() {
                     />
                   </label>
                   <label className="psa-ship-field">
-                    <span>State / region</span>
+                    <span>{t("region")}</span>
                     <input
                       value={ship.returnAddress.region}
                       disabled={ship.confirmed}
@@ -254,7 +260,7 @@ export function SellShippingView() {
                 </div>
                 <div className="psa-ship-field-row">
                   <label className="psa-ship-field">
-                    <span>Postal code</span>
+                    <span>{t("postal")}</span>
                     <input
                       value={ship.returnAddress.postal}
                       disabled={ship.confirmed}
@@ -263,14 +269,14 @@ export function SellShippingView() {
                     />
                   </label>
                   <label className="psa-ship-field">
-                    <span>Country</span>
+                    <span>{t("country")}</span>
                     <select
                       value={ship.returnAddress.country}
                       disabled={ship.confirmed}
                       onChange={(e) => ship.setReturnAddressField("country", e.target.value)}
                     >
-                      <option value="">Select a country</option>
-                      {COUNTRIES.map((c) => (
+                      <option value="">{t("selectCountry")}</option>
+                      {countries.map((c) => (
                         <option key={c.value} value={c.value}>
                           {c.label}
                         </option>
@@ -279,7 +285,7 @@ export function SellShippingView() {
                   </label>
                 </div>
                 <label className="psa-ship-field">
-                  <span>Phone</span>
+                  <span>{t("phone")}</span>
                   <input
                     type="tel"
                     inputMode="numeric"
@@ -291,13 +297,13 @@ export function SellShippingView() {
                 </label>
                 {ship.returnTouched && !ship.returnComplete ? (
                   <p className="psa-ship-hint" role="alert">
-                    Fill in the return address so PSA can send the card back if intake fails.
+                    {t("fillReturn")}
                   </p>
                 ) : null}
                 <div className="psa-ship-return-form__actions">
                   {ship.returnComplete ? (
                     <button type="button" className="psa-ship-chip" onClick={() => setReturnOpen(false)}>
-                      Cancel
+                      {t("cancel")}
                     </button>
                   ) : null}
                   <button
@@ -308,7 +314,7 @@ export function SellShippingView() {
                       if (ship.returnComplete) setReturnOpen(false);
                     }}
                   >
-                    Save
+                    {t("save")}
                   </button>
                 </div>
               </div>
@@ -316,22 +322,22 @@ export function SellShippingView() {
               <div className="psa-ship-return">
                 <ReturnSummary addr={ship.returnAddress} />
                 <button type="button" className="psa-ship-link" disabled={ship.confirmed} onClick={() => setReturnOpen(true)}>
-                  Change
+                  {t("change")}
                 </button>
               </div>
             )}
-            <p className="psa-ship-note">PSA sends the card here if it can&rsquo;t be vaulted.</p>
+            <p className="psa-ship-note">{t("returnNote")}</p>
           </article>
 
           <article className="psa-ship-card">
             <h2>
-              <span>3</span>Add tracking
+              <span>3</span>{t("addTracking")}
             </h2>
             {trackingAdded ? (
               <div className="psa-ship-track-done">
                 <CheckIcon />
                 <div>
-                  In transit · {carrierLabel}{" "}
+                  {t("inTransit")} · {carrierLabel}{" "}
                   <span className="psa-ship-mono psa-ship-track-done__num">
                     {ship.trackingPreview}
                   </span>
@@ -342,12 +348,12 @@ export function SellShippingView() {
                   disabled={ship.confirmed || ship.confirming}
                   onClick={() => setTrackingAdded(false)}
                 >
-                  Edit
+                  {t("edit")}
                 </button>
               </div>
             ) : (
               <div>
-                <div className="psa-ship-carriers" role="group" aria-label="Carrier">
+                <div className="psa-ship-carriers" role="group" aria-label={t("carrier")}>
                   {CARRIERS.map((c) => (
                     <button
                       key={c.value}
@@ -364,7 +370,7 @@ export function SellShippingView() {
                   <input
                     type="text"
                     autoComplete="off"
-                    placeholder="Tracking number"
+                    placeholder={t("trackingNumber")}
                     value={ship.trackingNumber}
                     disabled={ship.confirmed}
                     aria-invalid={Boolean(ship.trackingErr)}
@@ -382,7 +388,7 @@ export function SellShippingView() {
                     disabled={!trackingReady || ship.confirmed}
                     onClick={() => setTrackingAdded(true)}
                   >
-                    Add
+                    {t("add")}
                   </button>
                 </div>
                 {ship.trackingErr ? (
@@ -406,7 +412,7 @@ export function SellShippingView() {
               void ship.confirmShipment();
             }}
           >
-            {ship.confirming ? "Saving…" : "Done"}
+            {ship.confirming ? t("saving") : t("done")}
           </button>
         </section>
       </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import type { TradeCelebrationKind } from "@/lib/marketplace/marketplaceTradingTypes";
 import {
   ActionCompleteModal,
@@ -21,6 +22,7 @@ export function TradeCelebrationModal({
   priceUsdc?: number | null;
   onClose: () => void;
 }) {
+  const t = useTranslations("Complete");
   const acKind: ActionCompleteKind = kind === "sale" ? "sale" : "purchase";
 
   return (
@@ -29,8 +31,7 @@ export function TradeCelebrationModal({
       kind={acKind}
       priceUsdc={priceUsdc}
       onClose={onClose}
-      primaryLabel="Done"
-      secondaryLabel={acKind === "purchase" ? "View in Portfolio" : undefined}
+      secondaryLabel={acKind === "purchase" ? t("viewPortfolio") : undefined}
       secondaryHref={acKind === "purchase" ? "/portfolio?tab=assets" : undefined}
       onSecondary={acKind === "purchase" ? onClose : undefined}
     />

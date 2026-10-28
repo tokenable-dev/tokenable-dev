@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { TkTab, TkTabs } from "@/components/ds/Tabs";
 
 export type PortfolioMainTab =
@@ -59,22 +60,24 @@ export function PortfolioMainSection({
   historyPanel: ReactNode;
 }) {
   const isPartner = variant === "partner";
+  const t = useTranslations("Portfolio");
+  const tNav = useTranslations("Nav");
 
   return (
-    <section className="pf-main-section" aria-label="Portfolio holdings">
+    <section className="pf-main-section" aria-label={t("holdings")}>
       <TkTabs
         className={`portfolio-page__tabs${isPartner ? " portfolio-page__tabs--partner" : ""}`}
-        aria-label="Portfolio sections"
+        aria-label={t("sections")}
       >
         <TkTab
           id="portfolio-tab-collectibles"
           className="pf-tab"
           active={activeTab === "collectibles"}
           aria-controls="portfolio-panel-collectibles"
-          aria-label="Items"
+          aria-label={tNav("items")}
           onClick={() => onTabChange("collectibles")}
         >
-          Items
+          {tNav("items")}
           <TabCount value={counts.assets} />
         </TkTab>
         <TkTab
@@ -82,10 +85,10 @@ export function PortfolioMainSection({
           className="pf-tab"
           active={activeTab === "bids"}
           aria-controls="portfolio-panel-bids"
-          aria-label="Bids"
+          aria-label={tNav("bids")}
           onClick={() => onTabChange("bids")}
         >
-          Bids
+          {tNav("bids")}
           <TabCount value={counts.bids} />
         </TkTab>
         <TkTab
@@ -93,10 +96,10 @@ export function PortfolioMainSection({
           className="pf-tab"
           active={activeTab === "history"}
           aria-controls="portfolio-panel-history"
-          aria-label="Transactions"
+          aria-label={tNav("transactions")}
           onClick={() => onTabChange("history")}
         >
-          Transactions
+          {tNav("transactions")}
           <TabCount value={counts.history} />
         </TkTab>
         <div id="pf-tabbar-tools" />

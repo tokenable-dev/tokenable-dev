@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useLocale } from "next-intl";
 import { useQuery } from "@tanstack/react-query";
 import {
   getActiveOrderForToken,
@@ -62,8 +63,13 @@ import {
   redeemSurfaceBadge,
 } from "@/lib/portfolio/redeemDraft";
 import { useMyRedemptions } from "@/hooks/portfolio/useMyRedemptions";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { PORTFOLIO_USDC_DECIMALS } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildCertPricing } from "@/lib/portfolio/portfolioCertificateFormat";
+import {
+  localizeDisplayedCardName,
+  useCatalogNameRevision,
+} from "@/lib/marketplace/catalogNameTranslation";
 
 export type CertHistoryNode = {
   id: string;
@@ -92,6 +98,9 @@ function assetDetailStatusLine(
 
 export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
   const wallet = useLinkedPortfolioWallet();
+  const locale = useLocale();
+  const dateLocale = locale === "en" ? "en-US" : locale;
+  useCatalogNameRevision();
   const chainId = activeRqChainId();
   const { metadata, imageUrl, imageBackUrl, metaLoading } = useRwaDetailMetadata(tokenId, tokenIdOk);
 
@@ -255,21 +264,18 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
   );
 
-  const titleName = stripGradeQualifierFromDisplayName(
-    headlineParts.cardName?.trim() ||
-      displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
+  const titleName = localizeDisplayedCardName(
+    stripGradeQualifierFromDisplayName(
+      headlineParts.cardName?.trim() ||
+        displayAssetNameFromMetadata(metadata, `RWA #${tokenId}`),
+    ),
   );
   const titleNumber =
     formatHeadlineCardNumber(headlineParts.cardNumber) ||
     headlineParts.cardNumber?.trim() ||
     null;
-  const metaLine = formatCardDisplayMeta(headlineParts) || null;
-  const varietyLine = headlineParts.variety?.trim() || null;
-  const setLine =
-    metaLine && varietyLine && metaLine.endsWith(` · ${varietyLine}`)
-      ? metaLine.slice(0, -(varietyLine.length + 3)).trim() || metaLine
-      : metaLine;
-  const idLine = varietyLine;
+  const setLine = formatCardDisplayMeta(headlineParts) || null;
+  const idLine = null;
 
   const trust = buildRwaDetailMobileTrustView(metadata);
   const gradeChip = formatPortfolioGradeLabel(metadata);
@@ -362,8 +368,8 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
     if (holding?.acquiredAt) {
       nodes.push({
         id: "vault-entry",
-        label: "Vault entry",
-        detail: `${formatHistDate(holding.acquiredAt)} · ${vaultLabel}`,
+        label: "vaultEntry",
+        detail: `${formatHistDate(holding.acquiredAt, dateLocale)} · ${vaultLabel}`,
         amount: null,
         highlight: false,
         you: false,
@@ -372,11 +378,11 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       if (buy) {
         nodes.push({
           id: "acquired",
-          label: "You bought it",
-          detail: formatHistDate(holding.acquiredAt),
+          label: "youBought",
+          detail: formatHistDate(holding.acquiredAt, dateLocale),
           amount:
             holding.costBasisUsd != null
-              ? `$${Math.round(holding.costBasisUsd).toLocaleString("en-US")}`
+              ? formatUsdcAmount(holding.costBasisUsd)
               : null,
           highlight: true,
           you: true,
@@ -388,15 +394,15 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
       const d = new Date(t.t * 1000);
       nodes.push({
         id: t.orderHash || String(t.t),
-        label: t.tapeAggressor === "buy" ? "Sold on Tokenable" : "Matched on Tokenable",
-        detail: formatHistDate(d.toISOString()),
-        amount: `$${Math.round(t.priceUsdc).toLocaleString("en-US")}`,
+        label: t.tapeAggressor === "buy" ? "soldOn" : "matchedOn",
+        detail: formatHistDate(d.toISOString(), dateLocale),
+        amount: formatUsdcAmount(t.priceUsdc),
         highlight: false,
         you: false,
       });
     }
     return nodes;
-  }, [holding, trades, vaultLabel]);
+  }, [holding, trades, vaultLabel, dateLocale]);
 
   return {
     tokenId,
@@ -462,10 +468,10 @@ function formatExplorerShort(addr: string): string {
   return `${a.slice(0, 6)}…${a.slice(-4)}`;
 }
 
-function formatHistDate(iso: string): string {
+function formatHistDate(iso: string, locale: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",

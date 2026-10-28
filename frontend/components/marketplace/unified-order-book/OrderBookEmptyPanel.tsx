@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 
 export type OrderBookEmptyVariant = "no_asks" | "no_bids" | "no_market";
@@ -14,12 +15,15 @@ export function OrderBookEmptyPanel({
   onPlaceBid?: () => void;
   onListYours?: () => void;
 }) {
+  const t = useTranslations("OrderBook");
+  const tNav = useTranslations("Nav");
+  const tTrade = useTranslations("Trade");
   if (variant === "no_asks") {
     return (
       <div className="cd-ob-empty cd-ob-empty--asks cd-ob-empty--emp2">
         <div className="cd-ob-empty__mdiv">
           <span aria-hidden />
-          <span className="cd-ob-empty__mtitle">No cards for sale yet</span>
+          <span className="cd-ob-empty__mtitle">{t("noAsks")}</span>
           <span aria-hidden />
         </div>
         {onListYours ? (
@@ -30,7 +34,7 @@ export function OrderBookEmptyPanel({
             className="cd-ob-empty__mbtn"
             onClick={onListYours}
           >
-            Sell
+            {tNav("sell")}
           </TkButton>
         ) : null}
       </div>
@@ -42,7 +46,7 @@ export function OrderBookEmptyPanel({
       <div className="cd-ob-empty cd-ob-empty--bids cd-ob-empty--emp2">
         <div className="cd-ob-empty__mdiv">
           <span aria-hidden />
-          <span className="cd-ob-empty__mtitle">No bids yet</span>
+          <span className="cd-ob-empty__mtitle">{t("noBids")}</span>
           <span aria-hidden />
         </div>
         {onPlaceBid ? (
@@ -53,7 +57,7 @@ export function OrderBookEmptyPanel({
             className="cd-ob-empty__mbtn"
             onClick={onPlaceBid}
           >
-            Bid
+            {tTrade("bid")}
           </TkButton>
         ) : null}
       </div>
@@ -70,12 +74,12 @@ export function OrderBookEmptyPanel({
           className="cd-ob-empty__mbtn cd-ob-empty__mbtn--primary"
           onClick={onListYours}
         >
-          Sell
+          {tNav("sell")}
         </TkButton>
       ) : null}
       <div className="cd-ob-empty__mdiv">
         <span aria-hidden />
-        <span className="cd-ob-empty__mtitle">No markets yet</span>
+        <span className="cd-ob-empty__mtitle">{t("noMarkets")}</span>
         <span aria-hidden />
       </div>
       {onPlaceBid ? (
@@ -86,7 +90,7 @@ export function OrderBookEmptyPanel({
           className="cd-ob-empty__mbtn"
           onClick={onPlaceBid}
         >
-          Bid
+          {tTrade("bid")}
         </TkButton>
       ) : null}
     </div>

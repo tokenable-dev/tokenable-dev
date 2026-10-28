@@ -1,17 +1,21 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   COLLECTION_GRADE_CHART_ALL_DAYS,
   COLLECTION_GRADE_CHART_DAYS_OPTIONS,
   type CollectionGradeChartDays,
 } from "@/lib/marketplace/collection-grade-chart/constants";
 
-const PERIOD_LABELS: Record<CollectionGradeChartDays, string> = {
-  30: "1M",
-  90: "3M",
-  180: "6M",
-  365: "1Y",
-  [COLLECTION_GRADE_CHART_ALL_DAYS]: "All",
+const PERIOD_KEYS: Record<
+  CollectionGradeChartDays,
+  "range1m" | "range3m" | "range6m" | "range1y" | "rangeAll"
+> = {
+  30: "range1m",
+  90: "range3m",
+  180: "range6m",
+  365: "range1y",
+  [COLLECTION_GRADE_CHART_ALL_DAYS]: "rangeAll",
 };
 
 export function CollectionDetailChartPeriodToolbar({
@@ -23,8 +27,9 @@ export function CollectionDetailChartPeriodToolbar({
   onChartDaysChange: (days: CollectionGradeChartDays) => void;
   disabled?: boolean;
 }) {
+  const t = useTranslations("CollectionDetail");
   return (
-    <div className="cd-period-toolbar" role="group" aria-label="Chart time range">
+    <div className="cd-period-toolbar" role="group" aria-label={t("chartRange")}>
       {COLLECTION_GRADE_CHART_DAYS_OPTIONS.map((days) => {
         const active = chartDays === days;
         return (
@@ -36,7 +41,7 @@ export function CollectionDetailChartPeriodToolbar({
             aria-pressed={active}
             className={`cd-period${active ? " cd-period--active" : ""}`}
           >
-            {PERIOD_LABELS[days]}
+            {t(PERIOD_KEYS[days])}
           </button>
         );
       })}

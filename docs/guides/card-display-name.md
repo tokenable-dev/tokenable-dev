@@ -49,7 +49,7 @@ Charizard ex · 199/165
 
 | Token | Rule |
 | --- | --- |
-| Card name | As-is from source (proper case). |
+| Card name | A Pokemon species in that name is shown in the active locale (`メガゲンガー ex`). Other words in the name, the set name, and the variant are machine-translated for `ja`, `zh-CN`, and `zh-TW` and kept in a display cache. The stored name, number, and grade stay unchanged. `ex` / `V` / `VMAX` and the collector number stay as printed. |
 | Number | Collector number only. Drop `#`. Pokemon `199/165` stays. Numeric → 3-digit pad (`085`). TCG compound ids (`OP13-118`, `ST01-009`) **split**: set code belongs on Line 2 / breadcrumb, Line 1 is `118`. |
 | Grade | `PSA 10`, `BGS 9.5`, etc. **Unknown / empty / legacy `Raw` grade → `Raw` on Line 1.** Certificate of Ownership and similar surfaces explicitly omit grade. |
 | Year | 4-digit. Omit if unknown. |
@@ -66,13 +66,14 @@ Charizard ex · 199/165
 
 | Surface | Shows | Notes |
 | --- | --- | --- |
-| Markets / home / similar tiles | Line 1 (no grade) + grade row | `{Name} · {Number}` then `PSA 10` on the next row. Do not also leave the grade on Line 1. |
+| Markets / home / similar / watchlist tiles | Three lines | `{Name} · {Number} · {Grade}`, then the price alone, then `▲ +12% 1Y` (glyph, rate, period). Shared by `ListingGradeCardLines`. |
 | Card detail header | Desktop: Line 1 (with grade) + Line 2. Mobile: title, subtitle, then grade | Desktop `{Name} · {Number} · {Grade}` then `{Year} · {Set} {Language} · {Variant}`. Mobile title omits the grade; `PSA 10` is its own line under the subtitle. |
 | Certificate of Ownership | Line 1 (no grade) + Line 2 | `{Name} · {Number}` then provenance. Grade + cert chips below. |
 | Search results | Line 1 name+number, grade, then Line 2 | `{Name} · {Number}`, then `PSA 10`, then `{Year} · {Set} {Language} · {Variant}` on one line. Overflow on that third line ends in `…`. |
-| Watchlist | Line 1 (no grade) + grade row | Same split as Markets tiles. |
+| Watchlist | Same three lines as Markets | Buy / Bid sit under the change line. |
 | Portfolio table | Line 1 only | `{Name} · {Number} · {Grade}` on one line. |
-| Portfolio gallery | Line 1 (no grade) + grade row | `{Name} · {Number}` then the grade. |
+| Portfolio gallery | Line 1, then the sell control | `{Name} · {Number} · {Grade}`. Below that is the list-price field and last price, not the market change row. |
+| Portfolio mobile card | Line 1, then holdings rows | `{Name} · {Number} · {Grade}`. Below that is market price and personal % change, not the listing period chip. |
 | Order book / trade history | Line 1 (abbrev ok) | Tight: `{Name} · {Grade}`. |
 | Checkout / Redeem / modals | Line 1 | `{Name} · {Number} · {Grade}` on every card row. Vault chip + cert are meta, not a grade badge. |
 | Partner Redeem requests | Line 1 (no grade) + cert line | Title: `{Name} · {Number}` (`partnerRedeemCardTitle`, `omitGrade`). Secondary: `{Grade} · {cert}` (`partnerCardCertLine`) — Partner-Shipments.html `.cname` / `.cid`. |
@@ -84,7 +85,7 @@ Use `formatCardDisplayName({ parts, mode })` — never hand-join segments at cal
 
 ## 3. List surfaces (Line 1 only)
 
-Markets, home, watchlist, similar-item, and portfolio gallery tiles show **`{Name} · {Number}`** on the title and the grade on the next row. Portfolio table rows still show **Line 1** as `{Name} · {Number} · {Grade}` on one line.
+Markets, home, watchlist, and similar-item tiles show **`{Name} · {Number} · {Grade}`** on the title, the price on the next line, and the change glyph, rate, and period on the third line. Portfolio table and gallery titles use the same Line 1. The gallery and mobile holdings card do not use the listing price / change lines.
 
 **Variant, set, year, and language belong on Line 2 (subtitle / meta)** — never append variant to Line 1.
 

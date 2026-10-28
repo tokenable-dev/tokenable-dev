@@ -103,6 +103,20 @@ describe('SchemaAssertService checklist', () => {
     ).toBe(true);
   });
 
+  it('REQUIRED_SCHEMA includes fx_rates and user display preferences', () => {
+    expect(
+      REQUIRED_SCHEMA.some((r) => r.kind === 'table' && r.name === 'fx_rates'),
+    ).toBe(true);
+    expect(
+      REQUIRED_SCHEMA.some(
+        (r) =>
+          r.kind === 'column' &&
+          r.table === 'users' &&
+          r.column === 'preferred_currency',
+      ),
+    ).toBe(true);
+  });
+
   it('REQUIRED_SCHEMA includes sealed_box_mints (partner box mint)', () => {
     expect(
       REQUIRED_SCHEMA.some(

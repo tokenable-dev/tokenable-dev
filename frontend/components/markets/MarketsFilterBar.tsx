@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
+import { currencyNarrowSymbol } from "@/lib/market/displayMoney";
 import { createPortal } from "react-dom";
 import { cn } from "@/lib/ds/cn";
 import {
-  MARKETS_SORT_OPTIONS,
   MARKETS_SORT_UI_IDS,
   type MarketsSortId,
 } from "@/lib/markets/marketsCollectionSort";
@@ -23,6 +25,7 @@ import {
 import {
   MARKETS_CATEGORY_FILTERS,
   MARKETS_CATEGORY_SELECT_OPTIONS,
+  marketCategoryMessageId,
   type CategorySelectOption,
   type CollectionCategoryId,
 } from "@/lib/market";
@@ -30,17 +33,9 @@ import { TkButton } from "@/components/ds";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { requestOpenGnbSearch } from "@/components/layout/header/TkHeaderSearch";
 
-const SORT_LABELS: Record<MarketsSortId, string> = Object.fromEntries(
-  MARKETS_SORT_OPTIONS.map((o) => [o.id, o.label]),
-) as Record<MarketsSortId, string>;
-
 type PopId = "sort" | null;
 
 const EMPTY_STRINGS: string[] = [];
-
-function categoryOptionLabel(f: { label: string }): string {
-  return f.label;
-}
 
 function SearchIcon({ size = 16 }: { size?: number }) {
   return (
@@ -299,6 +294,13 @@ export function MarketsFilterBar({
   onSeriesChange?: (series: string[]) => void;
   filters?: readonly CategorySelectOption[];
 }) {
+  const t = useTranslations("Markets");
+  const categoryText = (id: string, fallback: string) => {
+    const key = marketCategoryMessageId(id);
+    return key ? t(key) : fallback;
+  };
+  const fx = useDisplayFx();
+  const priceMark = currencyNarrowSymbol(fx.fallbackToUsd ? "USD" : fx.currency);
   const [openPop, setOpenPop] = useState<PopId>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMounted, setDrawerMounted] = useState(false);
@@ -527,7 +529,7 @@ export function MarketsFilterBar({
       if (kindFilters.has(opt.id)) {
         activeChips.push({
           key: `kind-${opt.id}`,
-          label: opt.chipLabel,
+          label: t(opt.id === "card" ? "cards" : "boxes"),
           onClear: () => onKindToggle(opt.id),
         });
       }
@@ -543,7 +545,7 @@ export function MarketsFilterBar({
   if (priceActive) {
     activeChips.push({
       key: "price",
-      label: priceLabel ?? "Price",
+      label: priceLabel ?? t("price"),
       onClear: () => onPriceRangeChange("", ""),
     });
   }
@@ -572,7 +574,7 @@ export function MarketsFilterBar({
     <>
     <div className="markets-filter-sticky">
       <div className="tkl-wrap markets-slim-bar">
-        <div className="markets-catchiprow" role="group" aria-label="Category">
+        <div className="markets-catchiprow" role="group" aria-label={t("category")}>
           {MARKETS_CATEGORY_FILTERS.map((f) => {
             const selected =
               f.id === "all"
@@ -599,7 +601,7 @@ export function MarketsFilterBar({
                   onCategoryToggle(f.id as CollectionCategoryId);
                 }}
               >
-                {categoryOptionLabel(f)}
+                {categoryText(f.id, f.label)}
               </button>
             );
           })}
@@ -615,7 +617,7 @@ export function MarketsFilterBar({
             "markets-ddchip--more",
             moreCount > 0 && "markets-ddchip--on",
           )}
-          aria-label="Filters"
+          aria-label={t("filters")}
           aria-haspopup="dialog"
           aria-expanded={drawerOpen}
           onClick={() => {
@@ -624,7 +626,7 @@ export function MarketsFilterBar({
           }}
         >
           <FilterIcon size={13} />
-          <span className="markets-ddchip__label">Filters</span>
+          <span className="markets-ddchip__label">{t("filters")}</span>
           {moreCount > 0 ? (
             <i className="markets-ddchip__count">{moreCount}</i>
           ) : null}
@@ -633,7 +635,7 @@ export function MarketsFilterBar({
         <button
           type="button"
           className="markets-ddchip markets-search-icon-btn"
-          aria-label="Search"
+          aria-label={t("search")}
           onClick={() => requestOpenGnbSearch()}
         >
           <SearchIcon />
@@ -643,8 +645,8 @@ export function MarketsFilterBar({
 
         <div ref={sortRef} className="markets-fw markets-fw--sort">
           <DdChip
-            label="Sort by"
-            value={SORT_LABELS[sortId]}
+            label={t("sortBy")}
+            value={t(`sort.${sortId}`)}
             open={openPop === "sort"}
             onClick={() => setOpenPop((p) => (p === "sort" ? null : "sort"))}
           />
@@ -656,7 +658,7 @@ export function MarketsFilterBar({
             )}
             role="menu"
           >
-            <div className="markets-pop__label">Sort by</div>
+            <div className="markets-pop__label">{t("sortBy")}</div>
             {MARKETS_SORT_UI_IDS.map((id) => {
               const selected = sortId === id;
               return (
@@ -672,7 +674,7 @@ export function MarketsFilterBar({
                     setOpenPop(null);
                   }}
                 >
-                  {SORT_LABELS[id]}
+                  {t(`sort.${id}`)}
                 </PopCheckItem>
               );
             })}
@@ -742,7 +744,7 @@ export function MarketsFilterBar({
           </div>
 
           <div className="markets-fd-section">
-            <span className="markets-fd-label">Type</span>
+            <span className="markets-fd-label">{t("type")}</span>
             <div className="markets-fd-chips markets-fd-chips--stack">
               {MARKETS_KIND_FILTER_OPTIONS.map((opt) => (
                 <FilterCheckRow
@@ -750,14 +752,14 @@ export function MarketsFilterBar({
                   selected={draftKinds.has(opt.id)}
                   onClick={() => toggleDraftKind(opt.id)}
                 >
-                  {opt.chipLabel}
+                  {t(opt.id === "card" ? "cards" : "boxes")}
                 </FilterCheckRow>
               ))}
             </div>
           </div>
 
           <div className="markets-fd-section">
-            <span className="markets-fd-label">Category</span>
+            <span className="markets-fd-label">{t("category")}</span>
             <div className="markets-fd-chips markets-fd-chips--stack">
               {filters.map((f) => (
                 <FilterCheckRow
@@ -765,7 +767,7 @@ export function MarketsFilterBar({
                   selected={draftCategories.has(f.id)}
                   onClick={() => toggleDraftCategory(f.id)}
                 >
-                  {categoryOptionLabel(f)}
+                  {categoryText(f.id, f.label)}
                 </FilterCheckRow>
               ))}
             </div>
@@ -773,7 +775,7 @@ export function MarketsFilterBar({
 
           {onSetsChange ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Set</span>
+              <span className="markets-fd-label">{t("set")}</span>
               <div className="markets-fsearch markets-fsearch--drawer">
                 <input
                   type="search"
@@ -823,12 +825,12 @@ export function MarketsFilterBar({
           ) : null}
 
           <div className="markets-fd-section">
-            <span className="markets-fd-label">Price range</span>
+            <span className="markets-fd-label">{t("priceRange")}</span>
             <div className="markets-frange">
               <input
                 type="number"
                 inputMode="numeric"
-                placeholder="Min $"
+                placeholder={`Min ${priceMark}`}
                 value={draftPriceMin}
                 onChange={(e) => setDraftPriceMin(e.target.value)}
               />
@@ -836,7 +838,7 @@ export function MarketsFilterBar({
               <input
                 type="number"
                 inputMode="numeric"
-                placeholder="Max $"
+                placeholder={`Max ${priceMark}`}
                 value={draftPriceMax}
                 onChange={(e) => setDraftPriceMax(e.target.value)}
               />
@@ -863,7 +865,7 @@ export function MarketsFilterBar({
                       }
                     }}
                   >
-                    {preset.chipLabel}
+                    {marketsPriceChipLabel(preset.min, preset.max)}
                   </button>
                 );
               })}
@@ -872,7 +874,7 @@ export function MarketsFilterBar({
 
           {!draftBoxesOnly ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Grade</span>
+              <span className="markets-fd-label">{t("grade")}</span>
               <div className="markets-fd-chips markets-fd-chips--stack">
                 {MARKETS_GRADE_FILTER_OPTIONS.map((grade) => (
                   <FilterCheckRow
@@ -889,7 +891,7 @@ export function MarketsFilterBar({
 
           {onYearRangeChange ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Year</span>
+              <span className="markets-fd-label">{t("year")}</span>
               <div className="markets-frange">
                 <input
                   type="number"
@@ -912,7 +914,7 @@ export function MarketsFilterBar({
 
           {onCharactersChange && draftCharacters.length > 0 ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Character</span>
+              <span className="markets-fd-label">{t("character")}</span>
               <div className="markets-fd-chips markets-fd-chips--stack">
                 {draftCharacters.map((name) => (
                   <FilterCheckRow
@@ -931,7 +933,7 @@ export function MarketsFilterBar({
 
           {onSeriesChange && draftSeries.length > 0 ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Series</span>
+              <span className="markets-fd-label">{t("series")}</span>
               <div className="markets-fd-chips markets-fd-chips--stack">
                 {draftSeries.map((name) => (
                   <FilterCheckRow
@@ -950,7 +952,7 @@ export function MarketsFilterBar({
 
           {onVaultFiltersChange ? (
             <div className="markets-fd-section">
-              <span className="markets-fd-label">Vault</span>
+              <span className="markets-fd-label">{t("vault")}</span>
               <div className="markets-fd-chips markets-fd-chips--stack">
                 {MARKETS_VAULT_FILTER_OPTIONS.map((opt) => (
                   <FilterCheckRow
@@ -966,7 +968,7 @@ export function MarketsFilterBar({
           ) : null}
 
           <div className="markets-fd-section">
-            <span className="markets-fd-label">Sort by</span>
+            <span className="markets-fd-label">{t("sortBy")}</span>
             <div className="markets-fd-chips">
               {MARKETS_SORT_UI_IDS.map((id) => (
                 <button
@@ -978,7 +980,7 @@ export function MarketsFilterBar({
                   )}
                   onClick={() => setDraftSort(id)}
                 >
-                  {SORT_LABELS[id]}
+                  {t(`sort.${id}`)}
                 </button>
               ))}
             </div>
@@ -995,7 +997,7 @@ export function MarketsFilterBar({
                 setDrawerOpen(false);
               }}
             >
-              Clear all
+              {t("clearAll")}
             </TkButton>
             <TkButton
               type="button"
@@ -1003,7 +1005,7 @@ export function MarketsFilterBar({
               className="markets-filter-apply-btn"
               onClick={applyDrawer}
             >
-              Apply filters
+              {t("apply")}
             </TkButton>
           </div>
         </div>

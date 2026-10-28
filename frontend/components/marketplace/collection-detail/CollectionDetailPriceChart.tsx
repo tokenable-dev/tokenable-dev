@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { CollectionDualPriceChart } from "@/components/marketplace/collection-dual-price-chart";
 import type { CollectionDualPriceChartProps } from "@/components/marketplace/collection-dual-price-chart";
 import type { useCollectionGradeChart } from "@/hooks/collection-grade-chart";
@@ -36,6 +37,7 @@ export function CollectionDetailPriceChart({
   /** Card.html `#md-panel` — stats under the chart on narrow viewports. */
   mdPanel?: ReactNode;
 }) {
+  const t = useTranslations("CollectionDetail");
   const withHero = heroSlot != null;
 
   return (
@@ -53,7 +55,7 @@ export function CollectionDetailPriceChart({
           }`}
         >
           <div className="cd-chart-panel__head-left">
-            <span className="cd-chart-panel__title">Price history</span>
+            <span className="cd-chart-panel__title">{t("priceHistory")}</span>
           </div>
           <CollectionDetailChartPeriodToolbar
             chartDays={gradeChart.chartDays}

@@ -2,17 +2,14 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { TxKind, TxLifecycle, TxRow } from "@/lib/portfolio/portfolioTypes";
 import {
   compareSortNum,
   compareSortText,
   formatPortfolioUsd,
 } from "@/lib/portfolio/portfolioTableHelpers";
-import {
-  txAmountIsNonTrade,
-  txKindLabel,
-  txLifecycleLabel,
-} from "@/lib/portfolio/buildPortfolioTxRows";
+import { txAmountIsNonTrade } from "@/lib/portfolio/buildPortfolioTxRows";
 import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import {
@@ -24,6 +21,21 @@ import { useAppChain } from "@/providers/AppChainProvider";
 
 type HistorySortKey = "date" | "type" | "card" | "status" | "amount";
 type HistoryStatusFilter = "" | TxLifecycle;
+
+const KIND_KEY = {
+  BUY: "buy",
+  SELL: "sell",
+  MINT: "mint",
+  REDEEM: "redeem",
+  TRANSFER: "transfer",
+} as const;
+
+const LIFE_KEY = {
+  in_progress: "inProgress",
+  failed: "failed",
+  canceled: "canceled",
+  completed: "completed",
+} as const;
 
 function shortHex(value: string): string {
   const s = value.trim();
@@ -51,10 +63,12 @@ function TxHashLink({
   hash,
   status,
   scan,
+  pendingLabel,
 }: {
   hash?: string;
   status: TxLifecycle;
   scan: string;
+  pendingLabel: string;
 }) {
   if (hash) {
     return (
@@ -70,7 +84,7 @@ function TxHashLink({
     );
   }
   if (status === "in_progress") {
-    return <span className="pf-ux-mono pf-ux-mute">pending</span>;
+    return <span className="pf-ux-mono pf-ux-mute">{pendingLabel}</span>;
   }
   return null;
 }
@@ -83,6 +97,11 @@ export function PortfolioActivitySection({
   txRows: TxRow[];
 }) {
   const { chain } = useAppChain();
+  const tStatus = useTranslations("Status");
+  const t = useTranslations("PortfolioTable");
+  const tPortfolio = useTranslations("Portfolio");
+  const kindLabel = (tx: Pick<TxRow, "type">) => tStatus(KIND_KEY[tx.type]);
+  const lifeLabel = (status: TxLifecycle) => tStatus(LIFE_KEY[status]);
   const [selectedTx, setSelectedTx] = useState<TxRow | null>(null);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("");
   const dockSlot = useDockPortfolioToolbar(1024);
@@ -93,11 +112,11 @@ export function PortfolioActivitySection({
     rows.sort((a, b) => {
       switch (sortKey) {
         case "type":
-          return compareSortText(txKindLabel(a), txKindLabel(b), sortDir);
+          return compareSortText(kindLabel(a), kindLabel(b), sortDir);
         case "card":
           return compareSortText(a.asset, b.asset, sortDir);
         case "status":
-          return compareSortText(txLifecycleLabel(a.status), txLifecycleLabel(b.status), sortDir);
+          return compareSortText(lifeLabel(a.status), lifeLabel(b.status), sortDir);
         case "amount":
           return compareSortNum(a.price, b.price, sortDir);
         default:
@@ -105,7 +124,7 @@ export function PortfolioActivitySection({
       }
     });
     return rows;
-  }, [txRows, statusFilter, sortKey, sortDir]);
+  }, [txRows, statusFilter, sortKey, sortDir, tStatus]);
 
   if (loading) {
     return (
@@ -120,12 +139,10 @@ export function PortfolioActivitySection({
   if (txRows.length === 0) {
     return (
       <div className="pf-empty pf-empty--panel">
-        <p>No transactions yet</p>
-        <p className="pf-empty__sub">
-          Buys, sells, mints, and redeems will show up here once they settle.
-        </p>
+        <p>{t("noTx")}</p>
+        <p className="pf-empty__sub">{t("noTxSub")}</p>
         <Link href="/markets" className="pf-empty__cta">
-          Browse collections
+          {t("browse")}
         </Link>
       </div>
     );
@@ -136,16 +153,16 @@ export function PortfolioActivitySection({
       {placePortfolioToolbar(
       <div className="pf-tbar" id="hx-toolbar">
         <label className="pf-tdrop">
-          <span className="pf-tdrop__k">Filter:</span>
+          <span className="pf-tdrop__k">{tPortfolio("filter")}</span>
           <select
-            aria-label="Filter transactions by status"
+            aria-label={t("filterTx")}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as HistoryStatusFilter)}
           >
-            <option value="">All</option>
-            <option value="completed">Completed</option>
-            <option value="in_progress">In progress</option>
-            <option value="failed">Failed</option>
+            <option value="">{tStatus("all")}</option>
+            <option value="completed">{tStatus("completed")}</option>
+            <option value="in_progress">{tStatus("inProgress")}</option>
+            <option value="failed">{tStatus("failed")}</option>
           </select>
           <svg className="cx" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
             <polyline points="6 9 12 15 18 9" />
@@ -156,16 +173,16 @@ export function PortfolioActivitySection({
       )}
 
       {sortedRows.length === 0 ? (
-        <p className="pf-empty pf-empty--panel">No transactions match this filter.</p>
+        <p className="pf-empty pf-empty--panel">{t("noTxFilter")}</p>
       ) : (
         <TkTable wrapClassName="pf-table-wrap" className="pf-table--history pf-ux">
           <thead>
             <tr>
-              <th>Item</th>
-              <th>Action</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th className="pf-ux-r">Amount</th>
+              <th>{t("item")}</th>
+              <th>{t("action")}</th>
+              <th>{t("date")}</th>
+              <th>{t("status")}</th>
+              <th className="pf-ux-r">{t("amount")}</th>
             </tr>
           </thead>
           <tbody>
@@ -178,8 +195,8 @@ export function PortfolioActivitySection({
               const scan = chain.explorerBaseUrl.replace(/\/$/, "");
               const actionTone = txActionTone(tx.type);
               const statusTone = txStatusTone(tx.status);
-              const statusLabel = txLifecycleLabel(tx.status);
-              const kind = txKindLabel(tx);
+              const statusLabel = lifeLabel(tx.status);
+              const kind = kindLabel(tx);
               return (
                 <tr
                   key={tx.orderHash}
@@ -194,7 +211,7 @@ export function PortfolioActivitySection({
                   tabIndex={0}
                   role="button"
                 >
-                  <td data-label="Item">
+                  <td data-label={t("item")}>
                     <div className="pf-ux-item">
                       <span className="pf-ux-thumb">
                         {tx.imageUrl ? (
@@ -207,21 +224,21 @@ export function PortfolioActivitySection({
                           {tx.asset}
                         </span>
                         <span className="pf-ux-sub">
-                          <TxHashLink hash={hash} status={tx.status} scan={scan} />
+                          <TxHashLink hash={hash} status={tx.status} scan={scan} pendingLabel={tStatus("pending")} />
                         </span>
                       </span>
                     </div>
                   </td>
-                  <td data-label="Action">
+                  <td data-label={t("action")}>
                     <span className={`pf-ux-v ${actionTone}`}>{kind}</span>
                   </td>
-                  <td data-label="Date">
+                  <td data-label={t("date")}>
                     <span className="pf-ux-d">{when}</span>
                   </td>
-                  <td data-label="Status">
+                  <td data-label={t("status")}>
                     <span className={`pf-ux-v ${statusTone}`}>{statusLabel}</span>
                   </td>
-                  <td data-label="Amount" className="pf-ux-r">
+                  <td data-label={t("amount")} className="pf-ux-r">
                     {amount != null ? <span className="pf-ux-amt">{amount}</span> : null}
                   </td>
                   <td className="pf-ux-mc" data-label="Mobile">
@@ -248,7 +265,7 @@ export function PortfolioActivitySection({
                           {hash || tx.status === "in_progress" ? (
                             <>
                               {" · "}
-                              <TxHashLink hash={hash} status={tx.status} scan={scan} />
+                              <TxHashLink hash={hash} status={tx.status} scan={scan} pendingLabel={tStatus("pending")} />
                             </>
                           ) : null}
                         </div>

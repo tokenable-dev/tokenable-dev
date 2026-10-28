@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { RwaMetadata } from "@/lib/core";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
 import { postRwaVaultInfoBatch, rq } from "@/lib/core";
 import { activeRqChainId } from "@/lib/chains";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
@@ -18,6 +19,7 @@ import {
   formatPortfolioGradeLabel,
   resolvePortfolioHoldingsHeadlines,
 } from "@/lib/portfolio/portfolioTableHelpers";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { portfolioTableVaultChip } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkButton } from "@/components/ds";
@@ -40,6 +42,7 @@ export function PortfolioHoldingsSection({
   assetRows,
   metadataByTokenId,
   costBasisByTokenId,
+  costBasisSourceByTokenId,
   acquiredAtByTokenId,
   valuesPending,
   onSetPrice,
@@ -64,6 +67,7 @@ export function PortfolioHoldingsSection({
   assetRows: AssetRow[];
   metadataByTokenId: Map<number, RwaMetadata | null>;
   costBasisByTokenId: Map<number, number>;
+  costBasisSourceByTokenId?: Map<number, PortfolioCostBasisSource | null>;
   acquiredAtByTokenId?: Map<number, string>;
   valuesPending: boolean;
   onSetPrice: (tokenId: number, draftPriceUsdc?: string | null) => void;
@@ -115,9 +119,10 @@ export function PortfolioHoldingsSection({
     );
   }
 
+  const catalogNames = useCatalogNameRevision();
   const headlineByTokenId = useMemo(
     () => resolvePortfolioHoldingsHeadlines(assetRows, metadataByTokenId),
-    [assetRows, metadataByTokenId],
+    [assetRows, metadataByTokenId, catalogNames],
   );
 
   const vaultTokenIds = useMemo(
@@ -489,6 +494,7 @@ export function PortfolioHoldingsSection({
         <PortfolioHoldingsTableView
           rows={filteredSortedRows}
           costBasisByTokenId={costBasisByTokenId}
+          costBasisSourceByTokenId={costBasisSourceByTokenId}
           valuesPending={valuesPending}
           onSetPrice={handleSetPrice}
           getBadge={getBadge}

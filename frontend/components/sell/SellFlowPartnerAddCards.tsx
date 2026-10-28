@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
 import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
@@ -31,6 +32,7 @@ function BackChevron() {
 
 /** Choose-Vault-Individual.html partner path + CSV bulk (Partner-Add-Cards). */
 export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
+  const t = useTranslations("Sell");
   const {
     cards,
     maxCards,
@@ -121,13 +123,13 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
             disabled={mintBusy || csvLookupBusy || boxMintBusy}
           >
             <BackChevron />
-            Back
+            {t("back")}
           </button>
 
-          <div className="sell-flow-eyebrow">Partner vault</div>
-          <h1 className="sell-flow-h1">Enter item info</h1>
+          <div className="sell-flow-eyebrow">{t("partnerVault")}</div>
+          <h1 className="sell-flow-h1">{t("enterItem")}</h1>
 
-          <div className="sell-flow-kind" role="tablist" aria-label="Item type">
+          <div className="sell-flow-kind" role="tablist" aria-label={t("itemType")}>
             <button
               type="button"
               role="tab"
@@ -136,7 +138,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
               disabled={mintBusy || boxMintBusy}
               onClick={() => setItemKind("card")}
             >
-              Card
+              {t("card")}
             </button>
             <button
               type="button"
@@ -146,7 +148,7 @@ export function SellFlowPartnerAddCards({ flow }: { flow: Flow }) {
               disabled={mintBusy || boxMintBusy}
               onClick={() => setItemKind("box")}
             >
-              Sealed box
+              {t("sealedBox")}
             </button>
           </div>
 

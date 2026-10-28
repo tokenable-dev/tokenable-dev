@@ -80,6 +80,8 @@ Update display name, contact email (wallet-only accounts), and notification / ma
   - `marketingEmailsOptIn` — boolean
   - `emailNotificationsEnabled` — master switch for category email prefs
   - `emailNotifPrefs` — `{ trades?, bids?, price?, vault?, listing?, market? }` booleans (`listing` / `market` are optional alert emails in Settings)
+  - `preferredLocale` — `en | zh-CN | ja | zh-TW`. Case variants such as `zh-cn` are stored as the canonical code. `ko`, `zh`, and `en-US` are rejected. Does not change display currency. The database check is `users_preferred_locale_check` in `backend/sql/schema/080_fx.sql` and the matching block in `backend/sql/maintenance/deploy-sync.sql` (`NULL` or those four codes). That SQL is not applied by the app.
+  - `preferredCurrency` — `USD | EUR | GBP | KRW | JPY | SGD | CAD | AUD | CHF | HKD | CNY | IDR | MYR | PHP | VND | THB`. Display preference for USD reference prices. Does not change USDC settlement or Seaport orders.
 - **Response:** `{ user: … }` (same shape as session; includes the new preference fields)
 - **Note:** Subsequent Privy session sync does **not** overwrite a non-empty `users.name` or `users.picture_url`, and does **not** replace a real `users.email` with the wallet-only `@privy.wallet` placeholder.
 

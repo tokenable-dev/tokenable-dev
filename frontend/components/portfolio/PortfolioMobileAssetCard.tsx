@@ -1,9 +1,11 @@
 "use client";
 
 import { memo } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
@@ -24,6 +26,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   headline,
   href,
   cost,
+  costSource = null,
   valuesPending,
   isListed,
   redeemStatus = null,
@@ -39,6 +42,7 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   headline: PortfolioHoldingsHeadline | null;
   href?: string;
   cost: number | undefined;
+  costSource?: PortfolioCostBasisSource | null;
   valuesPending: boolean;
   isListed: boolean;
   redeemStatus?: RedeemSurfaceBadge | null;
@@ -50,7 +54,8 @@ export const PortfolioMobileAssetCard = memo(function PortfolioMobileAssetCard({
   onToggleSelect?: () => void;
   onActivate?: () => void;
 }) {
-  const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
+  useDisplayFx();
+  const pnl = formatPortfolioProfitReturn(cost, row.currentPrice, costSource);
   const plClass = pnl
     ? pnl.muted
       ? "pf-table-muted"

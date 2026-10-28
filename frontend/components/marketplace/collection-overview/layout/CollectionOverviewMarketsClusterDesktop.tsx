@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { withFlushProp } from "../utils/withFlushProp";
 
 /**
@@ -29,6 +30,7 @@ export function CollectionOverviewMarketsClusterDesktop({
   marketsBelowChart?: ReactNode;
   belowCover?: ReactNode;
 }) {
+  const t = useTranslations("CollectionChrome");
   const hasMetrics = chartMetricsRow != null;
   const showTrade = marketsDockTradePanel && tradePanel != null;
 
@@ -48,7 +50,7 @@ export function CollectionOverviewMarketsClusterDesktop({
                 <div
                   className="cd-detail-grid__listings min-w-0"
                   id="collection-listings"
-                  aria-label="Individual listings"
+                  aria-label={t("listings")}
                 >
                   {marketsBelowChart}
                 </div>
@@ -73,7 +75,7 @@ export function CollectionOverviewMarketsClusterDesktop({
               {belowCover != null ? (
                 <div
                   className="cd-detail-grid__details min-w-0"
-                  aria-label="Collection details"
+                  aria-label={t("details")}
                 >
                   <div className="cd-sidebar-details flex min-w-0 flex-col">
                     {belowCover}

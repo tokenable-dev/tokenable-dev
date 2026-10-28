@@ -11,6 +11,8 @@ import { rq } from "@/lib/core/queryKeys";
 import { activeRqChainId } from "@/lib/chains";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { sealedBoxHeroSetTitle } from "@/lib/marketplace/buildCollectionMarketDetailCards";
+import { formatListingMarketChangePeriod } from "@/lib/market/priceChangePeriod";
+import { resolveMarketsListingMarketChangePct } from "@/lib/markets/marketsListingMarketPrice";
 import {
   buildMarketsCollectionTileGrade,
   buildMarketsCollectionTitle,
@@ -25,6 +27,7 @@ export type SimilarCollectionItem = {
   imageUrl: string | null;
   lastPriceUsd: number | null;
   changePct: number | null;
+  changePeriod: string;
 };
 
 function loosePriceUsd(comp: CollectionComponents): number | null {
@@ -62,13 +65,10 @@ function toItems(
       // Sealed: set name only (no Booster Box second line); wrap up to 2 lines in CSS.
       displayLabel: sealedBox
         ? sealedBoxHeroSetTitle(comp)
-        : buildMarketsCollectionTitle(
-            {
-              collection: row,
-              comp,
-            },
-            { splitGradeToSecondLine: true },
-          ),
+        : buildMarketsCollectionTitle({
+            collection: row,
+            comp,
+          }),
       gradeLabel: sealedBox
         ? ""
         : buildMarketsCollectionTileGrade({ comp }),
@@ -76,10 +76,8 @@ function toItems(
       components: row.components,
       imageUrl: row.displayImageUrl ?? row.coverImageUrl ?? null,
       lastPriceUsd: pickLastPriceUsd(snap) ?? loosePriceUsd(row.components),
-      changePct:
-        snap?.marketChangePct != null && Number.isFinite(snap.marketChangePct)
-          ? snap.marketChangePct
-          : null,
+      changePct: resolveMarketsListingMarketChangePct(snap),
+      changePeriod: formatListingMarketChangePeriod(snap),
     };
   });
 }

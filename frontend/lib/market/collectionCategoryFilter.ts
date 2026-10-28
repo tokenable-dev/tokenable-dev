@@ -25,6 +25,28 @@ export type CategorySelectOption = {
   label: string;
 };
 
+const MARKET_CATEGORY_LABEL_TO_ID: Record<string, CollectionCategoryFilterId> = {
+  all: "all",
+  other: "other",
+  others: "other",
+  pokemon: "pokemon",
+  "pokémon": "pokemon",
+  onepiece: "onepiece",
+  "one piece": "onepiece",
+  basketball: "basketball",
+  nba: "basketball",
+  baseball: "baseball",
+  mlb: "baseball",
+};
+
+/** Chip id for a stored category label. Null when the label is not one of the Markets categories. */
+export function marketCategoryMessageId(
+  labelOrId: string | null | undefined,
+): CollectionCategoryFilterId | null {
+  const key = (labelOrId ?? "").trim().toLowerCase();
+  return MARKET_CATEGORY_LABEL_TO_ID[key] ?? null;
+}
+
 /** Markets.html filter chips — Pokémon / One Piece / NBA / MLB / Others. */
 export const MARKETS_CATEGORY_FILTERS: CategoryFilterOption[] = [
   { id: "all", label: "All" },

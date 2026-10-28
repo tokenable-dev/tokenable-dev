@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { RedeemPayPanel } from "./RedeemPayPanel";
 import { RedeemPreparingPanel } from "./RedeemPreparingPanel";
 import { RedeemRequestPanel } from "./RedeemRequestPanel";
@@ -9,13 +10,14 @@ import { RedeemDonePanel } from "./RedeemDonePanel";
 import { useRedeemFlow } from "@/hooks/portfolio/useRedeemFlow";
 
 export function RedeemFlowView() {
+  const t = useTranslations("RedeemUi");
   const flow = useRedeemFlow();
 
   const needsCards = flow.step === "request" || flow.step === "pay";
   if (!flow.hydrated) {
     return (
       <div className="pf-redeem-page">
-        <p className="sell-flow-sub">Loading…</p>
+        <p className="sell-flow-sub">{t("loading")}</p>
       </div>
     );
   }
@@ -23,16 +25,16 @@ export function RedeemFlowView() {
   if (needsCards && flow.cards.length === 0) {
     return (
       <div className="pf-redeem-page">
-        <nav className="pf-redeem-crumb" aria-label="Breadcrumb">
-          <Link href="/portfolio">Collection</Link>
+        <nav className="pf-redeem-crumb" aria-label={t("breadcrumb")}>
+          <Link href="/portfolio">{t("collection")}</Link>
           <span className="pf-redeem-crumb__sep" aria-hidden>
             ›
           </span>
-          <span className="pf-redeem-crumb__current">Redemption</span>
+          <span className="pf-redeem-crumb__current">{t("redemption")}</span>
         </nav>
         <p className="sell-flow-sub">
-          No open request to finish.{" "}
-          <Link href="/portfolio">Back to collection</Link>
+          {t("noOpen")}{" "}
+          <Link href="/portfolio">{t("backToCollection")}</Link>
         </p>
       </div>
     );
@@ -40,12 +42,12 @@ export function RedeemFlowView() {
 
   return (
     <div className="pf-redeem-page">
-      <nav className="pf-redeem-crumb" aria-label="Breadcrumb">
-        <Link href="/portfolio">Collection</Link>
+      <nav className="pf-redeem-crumb" aria-label={t("breadcrumb")}>
+        <Link href="/portfolio">{t("collection")}</Link>
         <span className="pf-redeem-crumb__sep" aria-hidden>
           ›
         </span>
-        <span className="pf-redeem-crumb__current">Redemption</span>
+        <span className="pf-redeem-crumb__current">{t("redemption")}</span>
       </nav>
 
       {flow.step === "request" ? (

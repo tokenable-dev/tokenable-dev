@@ -1,3 +1,5 @@
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
+
 /** Product-wide default label for external / reference price % change tiles. */
 export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 yr";
 
@@ -62,6 +64,23 @@ export function resolveReferencePercentChangeDisplay(
     tone,
     showGlyph: true,
   };
+}
+
+/** Listing card period chip — `1Y`, `180d`, `90d`, `30d`, `7d`. */
+export function formatListingMarketChangePeriod(
+  snapshot:
+    | {
+        marketChangeWindow?: string | null;
+        marketChangeIsFullYear?: boolean;
+      }
+    | null
+    | undefined,
+): string {
+  if (!snapshot) return MARKET_PRICE_CHANGE_PERIOD_SHORT;
+  const w = snapshot.marketChangeWindow;
+  if (snapshot.marketChangeIsFullYear || w === "365d") return "1Y";
+  if (w === "180d" || w === "90d" || w === "30d" || w === "7d") return w;
+  return "1Y";
 }
 
 export function referenceChangeTone(pct: number): ReferenceChangeTone {
@@ -210,9 +229,9 @@ export function referenceChangeCoverageDays(
   return Math.max(1, Math.round(result.windowSec / SEC_DAY));
 }
 
-/** Human-readable diagnostic hint for QA/ops and tooltip copy. */
+/** Reference anchor. Historical sale converted with the latest ECB rate. */
 function formatUsdAnchor(n: number): string {
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatDisplayMoney(n);
 }
 
 export function formatReferenceChangeCoverageHint(

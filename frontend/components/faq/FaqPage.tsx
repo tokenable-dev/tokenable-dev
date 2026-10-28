@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { FAQ_GROUPS, FAQ_SUPPORT_EMAIL } from "./faqContent";
+import { useTranslations } from "next-intl";
+import { FAQ_SUPPORT_EMAIL, useFaqGroups } from "./faqContent";
 
 function FaqChevron() {
   return (
@@ -12,30 +13,32 @@ function FaqChevron() {
 }
 
 export function FaqPage() {
+  const t = useTranslations("Faq");
+  const groups = useFaqGroups();
   const [open, setOpen] = useState<Record<string, boolean>>({});
 
   return (
     <section className="faq-page">
       <div className="faq-page__inner">
-      <span className="faq-page__eyebrow">Help center</span>
-      <h1 className="faq-page__title">Frequently asked questions</h1>
+      <span className="faq-page__eyebrow">{t("eyebrow")}</span>
+      <h1 className="faq-page__title">{t("title")}</h1>
       <p className="faq-page__sub">
-        Everything about buying, selling, custody and redemption on Tokenable. Can&rsquo;t find it?{" "}
+        {t("sub")}{" "}
         <a className="faq-page__tlink" href={FAQ_SUPPORT_EMAIL}>
-          Contact support
+          {t("contact")}
         </a>
         .
       </p>
 
       <div className="faq-page__groups">
-        {FAQ_GROUPS.map((group) => (
-          <div key={group.heading} className="faq-page__group">
+        {groups.map((group) => (
+          <div key={group.id} className="faq-page__group">
             <h2 className="faq-page__group-h">{group.heading}</h2>
             {group.items.map((item) => {
-              const id = `${group.heading}:${item.q}`;
+              const id = `${group.id}:${item.id}`;
               const isOpen = Boolean(open[id]);
               return (
-                <div key={item.q} className={`faq-page__item${isOpen ? " faq-page__item--open" : ""}`}>
+                <div key={item.id} className={`faq-page__item${isOpen ? " faq-page__item--open" : ""}`}>
                   <button
                     type="button"
                     className="faq-page__q"
@@ -57,11 +60,11 @@ export function FaqPage() {
 
       <div className="faq-page__cta">
         <div>
-          <h2>Still have a question?</h2>
-          <p>Our team replies within one business day.</p>
+          <h2>{t("still")}</h2>
+          <p>{t("reply")}</p>
         </div>
         <a className="faq-page__cta-btn" href={FAQ_SUPPORT_EMAIL}>
-          Contact support
+          {t("contact")}
         </a>
       </div>
       </div>

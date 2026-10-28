@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { NextIntlClientProvider } from "next-intl";
+import { getLocale, getMessages } from "next-intl/server";
 import {
   inter,
   jetbrainsMono,
@@ -49,18 +51,21 @@ export const viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const messages = await getMessages();
   return (
     <html
-      lang="en"
+      lang={locale}
       data-theme="dark"
       className={`${inter.variable} ${jetbrainsMono.variable} ${pressStart.variable} ${pixelify.variable}`}
     >
       <body className="antialiased tk-ds-surface">
+        <NextIntlClientProvider locale={locale} messages={messages}>
         <Providers>
           <div className="tk-app-shell">
             <div className="tk-shell-scroll">
@@ -85,6 +90,7 @@ export default function RootLayout({
             <FaqDrawerHost />
           </div>
         </Providers>
+        </NextIntlClientProvider>
         <SiteAnalytics />
       </body>
     </html>

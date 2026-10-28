@@ -118,7 +118,7 @@ function CollectionChangeBidModalBody({
             <p className="mt-1.5 text-sm leading-snug text-zinc-400">
               {subtitleLabel}:{" "}
               <span className="font-mono tabular-nums text-zinc-200">
-                {bidMaxUsdcFromOrder(bid)} USDC
+                {bidMaxUsdcFromOrder(bid)}
               </span>
             </p>
           </div>

@@ -2,6 +2,7 @@ import type {
   CollectionGradePrices,
   CollectionMarketPreview,
 } from "@/lib/core";
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
 import { marketHistoryTierFromComponents } from "./priceTier";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import {
@@ -140,7 +141,7 @@ export function computePsaMarketCapUsd(params: {
     return {
       usd: null,
       confidence: "low",
-      methodLabel: "가격 또는 PSA 인구 없음",
+      methodLabel: "No price or PSA population",
       unitUsd: null,
       population: null,
     };
@@ -151,7 +152,7 @@ export function computePsaMarketCapUsd(params: {
     return {
       usd: null,
       confidence: "low",
-      methodLabel: "대표 단가 없음",
+      methodLabel: "No reference unit price",
       unitUsd: null,
       population,
     };
@@ -168,7 +169,7 @@ export function computePsaMarketCapUsd(params: {
   return {
     usd,
     confidence: conf,
-    methodLabel: `PSA 인구 ${population.toLocaleString()} × ${source}${m !== 1 ? ` × 등급계수 ${m}` : ""}`,
+    methodLabel: `PSA population ${population.toLocaleString("en-US")} × ${source}${m !== 1 ? ` × grade factor ${m}` : ""}`,
     unitUsd,
     population,
   };
@@ -326,7 +327,7 @@ export function computeCollectionMarketCapUsd(params: {
     return {
       usd: null,
       confidence: "low",
-      methodLabel: "PSA 인구 없음",
+      methodLabel: "No PSA population",
       unitUsd: null,
       population: null,
     };
@@ -367,7 +368,7 @@ export function computeCollectionMarketCapUsd(params: {
       return {
         usd: spot * populationResolved,
         confidence: "high",
-        methodLabel: `PSA 인구 ${populationResolved.toLocaleString()} × PokeTrace ${historyTier}`,
+        methodLabel: `PSA population ${populationResolved.toLocaleString("en-US")} × PokeTrace ${historyTier}`,
         unitUsd: spot,
         population: populationResolved,
       };
@@ -389,7 +390,7 @@ export function computeCollectionMarketCapUsd(params: {
       return {
         usd: unit * populationResolved,
         confidence: "medium",
-        methodLabel: `PSA 인구 × PokeTrace NM (ref)`,
+        methodLabel: "PSA population × PokeTrace NM (ref)",
         unitUsd: unit,
         population: populationResolved,
       };
@@ -399,14 +400,13 @@ export function computeCollectionMarketCapUsd(params: {
   return {
     usd: null,
     confidence: "low",
-    methodLabel: "단가 없음",
+    methodLabel: "No unit price",
     unitUsd: null,
     population: populationResolved,
   };
 }
 
-/** Collection-detail hero Market cap — full dollars, no K/M/B abbreviation. */
+/** Collection-detail hero Market cap — full units of the display currency. */
 export function formatMarketCapUsd(usd: number | null): string {
-  if (usd == null || !Number.isFinite(usd)) return "—";
-  return `$${usd.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return formatDisplayMoney(usd);
 }

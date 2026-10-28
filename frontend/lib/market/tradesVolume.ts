@@ -11,8 +11,9 @@ export const TRADE_VOLUME_365D_SEC = 365 * 86_400;
 
 /**
  * Hero volume windows (longest coverable wins: 12M → 6M → 3M → 1M).
- * UI always shows normalized 1Y Volume + Velocity 1Y. Raw period/volume kept
- * internally for annualization (12M×1, 6M×2, 3M×4, 1M×12). Market cap never scaled.
+ * UI always shows normalized 1Y Volume + Velocity 1Y. Each source is annualized
+ * on its own (12M×1, 6M×2, 3M×4, 1M×12). Market cap never scaled.
+ * Velocity uses CardHedger USD only.
  */
 export const HERO_VELOCITY_PERIOD_WINDOWS = [
   { label: "12M", sec: TRADE_VOLUME_365D_SEC, annualizeTo1y: 1 },
@@ -102,7 +103,45 @@ function tapePricesInWindow(
   return prices;
 }
 
-/** Sum notional over trades in a rolling window. */
+export type TapeNotionalBySource = {
+  /** Tokenable fills. USDC. */
+  platformUsdc: number;
+  /** CardHedger comps. USD reference prices, not USDC. */
+  externalUsd: number;
+};
+
+/**
+ * Platform fills and CardHedger comps share a tape field named `priceUsdc`,
+ * but they are different units. Callers that display a volume must keep them apart.
+ */
+export function computeTapeNotionalBySource(
+  trades: CollectionPlatformTapeFill[],
+  windowSec: number,
+  sessionFillPoint: { t: number; v: number } | null | undefined,
+  dedupSec: number,
+  nowSec = Math.floor(Date.now() / 1000),
+): TapeNotionalBySource {
+  const cutoff = nowSec - windowSec;
+  let platformUsdc = 0;
+  let externalUsd = 0;
+  for (const row of countableTapeFills(trades)) {
+    if (row.t < cutoff) continue;
+    if (row.source === "cardhedger") externalUsd += row.priceUsdc;
+    else platformUsdc += row.priceUsdc;
+  }
+  if (
+    sessionFillInWindow(sessionFillPoint, cutoff) &&
+    sessionFillPoint != null &&
+    !sessionFillAlreadyInTape(trades, sessionFillPoint, dedupSec)
+  ) {
+    platformUsdc += sessionFillPoint.v;
+  }
+  return { platformUsdc, externalUsd };
+}
+
+/**
+ * Sum of both sources. Not a display amount: USDC and USD are not added for the hero.
+ */
 export function computeTradeVolumeUsdcInWindow(
   trades: CollectionPlatformTapeFill[],
   windowSec: number,
@@ -110,19 +149,14 @@ export function computeTradeVolumeUsdcInWindow(
   dedupSec: number,
   nowSec = Math.floor(Date.now() / 1000),
 ): number {
-  const cutoff = nowSec - windowSec;
-  let sum = 0;
-  for (const row of countableTapeFills(trades)) {
-    if (row.t >= cutoff) sum += row.priceUsdc;
-  }
-  if (
-    sessionFillInWindow(sessionFillPoint, cutoff) &&
-    sessionFillPoint != null &&
-    !sessionFillAlreadyInTape(trades, sessionFillPoint, dedupSec)
-  ) {
-    sum += sessionFillPoint.v;
-  }
-  return sum;
+  const parts = computeTapeNotionalBySource(
+    trades,
+    windowSec,
+    sessionFillPoint,
+    dedupSec,
+    nowSec,
+  );
+  return parts.platformUsdc + parts.externalUsd;
 }
 
 /** Sum notional over trades in the last 30 calendar days. */
@@ -196,10 +230,14 @@ export type HeroTapeActivityStats = {
   windowSec: number | null;
   /** Internal — longest coverable window (1M / 3M / 6M / 12M). Not shown in UI. */
   periodLabel: HeroVelocityPeriodLabel | null;
-  /** Raw notional for {@link periodLabel}; not shown in UI. */
-  periodVolumeUsdc: number | null;
-  /** Annualized 1Y notional for UI Volume 1Y. */
-  volume1yUsdc: number | null;
+  /** Annualized Tokenable fill notional. USDC. Null when the tape has no window. */
+  volume1yPlatformUsdc: number | null;
+  /** Annualized CardHedger comp notional. USD. Null when the tape has no window. */
+  volume1yExternalUsd: number | null;
+  /**
+   * External USD volume ÷ USD market cap. Null when the only volume is
+   * platform USDC, because that ratio would mix units.
+   */
   velocityPct: number | null;
 };
 
@@ -225,32 +263,71 @@ export function computeHeroTapeActivityStats(
       coverageSec,
       windowSec: null,
       periodLabel: null,
-      periodVolumeUsdc: null,
-      volume1yUsdc: null,
+      volume1yPlatformUsdc: null,
+      volume1yExternalUsd: null,
       velocityPct: null,
     };
   }
 
-  const periodVolumeUsdc = computeTradeVolumeUsdcInWindow(
+  const parts = computeTapeNotionalBySource(
     trades,
     windowSec,
     sessionFillPoint,
     dedupSec,
     nowSec,
   );
-  const volume1yUsdc = estimate1yVolumeUsdc(periodVolumeUsdc, windowSec);
-  const velocityPct = computeMarketVelocityPct(periodVolumeUsdc, marketCapUsd, {
-    windowSec,
-  });
+  const volume1yPlatformUsdc = estimate1yVolumeUsdc(parts.platformUsdc, windowSec);
+  const volume1yExternalUsd = estimate1yVolumeUsdc(parts.externalUsd, windowSec);
+  const velocityPct =
+    parts.externalUsd > 0
+      ? computeMarketVelocityPct(parts.externalUsd, marketCapUsd, { windowSec })
+      : parts.platformUsdc > 0
+        ? null
+        : computeMarketVelocityPct(parts.externalUsd, marketCapUsd, { windowSec });
 
   return {
     coverageSec,
     windowSec,
     periodLabel,
-    periodVolumeUsdc,
-    volume1yUsdc,
+    volume1yPlatformUsdc,
+    volume1yExternalUsd,
     velocityPct,
   };
+}
+
+/**
+ * Hero Vol 1Yr. One source renders as its own unit. Both sources stay
+ * labeled and are not added. External USD uses the display-currency formatter.
+ * Platform USDC uses the `$` presentation formatter.
+ */
+export function formatSplitHeroVolume(input: {
+  platformUsdc: number | null;
+  externalUsd: number | null;
+  formatPlatform: (n: number) => string;
+  formatExternal: (n: number) => string;
+  platformLabel: string;
+  externalLabel: string;
+}): string {
+  const platform =
+    input.platformUsdc != null &&
+    Number.isFinite(input.platformUsdc) &&
+    input.platformUsdc > 0
+      ? input.platformUsdc
+      : null;
+  const external =
+    input.externalUsd != null &&
+    Number.isFinite(input.externalUsd) &&
+    input.externalUsd > 0
+      ? input.externalUsd
+      : null;
+  if (platform != null && external != null) {
+    return `${input.externalLabel} ${input.formatExternal(external)} · ${input.platformLabel} ${input.formatPlatform(platform)}`;
+  }
+  if (external != null) return input.formatExternal(external);
+  if (platform != null) {
+    return `${input.platformLabel} ${input.formatPlatform(platform)}`;
+  }
+  return "—";
 }
 
 
@@ -339,7 +416,8 @@ export function estimate1yVolumeUsdc(
 }
 
 /**
- * Gem Velocity (%) = estimated 1Y volume ÷ market cap × 100.
+ * Gem Velocity (%) = estimated 1Y USD volume ÷ USD market cap × 100.
+ * Pass CardHedger comps only. Platform USDC is not a USD amount.
  * Annualizes the period volume only — market cap is never divided or scaled.
  */
 export function computeMarketVelocityPct(

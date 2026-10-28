@@ -69,7 +69,7 @@ export function PortfolioValuePanel({
               ) : changeLabel ? (
                 <span
                   id="pf-val-chip"
-                  className={`tkl-mono pf-value-hero__chip pf-value-hero__chip--${changeState}`}
+                  className={`pf-value-hero__chip pf-value-hero__chip--${changeState}`}
                 >
                   <span className="pf-value-hero__chip-dir" aria-hidden>
                     {changeLabel.arrow}

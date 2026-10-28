@@ -1,4 +1,5 @@
 import { formatUnits } from "viem";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import type { Order } from "@/lib/core";
 import { bidUsdcAmount } from "@/lib/seaport/orders/bidUsdc";
 import type { BookCenterModel } from "./types";
@@ -74,8 +75,7 @@ export function priceUsdcFromOrder(o: Order): number {
 }
 
 export function formatOrderBookPriceUsdc(n: number): string {
-  if (!Number.isFinite(n)) return "—";
-  return Math.round(n).toLocaleString("en-US");
+  return formatUsdcAmount(n);
 }
 
 /** USDC book prices — whole dollars only. */
@@ -87,7 +87,7 @@ export function formatOrderBookUsdAmount(n: number): string {
 /** Card.html order-book Price column. */
 export function formatCollectionDetailBookPriceUsdc(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—";
-  return `$${formatOrderBookUsdAmount(n)}`;
+  return formatUsdcAmount(n);
 }
 
 /**
@@ -211,13 +211,11 @@ export function applyOrderBookNotionalDepth(
   };
 }
 
-/** Order-book Total column — `$999` or `$1.2k` / `$3.4m` / `$1.1b`. */
+/** Order-book Total column. USDC notionals are not display-currency converted. */
 export function formatOrderBookTotalUsdc(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return "—";
   const abs = Math.abs(n);
-  if (abs < 1000) {
-    return `$${formatOrderBookUsdAmount(abs)}`;
-  }
+  if (abs < 1000) return formatUsdcAmount(abs);
   const trim = (v: number) => String(Math.round(v));
   if (abs >= 1_000_000_000) return `$${trim(abs / 1_000_000_000)}b`;
   if (abs >= 1_000_000) return `$${trim(abs / 1_000_000)}m`;
@@ -313,7 +311,7 @@ export function buildOrderBookCenterModel(input: {
   bestBidUsdc?: number | null;
 }): BookCenterModel {
   const { lastTradePriceUsdc, lastTradeSide, bestAskUsdc, bestBidUsdc } = input;
-  const fmtUsd = (n: number) => formatOrderBookUsdAmount(n);
+  const fmtUsd = (n: number) => formatUsdcAmount(n);
 
   const spreadSecondary =
     bestAskUsdc != null || bestBidUsdc != null
@@ -327,7 +325,7 @@ export function buildOrderBookCenterModel(input: {
       lastSide: lastTradeSide ?? null,
       secondary: spreadSecondary,
       caption: "",
-      title: "Most recent on-platform purchase price (USDC).",
+      title: "Most recent on-platform purchase price.",
     };
   }
 

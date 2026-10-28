@@ -1,8 +1,9 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEmail,
+  IsIn,
   IsObject,
   IsOptional,
   IsString,
@@ -10,6 +11,11 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import {
+  canonicalizeLocale,
+  SUPPORTED_DISPLAY_CURRENCIES,
+  SUPPORTED_LOCALES,
+} from '../../fx/supported-currencies';
 
 export class EmailNotifPrefsDto {
   @ApiPropertyOptional()
@@ -76,4 +82,18 @@ export class UpdateProfileDto {
   @ValidateNested()
   @Type(() => EmailNotifPrefsDto)
   emailNotifPrefs?: EmailNotifPrefsDto;
+
+  /** `en`, `zh-CN`, `ja`, `zh-TW`. Case variants are stored in canonical form. */
+  @ApiPropertyOptional({ enum: SUPPORTED_LOCALES })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? (canonicalizeLocale(value) ?? value) : value,
+  )
+  @IsIn(SUPPORTED_LOCALES)
+  preferredLocale?: (typeof SUPPORTED_LOCALES)[number];
+
+  @ApiPropertyOptional({ enum: SUPPORTED_DISPLAY_CURRENCIES })
+  @IsOptional()
+  @IsIn(SUPPORTED_DISPLAY_CURRENCIES)
+  preferredCurrency?: (typeof SUPPORTED_DISPLAY_CURRENCIES)[number];
 }

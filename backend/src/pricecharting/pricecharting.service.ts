@@ -1,6 +1,7 @@
 import { BadRequestException, HttpException, Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  describePricechartingDownloadFailure,
   isRetryablePricechartingDownload,
   throwPricechartingCsvCooldown,
   throwPricechartingCsvNotConfigured,
@@ -14,8 +15,7 @@ const JSON_MIN_INTERVAL_MS = 1_000;
 const CSV_COOLDOWN_MS = 10 * 60 * 1_000;
 const DEFAULT_HTTP_TIMEOUT_MS = 30_000;
 const CSV_HTTP_TIMEOUT_MS = 120_000;
-const DOWNLOAD_ATTEMPTS = 3;
-const DOWNLOAD_RETRY_MS = 15_000;
+const DOWNLOAD_ATTEMPTS = 2;
 
 const CATALOG_HOSTS = new Set([
   'pricecharting.com',
@@ -26,6 +26,16 @@ const CATALOG_HOSTS = new Set([
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/** Seconds, or an HTTP-date. Unknown values do not extend the gap. */
+function retryAfterMs(header: string | null, now: number): number {
+  const raw = header?.trim() ?? '';
+  if (!raw) return 0;
+  if (/^\d+$/.test(raw)) return Number(raw) * 1000;
+  const at = Date.parse(raw);
+  if (Number.isNaN(at)) return 0;
+  return Math.max(0, at - now);
 }
 
 function parseAllowedCatalogUrl(raw: string): URL {
@@ -73,6 +83,9 @@ export class PricechartingService {
   private lastJsonAt = 0;
 
   private lastCsvAt = 0;
+  /** Shared by guide downloads and `GET /csv`. Next request may start at this time. */
+  private nextCsvAt = 0;
+  private csvGate: Promise<void> = Promise.resolve();
 
   constructor(private readonly config: ConfigService) {}
 
@@ -126,12 +139,47 @@ export class PricechartingService {
     }
   }
 
-  private assertCsvCooldown(): void {
-    if (this.lastCsvAt <= 0) return;
-    const elapsed = Date.now() - this.lastCsvAt;
-    if (elapsed >= CSV_COOLDOWN_MS) return;
-    const retryAfterSec = Math.ceil((CSV_COOLDOWN_MS - elapsed) / 1000);
-    throwPricechartingCsvCooldown(retryAfterSec);
+  /**
+   * One CSV request at a time, at least 10 minutes from the previous request
+   * start. The slot is reserved before `fetch`, including when that fetch fails.
+   * `throw` is the HTTP proxy (do not block the handler). `wait` is a guide sync.
+   */
+  private async withCsvDownload<T>(
+    mode: 'wait' | 'throw',
+    fn: (startedAt: number) => Promise<T>,
+  ): Promise<T> {
+    let release!: () => void;
+    const prev = this.csvGate;
+    this.csvGate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await prev;
+    try {
+      const wait = Math.max(0, this.nextCsvAt - Date.now());
+      if (wait > 0) {
+        if (mode === 'throw') {
+          throwPricechartingCsvCooldown(Math.ceil(wait / 1000));
+        }
+        await sleep(wait);
+      }
+      const startedAt = Date.now();
+      this.lastCsvAt = startedAt;
+      this.nextCsvAt = Math.max(this.nextCsvAt, startedAt + CSV_COOLDOWN_MS);
+      return await fn(startedAt);
+    } finally {
+      release();
+    }
+  }
+
+  /** 429 or Retry-After can push the next CSV start past the 10-minute floor. */
+  private noteCsvPace(
+    startedAt: number,
+    upstream: { status: number; headers?: { get(name: string): string | null } },
+  ): void {
+    const header = upstream.headers?.get('retry-after') ?? null;
+    if (upstream.status !== 429 && !header) return;
+    const gap = Math.max(CSV_COOLDOWN_MS, retryAfterMs(header, Date.now()));
+    this.nextCsvAt = Math.max(this.nextCsvAt, startedAt + gap);
   }
 
   /**
@@ -209,8 +257,6 @@ export class PricechartingService {
     const template = this.getCsvUrlTemplate();
     if (!template) throwPricechartingCsvNotConfigured();
 
-    this.assertCsvCooldown();
-
     let url: URL;
     try {
       url = new URL(template);
@@ -220,87 +266,132 @@ export class PricechartingService {
     url.searchParams.set('t', token);
 
     const timeoutMs = CSV_HTTP_TIMEOUT_MS;
-    let upstream: Response;
-    try {
-      upstream = await fetch(url, {
-        method: 'GET',
-        headers: { Accept: 'text/csv,*/*' },
-        signal: AbortSignal.timeout(timeoutMs),
-      });
-    } catch (e) {
-      throwPricechartingFetchFailed(e, timeoutMs);
-    }
-
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    const contentType =
-      upstream.headers.get('content-type') ?? 'text/csv; charset=utf-8';
-    const contentDisposition = upstream.headers.get('content-disposition');
-
-    if (!upstream.ok) {
-      let payload: unknown = buf.toString('utf8');
+    return this.withCsvDownload('throw', async (startedAt) => {
+      let upstream: Response;
       try {
-        payload = JSON.parse(buf.toString('utf8'));
-      } catch {
-        /* keep text */
+        upstream = await fetch(url, {
+          method: 'GET',
+          headers: { Accept: 'text/csv,*/*' },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (e) {
+        throwPricechartingFetchFailed(e, timeoutMs);
       }
-      throwPricechartingUpstreamHttpError(upstream.status, payload);
-    }
 
-    this.lastCsvAt = Date.now();
-    this.logger.log(
-      `PriceCharting CSV downloaded (${buf.length} bytes, content-type=${contentType})`,
-    );
-    return { buffer: buf, contentType, contentDisposition };
+      this.noteCsvPace(startedAt, upstream);
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      const contentType =
+        upstream.headers.get('content-type') ?? 'text/csv; charset=utf-8';
+      const contentDisposition = upstream.headers.get('content-disposition');
+
+      if (!upstream.ok) {
+        let payload: unknown = buf.toString('utf8');
+        try {
+          payload = JSON.parse(buf.toString('utf8'));
+        } catch {
+          /* keep text */
+        }
+        throwPricechartingUpstreamHttpError(upstream.status, payload);
+      }
+
+      this.logger.log(
+        `PriceCharting CSV downloaded (${buf.length} bytes, content-type=${contentType})`,
+      );
+      return { buffer: buf, contentType, contentDisposition };
+    });
   }
 
   /**
-   * Admin catalog fetch. Separate from the single-URL `/csv` proxy so a list
-   * of guides is not blocked by that route's 10-minute cooldown.
+   * Guide CSV. Same 10-minute slot as `forwardCsv`. One request, then at most
+   * one more after that slot when the failure is a connection reset or HTTP
+   * 502/503/504. Import runs only after this returns.
    */
-  async downloadPriceList(rawUrl: string, retryDelayMs = DOWNLOAD_RETRY_MS): Promise<Buffer> {
+  async downloadPriceList(rawUrl: string): Promise<Buffer> {
     const token = this.getApiToken();
     if (!token) throwPricechartingNotConfigured();
 
     const url = buildCatalogDownloadUrl(rawUrl, token);
     const timeoutMs = CSV_HTTP_TIMEOUT_MS;
+    let lastErr: unknown;
     for (let attempt = 1; attempt <= DOWNLOAD_ATTEMPTS; attempt += 1) {
       try {
-        return await this.readPriceList(url, timeoutMs);
+        return await this.readPriceList(url, timeoutMs, attempt);
       } catch (err) {
-        const again = attempt < DOWNLOAD_ATTEMPTS && isRetryablePricechartingDownload(err);
-        if (!again) {
-          if (err instanceof HttpException) throw err;
-          throwPricechartingFetchFailed(err, timeoutMs);
+        lastErr = err;
+        if (attempt < DOWNLOAD_ATTEMPTS && isRetryablePricechartingDownload(err)) {
+          continue;
         }
-        this.logger.warn(
-          `PriceCharting download failed before the CSV arrived (attempt ${attempt} of ${DOWNLOAD_ATTEMPTS})`,
-        );
-        await sleep(retryDelayMs * attempt);
+        if (err instanceof HttpException) throw err;
+        throwPricechartingFetchFailed(err, timeoutMs);
       }
     }
-    throwPricechartingFetchFailed(new Error('terminated'), timeoutMs);
+    if (lastErr instanceof HttpException) throw lastErr;
+    throwPricechartingFetchFailed(lastErr, timeoutMs);
   }
 
-  private async readPriceList(url: URL, timeoutMs: number): Promise<Buffer> {
-    const upstream = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'text/csv,*/*',
-        'User-Agent': 'tokenable-pricecharting/1.0',
-      },
-      signal: AbortSignal.timeout(timeoutMs),
-    });
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    if (!upstream.ok) {
-      let payload: unknown = buf.toString('utf8').slice(0, 500);
+  private logDownloadFailure(
+    attempt: number,
+    phase: 'headers' | 'body' | 'http',
+    err: unknown,
+    startedAt: number,
+  ): void {
+    const described = describePricechartingDownloadFailure(err);
+    this.logger.warn(
+      JSON.stringify({
+        msg: 'pricecharting_csv_download_failed',
+        attempt,
+        attempts: DOWNLOAD_ATTEMPTS,
+        phase,
+        kind: described.kind,
+        status: described.status,
+        durationMs: Date.now() - startedAt,
+        reason: described.reason,
+      }),
+    );
+  }
+
+  private async readPriceList(url: URL, timeoutMs: number, attempt: number): Promise<Buffer> {
+    return this.withCsvDownload('wait', async (startedAt) => {
+      let upstream: Response;
       try {
-        payload = JSON.parse(buf.toString('utf8'));
-      } catch {
-        /* keep text */
+        upstream = await fetch(url, {
+          method: 'GET',
+          headers: {
+            Accept: 'text/csv,*/*',
+            'User-Agent': 'tokenable-pricecharting/1.0',
+          },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
+      } catch (err) {
+        this.logDownloadFailure(attempt, 'headers', err, startedAt);
+        throw err;
       }
-      throwPricechartingUpstreamHttpError(upstream.status, payload);
-    }
-    this.logger.log(`PriceCharting price list downloaded (${buf.length} bytes)`);
-    return buf;
+      this.noteCsvPace(startedAt, upstream);
+      let buf: Buffer;
+      try {
+        buf = Buffer.from(await upstream.arrayBuffer());
+      } catch (err) {
+        this.logDownloadFailure(attempt, 'body', err, startedAt);
+        throw err;
+      }
+      if (!upstream.ok) {
+        let payload: unknown = buf.toString('utf8').slice(0, 500);
+        try {
+          payload = JSON.parse(buf.toString('utf8'));
+        } catch {
+          /* keep text */
+        }
+        try {
+          throwPricechartingUpstreamHttpError(upstream.status, payload);
+        } catch (err) {
+          this.logDownloadFailure(attempt, 'http', err, startedAt);
+          throw err;
+        }
+      }
+      this.logger.log(
+        `PriceCharting price list downloaded (${buf.length} bytes, ${Date.now() - startedAt}ms, attempt ${attempt})`,
+      );
+      return buf;
+    });
   }
 }

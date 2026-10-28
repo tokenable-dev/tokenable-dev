@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import {
   COLLECTION_ORDER_BOOK_FLUSH_INSET_X,
   COLLECTION_ORDER_BOOK_SCROLL_CLASS,
@@ -26,12 +27,13 @@ import { OrderBookEmptyPanel } from "./OrderBookEmptyPanel";
 import { OrderBookScrollFades, useOrderBookScrollFades } from "./OrderBookScrollFades";
 
 function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; collectionDetail?: boolean }) {
+  const t = useTranslations("OrderBook");
   if (collectionDetail) {
     return (
       <div className="cd-ob-book-hdr shrink-0">
-        <span>Price</span>
-        <span className="cd-ob-book-hdr__c">Qty</span>
-        <span className="cd-ob-book-hdr__r">Total</span>
+        <span>{t("price")}</span>
+        <span className="cd-ob-book-hdr__c">{t("qty")}</span>
+        <span className="cd-ob-book-hdr__r">{t("total")}</span>
       </div>
     );
   }
@@ -41,9 +43,9 @@ function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; c
       <div
         className={`relative ${ORDER_BOOK_THREE_COL_GRID} shrink-0 border-b border-zinc-800/50 bg-zinc-950/50 py-1.5 ${COLLECTION_ORDER_BOOK_FLUSH_INSET_X} ${orderBookColumnHeaderCls}`}
       >
-        <span className={orderBookColStartCls}>Price</span>
-        <span className={orderBookBookSizeColCls}>Size</span>
-        <span className={`${orderBookColEndCls} tabular-nums`}>Total</span>
+        <span className={orderBookColStartCls}>{t("price")}</span>
+        <span className={orderBookBookSizeColCls}>{t("size")}</span>
+        <span className={`${orderBookColEndCls} tabular-nums`}>{t("total")}</span>
       </div>
     );
   }
@@ -52,8 +54,8 @@ function OrderBookColumnHeader({ flush, collectionDetail }: { flush?: boolean; c
     <div
       className={`relative grid shrink-0 grid-cols-[1fr_44px] gap-1.5 px-2.5 py-1.5 sm:px-3 ${orderBookColumnHeaderCls}`}
     >
-      <span>Price (USDC)</span>
-      <span className="text-right tabular-nums">Count</span>
+      <span>{t("priceUsdc")}</span>
+      <span className="text-right tabular-nums">{t("count")}</span>
     </div>
   );
 }
@@ -71,6 +73,7 @@ function OrderBookFooterCounts({
   showSellHint?: boolean;
   collectionDetail?: boolean;
 }) {
+  const t = useTranslations("OrderBook");
   /* Design HTML: no footer under the book (empty tips live on the mid strip). */
   if (collectionDetail) return null;
 
@@ -84,16 +87,17 @@ function OrderBookFooterCounts({
     >
       <div className={`flex justify-between gap-2 ${orderBookColumnHeaderCls} tabular-nums`}>
         <span>
-          Bids <span className="text-pos/80">{bidCount}</span>
+          {t("bids")} <span className="text-pos/80">{bidCount}</span>
         </span>
         <span>
-          Asks <span className="text-neg/80">{askCount}</span>
+          {t("asks")} <span className="text-neg/80">{askCount}</span>
         </span>
       </div>
       {showSellHint ? (
         <p className={`${orderBookColumnHeaderCls} leading-snug`}>
-          Selling: use the <span className="text-zinc-400">Sell</span> tab or list from your asset;
-          crossing bids fill automatically when you list at or below a collection bid.
+          {t.rich("sellHint", {
+            em: (chunks) => <span className="text-zinc-400">{chunks}</span>,
+          })}
         </p>
       ) : null}
     </div>
