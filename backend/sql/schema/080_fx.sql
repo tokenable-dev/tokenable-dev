@@ -16,7 +16,7 @@ ALTER TABLE users
   CHECK (
     preferred_currency IS NULL
     OR preferred_currency IN (
-      'USD', 'EUR', 'GBP', 'KRW', 'JPY', 'SGD', 'CAD', 'AUD', 'CHF', 'HKD',
+      'USD', 'EUR', 'GBP', 'KRW', 'JPY', 'SGD', 'CAD', 'AUD', 'CHF', 'HKD', 'CNY',
       'IDR', 'MYR', 'PHP', 'VND', 'THB'
     )
   );

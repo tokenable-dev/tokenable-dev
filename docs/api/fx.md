@@ -25,9 +25,9 @@ The provider is Frankfurter's ECB feed (`/v2/providers/ecb/rates?base=USD`). A w
 
 Historical chart points use this same latest rate. They are not historical exchange rates. The chart does not show an estimate note.
 
-Prices use the currency’s own symbol and do not append the ISO code: `A$ 142`, `C$ 140`, `S$ 128`, `HK$ 784`, `Rp 1,816,300`, `RM 409`, `₱6,394`, `₫2,585,800`, `฿3,381`. A one-character symbol stays against the number (`$100`, `₩132,528`). Every display currency is rounded to a whole unit. Cents are not shown.
+Prices use the currency’s own symbol and do not append the ISO code: `A$ 142`, `C$ 140`, `S$ 128`, `HK$ 784`, `CN¥ 712`, `Rp 1,816,300`, `RM 409`, `₱6,394`, `₫2,585,800`, `฿3,381`. A one-character symbol stays against the number (`$100`, `₩132,528`). Chinese yuan uses `CN¥` so the header chip is distinct from Japanese yen `¥`. Every display currency is rounded to a whole unit. Cents are not shown.
 
-ECB publishes CAD, AUD, IDR, MYR, PHP, and THB. It does not publish VND. That one rate is read from Frankfurter’s Bank Negara Malaysia feed (`/v2/providers/bnm/rates?base=USD&quotes=VND`) and stored on its own row. If that fetch fails, the ECB snapshot is still published and a VND selection with no stored rate falls back to USD.
+ECB publishes CAD, AUD, CNY, IDR, MYR, PHP, and THB. It does not publish VND. That one rate is read from Frankfurter’s Bank Negara Malaysia feed (`/v2/providers/bnm/rates?base=USD&quotes=VND`) and stored on its own row. If that fetch fails, the ECB snapshot is still published and a VND selection with no stored rate falls back to USD.
 
 ### Refresh
 
@@ -42,3 +42,17 @@ Existing databases apply this through `backend/sql/maintenance/deploy-sync.sql` 
 `fx_rates`: one row per currency (`quote_per_usd`, `observation_date`, `source`, `fetched_at`). No history table.
 
 Guest currency is the `tk_currency` cookie. Signed-in users store `users.preferred_currency`. A saved profile wins over a disagreeing cookie. Language is independent: `tk_locale` / `users.preferred_locale` is `en`, `zh-CN`, `ja`, or `zh-TW`. A saved profile locale wins over a disagreeing cookie. Invalid locales fall back to `en`.
+
+## `POST /api/fx/catalog-names`
+
+No authentication. Display-only translations for catalog phrases that are not an official Pokemon species name: leftover card-name words, set names, and variants. Number, grade, and stored rows are not modified. `collection_key` is not modified.
+
+```json
+{ "locale": "ja", "texts": ["Monkey D. Luffy"] }
+```
+
+```json
+{ "translations": { "Monkey D. Luffy": "モンキー・D・ルフィ" } }
+```
+
+`locale` is `ja`, `zh-CN`, or `zh-TW`. At most 40 strings, each at most 180 characters. Results stay in process memory on the API. A failed lookup returns the source string for that entry. English is not requested; the UI keeps the source string.

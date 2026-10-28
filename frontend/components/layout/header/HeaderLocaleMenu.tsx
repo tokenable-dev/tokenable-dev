@@ -3,7 +3,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -89,7 +88,7 @@ function CheckIcon() {
 
 export function HeaderLocaleMenu() {
   const t = useTranslations("Locale");
-  const panelId = useId();
+  const panelId = "gnb-locale-panel";
   const wrapRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -168,6 +167,7 @@ export function HeaderLocaleMenu() {
 
   function choose(code: DisplayCurrency) {
     selectCurrency(code);
+    close();
   }
 
   return (
@@ -251,7 +251,10 @@ export function HeaderLocaleMenu() {
                     role="option"
                     aria-selected={active}
                     className="gnb-locale__option"
-                    onClick={() => selectLocale(row.code)}
+                    onClick={() => {
+                      selectLocale(row.code);
+                      close();
+                    }}
                   >
                     <span className="gnb-locale__flag" aria-hidden>
                       {row.flag}

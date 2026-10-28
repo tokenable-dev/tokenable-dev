@@ -1,11 +1,18 @@
 "use client";
 
-import { type ReactNode } from "react";
 import Link from "next/link";
+import { type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { marketCategoryMessageId } from "@/lib/market";
+import {
+  localizeCatalogPhrase,
+  localizeDisplayedCardName,
+  useCatalogNameRevision,
+} from "@/lib/marketplace/catalogNameTranslation";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 
 const ROW_LABEL_KEY = {
+  character: "cardName",
   category: "category",
   series: "series",
   set: "set",
@@ -44,6 +51,8 @@ function DetailsBody({
   footer?: ReactNode;
 }) {
   const t = useTranslations("CollectionDetail");
+  const tMarkets = useTranslations("Markets");
+  useCatalogNameRevision();
   return (
     <article className="w-full min-w-0 bg-transparent px-0 py-0">
       <h2 className="sr-only">{title}</h2>
@@ -60,10 +69,24 @@ function DetailsBody({
         >
           {rows.map((row) => {
             const href = row.href?.trim() || null;
+            const categoryKey =
+              row.id === "category" ? marketCategoryMessageId(row.value) : null;
+            const catalogPhrase =
+              row.id === "series" ||
+              row.id === "set" ||
+              row.id === "variant" ||
+              row.id === "product" ||
+              (row.id === "category" && !categoryKey);
             const value =
               row.id === "language"
                 ? localizeCatalogLanguage(row.value, t)
-                : row.value;
+                : row.id === "character"
+                  ? localizeDisplayedCardName(row.value)
+                  : categoryKey
+                    ? tMarkets(categoryKey)
+                    : catalogPhrase
+                      ? localizeCatalogPhrase(row.value)
+                      : row.value;
             return (
               <div
                 key={row.id}

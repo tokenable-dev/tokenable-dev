@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import {
   ShippingAddressFormFields,
@@ -73,41 +74,26 @@ function staleReasonFromKeys(
   return "address";
 }
 
-const STALE_COPY: Record<
-  StaleReason,
-  { badge: string; note: string }
-> = {
-  address: {
-    badge: "Address changed",
-    note: "Address changed. Recalculate the cost.",
-  },
-  cards: {
-    badge: "Cards changed",
-    note: "Your card selection changed — recalculate to update shipping and fees.",
-  },
-  both: {
-    badge: "Details changed",
-    note: "Your address or cards changed — recalculate to get an updated cost.",
-  },
-};
-
-const QUOTE_BADGE: Record<
-  Exclude<QuoteState, "stale">,
-  { label: string; tone: "idle" | "loading" | "done" | "stale" }
-> = {
-  idle: { label: "Not calculated", tone: "idle" },
-  loading: { label: "Calculating", tone: "loading" },
-  done: { label: "Quoted", tone: "done" },
-};
+function staleCopy(
+  reason: StaleReason,
+  t: ReturnType<typeof useTranslations<"RedeemUi">>,
+) {
+  if (reason === "cards") {
+    return { badge: t("cardsChanged"), note: t("cardsChangedNote") };
+  }
+  if (reason === "both") {
+    return { badge: t("detailsChanged"), note: t("detailsChangedNote") };
+  }
+  return { badge: t("addressChanged"), note: t("addressChangedNote") };
+}
 
 function RedeemRequestHeader() {
+  const t = useTranslations("RedeemUi");
   return (
     <>
-      <div className="pf-redeem-eyebrow">Redeem · Step 1 of 2</div>
-      <h1 className="pf-redeem-h1">Have your cards shipped to you</h1>
-      <p className="pf-redeem-sub">
-        Ship your physical cards from the vault to the address below.
-      </p>
+      <div className="pf-redeem-eyebrow">{t("step1")}</div>
+      <h1 className="pf-redeem-h1">{t("shipToYou")}</h1>
+      <p className="pf-redeem-sub">{t("shipFromVault")}</p>
     </>
   );
 }
@@ -129,6 +115,7 @@ export function RedeemRequestPanel({
   error: string | null;
   onContinue: () => void;
 }) {
+  const t = useTranslations("RedeemUi");
   const { chainId } = useAppChain();
   const user = useAuthStore((s) => s.user);
   const authReady = useAuthStore((s) => s.initialized);
@@ -158,10 +145,10 @@ export function RedeemRequestPanel({
   useEffect(() => {
     if (quoteState !== "loading") return;
     setLoadProgress(8);
-    const t = window.setInterval(() => {
+    const tick = window.setInterval(() => {
       setLoadProgress((p) => Math.min(96, p + Math.random() * 22));
     }, 260);
-    return () => window.clearInterval(t);
+    return () => window.clearInterval(tick);
   }, [quoteState]);
 
   const shipValues: ShippingAddressFormValues = {
@@ -262,8 +249,16 @@ export function RedeemRequestPanel({
 
   const badge =
     quoteState === "stale"
-      ? { label: STALE_COPY[staleReason].badge, tone: "stale" as const }
-      : QUOTE_BADGE[quoteState];
+      ? { label: staleCopy(staleReason, t).badge, tone: "stale" as const }
+      : {
+          label:
+            quoteState === "loading"
+              ? t("calculating")
+              : quoteState === "done"
+                ? t("quoted")
+                : t("notCalculated"),
+          tone: quoteState,
+        };
 
   if (!authReady) {
     return (
@@ -310,7 +305,7 @@ export function RedeemRequestPanel({
                 onChange({ ...form, saveAddress: e.target.checked })
               }
             />
-            Save this address for future shipments
+            {t("saveAddress")}
           </label>
         }
       />
@@ -325,7 +320,7 @@ export function RedeemRequestPanel({
       >
         <div className="pf-redeem-quote__head">
           <span className="pf-redeem-cost__title pf-redeem-quote__label">
-            Cost
+            {t("cost")}
           </span>
           <span
             className={`pf-redeem-quote__badge pf-redeem-quote__badge--${badge.tone} tkl-mono`}
@@ -338,7 +333,7 @@ export function RedeemRequestPanel({
           {quoteState === "idle" ? (
             <div className="pf-redeem-quote__body">
               <p className="pf-redeem-quote__intro">
-                Enter your address, then calculate the cost.
+                {t("enterThenCalc")}
               </p>
               <TkButton
                 type="button"
@@ -347,7 +342,7 @@ export function RedeemRequestPanel({
                 disabled={busy || cards.length === 0}
                 onClick={() => void runQuote()}
               >
-                Calculate cost
+                {t("calculate")}
               </TkButton>
             </div>
           ) : null}
@@ -357,7 +352,7 @@ export function RedeemRequestPanel({
               <div className="pf-redeem-quote__loading-row">
                 <span className="pf-redeem-quote__spin" aria-hidden />
                 <span className="pf-redeem-quote__loading-copy">
-                  Getting rates for your address…
+                  {t("gettingRates")}
                 </span>
               </div>
               <div className="pf-redeem-quote__bar" aria-hidden>
@@ -379,7 +374,7 @@ export function RedeemRequestPanel({
                 title={null}
               />
               <p className="pf-redeem-cost__copy">
-                Final price. Billed once per shipment.
+                {t("finalPrice")}
               </p>
             </div>
           ) : null}
@@ -387,7 +382,7 @@ export function RedeemRequestPanel({
           {quoteState === "stale" ? (
             <div className="pf-redeem-quote__body">
               <p className="pf-redeem-quote__stale-note" role="note">
-                {STALE_COPY[staleReason].note}
+                {staleCopy(staleReason, t).note}
               </p>
               <TkButton
                 type="button"
@@ -396,7 +391,7 @@ export function RedeemRequestPanel({
                 disabled={busy || cards.length === 0}
                 onClick={() => void runQuote()}
               >
-                Recalculate
+                {t("recalculate")}
               </TkButton>
             </div>
           ) : null}
@@ -424,14 +419,12 @@ export function RedeemRequestPanel({
             onClick={onContinue}
           >
             {busy
-              ? "Saving…"
+              ? t("saving")
               : cards.length === 0
-                ? "No cards selected"
-                : "Continue"}
+                ? t("noCards")
+                : t("continue")}
           </TkButton>
-          <p className="pf-redeem-hint-below">
-            Shipping and the Redemption fee, charged now.
-          </p>
+          <p className="pf-redeem-hint-below">{t("continueHint")}</p>
         </div>
       ) : null}
     </div>

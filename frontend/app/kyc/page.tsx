@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { usePrivy } from "@privy-io/react-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import { fetchAuthMe } from "@/lib/auth";
 import { shouldDeferGuestSignIn } from "@/lib/auth";
@@ -24,12 +25,17 @@ const POLL_INTERVAL_MS = 2000;
 const POLL_MAX_ATTEMPTS = 45;
 const AUTO_CONTINUE_DELAY_MS = 1200;
 
-function formatKycError(e: unknown, fallback: string): string {
+function formatKycError(e: unknown, fallback: string, throttle: string): string {
   const message = e instanceof Error ? e.message : fallback;
-  if (/too many requests|throttler/i.test(message)) {
-    return "Too many verification requests. Wait about a minute, then try again.";
-  }
+  if (/too many requests|throttler/i.test(message)) return throttle;
   return message || fallback;
+}
+
+function sumsubLang(locale: string): "en" | "zh" | "zh-tw" | "ja" {
+  if (locale === "zh-CN") return "zh";
+  if (locale === "zh-TW") return "zh-tw";
+  if (locale === "ja") return "ja";
+  return "en";
 }
 
 function reviewAnswerFromPayload(payload: unknown): string | undefined {
@@ -51,6 +57,8 @@ function reviewStatusFromPayload(payload: unknown): string | undefined {
 }
 
 export default function KycPage() {
+  const t = useTranslations("Kyc");
+  const locale = useLocale();
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const loading = useAuthStore((s) => s.loading);
@@ -194,7 +202,7 @@ export default function KycPage() {
         })
         .catch(() => undefined);
     } catch (e) {
-      setPageError(formatKycError(e, "Could not start verification"));
+      setPageError(formatKycError(e, t("startError"), t("throttle")));
     } finally {
       bootingRef.current = false;
       setBooting(false);
@@ -207,7 +215,7 @@ export default function KycPage() {
     if (statusLoadedForUser.current === user.id) return;
     statusLoadedForUser.current = user.id;
     void loadStatus().catch((e) => {
-      setPageError(formatKycError(e, "Could not load KYC status"));
+      setPageError(formatKycError(e, t("loadError"), t("throttle")));
     });
   }, [user?.id, loadStatus]);
 
@@ -278,7 +286,7 @@ export default function KycPage() {
     return (
       <main className="kyc-page">
         <div className="kyc-page__shell">
-          <p className="tk-muted">Loading…</p>
+          <p className="tk-muted">{t("loading")}</p>
         </div>
       </main>
     );
@@ -294,11 +302,8 @@ export default function KycPage() {
       <div className={`kyc-page__shell${sdkActive ? " kyc-page__shell--sdk" : ""}`}>
         {sdkActive ? null : (
           <header className="kyc-page__header">
-            <h1 className="kyc-page__title">Verify your identity</h1>
-            <p className="kyc-page__lead">
-              Upload a clear photo of your government ID (passport, license, or national
-              ID). Take a quick selfie to match your ID.
-            </p>
+            <h1 className="kyc-page__title">{t("title")}</h1>
+            <p className="kyc-page__lead">{t("lead")}</p>
           </header>
         )}
 
@@ -311,12 +316,10 @@ export default function KycPage() {
         {approved ? (
           <section className="kyc-status-card">
             <p>
-              {autoContinuing
-                ? "Identity verification is complete. Taking you back…"
-                : "You can now submit and sell cards."}
+              {autoContinuing ? t("doneReturning") : t("doneSell")}
             </p>
             <TkButton variant="primary" onClick={continueAfterApproval}>
-              Continue
+              {t("continue")}
             </TkButton>
           </section>
         ) : null}
@@ -324,9 +327,8 @@ export default function KycPage() {
         {rejected ? (
           <section className="kyc-status-card">
             <p>
-              We need another look
-              {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} Please resubmit your
-              ID and liveness check.
+              {t("needAnother")}
+              {status?.rejectionReason ? `: ${status.rejectionReason}` : "."} {t("resubmit")}
             </p>
             <TkButton
               variant="primary"
@@ -336,7 +338,7 @@ export default function KycPage() {
                 void startVerification();
               }}
             >
-              {booting ? "Starting…" : "Try again"}
+              {booting ? t("starting") : t("tryAgain")}
             </TkButton>
           </section>
         ) : null}
@@ -344,9 +346,7 @@ export default function KycPage() {
         {pending && !accessToken && !rejected ? (
           <section className="kyc-status-card">
             <p>
-              {pageError
-                ? "You can retry opening Sumsub below once the rate limit clears."
-                : "We'll email you when verification completes."}
+              {pageError ? t("retryLater") : t("emailWhenDone")}
             </p>
             <TkButton
               variant="neutral"
@@ -356,18 +356,18 @@ export default function KycPage() {
                 void startVerification();
               }}
             >
-              {booting ? "Loading…" : "Continue verification"}
+              {booting ? t("loading") : t("continueVerification")}
             </TkButton>
           </section>
         ) : null}
 
         {sdkActive ? (
-          <section className="kyc-sdk" aria-label="Identity verification">
+          <section className="kyc-sdk" aria-label={t("sdkLabel")}>
             <SumsubWebSdk
               className="kyc-sdk__frame"
               accessToken={accessToken!}
               expirationHandler={expirationHandler}
-              config={{ lang: "en", theme: "dark" }}
+              config={{ lang: sumsubLang(locale), theme: "dark" }}
               options={{
                 addViewportTag: false,
                 adaptIframeHeight: true,
@@ -378,7 +378,7 @@ export default function KycPage() {
                 setPageError(
                   typeof err === "object" && err && "error" in err
                     ? String((err as { error?: unknown }).error)
-                    : "Verification error",
+                    : t("verifyError"),
                 );
               }}
             />
@@ -386,7 +386,7 @@ export default function KycPage() {
         ) : null}
 
         {!accessToken && !approved && !rejected && !pending && booting ? (
-          <p className="tk-muted">Preparing verification…</p>
+          <p className="tk-muted">{t("preparing")}</p>
         ) : null}
       </div>
     </main>

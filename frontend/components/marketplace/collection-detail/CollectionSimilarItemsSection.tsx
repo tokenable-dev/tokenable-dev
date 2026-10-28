@@ -2,33 +2,38 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { formatUsdCompact, resolveReferencePercentChangeDisplay } from "@/lib/market";
+import { formatUsdCompact } from "@/lib/market";
 import {
-  ListingCardChange,
-  listingCardChangeGlyph,
-} from "@/components/collectibles/ListingCardChange";
+  ListingGradeCardLines,
+  buildListingGradeCardChange,
+} from "@/components/collectibles/ListingGradeCardLines";
 import {
   useCollectionSimilarItems,
   type SimilarCollectionItem,
 } from "@/hooks/collection-detail/useCollectionSimilarItems";
 import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { parseCollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
-
-function ChangeChip({ pct }: { pct: number | null }) {
-  const display = resolveReferencePercentChangeDisplay(pct);
-  return (
-    <ListingCardChange
-      pctLabel={display.pctLabel}
-      tone={display.tone}
-      glyph={listingCardChangeGlyph(display)}
-    />
-  );
-}
+import {
+  localizeCatalogPhrase,
+  useCatalogNameRevision,
+} from "@/lib/marketplace/catalogNameTranslation";
+import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 
 function SimilarCard({ item }: { item: SimilarCollectionItem }) {
-  const name = item.displayLabel.trim();
-  const grade = item.gradeLabel.trim();
-  const alt = grade ? `${name} · ${grade}` : name;
+  useCatalogNameRevision();
+  const sealed = item.components.assetKind === "sealed_box";
+  const name = (
+    sealed
+      ? localizeCatalogPhrase(item.displayLabel)
+      : buildMarketsCollectionTitle({
+          collection: {
+            collectionKey: item.collectionKey,
+            displayLabel: item.catalogLabel,
+          },
+          comp: item.components,
+        })
+  ).trim() || item.displayLabel.trim();
+  const alt = name;
   return (
     <Link
       href={`/marketplace/collections/${encodeURIComponent(item.collectionKey)}`}
@@ -48,18 +53,16 @@ function SimilarCard({ item }: { item: SimilarCollectionItem }) {
         )}
       </div>
       <div className="cd-si-card__body">
-        <div className="cd-si-card__headlines">
-          <div className="cd-si-card__title">{name}</div>
-          {grade ? <div className="cd-si-card__grade">{grade}</div> : null}
-        </div>
-        <div className="cd-si-card__price-row">
-          <span className="cd-si-card__price">
-            {item.lastPriceUsd != null
-              ? formatUsdCompact(item.lastPriceUsd)
-              : "—"}
-          </span>
-          <ChangeChip pct={item.changePct} />
-        </div>
+        <ListingGradeCardLines
+          title={name}
+          priceLabel={
+            item.lastPriceUsd != null ? formatUsdCompact(item.lastPriceUsd) : "—"
+          }
+          change={buildListingGradeCardChange({
+            changePct: item.changePct,
+            periodLabel: item.changePeriod,
+          })}
+        />
       </div>
     </Link>
   );

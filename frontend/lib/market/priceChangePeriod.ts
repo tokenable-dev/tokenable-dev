@@ -66,6 +66,23 @@ export function resolveReferencePercentChangeDisplay(
   };
 }
 
+/** Listing card period chip — `1Y`, `180d`, `90d`, `30d`, `7d`. */
+export function formatListingMarketChangePeriod(
+  snapshot:
+    | {
+        marketChangeWindow?: string | null;
+        marketChangeIsFullYear?: boolean;
+      }
+    | null
+    | undefined,
+): string {
+  if (!snapshot) return MARKET_PRICE_CHANGE_PERIOD_SHORT;
+  const w = snapshot.marketChangeWindow;
+  if (snapshot.marketChangeIsFullYear || w === "365d") return "1Y";
+  if (w === "180d" || w === "90d" || w === "30d" || w === "7d") return w;
+  return "1Y";
+}
+
 export function referenceChangeTone(pct: number): ReferenceChangeTone {
   const display = resolveReferencePercentChangeDisplay(pct);
   if (display.tone === "muted") return "flat";

@@ -1,9 +1,11 @@
 "use client";
 
+import { useLocale } from "next-intl";
 import {
   formatSellCardDisplay,
   type SellCardDisplaySource,
 } from "@/lib/sell/sellFlowDraft";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { cn } from "@/lib/ds/cn";
 
 /** Card title — SSOT line 1 + line 2; optional cert on its own line (Add your cards). */
@@ -26,6 +28,8 @@ export function SellCardNameBlock({
   certLineClassName?: string;
   title?: string;
 }) {
+  useLocale();
+  useCatalogNameRevision();
   const { line1, line2 } = formatSellCardDisplay(card, { certOnLine2 });
   const cert = card.cert?.trim();
 

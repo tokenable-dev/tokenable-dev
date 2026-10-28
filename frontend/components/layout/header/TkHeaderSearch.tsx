@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { TkSearchField } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import type {
@@ -208,6 +209,7 @@ export function SearchResultsList({
   snapshotByKey: Map<string, CollectionListMarketSnapshot>;
 }) {
   const t = useTranslations("Search");
+  useCatalogNameRevision();
   if (hits.length === 0) {
     return (
       <div className="gnb-search-overlay__empty">

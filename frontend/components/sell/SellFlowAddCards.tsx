@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import type { useSellFlow } from "@/hooks/sell/useSellFlow";
 import { SellFlowCertDirectInput } from "./SellFlowCertDirectInput";
@@ -45,6 +46,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
     goBackToVaultChoice,
   } = flow;
 
+  const t = useTranslations("Sell");
   const [addMode, setAddMode] = useState<AddMode>("single");
   const [csvRows, setCsvRows] = useState<PartnerCsvRow[]>([]);
   const [csvFileName, setCsvFileName] = useState<string | null>(null);
@@ -96,17 +98,17 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
           disabled={mintBusy || csvLookupBusy}
         >
           <BackChevron />
-          Back
+          {t("back")}
         </button>
 
-        <div className="sell-flow-eyebrow">PSA Vault</div>
-        <h1 className="sell-flow-h1">Enter card info</h1>
+        <div className="sell-flow-eyebrow">{t("psaVault")}</div>
+        <h1 className="sell-flow-h1">{t("enterCard")}</h1>
 
         <div className="sell-flow-glass sell-flow-glass--cards-input sell-flow-glass--partner-input">
           <div
             className="sell-flow-mseg"
             role="tablist"
-            aria-label="How to add cards"
+            aria-label={t("howToAdd")}
           >
             <button
               type="button"
@@ -116,7 +118,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
               disabled={csvLookupBusy}
               onClick={() => setAddMode("single")}
             >
-              Add individually
+              {t("addOne")}
             </button>
             <button
               type="button"
@@ -126,7 +128,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
               disabled={csvLookupBusy}
               onClick={() => setAddMode("csv")}
             >
-              Upload CSV
+              {t("uploadCsv")}
             </button>
           </div>
 
@@ -177,7 +179,7 @@ export function SellFlowAddCards({ flow }: { flow: Flow }) {
                     disabled={!canContinueShipping || mintBusy}
                     onClick={() => void continueToShipping()}
                   >
-                    Continue
+                    {t("continue")}
                   </TkButton>
                 </div>
               ) : null}

@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import { ASSETS } from "@/constants/assets";
@@ -24,28 +25,25 @@ import {
   type VaultHubPackage,
 } from "@/lib/vault/buildVaultHubRows";
 import type { VaultHubVState } from "@/lib/vault/vaultHubTypes";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { cn } from "@/lib/ds/cn";
 
 type TabFilter = "all" | VaultHubVState;
 
-const TABS: { id: TabFilter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "transit", label: "Shipped" },
-  { id: "verify", label: "Verifying" },
-  { id: "vaulted", label: "Vaulted" },
-  { id: "reject", label: "Rejected" },
-];
+const ACTION_KEYS = {
+  "Arrange return": "arrangeReturn",
+  "File a claim": "fileClaim",
+  "Track shipment": "trackShipment",
+  "View details": "viewDetails",
+  View: "view",
+  "Add tracking": "addTracking",
+  "Track →": "trackArrow",
+  "Contact support": "contactSupport",
+} as const;
 
 function vaultDashImage(src: string): string {
   return src.trim() || ASSETS.icons.tokenableMintPlaceholder;
 }
-
-const PILL: Record<VaultHubVState, string> = {
-  transit: "Shipped",
-  verify: "Verifying",
-  vaulted: "Vaulted",
-  reject: "Rejected",
-};
 
 function Chevron({ open }: { open: boolean }) {
   return (
@@ -56,6 +54,9 @@ function Chevron({ open }: { open: boolean }) {
 }
 
 function PackageAction({ pkg }: { pkg: VaultHubPackage }) {
+  const t = useTranslations("Sell");
+  const actionKey = ACTION_KEYS[pkg.actionLabel as keyof typeof ACTION_KEYS];
+  const label = actionKey ? t(actionKey) : pkg.actionLabel;
   const className = cn(
     "vault-dash-btn",
     pkg.actionTone === "primary" ? "vault-dash-btn--primary" : "vault-dash-btn--subtle",
@@ -67,13 +68,13 @@ function PackageAction({ pkg }: { pkg: VaultHubPackage }) {
         className={className}
         {...(pkg.actionExternal ? { target: "_blank", rel: "noopener noreferrer" } : {})}
       >
-        {pkg.actionLabel}
+        {label}
       </a>
     );
   }
   return (
     <Link href={pkg.actionHref} className={className}>
-      {pkg.actionLabel}
+      {label}
     </Link>
   );
 }
@@ -91,6 +92,14 @@ function PackageRow({
   onCancel?: () => void;
   cancelling?: boolean;
 }) {
+  const t = useTranslations("Sell");
+  const units = useTranslations("RedeemUi");
+  const pill: Record<VaultHubVState, string> = {
+    transit: t("shipped"),
+    verify: t("verifying"),
+    vaulted: t("vaulted"),
+    reject: t("rejected"),
+  };
   const shown = pkg.cards.slice(0, 4);
   const more = pkg.cards.length - shown.length;
 
@@ -110,28 +119,29 @@ function PackageRow({
           <div className="mono vault-dash-sb__cert">{pkg.certLine}</div>
         ) : null}
       </div>
-      <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{PILL[pkg.status]}</span>
+      <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{pill[pkg.status]}</span>
       <div className="vault-dash-bot">
         {pkg.cards.length > 1 ? (
           <button type="button" className="vault-dash-tog" aria-expanded={open} onClick={onToggle}>
-            <span className="vault-dash-mono">{pkg.cards.length}</span> cards <Chevron open={open} />
+            <span className="vault-dash-mono">{pkg.cards.length}</span>{" "}
+            {units(pkg.cards.length === 1 ? "cardOne" : "cardMany")} <Chevron open={open} />
           </button>
         ) : (
           <span className="vault-dash-one">
-            <span className="vault-dash-mono">1</span> card
+            <span className="vault-dash-mono">1</span> {units("cardOne")}
           </span>
         )}
         {pkg.vaultedCount > 0 || pkg.rejectedCount > 0 ? (
           <div className="vault-dash-sum">
             {pkg.vaultedCount > 0 ? (
               <span>
-                <b>{pkg.vaultedCount}</b> vaulted
+                <b>{pkg.vaultedCount}</b> {t("vaultedWord")}
               </span>
             ) : null}
             {pkg.vaultedCount > 0 && pkg.rejectedCount > 0 ? <span> · </span> : null}
             {pkg.rejectedCount > 0 ? (
               <span>
-                <b className="vault-dash-sum__neg">{pkg.rejectedCount}</b> rejected
+                <b className="vault-dash-sum__neg">{pkg.rejectedCount}</b> {t("rejectedWord")}
               </span>
             ) : null}
           </div>
@@ -164,7 +174,7 @@ function PackageRow({
               disabled={cancelling}
               onClick={onCancel}
             >
-              {cancelling ? "Removing…" : "Remove"}
+              {cancelling ? t("removing") : t("remove")}
             </button>
           ) : null}
           <PackageAction pkg={pkg} />
@@ -182,7 +192,7 @@ function PackageRow({
           ))}
           {more > 0 ? (
             <Link href={pkg.detailHref} className="vault-dash-more">
-              + {more} more · View all {pkg.cards.length}
+              {t("moreCards", { more, count: pkg.cards.length })}
             </Link>
           ) : null}
         </div>
@@ -202,6 +212,9 @@ export function VaultHubActivityLoading() {
 
 /** Vault-Dashboard-Active.html — status tabs + submission rows. */
 export function VaultActiveDashboardView() {
+  const t = useTranslations("Sell");
+  const locale = useLocale();
+  const catalogNames = useCatalogNameRevision();
   const [filter, setFilter] = useState<TabFilter>("all");
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
   const queryClient = useQueryClient();
@@ -214,8 +227,15 @@ export function VaultActiveDashboardView() {
   const displayByCert = useVaultSubmissionDisplayByCert(submissionItems);
   const packages = useMemo(
     () => buildVaultHubPackages(submissions, displayByCert),
-    [submissions, displayByCert],
+    [submissions, displayByCert, locale, catalogNames],
   );
+  const tabs: { id: TabFilter; label: string }[] = [
+    { id: "all", label: t("all") },
+    { id: "transit", label: t("shipped") },
+    { id: "verify", label: t("verifying") },
+    { id: "vaulted", label: t("vaulted") },
+    { id: "reject", label: t("rejected") },
+  ];
   const counts = useMemo(() => countVaultHubPackages(packages), [packages]);
   const visible = packages.filter((pkg) => packageMatchesTab(pkg, filter));
 
@@ -237,19 +257,19 @@ export function VaultActiveDashboardView() {
 
   return (
     <div className="vault-dash">
-      <div className="vault-dash-tabs" role="tablist" aria-label="Vaulting status">
-        {TABS.map((t) => {
-          const on = filter === t.id;
+      <div className="vault-dash-tabs" role="tablist" aria-label={t("vaultingStatus")}>
+        {tabs.map((tab) => {
+          const on = filter === tab.id;
           return (
             <button
-              key={t.id}
+              key={tab.id}
               type="button"
               role="tab"
               aria-selected={on}
               className={cn("vault-dash-tab", on && "vault-dash-tab--on")}
-              onClick={() => setFilter(t.id)}
+              onClick={() => setFilter(tab.id)}
             >
-              {t.label} <span className="vault-dash-tab__n">{counts[t.id]}</span>
+              {tab.label} <span className="vault-dash-tab__n">{counts[tab.id]}</span>
             </button>
           );
         })}
@@ -267,7 +287,7 @@ export function VaultActiveDashboardView() {
                   ? () => {
                       if (
                         !window.confirm(
-                          "Remove this package? You can start again from Sell anytime.",
+                          t("removeConfirm"),
                         )
                       ) {
                         return;
@@ -281,7 +301,7 @@ export function VaultActiveDashboardView() {
           ))}
         </div>
       ) : (
-        <div className="vault-dash-empty">Nothing in this state right now.</div>
+        <div className="vault-dash-empty">{t("emptyState")}</div>
       )}
     </div>
   );

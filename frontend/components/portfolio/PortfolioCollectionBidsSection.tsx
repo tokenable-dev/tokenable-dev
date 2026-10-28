@@ -11,6 +11,11 @@ import { TkTable } from "@/components/ds";
 import { usePortfolioTableSort } from "@/hooks/portfolio/usePortfolioTableSort";
 import { highestBidUsdForHolding } from "@/hooks/portfolio/usePortfolioCollectionTopBids";
 import { collectionDetailHref } from "@/lib/marketplace/collectionBrowseContext";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
+import {
+  buildMarketsCollectionMeta,
+  buildMarketsCollectionTitle,
+} from "@/lib/markets/marketsCollectionTitle";
 import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import { PortfolioToolbarSearch } from "./PortfolioToolbarSearch";
@@ -169,6 +174,29 @@ function BidRowActions({
   );
 }
 
+function visibleBidCopy(
+  meta: PortfolioBidCollectionMeta | undefined,
+  collectionKey: string,
+): { label: string; line2: string; hover: string } {
+  const fallback = collectionKey.replace(/^ch:/, "").slice(0, 48);
+  if (!meta?.comp) {
+    const label = meta?.displayLabel?.trim() || fallback;
+    const line2 = meta?.line2?.trim() || "";
+    return {
+      label,
+      line2,
+      hover: meta?.hoverLabel?.trim() || [label, line2].filter(Boolean).join(" · "),
+    };
+  }
+  const params = {
+    collection: { collectionKey, displayLabel: meta.displayLabel },
+    comp: meta.comp,
+  };
+  const label = buildMarketsCollectionTitle(params) || meta.displayLabel.trim() || fallback;
+  const line2 = buildMarketsCollectionMeta(params).trim();
+  return { label, line2, hover: [label, line2].filter(Boolean).join(" · ") };
+}
+
 export function PortfolioCollectionBidsSection({
   loading,
   metaLoading,
@@ -202,6 +230,7 @@ export function PortfolioCollectionBidsSection({
   onChangeBid: (bid: PortfolioBidRow) => void;
   onRebid: (bid: PortfolioBidRow) => void;
 }) {
+  const catalogNames = useCatalogNameRevision();
   const t = useTranslations("PortfolioTable");
   const tStatus = useTranslations("Status");
   const tTrade = useTranslations("Trade");
@@ -222,10 +251,9 @@ export function PortfolioCollectionBidsSection({
     const q = searchQuery.trim().toLowerCase();
     const rows = bids.filter((bid) => {
       const meta = collectionMetaByKey.get(bid.collectionKey);
-      const label =
-        meta?.displayLabel?.trim() ||
-        bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
-      const line2 = meta?.line2?.trim() || "";
+      const copy = visibleBidCopy(meta, bid.collectionKey);
+      const label = copy.label;
+      const line2 = copy.line2;
       if (q) {
         const hay = `${label} ${line2} ${bid.collectionKey}`.toLowerCase();
         if (!hay.includes(q)) return false;
@@ -246,12 +274,8 @@ export function PortfolioCollectionBidsSection({
       return true;
     });
     rows.sort((a, b) => {
-      const labelA =
-        collectionMetaByKey.get(a.collectionKey)?.displayLabel ||
-        a.collectionKey.replace(/^ch:/, "");
-      const labelB =
-        collectionMetaByKey.get(b.collectionKey)?.displayLabel ||
-        b.collectionKey.replace(/^ch:/, "");
+      const labelA = visibleBidCopy(collectionMetaByKey.get(a.collectionKey), a.collectionKey).label;
+      const labelB = visibleBidCopy(collectionMetaByKey.get(b.collectionKey), b.collectionKey).label;
       const listingsA =
         listingsByCollectionKey?.get(a.collectionKey) ??
         listingsByCollectionKey?.get(a.collectionKey.toLowerCase());
@@ -302,6 +326,7 @@ export function PortfolioCollectionBidsSection({
     statsByCollectionKey,
     bidsByCollectionKey,
     listingsByCollectionKey,
+    catalogNames,
   ]);
 
   if (loading) {
@@ -374,10 +399,9 @@ export function PortfolioCollectionBidsSection({
         <tbody>
           {sortedBids.map((bid) => {
             const meta = collectionMetaByKey.get(bid.collectionKey);
-            const label =
-              meta?.displayLabel?.trim() ||
-              bid.collectionKey.replace(/^ch:/, "").slice(0, 48);
-            const hoverLabel = meta?.hoverLabel?.trim() || label;
+            const copy = visibleBidCopy(meta, bid.collectionKey);
+            const label = copy.label;
+            const hoverLabel = copy.hover;
             const href = collectionDetailHref(bid.collectionKey, {
               listingTokenId: bid.tokenId && bid.tokenId !== "0" ? bid.tokenId : null,
             });

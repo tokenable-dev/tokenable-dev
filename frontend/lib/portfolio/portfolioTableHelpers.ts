@@ -20,6 +20,7 @@ import {
   sealedBoxHeroSetTitle,
   sealedBoxProductTypeLabel,
 } from "@/lib/marketplace/buildCollectionMarketDetailCards";
+import { localizeCatalogPhrase } from "@/lib/marketplace/catalogNameTranslation";
 import { resolveCardDisplayLine1Collisions } from "@/lib/marketplace/cardDisplayName";
 import { formatPortfolioGradeLabel } from "@/lib/portfolio/portfolioAssetMeta";
 
@@ -63,7 +64,7 @@ export type PortfolioHoldingsHeadline = {
   grade: string;
   /** Table / single-line title — `{Name} · {Number} · {Grade}`. */
   line1: string;
-  /** Gallery name row — `{Name} · {Number}`. Grade renders on the next row. */
+  /** Grade-omitted title kept for collision diffs. Gallery renders `line1`. */
   nameLine: string;
   /** Year · set · variant — shown under Line 1 on table-row hover. */
   line2: string;
@@ -109,8 +110,8 @@ function sealedBoxHeadlineFromMetadata(
   fallbackName: string,
 ): PortfolioHoldingsHeadline {
   const fields = sealedBoxFieldsFromMetadata(meta, fallbackName);
-  const setTitle = sealedBoxHeroSetTitle(fields);
-  const typeLabel = sealedBoxProductTypeLabel(fields);
+  const setTitle = localizeCatalogPhrase(sealedBoxHeroSetTitle(fields));
+  const typeLabel = localizeCatalogPhrase(sealedBoxProductTypeLabel(fields));
   const parts: AssetDetailHeadlineParts = {
     year: null,
     setName: null,

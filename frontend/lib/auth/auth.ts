@@ -54,6 +54,7 @@ export type UpdateProfileInput = {
     | "AUD"
     | "CHF"
     | "HKD"
+    | "CNY"
     | "IDR"
     | "MYR"
     | "PHP"

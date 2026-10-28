@@ -51,6 +51,145 @@ export function isRetryablePricechartingDownload(err: unknown): boolean {
   return status === 502 || status === 503 || status === 504;
 }
 
+const FAILURE_REASON_MAX = 200;
+const CAUSE_WALK_MAX = 4;
+
+/**
+ * Log text only. Removes absolute URLs (including encoded ones), query
+ * strings, token and category parameters, and credential assignments.
+ * Does not decide retries.
+ */
+export function sanitizePricechartingLogText(
+  text: string,
+  max = FAILURE_REASON_MAX,
+): string {
+  let s = text;
+  s = s.replace(/https?%3A%2F%2F\S*/gi, '[redacted-url]');
+  s = s.replace(/https?:\/\/\S*/gi, '[redacted-url]');
+  s = s.replace(
+    /\b(?:www\.)?(?:pricecharting|sportscardspro)\.com\/\S*/gi,
+    '[redacted-url]',
+  );
+  s = s.replace(/\?[^\s"'<>]*/g, '');
+  s = s.replace(/(?:^|[\s&])t=[^\s&]*/gi, ' ');
+  s = s.replace(/(?:^|[\s&])category=[^\s&]*/gi, ' ');
+  s = s.replace(/t%3D\S*/gi, '');
+  s = s.replace(/category%3D\S*/gi, '');
+  s = s.replace(
+    /\b(?:cookie|set-cookie|authorization|bearer)\b\s*[:=]\s*\S+/gi,
+    '[redacted-credential]',
+  );
+  return s.replace(/\s+/g, ' ').trim().slice(0, max);
+}
+
+function causeOf(err: unknown): unknown {
+  if (!err || typeof err !== 'object' || !('cause' in err)) return undefined;
+  return (err as { cause?: unknown }).cause;
+}
+
+function safeErrno(err: unknown): string {
+  if (!err || typeof err !== 'object' || !('code' in err)) return '';
+  const code = (err as { code?: unknown }).code;
+  if (typeof code !== 'string' || !/^[A-Z][A-Z0-9_]{0,31}$/.test(code)) return '';
+  return code;
+}
+
+function ownMessage(err: unknown): string {
+  if (err instanceof HttpException) {
+    const body = err.getResponse();
+    if (typeof body === 'string') return body;
+    if (body && typeof body === 'object' && 'message' in body) {
+      const nested = (body as { message?: unknown }).message;
+      if (typeof nested === 'string') return nested;
+      if (Array.isArray(nested)) {
+        return nested.filter((item) => typeof item === 'string').join(' ');
+      }
+    }
+    return '';
+  }
+  if (err instanceof Error) return err.message;
+  if (typeof err === 'string') return err;
+  return '';
+}
+
+function errorClassName(err: unknown): string {
+  if (err instanceof HttpException) return 'HttpException';
+  if (err instanceof Error && err.name) return err.name;
+  return 'Error';
+}
+
+/** Names and messages only, bounded depth. Plain objects are not serialized. */
+function causeSummaries(err: unknown): string[] {
+  const parts: string[] = [];
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+  for (let depth = 0; depth < CAUSE_WALK_MAX; depth += 1) {
+    const cause = causeOf(current);
+    if (cause == null || seen.has(cause)) break;
+    if (typeof cause === 'object') seen.add(cause);
+    const summary =
+      typeof cause === 'string'
+        ? sanitizePricechartingLogText(cause, 80)
+        : cause instanceof Error
+          ? [cause.name || 'Error', safeErrno(cause), sanitizePricechartingLogText(cause.message, 80)]
+              .filter(Boolean)
+              .join(' ')
+          : safeErrno(cause);
+    if (summary) parts.push(`cause: ${summary}`);
+    current = cause;
+  }
+  return parts;
+}
+
+/** AbortSignal timeout, including when Node wraps it as `fetch failed` plus a cause. */
+function isAbortTimeout(err: unknown): boolean {
+  if (/aborted|abort/i.test(errorBlob(err))) return true;
+  const seen = new Set<unknown>();
+  let current: unknown = err;
+  for (let depth = 0; depth < CAUSE_WALK_MAX + 1; depth += 1) {
+    if (current == null || seen.has(current)) break;
+    if (typeof current === 'object') seen.add(current);
+    const name =
+      current instanceof Error
+        ? current.name
+        : current && typeof current === 'object' && 'name' in current
+          ? (current as { name?: unknown }).name
+          : undefined;
+    if (name === 'TimeoutError') return true;
+    current = causeOf(current);
+  }
+  return false;
+}
+
+/**
+ * Log fields only. Does not decide retries.
+ * An HTTP response is always `http`, even when the body text looks like a proxy reset.
+ */
+export function describePricechartingDownloadFailure(err: unknown): {
+  kind: 'timeout' | 'connection_reset' | 'http' | 'network';
+  status: number | null;
+  reason: string;
+} {
+  const status = err instanceof HttpException ? err.getStatus() : null;
+  const reason = sanitizePricechartingLogText(
+    [
+      `${errorClassName(err)}${status != null ? ` ${status}` : ''}: ${sanitizePricechartingLogText(ownMessage(err), 120)}`,
+      ...causeSummaries(err),
+    ].join('; '),
+    FAILURE_REASON_MAX,
+  );
+  if (err instanceof HttpException) {
+    return { kind: 'http', status: err.getStatus(), reason };
+  }
+  if (isAbortTimeout(err)) {
+    return { kind: 'timeout', status: null, reason };
+  }
+  if (isPricechartingConnectionReset(err)) {
+    return { kind: 'connection_reset', status: null, reason };
+  }
+  return { kind: 'network', status: null, reason };
+}
+
 export function throwPricechartingNotConfigured(): never {
   throw new ServiceUnavailableException({
     statusCode: 503,
@@ -106,7 +245,7 @@ export function throwPricechartingFetchFailed(
   throw new ServiceUnavailableException({
     statusCode: 503,
     code: PRICECHARTING_NETWORK_ERROR_CODE,
-    message: `Could not reach PriceCharting (${raw}). Check outbound HTTPS and PRICECHARTING_BASE_URL.`,
+    message: `Could not reach PriceCharting (${sanitizePricechartingLogText(raw, 200)}). Check outbound HTTPS and PRICECHARTING_BASE_URL.`,
   });
 }
 

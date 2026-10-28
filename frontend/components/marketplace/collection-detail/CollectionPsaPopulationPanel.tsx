@@ -102,7 +102,7 @@ export function CollectionPsaPopulationPanel({
       })}
       {total != null && total > 0 ? (
         <div className="cd-psa-panel__row cd-psa-panel__row--total">
-          <span className="cd-psa-panel__grade cd-psa-panel__grade--muted">Total Pop</span>
+          <span className="cd-psa-panel__grade cd-psa-panel__grade--muted">{t("totalPop")}</span>
           <span className="cd-psa-panel__count">{formatPsaPopulationCount(total)}</span>
           <span className="cd-psa-panel__pct">100%</span>
         </div>

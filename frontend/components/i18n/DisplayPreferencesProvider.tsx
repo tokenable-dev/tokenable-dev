@@ -12,6 +12,7 @@ import {
 } from "react";
 import { updateAuthProfile } from "@/lib/auth/auth";
 import { useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import {
   CURRENCY_COOKIE,
   LOCALE_COOKIE,
@@ -22,11 +23,12 @@ import {
   type AppLocale,
   type DisplayCurrency,
 } from "@/lib/i18n/preferences";
-import {
-  setDisplayFxSnapshot,
+import { setDisplayFxSnapshot,
   USD_DISPLAY_FX,
   type DisplayFx,
 } from "@/lib/market/displayMoney";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
+import { setDisplayLocaleSnapshot } from "@/lib/marketplace/localizePokemonCardName";
 import { useAuthStore } from "@/store/authStore";
 
 type RatesBody = {
@@ -87,6 +89,7 @@ function composeFx(currency: DisplayCurrency, body: RatesBody | null): DisplayFx
 }
 
 export function DisplayPreferencesProvider({ children }: { children: ReactNode }) {
+  setDisplayLocaleSnapshot(useLocale());
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
@@ -207,6 +210,7 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
 
 /** Subscribes the caller so memoized cards rerender when the currency changes. */
 export function useDisplayFx(): DisplayFx {
+  useCatalogNameRevision();
   const { selectCurrency: _select, selectLocale: _locale, ...fx } = useContext(
     DisplayPreferencesContext,
   );

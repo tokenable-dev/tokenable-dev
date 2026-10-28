@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useAuthStore } from "@/store/authStore";
 
 /**
@@ -9,6 +10,7 @@ import { useAuthStore } from "@/store/authStore";
  * Guests on the hub are redirected home; use header Sell for Privy → `/vault`.
  */
 export function SellRouterView() {
+  const t = useTranslations("Sell");
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const initialized = useAuthStore((s) => s.initialized);
@@ -27,7 +29,7 @@ export function SellRouterView() {
           <span className="sell-router__dot" style={{ animationDelay: "0.15s" }} />
           <span className="sell-router__dot" style={{ animationDelay: "0.3s" }} />
         </div>
-        <p className="sell-router__label">Opening your seller tools…</p>
+        <p className="sell-router__label">{t("opening")}</p>
       </div>
     </div>
   );

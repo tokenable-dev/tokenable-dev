@@ -58,6 +58,19 @@ describe("translation catalogs", () => {
     expect(last.map((row) => row.period180d)).toEqual(["180d", "180天", "180日", "180天"]);
   });
 
+  it("translates the markets category chips", () => {
+    const labels = LOCALES.map(
+      (locale) =>
+        (catalogs[locale] as {
+          Markets: { pokemon: string; onepiece: string; basketball: string; baseball: string };
+        }).Markets,
+    );
+    expect(labels.map((row) => row.pokemon)).toEqual(["Pokémon", "宝可梦", "ポケモン", "寶可夢"]);
+    expect(labels.map((row) => row.onepiece)).toEqual(["One Piece", "海贼王", "ワンピース", "航海王"]);
+    expect(labels.map((row) => row.basketball)).toEqual(["NBA", "篮球", "バスケ", "籃球"]);
+    expect(labels.map((row) => row.baseball)).toEqual(["MLB", "棒球", "メジャー", "棒球"]);
+  });
+
   it("does not copy Simplified Chinese into Traditional Chinese", () => {
     const simplified = JSON.stringify(catalogs["zh-CN"]);
     const traditional = JSON.stringify(catalogs["zh-TW"]);

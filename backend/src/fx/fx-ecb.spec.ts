@@ -16,6 +16,7 @@ const SAMPLE = [
   { date: '2026-10-26', base: 'USD', quote: 'AUD', rate: 1.4236 },
   { date: '2026-10-26', base: 'USD', quote: 'CHF', rate: 0.82615 },
   { date: '2026-10-26', base: 'USD', quote: 'HKD', rate: 7.8448 },
+  { date: '2026-10-26', base: 'USD', quote: 'CNY', rate: 7.12 },
   { date: '2026-10-26', base: 'USD', quote: 'IDR', rate: 18163 },
   { date: '2026-10-26', base: 'USD', quote: 'MYR', rate: 4.0875 },
   { date: '2026-10-26', base: 'USD', quote: 'PHP', rate: 63.944 },
@@ -58,7 +59,7 @@ describe('publishableFxSnapshot', () => {
     expect(snap?.observationDate).toBe('2026-10-26');
     expect(snap?.quotePerUsd.EUR).toBe(0.89381);
     expect(snap?.quotePerUsd.KRW).toBe(1325.28);
-    expect(Object.keys(snap?.quotePerUsd ?? {})).toHaveLength(13);
+    expect(Object.keys(snap?.quotePerUsd ?? {})).toHaveLength(14);
     expect(snap?.quotePerUsd.VND).toBeUndefined();
   });
 

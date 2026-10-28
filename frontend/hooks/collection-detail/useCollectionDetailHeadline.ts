@@ -4,6 +4,10 @@ import { useMemo } from "react";
 import type { CollectionMarketPreview } from "@/lib/core";
 import type { CollectionDetailCard } from "@/lib/marketplace/collectionDetailTypes";
 import {
+  localizeCatalogPhrase,
+  useCatalogNameRevision,
+} from "@/lib/marketplace/catalogNameTranslation";
+import {
   buildAssetDetailHeadlineParts,
   computeAssetDetailWovenTitle,
   formatCardDisplayMeta,
@@ -60,7 +64,7 @@ function sealedBoxHeadline(params: {
   vaultLabel?: string | null;
 }) {
   const { comp, hasCollection, vaultLabel } = params;
-  const titleName = sealedBoxHeroSetTitle(comp);
+  const titleName = localizeCatalogPhrase(sealedBoxHeroSetTitle(comp));
   const trailSet =
     sealedBoxBreadcrumbSet(comp.consoleName) ||
     sealedBoxBreadcrumbSet(titleName) ||
@@ -73,7 +77,7 @@ function sealedBoxHeadline(params: {
   });
   const langShort =
     formatCardDisplayLanguageShort(languageLabel) ?? languageLabel;
-  const productType = sealedBoxProductTypeLabel(comp);
+  const productType = localizeCatalogPhrase(sealedBoxProductTypeLabel(comp));
   const metaStrip = [year, langShort, productType]
     .filter((x): x is string => typeof x === "string" && x.trim().length > 0)
     .join(" · ");
@@ -143,24 +147,25 @@ export function useCollectionDetailHeadline(params: {
     vaultLabel,
   } = params;
 
+  const catalogNames = useCatalogNameRevision();
   const sealedBoxView = useMemo(
     () =>
       comp.assetKind === "sealed_box"
         ? sealedBoxHeadline({ comp, displayLabel, hasCollection, vaultLabel })
         : null,
-    [comp, displayLabel, hasCollection, vaultLabel],
+    [comp, displayLabel, hasCollection, vaultLabel, catalogNames],
   );
 
   const metadataRows = useMemo(() => [] as { label: string; value: string }[], [key]);
 
   const subtitle = useMemo(() => {
-    const setShown = bucketCardSetForDisplay(comp);
+    const setShown = localizeCatalogPhrase(bucketCardSetForDisplay(comp));
     const parts = [setShown, comp.cardNumber].filter(
       (x): x is string => typeof x === "string" && x.trim().length > 0,
     );
     if (!parts.length) return null;
     return toCardDisplayCase(parts.join(" · "));
-  }, [comp]);
+  }, [comp, catalogNames]);
 
   const headlineSetLine = useMemo(() => {
     const slabSet = resolveCollectionSlabSetLine(comp);
@@ -295,7 +300,7 @@ export function useCollectionDetailHeadline(params: {
   const collectionHeadlineDisplayTitle = useMemo(
     () =>
       formatAssetDetailLine1(collectionHeadlineParts, { grade: headlineGrade }),
-    [collectionHeadlineParts, headlineGrade],
+    [collectionHeadlineParts, headlineGrade, catalogNames],
   );
 
   const collectionBreadcrumbTrail = useMemo(
@@ -316,12 +321,13 @@ export function useCollectionDetailHeadline(params: {
       headlineLanguageLabel,
       comp.normalizedPokemon?.setName,
       comp.normalizedPokemon?.setCode,
+      catalogNames,
     ],
   );
 
   const collectionHeadlineMetaStrip = useMemo(() => {
     return formatCardDisplayMeta(collectionHeadlineParts) || null;
-  }, [collectionHeadlineParts]);
+  }, [collectionHeadlineParts, catalogNames]);
 
   const collectionPopulationBadge = useMemo(() => {
     const popRaw = comp.psaTotalPopulation;
@@ -350,11 +356,17 @@ export function useCollectionDetailHeadline(params: {
       pokeTierLabel,
     });
     if (!raw) return null;
-    return raw.map((t) => ({
-      ...t,
-      text: t.id === "cardno" ? t.text : toCardDisplayCase(t.text),
-      title: t.title ? toCardDisplayCase(t.title) : undefined,
-    }));
+    return raw.map((tag) => {
+      const phrase =
+        tag.id === "variant" || tag.id === "settype" || tag.id === "rarity";
+      const text = tag.id === "cardno" ? tag.text : toCardDisplayCase(tag.text);
+      const title = tag.title ? toCardDisplayCase(tag.title) : undefined;
+      return {
+        ...tag,
+        text: phrase ? localizeCatalogPhrase(text) : text,
+        title: phrase && title ? localizeCatalogPhrase(title) : title,
+      };
+    });
   }, [
     headlineSetLine,
     collectionHeadlineDisplayTitle,
@@ -362,6 +374,7 @@ export function useCollectionDetailHeadline(params: {
     marketPreview,
     pokeTierLabel,
     comp,
+    catalogNames,
   ]);
 
   const collectionMarketDetailCards = useMemo(

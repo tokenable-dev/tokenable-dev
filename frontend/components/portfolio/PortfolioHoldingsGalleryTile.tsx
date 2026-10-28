@@ -131,8 +131,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   useDisplayFx();
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const titleHover = headline?.hover ?? row.name;
-  const titleLabel = headline?.nameLine?.trim() || headline?.line1 || row.name;
-  const gradeLabel = headline?.grade?.trim() || "";
+  const titleLabel = headline?.line1?.trim() || row.name;
   void cost;
   void valuesPending;
   const marketUsd =
@@ -237,13 +236,9 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
           {href && !selectMode ? (
             <Link href={href} className="pf-gtile__title-link">
               <span className="pf-gtile__title-name">{titleLabel}</span>
-              <span className="pf-gtile__title-grade">{gradeLabel || "\u00a0"}</span>
             </Link>
           ) : (
-            <>
-              <span className="pf-gtile__title-name">{titleLabel}</span>
-              <span className="pf-gtile__title-grade">{gradeLabel || "\u00a0"}</span>
-            </>
+            <span className="pf-gtile__title-name">{titleLabel}</span>
           )}
         </div>
 

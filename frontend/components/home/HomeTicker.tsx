@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useLocale } from "next-intl";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { buildHomeTickerCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
@@ -15,6 +17,8 @@ import "@/styles/tokenable-home.css";
  * Styles live in tokenable-home.css. Shown on the landing page only.
  */
 export function HomeTicker() {
+  const locale = useLocale();
+  const catalogNames = useCatalogNameRevision();
   const { tickerItems, isPending, snapshotsPending } = useHomeMarketplaceGrids();
 
   const items = useMemo(() => {
@@ -34,7 +38,7 @@ export function HomeTicker() {
         showGlyph: display.showGlyph,
       };
     });
-  }, [tickerItems]);
+  }, [tickerItems, locale, catalogNames]);
 
   const itemsKey = items.map((i) => i.collectionKey).join("|");
   const [marqueeGen, setMarqueeGen] = useState(0);

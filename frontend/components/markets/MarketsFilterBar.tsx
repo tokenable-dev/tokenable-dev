@@ -25,6 +25,7 @@ import {
 import {
   MARKETS_CATEGORY_FILTERS,
   MARKETS_CATEGORY_SELECT_OPTIONS,
+  marketCategoryMessageId,
   type CategorySelectOption,
   type CollectionCategoryId,
 } from "@/lib/market";
@@ -35,10 +36,6 @@ import { requestOpenGnbSearch } from "@/components/layout/header/TkHeaderSearch"
 type PopId = "sort" | null;
 
 const EMPTY_STRINGS: string[] = [];
-
-function categoryOptionLabel(f: { label: string }): string {
-  return f.label;
-}
 
 function SearchIcon({ size = 16 }: { size?: number }) {
   return (
@@ -298,6 +295,10 @@ export function MarketsFilterBar({
   filters?: readonly CategorySelectOption[];
 }) {
   const t = useTranslations("Markets");
+  const categoryText = (id: string, fallback: string) => {
+    const key = marketCategoryMessageId(id);
+    return key ? t(key) : fallback;
+  };
   const fx = useDisplayFx();
   const priceMark = currencyNarrowSymbol(fx.fallbackToUsd ? "USD" : fx.currency);
   const [openPop, setOpenPop] = useState<PopId>(null);
@@ -600,7 +601,7 @@ export function MarketsFilterBar({
                   onCategoryToggle(f.id as CollectionCategoryId);
                 }}
               >
-                {f.id === "all" || f.id === "other" ? t(f.id) : categoryOptionLabel(f)}
+                {categoryText(f.id, f.label)}
               </button>
             );
           })}
@@ -766,7 +767,7 @@ export function MarketsFilterBar({
                   selected={draftCategories.has(f.id)}
                   onClick={() => toggleDraftCategory(f.id)}
                 >
-                  {f.id === "other" ? t("other") : categoryOptionLabel(f)}
+                  {categoryText(f.id, f.label)}
                 </FilterCheckRow>
               ))}
             </div>

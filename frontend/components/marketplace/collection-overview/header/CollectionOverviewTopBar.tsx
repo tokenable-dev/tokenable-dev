@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { marketCategoryMessageId } from "@/lib/market";
 import { AssetDetailHeadlineTitle } from "@/components/marketplace/marketplace-shared";
 import type { AssetDetailHeadlineParts } from "@/lib/marketplace/assetDetailHeadline";
 import {
@@ -60,6 +62,9 @@ export function CollectionOverviewTopBar({
   hideDesktopHeadlineBadges?: boolean;
   hideDesktopTopBarHeadline?: boolean;
 }) {
+  const tMarkets = useTranslations("Markets");
+  const categoryKey = marketCategoryMessageId(categoryBadge);
+  const categoryLabel = categoryKey ? tMarkets(categoryKey) : categoryBadge;
   const desktopHeadlineHidden = hideDesktopTopBarHeadline;
 
   return (
@@ -91,7 +96,7 @@ export function CollectionOverviewTopBar({
                       aria-label="Collection tags"
                     >
                       {categoryBadge ? (
-                        <span className={HEADLINE_OUTLINE_TAG}>{categoryBadge}</span>
+                        <span className={HEADLINE_OUTLINE_TAG}>{categoryLabel}</span>
                       ) : (
                         <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
                       )}
@@ -135,7 +140,7 @@ export function CollectionOverviewTopBar({
                         aria-label="Collection tags"
                       >
                         {categoryBadge ? (
-                          <span className={HEADLINE_OUTLINE_TAG}>{categoryBadge}</span>
+                          <span className={HEADLINE_OUTLINE_TAG}>{categoryLabel}</span>
                         ) : (
                           <span className={HEADLINE_OUTLINE_TAG}>{badgeLabel}</span>
                         )}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { TkButton, TkField, TkInput, TkSelect } from "@/components/ds";
 import {
@@ -18,8 +19,8 @@ import {
   formatPartnerRedeemRequestedAt,
   isPartnerRedeemDueSoon,
   partnerRedeemDeadlineCountdown,
-  partnerRedeemDueSoonBannerText,
 } from "@/lib/partner/partnerRedeemStats";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import {
   PARTNER_SHIPMENT_STATUS,
   partnerCardCertLine,
@@ -41,13 +42,7 @@ import { useToastStore } from "@/store/toastStore";
 type TabId = PartnerShipmentTab;
 type ShipmentGroup = ReturnType<typeof groupPartnerRedeems>[number];
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "to_ship", label: "To ship" },
-  { id: "shipped", label: "Shipped" },
-  { id: "delivered", label: "Delivered" },
-  { id: "cancelled", label: "Cancelled" },
-  { id: "all", label: "All" },
-];
+const TAB_IDS: TabId[] = ["to_ship", "shipped", "delivered", "cancelled", "all"];
 
 const INLINE_CARRIERS = [
   { value: "fedex", label: "FedEx" },
@@ -787,6 +782,9 @@ function RowMenu({
 
 /** Partner-Shipments.html — redeem requests queue + tracking entry. */
 export function PartnerShipmentsView() {
+  const t = useTranslations("Partner");
+  useLocale();
+  useCatalogNameRevision();
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabId>("to_ship");
   const [editing, setEditing] = useState<ShipmentGroup | null>(null);
@@ -836,27 +834,32 @@ export function PartnerShipmentsView() {
   );
 
   const showToShipEmpty = !query.isLoading && filtered.length === 0 && tab === "to_ship";
+  const tabLabel: Record<TabId, string> = {
+    to_ship: t("tabToShip"),
+    shipped: t("tabShipped"),
+    delivered: t("tabDelivered"),
+    cancelled: t("tabCancelled"),
+    all: t("tabAll"),
+  };
 
   return (
     <div className="partner-redeem-page tkl-wrap">
-      <nav className="partner-redeem-page__breadcrumb" aria-label="Breadcrumb">
-        <Link href={PARTNER_PORTFOLIO_PATH}>Collection</Link>
+      <nav className="partner-redeem-page__breadcrumb" aria-label={t("collection")}>
+        <Link href={PARTNER_PORTFOLIO_PATH}>{t("collection")}</Link>
         <span className="partner-redeem-page__breadcrumb-sep" aria-hidden>
           /
         </span>
-        <span>Redeem requests</span>
+        <span>{t("requests")}</span>
       </nav>
 
       <div className="partner-redeem-page__head">
         <div className="partner-redeem-page__head-copy">
-          <h1 className="partner-redeem-page__title">Redeem requests</h1>
-          <p className="partner-redeem-page__sub">
-            You must input tracking numbers on all redeem requests within 5 days
-          </p>
+          <h1 className="partner-redeem-page__title">{t("requests")}</h1>
+          <p className="partner-redeem-page__sub">{t("requestsSub")}</p>
         </div>
-        <div className="partner-redeem-page__pills" aria-label="Shipment summary">
+        <div className="partner-redeem-page__pills" aria-label={t("summary")}>
           <span className="partner-redeem-page__pill partner-redeem-page__pill--neutral">
-            ({counts.to_ship})&nbsp;to ship
+            {t("toShip", { count: counts.to_ship })}
           </span>
         </div>
       </div>
@@ -864,40 +867,44 @@ export function PartnerShipmentsView() {
       {dueSoonCount > 0 ? (
         <div className="partner-redeem-page__banner" role="status">
           <UrgencyIcon />
-          <span>{partnerRedeemDueSoonBannerText(dueSoonCount)}</span>
+          <span>
+            {t(dueSoonCount === 1 ? "dueSoonOne" : "dueSoon", {
+              count: dueSoonCount,
+            })}
+          </span>
         </div>
       ) : null}
 
       <div className="partner-ship">
         <div className="partner-ship__tabs" role="tablist" aria-label="Shipment status">
-          {TABS.map((t) => (
+          {TAB_IDS.map((id) => (
             <button
-              key={t.id}
+              key={id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              className={`partner-ship__tab${tab === t.id ? " partner-ship__tab--on" : ""}`}
+              aria-selected={tab === id}
+              className={`partner-ship__tab${tab === id ? " partner-ship__tab--on" : ""}`}
               onClick={() => {
-                setTab(t.id);
+                setTab(id);
                 setExpandedKey(null);
                 setMenuKey(null);
               }}
             >
-              {t.label}
-              <span className="partner-ship__tab-count">{counts[t.id]}</span>
+              {tabLabel[id]}
+              <span className="partner-ship__tab-count">{counts[id]}</span>
             </button>
           ))}
         </div>
 
         <div className="partner-ship__tbl">
           <div className="partner-ship__thead" aria-hidden={query.isLoading}>
-            <span className="partner-ship__th">Card</span>
-            <span className="partner-ship__th">Ship to</span>
-            <span className="partner-ship__th">Requested</span>
-            <span className="partner-ship__th">Deadline</span>
-            <span className="partner-ship__th">Status</span>
+            <span className="partner-ship__th">{t("colCard")}</span>
+            <span className="partner-ship__th">{t("colShipTo")}</span>
+            <span className="partner-ship__th">{t("colRequested")}</span>
+            <span className="partner-ship__th">{t("colDeadline")}</span>
+            <span className="partner-ship__th">{t("colStatus")}</span>
             <span className="partner-ship__th partner-ship__th--action">
-              Action
+              {t("colAction")}
             </span>
           </div>
 
@@ -932,13 +939,13 @@ export function PartnerShipmentsView() {
 
           {query.isError ? (
             <div className="partner-ship__empty">
-              Couldn&apos;t load your shipments.{" "}
+              {t("loadFailed")}{" "}
               <button
                 type="button"
                 className="partner-ship__retry"
                 onClick={() => void query.refetch()}
               >
-                Retry
+                {t("retry")}
               </button>
             </div>
           ) : showToShipEmpty ? (
@@ -947,12 +954,12 @@ export function PartnerShipmentsView() {
                 <EmptyCheckIcon />
               </div>
               <div className="partner-ship__empty-title">
-                All caught up · nothing to ship right now
+                {t("caughtUp")}
               </div>
             </div>
           ) : !query.isLoading && filtered.length === 0 ? (
             <div className="partner-ship__empty">
-              <div className="partner-ship__empty-title">Nothing here yet.</div>
+              <div className="partner-ship__empty-title">{t("nothingYet")}</div>
             </div>
           ) : null}
         </div>

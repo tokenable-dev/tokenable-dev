@@ -30,9 +30,6 @@
 .watchlist-results-bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-wrap: wrap;
   margin: 0 0 22px;
 }
 
@@ -46,12 +43,6 @@
 
 .watchlist-results-bar__count b {
   color: #fff;
-}
-
-.watchlist-results-bar__label {
-  font-family: var(--font-mono);
-  font-size: var(--tk-ui-fs-body);
-  color: var(--t2);
 }
 
 /* Column spec: tokenable-collectible-card.css (`.markets-grid` / `.watchlist-grid`). */

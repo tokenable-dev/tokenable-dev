@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
 import { getPartnerMe, rq } from "@/lib/core";
 import { useAuthStore } from "@/store/authStore";
 
 /** Require an active marketplace partner session; otherwise show a clear CTA. */
 export function PartnerGate({ children }: { children: React.ReactNode }) {
+  const t = useTranslations("Partner");
   const user = useAuthStore((s) => s.user);
   const authReady = useAuthStore((s) => s.initialized && !s.loading);
 
@@ -21,7 +23,7 @@ export function PartnerGate({ children }: { children: React.ReactNode }) {
   if (!authReady) {
     return (
       <div className="partner-gate partner-gate--loading" role="status">
-        Loading…
+        {t("loading")}
       </div>
     );
   }
@@ -29,13 +31,11 @@ export function PartnerGate({ children }: { children: React.ReactNode }) {
   if (!user) {
     return (
       <div className="partner-gate">
-        <h1 className="partner-gate__title">Partner access</h1>
-        <p className="partner-gate__copy">
-          Sign in with the wallet registered as a Tokenable partner.
-        </p>
+        <h1 className="partner-gate__title">{t("accessTitle")}</h1>
+        <p className="partner-gate__copy">{t("accessCopy")}</p>
         <Link href="/markets">
           <TkButton type="button" variant="primary">
-            Back to Markets
+            {t("backMarkets")}
           </TkButton>
         </Link>
       </div>
@@ -45,7 +45,7 @@ export function PartnerGate({ children }: { children: React.ReactNode }) {
   if (meQuery.isLoading) {
     return (
       <div className="partner-gate partner-gate--loading" role="status">
-        Checking partner status…
+        {t("checking")}
       </div>
     );
   }
@@ -53,20 +53,17 @@ export function PartnerGate({ children }: { children: React.ReactNode }) {
   if (!meQuery.data?.isPartner) {
     return (
       <div className="partner-gate">
-        <h1 className="partner-gate__title">Partner vault</h1>
-        <p className="partner-gate__copy">
-          This area is for companies under contract with Tokenable. Your wallet
-          is not registered as an active partner.
-        </p>
+        <h1 className="partner-gate__title">{t("vaultTitle")}</h1>
+        <p className="partner-gate__copy">{t("vaultCopy")}</p>
         <div className="partner-gate__actions">
           <Link href="/portfolio">
             <TkButton type="button" variant="subtle">
-              Open portfolio
+              {t("openPortfolio")}
             </TkButton>
           </Link>
           <Link href="/sell">
             <TkButton type="button" variant="primary">
-              Sell with PSA vault
+              {t("sellPsa")}
             </TkButton>
           </Link>
         </div>

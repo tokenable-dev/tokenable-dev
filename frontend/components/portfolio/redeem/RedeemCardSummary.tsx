@@ -1,8 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import type { RedeemDraftCard } from "@/lib/portfolio/redeemDraft";
 import { formatRedeemCardLine1FromDraft } from "@/lib/portfolio/portfolioTableHelpers";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 
 function TrashIcon() {
   return (
@@ -23,6 +25,9 @@ export function RedeemCardSummary({
   /** Pay screen — thumbs + count only (HTML `#wd-pay` has no Review). */
   compact?: boolean;
 }) {
+  const t = useTranslations("RedeemUi");
+  useLocale();
+  useCatalogNameRevision();
   const [open, setOpen] = useState(false);
   const thumbs = cards.slice(0, 4);
   const vaultCount = useMemo(() => {
@@ -51,12 +56,14 @@ export function RedeemCardSummary({
         </div>
         <div className="pf-redeem-summary__meta">
           <div className="pf-redeem-summary__count">
-            {cards.length} card{cards.length === 1 ? "" : "s"}
+            {t(cards.length === 1 ? "cardCountOne" : "cardCount", {
+              count: cards.length,
+            })}
           </div>
           <div className="pf-redeem-summary__sub">
             {vaultCount > 1
-              ? `${vaultCount} deliveries`
-              : "One delivery"}
+              ? t("deliveries", { count: vaultCount })
+              : t("oneDelivery")}
           </div>
         </div>
         {!compact ? (
@@ -65,7 +72,7 @@ export function RedeemCardSummary({
           className="pf-redeem-summary__toggle"
           onClick={() => setOpen((v) => !v)}
         >
-          {open ? "Hide" : "Review"}
+          {open ? t("hide") : t("reviewCards")}
         </button>
         ) : null}
       </div>
@@ -98,7 +105,7 @@ export function RedeemCardSummary({
                 <button
                   type="button"
                   className="pf-redeem-summary__trash"
-                  aria-label={`Remove ${c.name}`}
+                  aria-label={t("removeCard", { name: c.name })}
                   onClick={() => onRemove(c.tokenId)}
                 >
                   <TrashIcon />

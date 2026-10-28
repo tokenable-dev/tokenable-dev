@@ -237,9 +237,8 @@ export function WatchlistPageContent({
         {!embedded ? (
           <div className="watchlist-results-bar">
             <span className="watchlist-results-bar__count">
-              <b>{filteredItems.length}</b> results
+              <b>({filteredItems.length})</b> results
             </span>
-            <span className="watchlist-results-bar__label">Your watchlist</span>
           </div>
         ) : null}
 

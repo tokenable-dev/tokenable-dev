@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import { TkButton } from "@/components/ds";
@@ -110,6 +111,9 @@ function Field({
  * Remind me later → sticky banner; Self vault stays locked until address is saved.
  */
 export function PartnerCompanyAddressRequiredModal() {
+  const t = useTranslations("Partner");
+  const sell = useTranslations("Sell");
+  const locale = useLocale();
   const pathname = usePathname();
   const skipOnChromeLess = shouldHideAppChrome(pathname);
   const user = useAuthStore((s) => s.user);
@@ -277,13 +281,9 @@ export function PartnerCompanyAddressRequiredModal() {
             <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
           </svg>
           <span style={{ flex: 1, minWidth: 200 }}>
-            <span className="po-banner__t">
-              Add your shipping origin to start listing
-            </span>
+            <span className="po-banner__t">{t("originBanner")}</span>
             <br />
-            <span className="po-banner__d">
-              Your cards stay unlisted until we have an address to ship from.
-            </span>
+            <span className="po-banner__d">{t("originBannerBody")}</span>
           </span>
           <TkButton
             type="button"
@@ -291,7 +291,7 @@ export function PartnerCompanyAddressRequiredModal() {
             className="!h-10 !px-[18px] !text-sm"
             onClick={onReopen}
           >
-            Add address
+            {t("addAddress")}
           </TkButton>
         </div>
       ) : null}
@@ -300,13 +300,9 @@ export function PartnerCompanyAddressRequiredModal() {
         ? createPortal(
             <div className="po-scrim" role="dialog" aria-modal="true">
               <div className="po-modal">
-                <div className="po-eyebrow">Vault partner setup</div>
-                <h2 className="po-title">Add your shipping origin</h2>
-                <p className="po-sub">
-                  As a vault partner, you ship cards to buyers when they redeem.
-                  Add the address you&rsquo;ll ship from — we use it to calculate
-                  shipping and to fulfill redemptions.
-                </p>
+                <div className="po-eyebrow">{t("originEyebrow")}</div>
+                <h2 className="po-title">{t("addOrigin")}</h2>
+                <p className="po-sub">{t("originLead")}</p>
 
                 <div className="po-chip">
                   <svg
@@ -327,7 +323,7 @@ export function PartnerCompanyAddressRequiredModal() {
                 <div className="po-grid">
                   <Field
                     id="po-name"
-                    label="Sender / company name"
+                    label={t("senderCompany")}
                     full
                     error={fieldErrors.companyName}
                   >
@@ -344,7 +340,7 @@ export function PartnerCompanyAddressRequiredModal() {
 
                   <Field
                     id="po-a1"
-                    label="Address line 1"
+                    label={sell("line1")}
                     full
                     error={fieldErrors.line1}
                   >
@@ -359,7 +355,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     />
                   </Field>
 
-                  <Field id="po-a2" label="Address line 2 (optional)" full>
+                  <Field id="po-a2" label={sell("line2")} full>
                     <input
                       className="po-in"
                       id="po-a2"
@@ -371,7 +367,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     />
                   </Field>
 
-                  <Field id="po-city" label="City" error={fieldErrors.city}>
+                  <Field id="po-city" label={sell("city")} error={fieldErrors.city}>
                     <input
                       className={`po-in${fieldErrors.city ? " err" : ""}`}
                       id="po-city"
@@ -385,7 +381,7 @@ export function PartnerCompanyAddressRequiredModal() {
 
                   <Field
                     id="po-state"
-                    label="State / Region"
+                    label={sell("region")}
                     error={fieldErrors.region}
                   >
                     <input
@@ -401,7 +397,7 @@ export function PartnerCompanyAddressRequiredModal() {
 
                   <Field
                     id="po-zip"
-                    label="Postal code"
+                    label={sell("postal")}
                     error={fieldErrors.postal}
                   >
                     <input
@@ -415,7 +411,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     />
                   </Field>
 
-                  <Field id="po-country" label="Country">
+                  <Field id="po-country" label={sell("country")}>
                     <select
                       className="po-in"
                       id="po-country"
@@ -425,7 +421,9 @@ export function PartnerCompanyAddressRequiredModal() {
                     >
                       {COUNTRY_OPTIONS.map((o) => (
                         <option key={o.code} value={o.code}>
-                          {o.label}
+                          {new Intl.DisplayNames([locale], { type: "region" }).of(
+                            o.code,
+                          ) ?? o.label}
                         </option>
                       ))}
                     </select>
@@ -433,7 +431,7 @@ export function PartnerCompanyAddressRequiredModal() {
 
                   <Field
                     id="po-phone"
-                    label="Contact phone"
+                    label={t("contactPhone")}
                     error={fieldErrors.phone}
                   >
                     <input
@@ -450,7 +448,7 @@ export function PartnerCompanyAddressRequiredModal() {
 
                   <Field
                     id="po-email"
-                    label="Contact email"
+                    label={t("contactEmail")}
                     error={fieldErrors.email}
                   >
                     <input
@@ -467,9 +465,9 @@ export function PartnerCompanyAddressRequiredModal() {
                 </div>
 
                 <details className="po-acc">
-                  <summary>Carrier account / preference (optional)</summary>
+                  <summary>{t("carrierOptional")}</summary>
                   <div className="po-grid" style={{ marginTop: 14 }}>
-                    <Field id="po-carrier" label="Preferred carrier">
+                    <Field id="po-carrier" label={t("preferredCarrier")}>
                       <input
                         className="po-in"
                         id="po-carrier"
@@ -479,12 +477,12 @@ export function PartnerCompanyAddressRequiredModal() {
                         onChange={(e) => setField("carrier", e.target.value)}
                       />
                     </Field>
-                    <Field id="po-acct" label="Carrier account number">
+                    <Field id="po-acct" label={t("carrierAccount")}>
                       <input
                         className="po-in"
                         id="po-acct"
                         value={form.carrierAccount}
-                        placeholder="Optional"
+                        placeholder={t("optional")}
                         disabled={saveMutation.isPending}
                         onChange={(e) =>
                           setField("carrierAccount", e.target.value)
@@ -495,8 +493,7 @@ export function PartnerCompanyAddressRequiredModal() {
                 </details>
 
                 <div className="po-help">
-                  Required before your cards can be listed. Editable later in
-                  Settings → Addresses.
+                  {t("originRequired")}
                 </div>
 
                 <button
@@ -505,13 +502,10 @@ export function PartnerCompanyAddressRequiredModal() {
                   style={{ marginTop: 10 }}
                   onClick={() => setWhyOpen((v) => !v)}
                 >
-                  Why do we need this?
+                  {t("whyNeed")}
                 </button>
                 <div className={`po-why${whyOpen ? " on" : ""}`}>
-                  We quote buyers a shipping price from your origin address at
-                  checkout, and we hand the same address to the carrier when a
-                  buyer redeems a card you hold. Without it we can&rsquo;t price
-                  shipping, so your cards can&rsquo;t go live.
+                  {t("whyBody")}
                 </div>
 
                 {saveError ? (
@@ -528,9 +522,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     disabled={saveMutation.isPending}
                     onClick={onSave}
                   >
-                    {saveMutation.isPending
-                      ? "Saving…"
-                      : "Save shipping origin"}
+                    {saveMutation.isPending ? sell("saving") : t("saveOrigin")}
                   </TkButton>
                   <TkButton
                     type="button"
@@ -539,7 +531,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     disabled={saveMutation.isPending}
                     onClick={onRemindLater}
                   >
-                    Remind me later
+                    {t("remindLater")}
                   </TkButton>
                 </div>
               </div>

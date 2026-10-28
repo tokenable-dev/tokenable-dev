@@ -245,7 +245,7 @@
   text-overflow: ellipsis;
 }
 
-/** Listing Line 1 — `{Name} · {Number}`; grade on `.card__grade-line` above price row. */
+/** Legacy grade row. Listing tiles keep the grade on `.card__title`. */
 
 .card__grade-line {
   min-width: 0;

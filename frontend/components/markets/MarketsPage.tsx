@@ -610,7 +610,6 @@ export default function MarketsPage() {
                   changeLoading={showMarketSnapshotLoadingBar}
                   snapshotsFetching={snapshotsFetching}
                   onBeforeNavigate={saveMarketsBrowseContext}
-                  showCatalogSubtitle={isSearchMode}
                 />
 
                 {isFetchingNextPage ? (

@@ -19,6 +19,7 @@ import {
   formatPortfolioGradeLabel,
   resolvePortfolioHoldingsHeadlines,
 } from "@/lib/portfolio/portfolioTableHelpers";
+import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { portfolioTableVaultChip } from "@/lib/portfolio/portfolioHoldingsSaleStatus";
 import { GatedSellLink } from "@/components/auth/GatedSellLink";
 import { TkButton } from "@/components/ds";
@@ -118,9 +119,10 @@ export function PortfolioHoldingsSection({
     );
   }
 
+  const catalogNames = useCatalogNameRevision();
   const headlineByTokenId = useMemo(
     () => resolvePortfolioHoldingsHeadlines(assetRows, metadataByTokenId),
-    [assetRows, metadataByTokenId],
+    [assetRows, metadataByTokenId, catalogNames],
   );
 
   const vaultTokenIds = useMemo(

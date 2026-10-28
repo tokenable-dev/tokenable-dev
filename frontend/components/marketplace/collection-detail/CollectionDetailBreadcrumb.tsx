@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { marketCategoryMessageId } from "@/lib/market";
 
 export function CollectionDetailBreadcrumb({
   categoryLabel,
@@ -12,7 +13,10 @@ export function CollectionDetailBreadcrumb({
 }) {
   const tNav = useTranslations("Nav");
   const t = useTranslations("CollectionDetail");
-  const category = categoryLabel?.trim();
+  const tMarkets = useTranslations("Markets");
+  const rawCategory = categoryLabel?.trim();
+  const categoryKey = marketCategoryMessageId(rawCategory);
+  const category = categoryKey ? tMarkets(categoryKey) : rawCategory;
   const trail = trailLabel.trim();
 
   return (

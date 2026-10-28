@@ -10,6 +10,7 @@ export const SUPPORTED_DISPLAY_CURRENCIES = [
   'AUD',
   'CHF',
   'HKD',
+  'CNY',
   'IDR',
   'MYR',
   'PHP',
