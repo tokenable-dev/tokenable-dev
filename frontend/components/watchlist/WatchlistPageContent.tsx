@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { MarketsFilterBar } from "@/components/markets/MarketsFilterBar";
 import { TkButton } from "@/components/ds";
 import { APP_MAIN_SHELL_CLASS } from "@/constants/layout";
@@ -65,6 +66,7 @@ export function WatchlistPageContent({
   embedded?: boolean;
   returnTo?: string;
 }) {
+  const tAuth = useTranslations("AuthGate");
   const user = useAuthStore((s) => s.user);
   const sessionActive = useTokenableSessionActive();
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
@@ -129,7 +131,7 @@ export function WatchlistPageContent({
             className="mt-4"
             onClick={() => openSignIn({ returnTo: authReturnTo })}
           >
-            Sign in
+            {tAuth("signIn")}
           </TkButton>
         </WatchlistEmpty>
       </div>
@@ -145,7 +147,7 @@ export function WatchlistPageContent({
             className="mt-4"
             onClick={() => openConnectWallet({ returnTo: authReturnTo })}
           >
-            Connect wallet
+            {tAuth("connectWallet")}
           </TkButton>
         </WatchlistEmpty>
       </div>

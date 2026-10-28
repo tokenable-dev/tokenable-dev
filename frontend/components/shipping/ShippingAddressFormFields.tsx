@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { TkField, TkInput, TkSelect } from "@/components/ds";
 import { AddressSearchField } from "@/components/shipping/AddressSearchField";
 import type { ShippingCountry } from "@/lib/core/api/shipping-addresses";
@@ -53,6 +54,13 @@ export function ShippingAddressFormFields({
   showAddressSearch?: boolean;
   addressSearchLabel?: string;
 }) {
+  const t = useTranslations("Ship");
+  const searchLabel =
+    addressSearchLabel === "Delivery address"
+      ? t("deliveryAddress")
+      : addressSearchLabel === "Address"
+        ? t("address")
+        : addressSearchLabel;
   const set = <K extends keyof ShippingAddressFormValues>(
     key: K,
     next: ShippingAddressFormValues[K],
@@ -82,7 +90,7 @@ export function ShippingAddressFormFields({
       {showAddressSearch ? (
         <div className="tk-ship-form__section">
           <AddressSearchField
-            label={addressSearchLabel}
+            label={searchLabel}
             disabled={disabled}
             line1FieldId={`${idPrefix}-line1`}
             onPick={(place) => {
@@ -103,7 +111,7 @@ export function ShippingAddressFormFields({
 
       <div className="tk-ship-form__section">
         <TkField
-          label="Recipient name"
+          label={t("recipient")}
           htmlFor={`${idPrefix}-name`}
           error={fieldErrors?.name}
         >
@@ -112,7 +120,7 @@ export function ShippingAddressFormFields({
             value={value.name}
             onChange={(e) => set("name", e.target.value)}
             autoComplete="name"
-            placeholder="Recipient name"
+            placeholder={t("recipient")}
             disabled={disabled}
             hasError={Boolean(fieldErrors?.name)}
           />
@@ -121,7 +129,7 @@ export function ShippingAddressFormFields({
 
       <div className="tk-ship-form__section">
         <TkField
-          label="Street address"
+          label={t("street")}
           htmlFor={`${idPrefix}-line1`}
           error={fieldErrors?.line1}
         >
@@ -130,14 +138,14 @@ export function ShippingAddressFormFields({
             value={value.line1}
             onChange={(e) => set("line1", e.target.value)}
             autoComplete="address-line1"
-            placeholder="Street address"
+            placeholder={t("street")}
             className="tk-ship-form__street"
             disabled={disabled}
             hasError={Boolean(fieldErrors?.line1)}
           />
         </TkField>
         <TkField
-          label="Apt, suite, unit (optional)"
+          label={t("apt")}
           htmlFor={`${idPrefix}-line2`}
           className="tk-ship-form__apt"
         >
@@ -146,7 +154,7 @@ export function ShippingAddressFormFields({
             value={value.line2}
             onChange={(e) => set("line2", e.target.value)}
             autoComplete="address-line2"
-            placeholder="Apt, suite, unit (optional)"
+            placeholder={t("apt")}
             disabled={disabled}
           />
         </TkField>
@@ -155,7 +163,7 @@ export function ShippingAddressFormFields({
       <div className="tk-ship-form__row">
         <div className="tk-ship-form__section">
           <TkField
-            label="City"
+            label={t("city")}
             htmlFor={`${idPrefix}-city`}
             error={fieldErrors?.city}
           >
@@ -164,7 +172,7 @@ export function ShippingAddressFormFields({
               value={value.city}
               onChange={(e) => set("city", e.target.value)}
               autoComplete="address-level2"
-              placeholder="City"
+              placeholder={t("city")}
               disabled={disabled}
               hasError={Boolean(fieldErrors?.city)}
             />
@@ -172,7 +180,7 @@ export function ShippingAddressFormFields({
         </div>
         <div className="tk-ship-form__section">
           <TkField
-            label="State / region"
+            label={t("region")}
             htmlFor={`${idPrefix}-region`}
             error={fieldErrors?.region}
           >
@@ -181,7 +189,7 @@ export function ShippingAddressFormFields({
               value={value.region}
               onChange={(e) => set("region", e.target.value)}
               autoComplete="address-level1"
-              placeholder="State / region"
+              placeholder={t("region")}
               disabled={disabled}
               hasError={Boolean(fieldErrors?.region)}
             />
@@ -192,7 +200,7 @@ export function ShippingAddressFormFields({
       <div className="tk-ship-form__row">
         <div className="tk-ship-form__section">
           <TkField
-            label="Postal code"
+            label={t("postal")}
             htmlFor={`${idPrefix}-postal`}
             error={fieldErrors?.postal}
           >
@@ -201,7 +209,7 @@ export function ShippingAddressFormFields({
               value={value.postal}
               onChange={(e) => set("postal", e.target.value)}
               autoComplete="postal-code"
-              placeholder="Postal code"
+              placeholder={t("postal")}
               className="tk-ship-form__mono"
               disabled={disabled}
               hasError={Boolean(fieldErrors?.postal)}
@@ -209,7 +217,7 @@ export function ShippingAddressFormFields({
           </TkField>
         </div>
         <div className="tk-ship-form__section">
-          <TkField label="Country" htmlFor={`${idPrefix}-country`} error={fieldErrors?.country}>
+          <TkField label={t("country")} htmlFor={`${idPrefix}-country`} error={fieldErrors?.country}>
             <TkSelect
               id={`${idPrefix}-country`}
               value={value.country}
@@ -228,9 +236,9 @@ export function ShippingAddressFormFields({
               disabled={disabled}
               hasError={Boolean(fieldErrors?.country)}
             >
-              <option value="us">United States</option>
-              <option value="ca">Canada</option>
-              <option value="intl">Other international</option>
+              <option value="us">{t("unitedStates")}</option>
+              <option value="ca">{t("canada")}</option>
+              <option value="intl">{t("international")}</option>
             </TkSelect>
           </TkField>
         </div>
@@ -238,7 +246,7 @@ export function ShippingAddressFormFields({
 
       <div className="tk-ship-form__section">
         <TkField
-          label="Phone"
+          label={t("phone")}
           htmlFor={`${idPrefix}-phone`}
           error={fieldErrors?.phone}
         >
@@ -251,7 +259,7 @@ export function ShippingAddressFormFields({
                 value={dial}
                 disabled={disabled}
                 onChange={(e) => patchPhone(e.target.value, value.phone)}
-                aria-label="Country dial code"
+                aria-label={t("dial")}
               >
                 {PHONE_DIAL_OPTIONS.map((opt) => (
                   <option

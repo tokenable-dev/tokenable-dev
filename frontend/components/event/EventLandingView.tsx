@@ -30,7 +30,7 @@ const COPY = {
   stage1Desc: "Follow @tokenable and like the pinned post",
   stage1Cta: "1. Instagram Follow & Like",
   stage2Label: "STAGE 2",
-  stage2Desc: "Buy a mystery card on Tokenable for 0 USDC",
+  stage2Desc: "Buy a mystery card on Tokenable for $0",
   stage2Cta: "Log in to Tokenable",
   foot: "REAL GRADED CARDS · ON-CHAIN · INSTANTSETTLEMENT",
 } as const;

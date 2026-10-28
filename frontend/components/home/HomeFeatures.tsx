@@ -1,3 +1,6 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { ASSETS } from "@/constants/assets";
 
 function AuthIcon() {
@@ -29,30 +32,28 @@ function SettlementIcon() {
   );
 }
 
-function EthereumMark() {
+function EthereumMark({ label }: { label: string }) {
   return (
-    <span className="feat__eth" aria-label="Ethereum">
+    <span className="feat__eth" aria-label={label}>
       <svg width={16} height={26} viewBox="0 0 256 417" aria-hidden>
         <path fill="#fff" fillOpacity={0.95} d="M127.9 0 125.1 9.5v275.7l2.8 2.8 127.9-75.6z" />
         <path fill="#fff" fillOpacity={0.6} d="M127.9 0 0 212.4l127.9 75.6V0z" />
         <path fill="#fff" fillOpacity={0.95} d="m127.9 312.2-1.6 1.9v98.2l1.6 4.6L256 236.6z" />
         <path fill="#fff" fillOpacity={0.6} d="M127.9 416.9V312.2L0 236.6z" />
       </svg>
-      <span>Ethereum</span>
+      <span>{label}</span>
     </span>
   );
 }
 
 export function HomeFeatures() {
+  const t = useTranslations("Home");
   return (
     <section id="home-features" className="home-features-band">
       <div className="tkl-wrap home-features-band__inner">
         <div className="home-features-band__intro">
-          <h2 className="tkl-sec-title">Three guarantees for every card</h2>
-          <p className="tkl-sec-sub guar-sub">
-            All tokenized cards listed on our platform are graded, verified,
-            vaulted, insured, and settle instantly on-chain.
-          </p>
+          <h2 className="tkl-sec-title">{t("guaranteesTitle")}</h2>
+          <p className="tkl-sec-sub guar-sub">{t("guaranteesCopy")}</p>
         </div>
 
         <div className="feat-grid">
@@ -63,10 +64,8 @@ export function HomeFeatures() {
               </div>
               <span className="feat__num">01</span>
             </div>
-            <h3>Authenticated.&nbsp;Graded.</h3>
-            <p>
-              Only PSA and BGS 10 graded cards are vaulted and listed for trading on our platform.
-            </p>
+            <h3>{t("gradedTitle")}</h3>
+            <p>{t("gradedCopy")}</p>
             <div className="feat__brand-logos">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ASSETS.ds.partners.psa} alt="PSA" style={{ height: 20 }} />
@@ -82,8 +81,8 @@ export function HomeFeatures() {
               </div>
               <span className="feat__num">02</span>
             </div>
-            <h3>Vaulting</h3>
-            <p>All cards are held in PSA or Tokenable vaults and fully insured.</p>
+            <h3>{t("vaultTitle")}</h3>
+            <p>{t("vaultCopy")}</p>
             <div className="feat__brand-logos">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={ASSETS.ds.partners.psa} alt="PSA" style={{ height: 20 }} />
@@ -99,12 +98,10 @@ export function HomeFeatures() {
               </div>
               <span className="feat__num">03</span>
             </div>
-            <h3>Instant settlement</h3>
-            <p>
-              Trades settle on-chain in seconds. No shipping, customs, or chargebacks.
-            </p>
+            <h3>{t("settleTitle")}</h3>
+            <p>{t("settleCopy")}</p>
             <div className="feat__brand-logos">
-              <EthereumMark />
+              <EthereumMark label={t("ethereum")} />
             </div>
           </div>
         </div>

@@ -613,13 +613,13 @@
 
 .tk-price--steppers .tk-price__input {
   height: 64px;
-  padding: 0 112px 0 40px;
+  padding: 0 112px 0 72px;
   font-size: 24px;
 }
 
 .tk-price--steppers .tk-price__dollar {
   left: 18px;
-  font-size: 22px;
+  font-size: 13px;
 }
 
 .tk-price__field {
@@ -632,7 +632,9 @@
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: var(--tk-ui-fs-subheading);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   color: rgba(255, 255, 255, 0.4);
   pointer-events: none;
 }
@@ -640,7 +642,7 @@
 .tk-price__input {
   width: 100%;
   height: 56px;
-  padding: 0 16px 0 32px;
+  padding: 0 16px 0 58px;
   background: rgba(255, 255, 255, 0.06);
   border: 0;
   border-radius: 12px;

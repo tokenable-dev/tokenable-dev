@@ -1,7 +1,7 @@
 # Database
 
 **Engine:** PostgreSQL 16  
-**ORM:** TypeORM (NestJS) — **36 entities** registered in `app.module.ts` 
+**ORM:** TypeORM (NestJS) — **37 entities** registered in `app.module.ts` 
 **DDL:** `backend/sql/schema/` — applied via [bootstrap script](../../backend/sql/README.md)  
 **Source of truth:** `backend/src/**/entities/*.ts`
 
@@ -27,7 +27,8 @@
 
 | Table | Purpose | Entity |
 |-------|---------|--------|
-| `users` | Platform account (email may be shared across wallet accounts; profile, Privy DID, KYC snapshot, Settings prefs) | `user/entities/user.entity.ts` |
+| `users` | Platform account (email may be shared across wallet accounts; profile, Privy DID, KYC snapshot, Settings prefs, `preferred_locale` / `preferred_currency`) | `user/entities/user.entity.ts` |
+| `fx_rates` | Latest ECB display rate per currency (`quote_per_usd`). Not used for USDC settlement | `fx/fx-rate.entity.ts` |
 | `user_auth_providers` | Linked login methods (email, Google, Apple, wallet, passkey) — synced from Privy | `user/entities/user-auth-provider.entity.ts` |
 | `user_wallets` | Multiple linked wallets per user with embedded/external metadata | `user/entities/user-wallet.entity.ts` |
 | `user_shipping_addresses` | Saved ship-to address book (Settings → Addresses; redeem) | `user/entities/user-shipping-address.entity.ts` |

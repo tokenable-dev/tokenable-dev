@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import { CollectionPriceHistoryPlaceholder } from "@/components/marketplace/collection-markets";
 import { CollectionOrderBookVisibilityToggle } from "@/components/marketplace/collection-markets";
 import {
@@ -47,6 +48,7 @@ export function CollectionOverviewMarketsCluster({
   marketsBelowChart?: ReactNode;
   belowCover?: ReactNode;
 }) {
+  const t = useTranslations("CollectionChrome");
   const orderBookDesktopPinned = orderBookToggleEnabled;
   const orderBookSideColumn = orderBookDesktopPinned || orderBookColumnVisible;
   const hideOrderBookOnMobile = orderBookToggleEnabled && !showOrderBook;
@@ -212,7 +214,7 @@ export function CollectionOverviewMarketsCluster({
                   rowStartClass(listingsGridRow),
                 ].join(" ")}
                 id="collection-listings"
-                aria-label="Individual listings"
+                aria-label={t("listings")}
               >
                 {marketsBelowChart}
               </div>
@@ -224,7 +226,7 @@ export function CollectionOverviewMarketsCluster({
                   COLLECTION_MARKETS_ORDER_BOOK_COLUMN_WIDTH_CLASS,
                   rowStartClass(detailsGridRow),
                 ].join(" ")}
-                aria-label="Collection details"
+                aria-label={t("details")}
               >
                 {belowCover}
               </div>
@@ -236,7 +238,7 @@ export function CollectionOverviewMarketsCluster({
                   orderBookSideColumn ? "lg:col-span-1 lg:col-start-1" : "lg:col-span-1",
                   "max-lg:row-start-auto",
                 ].join(" ")}
-                aria-label="Collection details"
+                aria-label={t("details")}
               >
                 {belowCover}
               </div>

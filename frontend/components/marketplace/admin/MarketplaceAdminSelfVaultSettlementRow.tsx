@@ -85,7 +85,7 @@ export function MarketplaceAdminSelfVaultSettlementRow({
     row.status === "pending_confirm" || row.status === "confirmed";
   const canReject =
     row.status === "pending_confirm" || row.status === "confirmed";
-  const payoutLabel = formatUsdcMicrosAmount(row.sellerPayoutUsdc);
+  const payoutLabel = formatUsdcMicrosAmount(row.sellerPayoutUsdc, { dollar: true });
   const autoHint = autoPayHint(row);
   const multiSale = saleIndex != null && saleIndex.total > 1;
 
@@ -169,7 +169,7 @@ export function MarketplaceAdminSelfVaultSettlementRow({
                 disabled={busy}
                 onClick={onExecutePayout}
               >
-                Pay seller ${payoutLabel} USDC
+                Pay seller {payoutLabel}
               </button>
               <p className={`text-xs ${ADMIN_TEXT_MUTED}`}>
                 Sends from PLATFORM_FEE wallet now (confirms if still pending).

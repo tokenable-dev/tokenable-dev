@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { WatchlistToggleButton } from "@/components/watchlist/WatchlistToggleButton";
@@ -96,6 +97,7 @@ export const CollectibleCard = memo(function CollectibleCard({
   titleOverride?: string;
 }) {
   const displayImageUrl = pickCollectionSummaryDisplayImageUrl(collection);
+  useDisplayFx();
   const imageSrc = resolvedCoverUrl || displayImageUrl;
   const comp = parseCollectionComponents(collection.components);
   const grade = gradeLabelFromComp(comp);

@@ -20,6 +20,7 @@ sql/
 │   ├── 066_marketplace_partner_addresses.sql  # partner Origin (FedEx ship-from)
 │   ├── 067_partner_vault_mint.sql  # sell-flow partner vault mint jobs
 │   ├── 070_cardhedger.sql        # Cardhedger pricing infra
+│   ├── 080_fx.sql                # latest ECB display rates + user locale/currency prefs
 │   └── 900_triggers.sql          # updated_at triggers
 ├── seed/
 │   ├── marketplace-admin.sql     # default admin credentials (dev/staging)

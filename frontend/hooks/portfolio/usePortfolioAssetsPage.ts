@@ -430,6 +430,17 @@ export function usePortfolioAssetsPage(input: {
     return m;
   }, [accumulated.holdingsByToken]);
 
+  const costBasisSourceByTokenId = useMemo(() => {
+    const m = new Map<
+      number,
+      NonNullable<PortfolioHoldingBatchItem["costBasisSource"]>
+    >();
+    for (const item of accumulated.holdingsByToken.values()) {
+      if (item.costBasisSource) m.set(item.tokenId, item.costBasisSource);
+    }
+    return m;
+  }, [accumulated.holdingsByToken]);
+
   const acquiredAtByTokenId = useMemo(() => {
     const m = new Map<number, string>();
     for (const item of accumulated.holdingsByToken.values()) {
@@ -539,6 +550,7 @@ export function usePortfolioAssetsPage(input: {
     seriesByCollectionKey,
     mintPreviewByToken: mintPreviewByToken ?? EMPTY_MINT,
     costBasisByTokenId,
+    costBasisSourceByTokenId,
     acquiredAtByTokenId,
     mintTxHashByTokenId,
     hiddenSet,

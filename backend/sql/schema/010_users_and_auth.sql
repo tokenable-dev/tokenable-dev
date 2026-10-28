@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS users (
   marketing_emails_opt_in boolean NOT NULL DEFAULT false,
   email_notifications_enabled boolean NOT NULL DEFAULT true,
   email_notif_prefs jsonb NOT NULL DEFAULT '{"trades":true,"bids":true,"price":true,"vault":true}'::jsonb,
+  preferred_locale varchar(16),
+  preferred_currency varchar(8),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT users_google_id_unique UNIQUE (google_id),
@@ -47,6 +49,8 @@ COMMENT ON COLUMN users.wallet_address IS 'Primary linked wallet (denormalized).
 COMMENT ON COLUMN users.marketing_emails_opt_in IS 'Settings: product news / drops opt-in (delivery TBD).';
 COMMENT ON COLUMN users.email_notifications_enabled IS 'Settings: master switch for category email prefs.';
 COMMENT ON COLUMN users.email_notif_prefs IS 'Settings: {trades,bids,price,vault} email category toggles.';
+COMMENT ON COLUMN users.preferred_locale IS 'Saved UI language: en, zh-CN, ja, zh-TW. Null until the user saves a preference.';
+COMMENT ON COLUMN users.preferred_currency IS 'Display currency for USD reference prices. Does not change USDC settlement.';
 
 CREATE TABLE IF NOT EXISTS user_wallets (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

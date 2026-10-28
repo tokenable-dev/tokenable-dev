@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { TkButton } from "@/components/ds";
@@ -103,9 +104,9 @@ function portfolioBaseForPath(pathname: string | null | undefined): string {
 }
 
 const PRIMARY_ICONS = {
-  Markets: MobileDrawerMarketsIcon,
-  Collection: MobileDrawerPortfolioIcon,
-  Sell: MobileDrawerVaultIcon,
+  markets: MobileDrawerMarketsIcon,
+  collection: MobileDrawerPortfolioIcon,
+  sell: MobileDrawerVaultIcon,
 } as const;
 
 type HeaderMobileDrawerProps = {
@@ -155,6 +156,8 @@ export function HeaderMobileDrawer({
   const showAddFunds = isPrivyFiatOnrampFeatureEnabled();
   const { isActivePartner } = useActivePartner();
   const portfolioHref = usePortfolioNavHref();
+  const t = useTranslations("Nav");
+  const tAuth = useTranslations("Auth");
   const portfolioBase = portfolioBaseForPath(pathname);
   const [signingOut, setSigningOut] = useState(false);
   const [portfolioMenuOpen, setPortfolioMenuOpen] = useState(false);
@@ -259,13 +262,11 @@ export function HeaderMobileDrawer({
                   onClick={handleAddFunds}
                   disabled={!walletAddress || fundingInFlight || fundingConfigLoading}
                   title={
-                    canStartFunding
-                      ? "Buy USDC with card, Apple Pay, or Google Pay"
-                      : "MoonPay setup required in Privy Dashboard"
+                    canStartFunding ? t("buyUsdc") : t("moonpaySetup")
                   }
                 >
                   <WalletAddFundsIcon aria-hidden />
-                  {fundingInFlight ? "Opening checkout…" : "Add funds"}
+                  {fundingInFlight ? t("openingCheckout") : t("addFunds")}
                 </button>
                 {fundingError ? (
                   <p className="tk-wd-funds-error tkm-funds-error" role="alert">
@@ -285,17 +286,17 @@ export function HeaderMobileDrawer({
               className="tk-connect"
               onClick={handleConnect}
             >
-              Connect Wallet
+              {tAuth("connectWallet")}
             </TkButton>
           </div>
         ) : null}
 
         <div className="tkm-divider" />
 
-        <nav className="tkm-nav" aria-label="Main">
-          {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
-            const Icon = PRIMARY_ICONS[label];
-            const isPortfolio = label === "Collection";
+        <nav className="tkm-nav" aria-label={t("aria")}>
+          {HEADER_NAV_ITEMS.map(({ id, href, minLevel }) => {
+            const Icon = PRIMARY_ICONS[id];
+            const isPortfolio = id === "collection";
             const itemHref = isPortfolio ? portfolioHref : href;
             const itemActive = isPortfolio
               ? isPortfolioMainActive(pathname, searchParams)
@@ -303,7 +304,7 @@ export function HeaderMobileDrawer({
 
             if (isPortfolio) {
               return (
-                <div key={label} className="tkm-portfolio">
+                <div key={id} className="tkm-portfolio">
                   <button
                     type="button"
                     className={cn(
@@ -317,7 +318,7 @@ export function HeaderMobileDrawer({
                     onClick={() => setPortfolioMenuOpen((v) => !v)}
                   >
                     <Icon aria-hidden />
-                    <span className="tkm-item__label">{label}</span>
+                    <span className="tkm-item__label">{t(id)}</span>
                     <span
                       className={cn(
                         "tkm-item__chevron",
@@ -329,7 +330,7 @@ export function HeaderMobileDrawer({
                     </span>
                   </button>
                   {portfolioMenuOpen ? (
-                    <div className="tkm-portfolio__subs" role="group" aria-label="Collection">
+                    <div className="tkm-portfolio__subs" role="group" aria-label={t("collection")}>
                       <button
                         type="button"
                         className={cn(
@@ -339,7 +340,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(itemHref, minLevel)}
                       >
                         <MobileDrawerPortfolioIcon width={16} height={16} aria-hidden />
-                        Items
+                        {t("items")}
                       </button>
                       <button
                         type="button"
@@ -350,7 +351,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
                       >
                         <WalletBidsIcon width={16} height={16} aria-hidden />
-                        Bids
+                        {t("bids")}
                       </button>
                       <button
                         type="button"
@@ -361,7 +362,7 @@ export function HeaderMobileDrawer({
                         onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
                       >
                         <WalletHistoryIcon width={16} height={16} aria-hidden />
-                        Transactions
+                        {t("transactions")}
                       </button>
                     </div>
                   ) : null}
@@ -370,14 +371,14 @@ export function HeaderMobileDrawer({
             }
 
             return (
-              <div key={label}>
+              <div key={id}>
                 <button
                   type="button"
                   className={cn("tkm-item", itemActive && "active")}
                   onClick={() => go(itemHref, minLevel)}
                 >
                   <Icon aria-hidden />
-                  {label}
+                  {t(id)}
                 </button>
               </div>
             );
@@ -386,14 +387,14 @@ export function HeaderMobileDrawer({
 
         <div className="tkm-divider" />
 
-        <nav className="tkm-nav" aria-label="Account">
+        <nav className="tkm-nav" aria-label={t("account")}>
           <button
             type="button"
             className={cn("tkm-item", isSecondaryNavActive(pathname, "/watchlist") && "active")}
             onClick={() => go("/watchlist")}
           >
             <MobileDrawerWatchlistIcon aria-hidden />
-            Watchlist
+            {t("watchlist")}
           </button>
           <button
             type="button"
@@ -404,7 +405,7 @@ export function HeaderMobileDrawer({
             }}
           >
             <MobileDrawerNotificationsIcon aria-hidden />
-            <span className="tk-notif-menu-label">Notifications</span>
+            <span className="tk-notif-menu-label">{t("notifications")}</span>
             <NotificationUnreadBadge count={unreadCount} />
           </button>
           {isActivePartner ? (
@@ -417,7 +418,7 @@ export function HeaderMobileDrawer({
               onClick={() => go("/partner/shipments", 1)}
             >
               <MobileDrawerRedeemRequestsIcon aria-hidden />
-              Redeem requests
+              {t("redeemRequests")}
             </button>
           ) : null}
           <button
@@ -426,7 +427,7 @@ export function HeaderMobileDrawer({
             onClick={() => go("/settings")}
           >
             <MobileDrawerSettingsIcon aria-hidden />
-            Settings
+            {t("settings")}
           </button>
         </nav>
 
@@ -440,7 +441,7 @@ export function HeaderMobileDrawer({
               disabled={signingOut}
             >
               <MobileDrawerSignOutIcon aria-hidden />
-              {signingOut ? "Signing out…" : "Sign Out"}
+              {signingOut ? t("signingOut") : t("signOut")}
             </button>
           </>
         ) : null}

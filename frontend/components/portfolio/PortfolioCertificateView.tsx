@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import type { PortfolioCertificateModel } from "@/hooks/portfolio/usePortfolioCertificate";
-import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
+import { formatPortfolioCostBasis } from "@/lib/portfolio/portfolioTableHelpers";
 import { formatUsdCompact, formatUsdListing } from "@/lib/market/collectionMarketPricing";
 import { joinCardDisplaySegments } from "@/lib/marketplace/cardDisplayName";
 import {
@@ -20,10 +22,18 @@ function changeClass(change: ReturnType<typeof formatMarketChangePct>): string {
   return change.positive ? "px-pos" : "px-neg";
 }
 
-function PricingPanel({ data: d, paid }: { data: CertData; paid: number | null }) {
+function PricingPanel({
+  data: d,
+  paid,
+  costSource,
+}: {
+  data: CertData;
+  paid: number | null;
+  costSource: PortfolioCostBasisSource | null;
+}) {
   const pricing = d.pricing;
   const top = formatMarketChangePct(pricing.change30Pct);
-  const valueChange = formatCertValueChange(d.marketUsd, paid);
+  const valueChange = formatCertValueChange(d.marketUsd, paid, costSource);
   const c30 = formatMarketChangePct(pricing.change30Pct);
   const c90 = formatMarketChangePct(pricing.change90Pct);
   const c1y = formatMarketChangePct(pricing.change365Pct);
@@ -53,7 +63,7 @@ function PricingPanel({ data: d, paid }: { data: CertData; paid: number | null }
       </div>
       {paid != null ? (
         <div className="px-sub">
-          You paid <span className="m">{formatPortfolioUsd(paid)}</span>
+          You paid <span className="m">{formatPortfolioCostBasis(paid, costSource)}</span>
           {valueChange ? (
             <>
               {" · "}
@@ -149,6 +159,9 @@ export function PortfolioCertificateView({
   /** Sealed box: show the holding, without card list or redeem. */
   holdOnly?: boolean;
 }) {
+  const t = useTranslations("Portfolio");
+  const tNav = useTranslations("Nav");
+  const locale = useLocale();
   const [tab, setTab] = useState<CertTab>("proof");
   const [zoomOpen, setZoomOpen] = useState(false);
   const [zoomFace, setZoomFace] = useState<"front" | "back">("front");
@@ -159,10 +172,11 @@ export function PortfolioCertificateView({
   const back = d.backUrl;
   const zoomSrc = zoomFace === "back" && back ? back : front;
   const chg = formatMarketChangePct(d.marketChangePct);
-  const paid = d.holding?.costBasisUsd;
-  const valueChange = formatCertValueChange(d.marketUsd, paid ?? null);
+  const paid = d.holding?.costBasisUsd ?? null;
+  const costSource = d.holding?.costBasisSource ?? null;
+  const valueChange = formatCertValueChange(d.marketUsd, paid, costSource);
   const ownerLabel = d.isOwner
-    ? `You · ${formatWalletShort(d.walletAddress)}`
+    ? t("youOwner", { wallet: formatWalletShort(d.walletAddress) })
     : d.walletAddress
       ? formatWalletShort(d.walletAddress)
       : "—";
@@ -200,7 +214,7 @@ export function PortfolioCertificateView({
   if (!tokenIdOk) {
     return (
       <div className="pa-page">
-        <p className="pa-status">Invalid asset.</p>
+        <p className="pa-status">{t("invalidAsset")}</p>
       </div>
     );
   }
@@ -208,20 +222,20 @@ export function PortfolioCertificateView({
   if (d.metaLoading && !d.imageUrl && !d.metadata) {
     return (
       <div className="pa-page">
-        <p className="pa-status">Loading certificate…</p>
+        <p className="pa-status">{t("loadingCert")}</p>
       </div>
     );
   }
 
   const redeemNote = d.redeemBadge
     ? d.redeemBadge.label
-    : "Redeem the physical card from the vault anytime.";
+    : t("redeemAnytime");
 
   return (
     <div className="pa-page">
       <div className="cert-wrap">
         <Link className="backlink" href={backHref}>
-          ‹ Collection
+          ‹ {tNav("collection")}
         </Link>
 
         <div className="cert">
@@ -361,7 +375,7 @@ export function PortfolioCertificateView({
                 <div className="stub-row">
                   <span className="stub-k">You paid</span>
                   <span className="stub-v">
-                    {paid != null ? formatPortfolioUsd(paid) : "—"}
+                    {formatPortfolioCostBasis(paid, costSource)}
                   </span>
                 </div>
                 {valueChange ? (
@@ -388,10 +402,10 @@ export function PortfolioCertificateView({
           <div className="tabs">
             {(
               [
-                ["proof", "Custody and proof"],
-                ["history", "History"],
-                ["pricing", "Pricing"],
-              ] as const
+                ["proof", t("custodyProof")],
+                ["history", t("history")],
+                ["pricing", t("pricing")],
+              ] as [CertTab, string][]
             ).map(([id, label]) => (
               <button
                 key={id}
@@ -494,7 +508,9 @@ export function PortfolioCertificateView({
 
           <div className="hair" />
 
-          {tab === "pricing" ? <PricingPanel data={d} paid={paid ?? null} /> : null}
+          {tab === "pricing" ? (
+            <PricingPanel data={d} paid={paid} costSource={costSource} />
+          ) : null}
 
           {d.listed && d.listing?.priceUsd != null ? (
             <div className="pa-listings" data-listed-section="">
@@ -515,11 +531,11 @@ export function PortfolioCertificateView({
                     </svg>
                   </span>
                   <span>
-                    <span className="prow-k">Listed for sale</span>
+                    <span className="prow-k">{t("listedForSale")}</span>
                     <span className="prow-s">
                       {formatUsdListing(d.listing.priceUsd)}
                       {d.listing.createdAt
-                        ? ` · listed ${formatCertDate(d.listing.createdAt)}`
+                        ? ` · ${t("listedOn", { date: formatCertDate(d.listing.createdAt, locale) })}`
                         : null}
                     </span>
                   </span>
@@ -535,7 +551,7 @@ export function PortfolioCertificateView({
                       }
                       onClick={onCancelListing}
                     >
-                      {cancelListingPending ? "Cancelling…" : "Cancel listing"}
+                      {cancelListingPending ? t("cancelling") : t("cancelListing")}
                     </button>
                   ) : null}
                 </div>
@@ -544,7 +560,7 @@ export function PortfolioCertificateView({
 
           <div className="cert-foot">
             <div className="mval">
-              <span className="mval-k">Market value</span>
+              <span className="mval-k">{t("marketValue")}</span>
               <span className="mval-v">{formatUsdCompact(d.marketUsd)}</span>
               {chg ? (
                 <span
@@ -564,7 +580,7 @@ export function PortfolioCertificateView({
             </div>
             {d.listed && d.listing?.priceUsd != null ? (
               <div className="mval">
-                <span className="mval-k">Listed</span>
+                <span className="mval-k">{t("listed")}</span>
                 <span className="mval-v mval-v--listed">
                   {formatUsdListing(d.listing.priceUsd)}
                 </span>
@@ -584,14 +600,14 @@ export function PortfolioCertificateView({
                   d.redeemBadge
                     ? d.redeemBadge.label
                     : d.listed
-                      ? "Listing is cancelled when you pay to redeem"
+                      ? t("redeemCancels")
                       : !d.isOwner
-                        ? "Only the owner can redeem"
+                        ? t("ownerOnly")
                         : undefined
                 }
                 onClick={onRedeem}
               >
-                {d.redeemBadge ? "Redemption status" : "Redeem"}
+                {d.redeemBadge ? t("redemptionStatus") : t("redeem")}
               </button>
               )}
               <button
@@ -600,12 +616,12 @@ export function PortfolioCertificateView({
                 disabled={!d.isOwner || !d.canSign || d.redeemInFlight}
                 title={
                   d.redeemInFlight
-                    ? "Redemption in progress — listing unavailable"
+                    ? t("redeemBlocksList")
                     : undefined
                 }
                 onClick={onSellList}
               >
-                {d.listed ? "Edit price" : "Sell / List"}
+                {d.listed ? t("editPrice") : t("sellList")}
               </button>
             </div>
           </div>

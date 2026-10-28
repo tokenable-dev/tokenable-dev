@@ -31,6 +31,8 @@ export interface AuthUser {
   marketingEmailsOptIn?: boolean;
   emailNotificationsEnabled?: boolean;
   emailNotifPrefs?: EmailNotifPrefs;
+  preferredLocale?: string | null;
+  preferredCurrency?: string | null;
 }
 
 export type UpdateProfileInput = {
@@ -40,6 +42,23 @@ export type UpdateProfileInput = {
   marketingEmailsOptIn?: boolean;
   emailNotificationsEnabled?: boolean;
   emailNotifPrefs?: Partial<EmailNotifPrefs>;
+  preferredLocale?: "en" | "zh-CN" | "ja" | "zh-TW";
+  preferredCurrency?:
+    | "USD"
+    | "EUR"
+    | "GBP"
+    | "KRW"
+    | "JPY"
+    | "SGD"
+    | "CAD"
+    | "AUD"
+    | "CHF"
+    | "HKD"
+    | "IDR"
+    | "MYR"
+    | "PHP"
+    | "VND"
+    | "THB";
 };
 
 /** Returns null when unauthenticated (`/auth/session` → `{ user: null }`). */

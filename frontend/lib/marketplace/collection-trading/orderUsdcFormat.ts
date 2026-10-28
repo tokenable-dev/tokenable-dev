@@ -1,10 +1,11 @@
 import { formatUnits } from "viem";
 import type { Order } from "@/lib/core";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 export function formatOrderUsdc6(amountStr: string): string {
   try {
     const n = Number(formatUnits(BigInt(amountStr), 6));
-    return formatTradeTicketUsdcPrice(n);
+    return formatUsdcAmount(n);
   } catch {
     return amountStr;
   }

@@ -1,6 +1,8 @@
 "use client";
 
 import { memo, useState } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
 import Link from "next/link";
 import { trackEvent } from "@/lib/analytics/googleAnalytics";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
@@ -15,10 +17,6 @@ type GalleryStyleSeg = "notlisted" | "listed" | "shipping";
 function listedPriceInput(price: number | null | undefined): string {
   if (price == null || !Number.isFinite(price)) return "";
   return Math.round(price).toLocaleString("en-US");
-}
-
-function formatLastPrice(price: number): string {
-  return `$${price.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
 }
 
 /** Digits the Set/Edit sheet should open with. Empty or junk stays unset. */
@@ -130,6 +128,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
   onToggleSelect?: () => void;
   onActivate?: () => void;
 }) {
+  useDisplayFx();
   const seg = galleryStatusSeg(isListed, redeemStatus);
   const titleHover = headline?.hover ?? row.name;
   const titleLabel = headline?.nameLine?.trim() || headline?.line1 || row.name;
@@ -281,7 +280,7 @@ export const PortfolioHoldingsGalleryTile = memo(function PortfolioHoldingsGalle
             <div className="pf-gcap">
               {seg === "listed" && marketUsd != null ? (
                 <>
-                  Last price <span className="pf-gcap__amt">{formatLastPrice(marketUsd)}</span>
+                  Last price <span className="pf-gcap__amt">{formatDisplayMoney(marketUsd)}</span>
                 </>
               ) : seg === "notlisted" ? (
                 "Last price"

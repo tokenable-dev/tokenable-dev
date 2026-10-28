@@ -1,3 +1,5 @@
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
+
 export type PortfolioValueChangeState = "up" | "down" | "flat" | "nodata";
 
 export function resolvePortfolioValueChangeState(
@@ -15,7 +17,7 @@ export function resolvePortfolioValueChangeState(
 }
 
 function formatChangeUsdAbs(usd: number): string {
-  return Math.abs(usd).toLocaleString("en-US", { maximumFractionDigits: 0 });
+  return formatDisplayMoney(Math.abs(usd));
 }
 
 function formatChangePctAbs(pct: number): string {
@@ -31,20 +33,20 @@ export function formatPortfolioValueChangeLabel(
   if (state === "nodata") return null;
 
   if (state === "flat") {
-    return { arrow: "–", usd: "$0", pct: "0%" };
+    return { arrow: "–", usd: formatDisplayMoney(0), pct: "0%" };
   }
 
   if (state === "up") {
     return {
       arrow: "▲",
-      usd: `+$${formatChangeUsdAbs(pnlUsd)}`,
+      usd: `+${formatChangeUsdAbs(pnlUsd)}`,
       pct: `+${formatChangePctAbs(pnlPct)}%`,
     };
   }
 
   return {
     arrow: "▼",
-    usd: `−$${formatChangeUsdAbs(pnlUsd)}`,
+    usd: `−${formatChangeUsdAbs(pnlUsd)}`,
     pct: `−${formatChangePctAbs(pnlPct)}%`,
   };
 }

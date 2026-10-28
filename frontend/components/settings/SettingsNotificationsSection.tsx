@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { AuthUser, EmailNotifPrefs } from "@/lib/auth";
 import { updateAuthProfile } from "@/lib/auth";
 import { cn } from "@/lib/ds/cn";
@@ -124,6 +125,7 @@ function mergePrefs(user: AuthUser): EmailNotifPrefs {
 }
 
 export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
+  const t = useTranslations("Settings");
   const setUser = useAuthStore((s) => s.setUser);
   const [prefs, setPrefs] = useState<EmailNotifPrefs>(() => mergePrefs(user));
   const [marketingEmailsOptIn, setMarketingEmailsOptIn] = useState(
@@ -190,7 +192,7 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
       } catch (e) {
         setPrefs(previous.prefs);
         setMarketingEmailsOptIn(previous.marketingEmailsOptIn);
-        setSaveError(e instanceof Error ? e.message : "Could not save preferences.");
+        setSaveError(e instanceof Error ? e.message : t("ui.notifSaveFailed"));
       }
     });
   }
@@ -239,27 +241,28 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Notifications</h1>
-      <p className="tk-settings__sec-sub">How Tokenable reaches you.</p>
-      <p className="tk-settings__sec-sub !mt-1.5">
-        You get these by email. Everything also appears in your notification center while
-        you&apos;re signed in.
-      </p>
+      <h1 className="tk-settings__sec-h">{t("nav.notifications")}</h1>
+      <p className="tk-settings__sec-sub">{t("ui.notifSub")}</p>
+      <p className="tk-settings__sec-sub !mt-1.5">{t("ui.notifSub2")}</p>
 
-      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">Account &amp; transactions</div>
+      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">{t("ui.accountTx")}</div>
       <div className="tk-settings__card">
         {ACCOUNT_ROWS.map((row) => {
           const on = accountToggles[row.id];
           return (
             <div key={row.id} className="tk-settings__row">
               <div>
-                <div className="tk-settings__row-t">{row.title}</div>
-                <div className="tk-settings__row-d">{row.description}</div>
+                <div className="tk-settings__row-t">
+                  {t(row.id === "identity" ? "ui.identityRow" : `ui.${row.id}`)}
+                </div>
+                <div className="tk-settings__row-d">
+                  {t(row.id === "identity" ? "ui.identityRowDesc" : `ui.${row.id}Desc`)}
+                </div>
               </div>
               <button
                 type="button"
                 className={cn("tk-settings__sw", on && "on")}
-                aria-label={row.title}
+                aria-label={t(row.id === "identity" ? "ui.identityRow" : `ui.${row.id}`)}
                 aria-pressed={on}
                 onClick={() => toggleAccount(row.id)}
               />
@@ -268,20 +271,20 @@ export function SettingsNotificationsSection({ user }: { user: AuthUser }) {
         })}
       </div>
 
-      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">Optional alerts</div>
+      <div className="tk-settings__lbl !mt-[22px] !mb-2.5">{t("ui.optional")}</div>
       <div className="tk-settings__card">
         {OPTIONAL_ROWS.map((row) => {
           const on = isOptionalOn(row);
           return (
             <div key={row.id} className="tk-settings__row">
               <div>
-                <div className="tk-settings__row-t">{row.title}</div>
-                <div className="tk-settings__row-d">{row.description}</div>
+                <div className="tk-settings__row-t">{t(`ui.${row.id}`)}</div>
+                <div className="tk-settings__row-d">{t(`ui.${row.id}Desc`)}</div>
               </div>
               <button
                 type="button"
                 className={cn("tk-settings__sw", on && "on")}
-                aria-label={row.title}
+                aria-label={t(`ui.${row.id}`)}
                 aria-pressed={on}
                 onClick={() => toggleOptional(row)}
               />

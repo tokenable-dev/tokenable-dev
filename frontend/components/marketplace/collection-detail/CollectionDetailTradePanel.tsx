@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { sanitizeTokenBidPriceInput } from "@/hooks/token-offer/useTokenOffer";
 import { bumpWholeDollarByOnePercent } from "@/lib/marketplace/wholeDollarPercent";
 
@@ -18,7 +20,7 @@ export type CollectionTradeCertItem = {
 
 function moneyRound(n: number): string {
   if (!(n > 0) || !Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatUsdcAmount(n);
 }
 
 function formatAdjDisplay(raw: string): string {
@@ -84,6 +86,7 @@ function CertCarousel({
   onIndexChange: (next: number) => void;
   emptyLabel: string;
 }) {
+  const t = useTranslations("TradePanel");
   const total = items.length;
   const current = total > 0 ? items[Math.min(index, total - 1)] : null;
   const canPrev = total > 1 && index > 0;
@@ -99,7 +102,7 @@ function CertCarousel({
           <button
             type="button"
             className="cd-trade-panel__cert-chev"
-            aria-label="Previous copy"
+            aria-label={t("prevCopy")}
             disabled={!canPrev}
             onClick={() => canPrev && onIndexChange(index - 1)}
           >
@@ -111,7 +114,7 @@ function CertCarousel({
           <button
             type="button"
             className="cd-trade-panel__cert-chev"
-            aria-label="Next copy"
+            aria-label={t("nextCopy")}
             disabled={!canNext}
             onClick={() => canNext && onIndexChange(index + 1)}
           >
@@ -167,6 +170,8 @@ export function CollectionDetailTradePanel({
 }) {
   const [tab, setTab] = useState<CollectionDetailTradeTab>(initialTab);
   const [buyIndex, setBuyIndex] = useState(0);
+  const t = useTranslations("TradePanel");
+  const tTrade = useTranslations("Trade");
 
   useEffect(() => {
     setBuyIndex((i) =>
@@ -224,27 +229,31 @@ export function CollectionDetailTradePanel({
 
   const hasAsk = payUsd > 0 && selectedBuy != null;
   const buyMeta =
-    askCount > 0
-      ? `Lowest · ${askCount} ${askCount === 1 ? "Ask" : "Asks"}`
-      : hasAsk
-        ? "Lowest · Ask"
-        : "No asks";
+    askCount > 1
+      ? t("lowestMany", { count: askCount })
+      : askCount === 1
+        ? t("lowestOne")
+        : hasAsk
+          ? t("lowestAsk")
+          : t("noAsks");
 
   const bidMeta =
-    bidCount > 0
-      ? `Highest · ${bidCount} ${bidCount === 1 ? "Bid" : "Bids"}`
-      : topBid > 0
-        ? "Highest · Bid"
-        : "No bids";
+    bidCount > 1
+      ? t("highestMany", { count: bidCount })
+      : bidCount === 1
+        ? t("highestOne")
+        : topBid > 0
+          ? t("highestBid")
+          : t("noBids");
 
   return (
     <div className="cd-trade-panel cd-notch" id="tk-trade">
       <div className="cd-trade-panel__tabs" id="tk-trade-tabs" role="tablist">
         {(
           [
-            ["buy", "Buy"],
-            ["bid", "Bid"],
-          ] as const
+            ["buy", tTrade("buy")],
+            ["bid", tTrade("bid")],
+          ] as [CollectionDetailTradeTab, string][]
         ).map(([id, label]) => {
           const on = tab === id;
           return (
@@ -278,7 +287,7 @@ export function CollectionDetailTradePanel({
             emptyLabel=""
           />
           <div className="cd-trade-panel__field">
-            <span className="cd-trade-panel__field-lbl">You pay</span>
+            <span className="cd-trade-panel__field-lbl">{t("youPay")}</span>
             <svg
               width="15"
               height="15"
@@ -309,7 +318,7 @@ export function CollectionDetailTradePanel({
               tabIndex={tab === "buy" ? 0 : -1}
               onClick={() => selectedBuy && onBuy(selectedBuy.tokenId)}
             >
-              {buyBusy ? "Buying…" : "Buy now"}
+              {buyBusy ? t("buying") : t("buyNow")}
             </TkButton>
           </div>
         </div>
@@ -324,11 +333,11 @@ export function CollectionDetailTradePanel({
             <span className="cd-trade-panel__row-val" />
           </div>
           <div className="cd-trade-panel__adj">
-            <span className="cd-trade-panel__field-lbl">Your bid</span>
+            <span className="cd-trade-panel__field-lbl">{t("yourBid")}</span>
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Decrease bid by 1%"
+              aria-label={t("decreaseBid")}
               disabled={tab !== "bid" || !(bidUsd > 0)}
               tabIndex={tab === "bid" ? 0 : -1}
               onMouseDown={(e) => e.preventDefault()}
@@ -345,7 +354,7 @@ export function CollectionDetailTradePanel({
               autoCorrect="off"
               spellCheck={false}
               name="tk-bid-amount"
-              aria-label="Your bid amount"
+              aria-label={t("bidAmount")}
               placeholder="$0"
               value={bidRaw ? `$${formatAdjDisplay(bidRaw)}` : "$0"}
               disabled={tab !== "bid"}
@@ -358,7 +367,7 @@ export function CollectionDetailTradePanel({
             <button
               type="button"
               className="cd-trade-panel__adj-btn"
-              aria-label="Increase bid by 1%"
+              aria-label={t("increaseBid")}
               disabled={tab !== "bid"}
               tabIndex={tab === "bid" ? 0 : -1}
               onMouseDown={(e) => e.preventDefault()}
@@ -387,11 +396,11 @@ export function CollectionDetailTradePanel({
             >
               {bidCrossesAsk
                 ? bidBusy || buyBusy
-                  ? "Buying…"
-                  : "Buy now"
+                  ? t("buying")
+                  : t("buyNow")
                 : bidBusy
-                  ? "Placing bid…"
-                  : "Place bid"}
+                  ? t("placing")
+                  : t("placeBid")}
             </TkButton>
           </div>
         </div>

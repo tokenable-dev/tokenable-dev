@@ -7,7 +7,7 @@ import {
   shortVaultChipLabel,
   vaultChipTone,
 } from "@/lib/marketplace/vaultCustodyLabel";
-import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 /** Sale-state only — every card is already in a vault. */
 export type HoldingsSaleKind =
@@ -30,7 +30,7 @@ export function holdingsSaleStatusLabel(
 ): string {
   if (kind === "listed") {
     if (listPriceUsd != null && Number.isFinite(listPriceUsd)) {
-      return `Listed · ${formatUsdCompact(listPriceUsd)}`;
+      return `Listed · ${formatUsdcAmount(listPriceUsd)}`;
     }
     return "Listed";
   }

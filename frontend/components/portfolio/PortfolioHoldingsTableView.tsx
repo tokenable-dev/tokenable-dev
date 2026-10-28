@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import type { RedeemSurfaceBadge } from "@/lib/portfolio/redeemDraft";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
 import { formatUsdCompact } from "@/lib/market/collectionMarketPricing";
 import {
   formatPortfolioProfitReturn,
@@ -25,6 +27,7 @@ export function PortfolioHoldingsTableView({
   headlineByTokenId,
   vaultByTokenId,
   costBasisByTokenId,
+  costBasisSourceByTokenId,
   valuesPending,
   onSetPrice,
   getBadge,
@@ -40,6 +43,7 @@ export function PortfolioHoldingsTableView({
   headlineByTokenId: Map<number, PortfolioHoldingsHeadline>;
   vaultByTokenId?: Map<number, HoldingsVaultChip>;
   costBasisByTokenId: Map<number, number>;
+  costBasisSourceByTokenId?: Map<number, PortfolioCostBasisSource | null>;
   valuesPending: boolean;
   onSetPrice: (tokenId: number) => void;
   getBadge: (tokenId: number) => RedeemSurfaceBadge | null;
@@ -51,6 +55,7 @@ export function PortfolioHoldingsTableView({
   isRowSelectable?: (row: AssetRow) => boolean;
   onOpenKbwMysteryCard?: () => void;
 }) {
+  const t = useTranslations("PortfolioTable");
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">
       <colgroup>
@@ -63,12 +68,12 @@ export function PortfolioHoldingsTableView({
       </colgroup>
       <thead>
         <tr>
-          <PortfolioStaticTh label="Card" sortHint />
-          <PortfolioStaticTh label="Vault" sortHint />
-          <PortfolioStaticTh label="Mkt Price" sortHint align="right" />
-          <PortfolioStaticTh label="% Chg." sortHint align="right" />
-          <PortfolioStaticTh label="Status" muted />
-          <PortfolioStaticTh label="Action" align="center" muted />
+          <PortfolioStaticTh label={t("card")} sortHint />
+          <PortfolioStaticTh label={t("vault")} sortHint />
+          <PortfolioStaticTh label={t("mktPrice")} sortHint align="right" />
+          <PortfolioStaticTh label={t("chg")} sortHint align="right" />
+          <PortfolioStaticTh label={t("status")} muted />
+          <PortfolioStaticTh label={t("action")} align="center" muted />
         </tr>
       </thead>
       <tbody>
@@ -78,7 +83,11 @@ export function PortfolioHoldingsTableView({
             row.listPriceUsd != null && row.activeListingOrderHash != null;
           const badge = getBadge(row.tokenId);
           const tradeBlocked = isTradeBlocked(row.tokenId);
-          const pnl = formatPortfolioProfitReturn(cost, row.currentPrice);
+          const pnl = formatPortfolioProfitReturn(
+            cost,
+            row.currentPrice,
+            costBasisSourceByTokenId?.get(row.tokenId),
+          );
           const zebra = index % 2 === 1 ? " pf-table-row--zebra" : "";
           const dim =
             badge?.kind === "transit" || badge?.kind === "possession"

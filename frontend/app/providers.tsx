@@ -2,9 +2,14 @@
 
 import { installPrivyDevAnalyticsSuppressor } from "@/lib/privy/suppressDevAnalytics";
 import { PrivyAppProviders } from "@/lib/privy";
+import { DisplayPreferencesProvider } from "@/components/i18n/DisplayPreferencesProvider";
 
 installPrivyDevAnalyticsSuppressor();
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  return <PrivyAppProviders>{children}</PrivyAppProviders>;
+  return (
+    <DisplayPreferencesProvider>
+      <PrivyAppProviders>{children}</PrivyAppProviders>
+    </DisplayPreferencesProvider>
+  );
 }

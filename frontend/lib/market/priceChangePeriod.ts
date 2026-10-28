@@ -1,3 +1,5 @@
+import { formatDisplayMoney } from "@/lib/market/displayMoney";
+
 /** Product-wide default label for external / reference price % change tiles. */
 export const MARKET_PRICE_CHANGE_PERIOD_LABEL = "1 yr";
 
@@ -210,9 +212,9 @@ export function referenceChangeCoverageDays(
   return Math.max(1, Math.round(result.windowSec / SEC_DAY));
 }
 
-/** Human-readable diagnostic hint for QA/ops and tooltip copy. */
+/** Reference anchor. Historical sale converted with the latest ECB rate. */
 function formatUsdAnchor(n: number): string {
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatDisplayMoney(n);
 }
 
 export function formatReferenceChangeCoverageHint(

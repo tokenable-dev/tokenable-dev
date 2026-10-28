@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useCollectionOverviewLayout } from "@/hooks/collection-overview";
 import { CollectionOverviewLeftColumn } from "./columns/CollectionOverviewLeftColumn";
 import { CollectionOverviewTopBar } from "./header/CollectionOverviewTopBar";
@@ -14,6 +15,7 @@ export type {
 } from "./types";
 
 export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
+  const t = useTranslations("CollectionChrome");
   const {
     title,
     subtitle,
@@ -112,7 +114,7 @@ export function CollectionOverviewBoard(props: CollectionOverviewBoardProps) {
   return (
     <section
       className="cd-overview-board relative w-full min-w-0 overflow-visible lg:flex lg:min-h-0 lg:flex-1 lg:flex-col"
-      aria-label="Collection overview"
+      aria-label={t("marketSummary")}
     >
       <CollectionOverviewTopBar
         title={title}

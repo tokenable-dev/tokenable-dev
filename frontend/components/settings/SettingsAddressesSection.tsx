@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   createShippingAddress,
   deleteShippingAddress,
@@ -51,7 +52,10 @@ function addressRowTitle(addr: ShippingAddress): string {
   return `${name} · ${label}`;
 }
 
-function formatAddressBlock(addr: ShippingAddress): string[] {
+function formatAddressBlock(
+  addr: ShippingAddress,
+  countryName: (code: string) => string,
+): string[] {
   const street = [addr.line1, addr.line2].filter(Boolean).join(", ");
   const locality = [
     addr.city,
@@ -59,12 +63,7 @@ function formatAddressBlock(addr: ShippingAddress): string[] {
   ]
     .filter(Boolean)
     .join(", ");
-  const countryLabel =
-    addr.country.toLowerCase() === "us"
-      ? "United States"
-      : addr.country.length === 2
-        ? addr.country.toUpperCase()
-        : addr.country;
+  const countryLabel = countryName(addr.country);
   const cityLine = [locality, countryLabel].filter(Boolean).join(", ");
   const lines = [street, cityLine].filter(Boolean);
   if (addr.phone.trim()) lines.push(addr.phone.trim());
@@ -118,6 +117,7 @@ function syncRedeemCache(addr: ShippingAddress, userId: string) {
 }
 
 export function SettingsAddressesSection({ userId }: { userId: string }) {
+  const t = useTranslations("Settings");
   const [addresses, setAddresses] = useState<ShippingAddress[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +163,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
       }
       setAddresses(rows);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load addresses.");
+      setError(e instanceof Error ? e.message : t("ui.loadAddrFailed"));
     } finally {
       setLoading(false);
     }
@@ -196,7 +196,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
   async function saveForm() {
     const input = toInput(form);
     if (!input.name || !input.line1 || !input.city || !input.postal || !input.phone) {
-      setError("Name, street, city, postal code, and phone are required.");
+      setError(t("ui.addrRequired"));
       return;
     }
     setSaving(true);
@@ -212,7 +212,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
       setEditor(null);
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save address.");
+      setError(e instanceof Error ? e.message : t("ui.saveAddrFailed"));
     } finally {
       setSaving(false);
     }
@@ -231,7 +231,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
       syncRedeemCache(updated, userId);
     } catch (e) {
       setAddresses(prev);
-      setError(e instanceof Error ? e.message : "Could not set default.");
+      setError(e instanceof Error ? e.message : t("ui.defaultFailed"));
     }
   }
 
@@ -245,7 +245,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
       }
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not delete address.");
+      setError(e instanceof Error ? e.message : t("ui.deleteAddrFailed"));
     }
   }
 
@@ -262,14 +262,14 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Addresses</h1>
+      <h1 className="tk-settings__sec-h">{t("nav.addresses")}</h1>
       <p className="tk-settings__sec-sub">
-        Used when you withdraw physical cards from the vault.
+        {t("ui.addrSub")}
       </p>
 
       <div className="tk-settings__card">
         {loading ? (
-          <p className="py-4 text-sm text-[var(--t2)]">Loading addresses…</p>
+          <p className="py-4 text-sm text-[var(--t2)]">{t("ui.loadingAddr")}</p>
         ) : null}
         {!loading
           ? addresses.map((addr) => (
@@ -285,12 +285,18 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                         className="tk-settings__chip tk-settings__chip--pos"
                         style={{ marginLeft: 6 }}
                       >
-                        DEFAULT
+                        {t("ui.defaultChip")}
                       </span>
                     ) : null}
                   </div>
                   <div className="tk-settings__row-d tk-settings__row-d--wide">
-                    {formatAddressBlock(addr).map((line, i) => (
+                    {formatAddressBlock(addr, (code) =>
+                      code.toLowerCase() === "us"
+                        ? t("ui.unitedStates")
+                        : code.length === 2
+                          ? code.toUpperCase()
+                          : code,
+                    ).map((line, i) => (
                       <Fragment key={`${addr.id}-${i}`}>
                         {i > 0 ? <br /> : null}
                         {line}
@@ -305,32 +311,32 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                       size="sm"
                       onClick={() => void setDefault(addr.id)}
                     >
-                      Set as default
+                      {t("ui.setDefault")}
                     </SettingsBtn>
                   ) : null}
                   <SettingsBtn variant="ghost" size="sm" onClick={() => openEdit(addr)}>
-                    Edit
+                    {t("ui.edit")}
                   </SettingsBtn>
                   <SettingsBtn variant="ghost" size="sm" onClick={() => void remove(addr.id)}>
-                    Delete
+                    {t("ui.delete")}
                   </SettingsBtn>
                 </div>
               </div>
             ))
           : null}
         {!loading && addresses.length === 0 && editor !== "create" ? (
-          <p className="py-4 text-sm text-[var(--t2)]">No saved addresses.</p>
+          <p className="py-4 text-sm text-[var(--t2)]">{t("ui.noAddr")}</p>
         ) : null}
       </div>
 
       <SettingsBtn variant="ghost" size="md" onClick={toggleAddForm}>
-        + Add address
+        {t("ui.addAddress")}
       </SettingsBtn>
 
       {editor != null ? (
         <div className="tk-settings__card tk-settings__card--ship-form mt-4">
           <div className="tk-settings__lbl" style={{ marginBottom: 16 }}>
-            {editor === "create" ? "New address" : "Edit address"}
+            {editor === "create" ? t("ui.newAddress") : t("ui.editAddress")}
           </div>
           <ShippingAddressFormFields
             idPrefix={editor === "create" ? "addr-new" : `addr-${editor}`}
@@ -339,7 +345,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
             onChange={(next) => setForm((f) => ({ ...f, ...next }))}
             extrasBefore={
               <div className="tk-ship-form__section">
-                <TkField label="Label" htmlFor="addr-label">
+                <TkField label={t("ui.label")} htmlFor="addr-label">
                   <TkInput
                     id="addr-label"
                     value={form.label}
@@ -347,7 +353,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                       setForm((f) => ({ ...f, label: e.target.value }))
                     }
                     disabled={saving}
-                    placeholder="Home, Office, Vault…"
+                    placeholder={t("ui.labelPlaceholder")}
                   />
                 </TkField>
               </div>
@@ -355,9 +361,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
             extrasAfter={
               editor !== "create" && form.isDefault ? (
                 <p className="tk-ship-form__note">
-                  This is your default address. Use{" "}
-                  <strong>Set as default</strong> on another address to change
-                  it.
+                  {t("ui.defaultNote")}
                 </p>
               ) : (
                 <label className="tk-ship-cbx">
@@ -369,7 +373,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
                     }
                     disabled={saving}
                   />
-                  Set as default
+                  {t("ui.setDefault")}
                 </label>
               )
             }
@@ -381,7 +385,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
               disabled={saving}
               onClick={() => void saveForm()}
             >
-              {saving ? "Saving…" : "Save address"}
+              {saving ? t("ui.saving") : t("ui.saveAddress")}
             </SettingsBtn>
             <SettingsBtn
               variant="ghost"
@@ -389,7 +393,7 @@ export function SettingsAddressesSection({ userId }: { userId: string }) {
               disabled={saving}
               onClick={() => setEditor(null)}
             >
-              Cancel
+              {t("ui.cancel")}
             </SettingsBtn>
           </div>
         </div>

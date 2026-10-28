@@ -13,7 +13,7 @@ function formatUsdcUnits(raw: unknown): string | null {
   if (!/^\d+$/.test(text)) return null;
   const units = BigInt(text);
   const whole = (units + USDC_BASE / BigInt(2)) / USDC_BASE;
-  return `${whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")} USDC`;
+  return `$${whole.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",")}`;
 }
 
 function formatErc20Item(item: unknown): unknown {
@@ -63,7 +63,7 @@ function sumErc20Start(items: unknown): bigint {
   return sum;
 }
 
-/** Headline for the Privy sign modal, e.g. "Bid 500 USDC". */
+/** Headline for the Privy sign modal, e.g. "Bid $500". The signed payload stays in base units. */
 export function seaportSignAmountLabel(
   message: Record<string, unknown>,
   side: "bid" | "list",

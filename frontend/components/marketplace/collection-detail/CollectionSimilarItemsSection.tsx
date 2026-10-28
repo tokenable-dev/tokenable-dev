@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { formatUsdCompact, resolveReferencePercentChangeDisplay } from "@/lib/market";
 import {
   ListingCardChange,
@@ -72,6 +73,8 @@ export function CollectionSimilarItemsSection({
 }: {
   collectionKey: string;
 }) {
+  const t = useTranslations("CollectionDetail");
+  const tChrome = useTranslations("CollectionChrome");
   const { data, isLoading, isError } = useCollectionSimilarItems(collectionKey);
   const items = data?.items ?? [];
 
@@ -83,18 +86,16 @@ export function CollectionSimilarItemsSection({
     >
       <div className="cd-similar-items__head">
         <h2 id="similar-items-heading" className="cd-similar-items__title">
-          Similar items
+          {tChrome("similar")}
         </h2>
       </div>
 
       {isLoading ? (
-        <p className="cd-similar-items__empty mono">Loading…</p>
+        <p className="cd-similar-items__empty mono">{t("similarLoading")}</p>
       ) : isError ? (
-        <p className="cd-similar-items__empty mono">Couldn’t load similar items.</p>
+        <p className="cd-similar-items__empty mono">{t("similarError")}</p>
       ) : items.length === 0 ? (
-        <p className="cd-similar-items__empty mono">
-          No similar collections with the same name or set.
-        </p>
+        <p className="cd-similar-items__empty mono">{t("similarEmpty")}</p>
       ) : (
         <div id="similar-row" className="cd-similar-items__grid">
           {items.map((item) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useTranslations } from "next-intl";
 import {
   CollectionMetadataExpandable,
   CollectionPsaSlabFrame,
@@ -52,6 +53,7 @@ export function CollectionOverviewLeftColumn({
   metadataRows: { label: string; value: string }[];
   leftColumnFooter?: ReactNode;
 }) {
+  const t = useTranslations("CollectionDetail");
   if (useMobileTabbedMarket) {
     return (
       <div className="w-full min-w-0 min-[1141px]:hidden" id="collection-listings">
@@ -104,7 +106,7 @@ export function CollectionOverviewLeftColumn({
                 <button
                   type="button"
                   className="absolute inset-0 z-[2] cursor-zoom-in bg-transparent"
-                  aria-label="Open collection cover in large view"
+                  aria-label={t("viewCard")}
                   onClick={() => coverGallery?.onOpenChange(true)}
                 />
                 {coverGallery?.canSwipe ? (

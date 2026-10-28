@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import {
   ASSETS_FILTER_OPTIONS,
   type AssetsSegment,
@@ -77,13 +78,31 @@ export function PortfolioAssetsToolbar({
   hidingSelected?: boolean;
   onClearFilters: () => void;
 }) {
+  const t = useTranslations("Portfolio");
   const filterActive = segment !== "all" || sort !== "newest";
   const dockSlot = useDockPortfolioToolbar(1024);
 
   const hideActionLabel =
     segment === "hidden"
-      ? `Unhide${selectedHideCount > 0 ? ` (${selectedHideCount})` : ""}`
-      : `Hide${selectedHideCount > 0 ? ` (${selectedHideCount})` : ""}`;
+      ? selectedHideCount > 0
+        ? t("unhideCount", { count: selectedHideCount })
+        : t("unhide")
+      : selectedHideCount > 0
+        ? t("hideCount", { count: selectedHideCount })
+        : t("hide");
+  const filterLabel = (id: AssetsSegment) => {
+    if (id === "listed") return t("listed");
+    if (id === "notlisted") return t("unlisted");
+    if (id === "shipping") return t("redeeming");
+    if (id === "verifying") return t("vaulting");
+    if (id === "hidden") return t("hidden");
+    return t("all");
+  };
+  const sortLabel = (value: AssetsToolbarSort) => {
+    if (value === "value") return t("highPrice");
+    if (value === "low") return t("lowPrice");
+    return t("mostRecent");
+  };
 
   if (selectMode) {
     return placePortfolioToolbar(
@@ -91,14 +110,14 @@ export function PortfolioAssetsToolbar({
         className="pf-tbar pf-tbar--select pf-cl-bar"
         id="pf-assets-toolbar"
         role="toolbar"
-        aria-label="Cancel or hide items"
+        aria-label={t("selectToolbar")}
       >
-        <span className="pf-cl-count">{selectedCount} selected</span>
+        <span className="pf-cl-count">{t("selected", { count: selectedCount })}</span>
         <button type="button" className="pf-tbtn" onClick={onSelectAll}>
-          Select all
+          {t("selectAll")}
         </button>
         <button type="button" className="pf-tbtn pf-tbtn--ghost" onClick={onClearSelection}>
-          Clear
+          {t("clear")}
         </button>
         <div className="pf-tbar__spacer" />
         {segment !== "hidden" ? (
@@ -109,8 +128,10 @@ export function PortfolioAssetsToolbar({
             onClick={onCancelSelected}
           >
             {cancellingSelected
-              ? "Cancelling…"
-              : `Cancel listing${selectedListedCount > 0 ? ` (${selectedListedCount})` : ""}`}
+              ? t("cancelling")
+              : selectedListedCount > 0
+                ? t("cancelListingCount", { count: selectedListedCount })
+                : t("cancelListing")}
           </button>
         ) : null}
         <button
@@ -119,12 +140,12 @@ export function PortfolioAssetsToolbar({
           disabled={selectedHideCount === 0 || hidingSelected}
           onClick={onHideOrUnhideSelected}
         >
-          {hidingSelected ? "Saving…" : hideActionLabel}
+          {hidingSelected ? t("saving") : hideActionLabel}
         </button>
         <button
           type="button"
           className="pf-tbtn pf-tbtn--icon pf-tbtn--ghost"
-          aria-label="Exit selection"
+          aria-label={t("exitSelection")}
           onClick={() => onSelectModeChange(false)}
         >
           <svg
@@ -150,15 +171,15 @@ export function PortfolioAssetsToolbar({
   return placePortfolioToolbar(
     <div className="pf-tbar" id="pf-assets-toolbar">
         <label className="pf-tdrop">
-          <span className="pf-tdrop__k">Filter:</span>
+          <span className="pf-tdrop__k">{t("filter")}</span>
           <select
-            aria-label="Filter items"
+            aria-label={t("filterItems")}
             value={segment}
             onChange={(e) => onSegmentChange(e.target.value as AssetsSegment)}
           >
             {ASSETS_FILTER_OPTIONS.map((o) => (
               <option key={o.id} value={o.id}>
-                {o.label}
+                {filterLabel(o.id)}
               </option>
             ))}
           </select>
@@ -171,12 +192,12 @@ export function PortfolioAssetsToolbar({
           className="pf-tbtn"
           onClick={() => onSelectModeChange(true)}
         >
-          Cancel / Hide
+          {t("cancelHide")}
         </button>
 
         {filterActive ? (
           <button type="button" className="pf-tbtn pf-tbtn--ghost" onClick={onClearFilters}>
-            Clear
+            {t("clear")}
           </button>
         ) : null}
 
@@ -184,29 +205,29 @@ export function PortfolioAssetsToolbar({
 
         <div className="pf-tbar__cluster">
           <label className="pf-tdrop pf-tdrop--sort">
-            <span className="pf-tdrop__k">Sort:</span>
+            <span className="pf-tdrop__k">{t("sort")}</span>
             <select
-              aria-label="Sort items"
+              aria-label={t("sortItems")}
               value={sort}
               onChange={(e) => onSortChange(e.target.value as AssetsToolbarSort)}
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {sortLabel(o.value)}
                 </option>
               ))}
             </select>
             <FilterChevron />
           </label>
 
-          <div className="pf-view-toggle" role="group" aria-label="View mode" hidden>
+          <div className="pf-view-toggle" role="group" aria-label={t("viewMode")} hidden>
             <button
               type="button"
               className={`pf-view${view === "gallery" ? " pf-view--sel" : ""}`}
               aria-pressed={view === "gallery"}
               onClick={() => onViewChange("gallery")}
             >
-              Gallery
+              {t("gallery")}
             </button>
             <button
               type="button"
@@ -214,7 +235,7 @@ export function PortfolioAssetsToolbar({
               aria-pressed={view === "table"}
               onClick={() => onViewChange("table")}
             >
-              Table
+              {t("table")}
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import { isKycComplete } from "@/lib/auth/accountAccess";
 import type { AuthUser } from "@/lib/auth";
 import { rememberKycReturnTo } from "@/lib/kyc/returnPath";
@@ -9,11 +10,11 @@ import { SettingsBtn } from "./SettingsBtn";
 
 const SETTINGS_IDENTITY_PATH = "/settings?section=identity";
 
-function formatVerifiedDate(iso: string | null | undefined): string | null {
+function formatVerifiedDate(iso: string | null | undefined, locale: string): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-US", {
+  return d.toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -21,23 +22,24 @@ function formatVerifiedDate(iso: string | null | undefined): string | null {
 }
 
 export function SettingsIdentitySection({ user }: { user: AuthUser }) {
+  const t = useTranslations("Settings");
+  const locale = useLocale();
   const router = useRouter();
   const verified = isKycComplete(user);
   const status = user.kycStatus ?? "none";
-  const verifiedLabel = formatVerifiedDate(user.kycVerifiedAt);
+  const verifiedLabel = formatVerifiedDate(user.kycVerifiedAt, locale);
 
   let detail: string;
   if (verified) {
     detail = verifiedLabel
-      ? `Verified via Sumsub on ${verifiedLabel}.`
-      : "Verified via Sumsub.";
+      ? t("ui.verifiedOn", { date: verifiedLabel })
+      : t("ui.verifiedPlain");
   } else if (status === "pending") {
-    detail =
-      "You started verification but it isn’t finished yet. Continue to reopen Sumsub and complete the remaining steps.";
+    detail = t("ui.pendingDetail");
   } else if (status === "rejected") {
-    detail = "Verification was not approved. You can try again.";
+    detail = t("ui.rejectedDetail");
   } else {
-    detail = "Complete identity verification to sell on Tokenable.";
+    detail = t("ui.noneDetail");
   }
 
   function goToKyc() {
@@ -49,9 +51,9 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Identity</h1>
+      <h1 className="tk-settings__sec-h">{t("nav.identity")}</h1>
       <p className="tk-settings__sec-sub">
-        Required to sell. Verified once — you won&rsquo;t be asked again.
+        {t("ui.identitySub")}
       </p>
 
       <div className="tk-settings__card">
@@ -80,13 +82,13 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
             </span>
             <div className="min-w-0">
               <div className="tk-settings__row-t">
-                Identity verification
+                {t("ui.identityTitle")}
                 {status === "pending" ? (
                   <span
                     className="tk-settings__chip tk-settings__chip--warn"
                     style={{ marginLeft: 8 }}
                   >
-                    PENDING
+                    {t("ui.pending")}
                   </span>
                 ) : null}
               </div>
@@ -98,15 +100,15 @@ export function SettingsIdentitySection({ user }: { user: AuthUser }) {
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              VERIFIED
+              {t("ui.verified")}
             </span>
           ) : (
             <SettingsBtn variant="primary" size="sm" className="shrink-0" onClick={goToKyc}>
               {status === "pending"
-                ? "Continue verification"
+                ? t("ui.continueVerify")
                 : status === "rejected"
-                  ? "Try again"
-                  : "Verify identity"}
+                  ? t("ui.tryAgain")
+                  : t("ui.verifyIdentity")}
             </SettingsBtn>
           )}
         </div>

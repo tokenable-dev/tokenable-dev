@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import {
   useState,
   useRef,
@@ -43,8 +44,6 @@ type SearchHit =
   | { kind: "card"; card: MarketplaceSearchCardHit }
   | { kind: "collection"; collection: MarketplaceCollectionSummary };
 
-const PLACEHOLDER = "Search cards, players, sets";
-const PLACEHOLDER_MOBILE = "Search cards, players…";
 
 function SearchIcon() {
   return (
@@ -64,6 +63,9 @@ function SearchIcon() {
 }
 
 export function HomeHeroSearch() {
+  const t = useTranslations("Search");
+  const placeholder = t("cards");
+  const placeholderMobile = t("cardsShort");
   const { ready: viewportReady, isMobile: heroMobile } = useMobileViewport(768);
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -210,26 +212,24 @@ export function HomeHeroSearch() {
             onCompositionEnd={(e) => setQuery(e.currentTarget.value)}
             onFocus={() => setOpen(true)}
             onKeyDown={handleKeyDown}
-            placeholder={
-              viewportReady && heroMobile ? PLACEHOLDER_MOBILE : PLACEHOLDER
-            }
-            title={PLACEHOLDER}
+            placeholder={viewportReady && heroMobile ? placeholderMobile : placeholder}
+            title={placeholder}
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
-            aria-label="Search cards"
+            aria-label={t("ariaCards")}
             aria-expanded={showDropdown}
             aria-controls="home-hero-search-dd"
           />
           <TkButton type="submit" variant="primary" className="home-hero__search-btn">
-            Search
+            {t("button")}
           </TkButton>
         </div>
         <div
           id="home-hero-search-dd"
           className={cn("home-hero__search-dropdown", showDropdown && "is-open")}
           role="listbox"
-          aria-label="Search results"
+          aria-label={t("ariaResults")}
         >
           <SearchResultsList
             hits={hits}

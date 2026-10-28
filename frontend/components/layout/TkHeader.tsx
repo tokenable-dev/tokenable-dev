@@ -10,6 +10,7 @@ import { ASSETS } from "@/constants/assets";
 import { isHomeLandingPath, shouldHideAppChrome } from "@/constants/layout";
 import { HeaderAuthModals } from "@/components/auth/HeaderAuthModals";
 import { HeaderAuthControls } from "@/components/layout/header/HeaderAuthControls";
+import { HeaderLocaleMenu } from "@/components/layout/header/HeaderLocaleMenu";
 import { HeaderDesktopNav } from "@/components/layout/header/HeaderNav";
 import { HeaderMobileDrawer } from "@/components/layout/header/HeaderMobileDrawer";
 import {
@@ -154,6 +155,26 @@ export function TkHeader() {
           ) : null}
 
           <div className="tk-header__right">
+            {desktopSearchCompact && !hideGnbSearch ? (
+              <TkHeaderSearchMobileButton
+                className="gnb-search-desktop-fallback"
+                onClick={openMobileSearch}
+              />
+            ) : null}
+
+            <div className="tk-header__account" ref={measureRightRef}>
+              <HeaderLocaleMenu />
+              <div className="gnb-right">
+                <Suspense
+                  fallback={
+                    <div className="gnb-auth-skeleton animate-pulse" aria-hidden />
+                  }
+                >
+                  <HeaderAuthControls onOpenNotifications={openNotifications} />
+                </Suspense>
+              </div>
+            </div>
+
             <div className="tk-header__mobile-actions">
               {!hideGnbSearch ? (
                 <TkHeaderSearchMobileButton onClick={openMobileSearch} />
@@ -180,23 +201,6 @@ export function TkHeader() {
                   <NotificationUnreadBadge count={unreadCount} floating />
                 ) : null}
               </button>
-            </div>
-
-            {desktopSearchCompact && !hideGnbSearch ? (
-              <TkHeaderSearchMobileButton
-                className="gnb-search-desktop-fallback"
-                onClick={openMobileSearch}
-              />
-            ) : null}
-
-            <div className="gnb-right" ref={measureRightRef}>
-              <Suspense
-                fallback={
-                  <div className="gnb-auth-skeleton animate-pulse" aria-hidden />
-                }
-              >
-                <HeaderAuthControls onOpenNotifications={openNotifications} />
-              </Suspense>
             </div>
           </div>
         </div>

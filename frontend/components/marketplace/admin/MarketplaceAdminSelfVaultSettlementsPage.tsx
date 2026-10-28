@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { SelfVaultSettlement, SelfVaultSettlementStatus } from "@/lib/core";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   useAdminSelfVaultSettlementActions,
   useMarketplaceAdminSelfVaultSettlements,
@@ -173,7 +174,7 @@ export function MarketplaceAdminSelfVaultSettlementsPage() {
               onExecutePayout={() => {
                 if (
                   !window.confirm(
-                    `Send $${Math.round(Number(BigInt(row.sellerPayoutUsdc)) / 1e6).toLocaleString("en-US")} USDC from the platform fee wallet to the seller?`,
+                    `Send ${formatUsdcAmount(Number(BigInt(row.sellerPayoutUsdc)) / 1e6)} from the platform fee wallet to the seller?`,
                   )
                 ) {
                   return;

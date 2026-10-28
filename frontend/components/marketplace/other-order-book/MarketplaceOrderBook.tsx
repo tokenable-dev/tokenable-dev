@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Order, OrderListItem } from "@/lib/core";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   collectionDetailHref,
   resolveCollectionDetailHref,
@@ -131,7 +132,7 @@ export function MarketplaceOrderBook({
         </span>
       </div>
       <div className={headRow}>
-        <span>Price (USDC)</span>
+        <span>Price</span>
         <span className="text-right">Qty</span>
         <span className="text-right">Token</span>
       </div>
@@ -158,7 +159,7 @@ export function MarketplaceOrderBook({
                 />
                 <div className={`relative z-10 ${rowGrid}`}>
                   <span className="text-neg font-medium group-hover:text-neg/80">
-                    {Math.round(price).toLocaleString("en-US")}
+                    {formatUsdcAmount(price)}
                   </span>
                   <span className="text-right text-gray-400">1</span>
                   <span className="text-right text-gray-400 group-hover:text-mint/90">

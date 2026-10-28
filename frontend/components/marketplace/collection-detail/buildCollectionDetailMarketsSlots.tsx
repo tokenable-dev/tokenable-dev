@@ -50,7 +50,8 @@ function metricsStripProps(
     changeLoading: market.gradeAwareChangeLoading,
     changePeriod: market.gradeAwareChangeResult,
     gradeLabel: market.gradeAwareTierLabel,
-    tradeVolumeUsdc: market.heroTapeStats.volume1yUsdc,
+    volume1yPlatformUsdc: market.heroTapeStats.volume1yPlatformUsdc,
+    volume1yExternalUsd: market.heroTapeStats.volume1yExternalUsd,
     velocityPct: market.heroTapeStats.velocityPct,
     tradeVolumeLoading: market.heroTapeLoading,
     marketCapUsd: market.marketCapComputation?.usd ?? null,
@@ -115,7 +116,8 @@ export function buildCollectionDetailMarketsSlots(input: {
 
   const chartMdPanel = omitUnavailableMarket ? null : (
     <CollectionHeroMdPanel
-      tradeVolumeUsdc={metricsProps.tradeVolumeUsdc}
+      volume1yPlatformUsdc={metricsProps.volume1yPlatformUsdc}
+      volume1yExternalUsd={metricsProps.volume1yExternalUsd}
       tradeVolumeLoading={metricsProps.tradeVolumeLoading}
       marketCapUsd={metricsProps.marketCapUsd}
       formatMarketCap={(n) => formatMarketCapUsd(n ?? null)}

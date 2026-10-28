@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { useEffect, useId, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
@@ -113,6 +114,7 @@ export function NotificationsDrawer({
   const mounted = useClientMounted();
   const router = useRouter();
   const titleId = useId();
+  const t = useTranslations("Notify");
   const [filter, setFilter] = useState<NotificationFilterKey>("all");
   const [visible, setVisible] = useState(false);
   const [animOpen, setAnimOpen] = useState(false);
@@ -200,7 +202,7 @@ export function NotificationsDrawer({
       >
         <div className="tk-notif-panel__header">
           <span id={titleId} className="tk-notif-panel__title">
-            Notifications
+            {t("title")}
           </span>
           <div className="tk-notif-panel__header-actions">
             {hasUnread ? (
@@ -209,10 +211,10 @@ export function NotificationsDrawer({
                 className="tk-notif-panel__mark-all"
                 onClick={() => markAllRead()}
               >
-                Mark all read
+                {t("markAll")}
               </button>
             ) : null}
-            <button type="button" className="tk-notif-panel__close" aria-label="Close" onClick={onClose}>
+            <button type="button" className="tk-notif-panel__close" aria-label={t("close")} onClick={onClose}>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" aria-hidden>
                 <line x1="18" y1="6" x2="6" y2="18" />
                 <line x1="6" y1="6" x2="18" y2="18" />
@@ -229,7 +231,7 @@ export function NotificationsDrawer({
               className={cn("tk-notif-filter", filter === f.key && "tk-notif-filter--active")}
               onClick={() => setFilter(f.key)}
             >
-              {f.label}
+              {t(f.key)}
             </button>
           ))}
         </div>
@@ -237,7 +239,7 @@ export function NotificationsDrawer({
         <div className="tk-notif-list">
           {groupedItems.map((group) => (
             <div key={group.key} className="tk-notif-group">
-              <div className="tk-notif-group__label">{group.label}</div>
+              <div className="tk-notif-group__label">{t(group.key)}</div>
               {group.items.map((item) => (
                 <NotificationItemView
                   key={item.id}
@@ -248,10 +250,10 @@ export function NotificationsDrawer({
             </div>
           ))}
           {isLoading && filteredItems.length === 0 ? (
-            <div className="tk-notif-empty">Loading…</div>
+            <div className="tk-notif-empty">{t("loading")}</div>
           ) : null}
           {!isLoading && filteredItems.length === 0 ? (
-            <div className="tk-notif-empty">No notifications.</div>
+            <div className="tk-notif-empty">{t("empty")}</div>
           ) : null}
         </div>
       </div>

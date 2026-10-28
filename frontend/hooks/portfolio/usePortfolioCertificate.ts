@@ -62,6 +62,7 @@ import {
   redeemSurfaceBadge,
 } from "@/lib/portfolio/redeemDraft";
 import { useMyRedemptions } from "@/hooks/portfolio/useMyRedemptions";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { PORTFOLIO_USDC_DECIMALS } from "@/lib/portfolio/buildPortfolioPricedRows";
 import { buildCertPricing } from "@/lib/portfolio/portfolioCertificateFormat";
 
@@ -376,7 +377,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
           detail: formatHistDate(holding.acquiredAt),
           amount:
             holding.costBasisUsd != null
-              ? `$${Math.round(holding.costBasisUsd).toLocaleString("en-US")}`
+              ? formatUsdcAmount(holding.costBasisUsd)
               : null,
           highlight: true,
           you: true,
@@ -390,7 +391,7 @@ export function usePortfolioCertificate(tokenId: number, tokenIdOk: boolean) {
         id: t.orderHash || String(t.t),
         label: t.tapeAggressor === "buy" ? "Sold on Tokenable" : "Matched on Tokenable",
         detail: formatHistDate(d.toISOString()),
-        amount: `$${Math.round(t.priceUsdc).toLocaleString("en-US")}`,
+        amount: formatUsdcAmount(t.priceUsdc),
         highlight: false,
         you: false,
       });

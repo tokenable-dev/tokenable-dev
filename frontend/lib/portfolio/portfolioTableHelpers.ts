@@ -4,6 +4,8 @@ import type {
   RwaMetadata,
 } from "@/lib/core";
 import { filterMergedChartPointsForWindow } from "@/lib/market/collectionChartHistory";
+import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
+import type { PortfolioCostBasisSource } from "@/lib/core/api/portfolio";
 import type { AssetRow } from "@/lib/portfolio/portfolioTypes";
 import {
   buildRwaAssetDetailHeadlineParts,
@@ -215,18 +217,36 @@ export function resolvePortfolioHoldingsDisplayNames(
   return out;
 }
 
+/** Trade, fee, or amount paid. These are USDC settlements and are not converted. */
 export function formatPortfolioUsd(
   value: number | null | undefined,
-  opts?: { compact?: boolean },
+  _opts?: { compact?: boolean },
 ): string {
-  if (value == null || !Number.isFinite(value)) return "—";
-  if (opts?.compact && value >= 1_000_000) {
-    return `$${Math.round(value / 1_000_000).toLocaleString("en-US")}M`;
-  }
-  if (opts?.compact && value >= 1_000) {
-    return `$${(value / 1_000).toFixed(0)}k`;
-  }
-  return `$${value.toLocaleString("en-US", { maximumFractionDigits: 0 })}`;
+  return formatUsdcAmount(value);
+}
+
+/**
+ * `marketplace_buy` stores the USDC fill. `vault_delivery` and legacy `manual`
+ * store a USD mark. The column name is shared; the source says which unit it is.
+ */
+export function portfolioCostBasisUnit(
+  source: PortfolioCostBasisSource | null | undefined,
+): "usdc_paid" | "usd_reference" | null {
+  if (source === "marketplace_buy") return "usdc_paid";
+  if (source === "vault_delivery" || source === "manual") return "usd_reference";
+  return null;
+}
+
+/** Paid amount in its own unit. Unknown source is not labeled as USD or USDC. */
+export function formatPortfolioCostBasis(
+  amount: number | null | undefined,
+  source: PortfolioCostBasisSource | null | undefined,
+): string {
+  if (amount == null || !Number.isFinite(amount)) return "—";
+  const unit = portfolioCostBasisUnit(source);
+  if (unit === "usdc_paid") return formatUsdcAmount(amount);
+  if (unit === "usd_reference") return formatDisplayMoney(amount);
+  return "—";
 }
 
 export type PortfolioProfitReturn = {
@@ -247,6 +267,7 @@ function portfolioReturnIsFlat(delta: number, pct: number): boolean {
 export function formatPortfolioProfitReturn(
   costBasis: number | null | undefined,
   currentValue: number | null | undefined,
+  source?: PortfolioCostBasisSource | null,
 ): PortfolioProfitReturn | null {
   if (
     costBasis == null ||
@@ -257,14 +278,14 @@ export function formatPortfolioProfitReturn(
   ) {
     return null;
   }
+  // A USDC fill is not a USD market value, so it is not subtracted from the mark.
+  if (portfolioCostBasisUnit(source) !== "usd_reference") return null;
   const delta = currentValue - costBasis;
   const pct = (delta / costBasis) * 100;
   const sign = delta >= 0 ? "+" : "-";
-  const absUsd = Math.abs(delta);
-  const usd = Math.round(absUsd).toLocaleString("en-US");
   const muted = portfolioReturnIsFlat(delta, pct);
   return {
-    profit: `${sign}$${usd}`,
+    profit: `${sign}${formatDisplayMoney(Math.abs(delta))}`,
     returnPct: muted ? "—" : `${pct >= 0 ? "+" : ""}${Math.round(pct)}%`,
     positive: delta >= 0,
     muted,

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { AuthUser } from "@/lib/auth";
 import { updateAuthProfile, uploadAuthAvatar } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
@@ -27,6 +28,7 @@ function initialsFor(name: string): string {
 }
 
 export function SettingsProfileSection({ user }: { user: AuthUser }) {
+  const t = useTranslations("Settings");
   const setUser = useAuthStore((s) => s.setUser);
   const fileRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
@@ -39,7 +41,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
   async function save() {
     const name = draftName.trim();
     if (!name) {
-      setError("Display name is required.");
+      setError(t("ui.nameRequired"));
       return;
     }
     setSaving(true);
@@ -49,7 +51,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
       setUser(next);
       setEditing(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not save profile.");
+      setError(e instanceof Error ? e.message : t("ui.saveProfileFailed"));
     } finally {
       setSaving(false);
     }
@@ -58,11 +60,11 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
   async function onAvatarSelected(file: File | null) {
     if (!file) return;
     if (!AVATAR_TYPES.has(file.type)) {
-      setError("Avatar must be a JPEG, PNG, or WebP image.");
+      setError(t("ui.avatarType"));
       return;
     }
     if (file.size > AVATAR_MAX_BYTES) {
-      setError("Avatar must be 4MB or smaller.");
+      setError(t("ui.avatarSize"));
       return;
     }
     setUploading(true);
@@ -71,7 +73,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
       const next = await uploadAuthAvatar(file);
       setUser(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not upload avatar.");
+      setError(e instanceof Error ? e.message : t("ui.uploadFailed"));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -80,9 +82,9 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Profile</h1>
+      <h1 className="tk-settings__sec-h">{t("nav.profile")}</h1>
       <p className="tk-settings__sec-sub">
-        How you appear on Tokenable. Only your display name is public.
+        {t("ui.profileSub")}
       </p>
       <div className="tk-settings__card">
         <div className="mb-2 flex flex-wrap items-center gap-3 sm:gap-[18px]">
@@ -108,14 +110,14 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
               setEditing(true);
             }}
           >
-            Edit
+            {t("ui.edit")}
           </SettingsBtn>
         </div>
 
         {editing ? (
           <div className="mt-[18px] border-t border-white/[0.06] pt-[18px]">
             <label className="tk-settings__lbl" htmlFor="settings-display-name">
-              Display name
+              {t("ui.displayName")}
             </label>
             <input
               id="settings-display-name"
@@ -126,7 +128,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
               disabled={saving || uploading}
             />
             <label className="tk-settings__lbl" htmlFor="settings-avatar-file">
-              Avatar
+              {t("ui.avatar")}
             </label>
             <div className="flex flex-wrap items-center gap-2.5">
               <input
@@ -145,9 +147,9 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
                 disabled={saving || uploading}
                 onClick={() => fileRef.current?.click()}
               >
-                {uploading ? "Uploading…" : "Upload image"}
+                {uploading ? t("ui.uploading") : t("ui.upload")}
               </SettingsBtn>
-              <span className="text-xs text-[var(--t3)]">PNG or JPG, up to 4MB</span>
+              <span className="text-xs text-[var(--t3)]">{t("ui.avatarHint")}</span>
             </div>
             <div className="mt-5 flex gap-2.5">
               <SettingsBtn
@@ -156,7 +158,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
                 disabled={saving || uploading}
                 onClick={() => void save()}
               >
-                {saving ? "Saving…" : "Save"}
+                {saving ? t("ui.saving") : t("ui.save")}
               </SettingsBtn>
               <SettingsBtn
                 variant="ghost"
@@ -167,7 +169,7 @@ export function SettingsProfileSection({ user }: { user: AuthUser }) {
                   setError(null);
                 }}
               >
-                Cancel
+                {t("ui.cancel")}
               </SettingsBtn>
             </div>
             {error ? (

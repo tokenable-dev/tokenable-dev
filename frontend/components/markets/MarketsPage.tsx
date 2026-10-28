@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   useMarketplaceCollectionsInfinite,
@@ -93,6 +94,9 @@ function filtersFromState(input: {
 }
 
 export default function MarketsPage() {
+  const t = useTranslations("Markets");
+  const home = useTranslations("Home");
+  const locale = useLocale();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const searchQ = String(searchParams.get("q") ?? "").trim();
@@ -533,7 +537,7 @@ export default function MarketsPage() {
               className="markets-detail-facets__clear"
               onClick={clearDetailFacets}
             >
-              Clear
+              {t("clear")}
             </button>
           </div>
         </div>
@@ -542,7 +546,7 @@ export default function MarketsPage() {
       <div className="tkl-wrap markets-results-section">
         {showLoadingShell ? (
           <div role="status" aria-live="polite" aria-busy="true">
-            <span className="sr-only">Loading markets</span>
+            <span className="sr-only">{t("loading")}</span>
             <MarketsGridSkeleton />
           </div>
         ) : isSearchMode &&
@@ -551,23 +555,22 @@ export default function MarketsPage() {
           !searchCardsQuery.isSearching ? (
           <div className="srch-empty">
             <p className="srch-empty__title">
-              {searchQ
-                ? `No cards found for "${searchQ}"`
-                : "Type a card name, set, player, or cert #."}
+              {searchQ ? t("noCards", { query: searchQ }) : t("searchPrompt")}
             </p>
-            <p className="srch-empty__sub">
-              Check the spelling, or try a name, set, player, or cert #.
-            </p>
+            <p className="srch-empty__sub">{t("noCardsHint")}</p>
             <TkButton href="/markets" variant="primary">
-              Browse all markets →
+              {home("browse")}
             </TkButton>
           </div>
         ) : sortedForRank.length === 0 && orphanAsks.length === 0 && searchCards.length === 0 ? (
           <div className="markets-empty">
-            <p className="markets-empty__lead">No items listed for sale yet.</p>
+            <p className="markets-empty__lead">{t("emptySale")}</p>
             <p className="markets-empty__sub">
-              Mint and list your items from{" "}
-              <GatedSellLink className="text-[var(--azure)] hover:underline">Vault</GatedSellLink>.
+              {t.rich("emptySaleHint", {
+                vault: (chunks) => (
+                  <GatedSellLink className="text-[var(--azure)] hover:underline">{chunks}</GatedSellLink>
+                ),
+              })}
             </p>
           </div>
         ) : (
@@ -576,17 +579,15 @@ export default function MarketsPage() {
             {filteredSorted.length === 0 ? (
               sortedForRank.length > 0 ? (
               <div className="markets-filter-empty">
-                <p className="markets-empty__lead">No collections match these filters yet.</p>
-                <p className="markets-empty__sub">
-                  Try a different category, price range, grade, or year.
-                </p>
+                <p className="markets-empty__lead">{t("emptyFilters")}</p>
+                <p className="markets-empty__sub">{t("emptyFiltersHint")}</p>
                 {detailFacetChips.length > 0 ? (
                   <button
                     type="button"
                     className="mt-4 text-sm font-semibold text-[var(--azure)] hover:underline"
                     onClick={clearDetailFacets}
                   >
-                    Clear detail filters
+                    {t("clearDetail")}
                   </button>
                 ) : null}
               </div>
@@ -595,9 +596,10 @@ export default function MarketsPage() {
               <>
                 {isSearchMode ? (
                   <div className="srch-results-head">
-                    <h2 className="srch-results-head__title">Collection results</h2>
+                    <h2 className="srch-results-head__title">{t("results")}</h2>
                     <span className="srch-results-head__count">
-                      <b>{filteredSorted.length.toLocaleString("en-US")}</b> for &quot;{searchQ}&quot;
+                      <b>{filteredSorted.length.toLocaleString(locale)}</b>{" "}
+                      {t("resultsFor", { query: searchQ })}
                     </span>
                   </div>
                 ) : null}
@@ -630,7 +632,7 @@ export default function MarketsPage() {
                       aria-live="polite"
                       aria-busy={isFetchingNextPage || snapshotsFetching}
                     >
-                      <span className="markets-load-more__label">Loading more…</span>
+                      <span className="markets-load-more__label">{t("loadingMore")}</span>
                     </div>
                     <div ref={loadMoreSentinelRef} className="markets-load-sentinel" aria-hidden />
                   </>
@@ -639,11 +641,11 @@ export default function MarketsPage() {
                 {!isSearchMode && categoryFilters.size === 0 && orphanAsks.length > 0 ? (
                   <Link href="/marketplace/other-listings" className="markets-orphan-card">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Other Listings</h3>
-                      <p className="mt-1 text-sm text-[var(--t2)]">No collection metadata</p>
+                      <h3 className="text-lg font-bold text-white">{t("otherListings")}</h3>
+                      <p className="mt-1 text-sm text-[var(--t2)]">{t("noMetadata")}</p>
                     </div>
                     <p className="tkl-mono text-sm text-[var(--t2)]">
-                      Orders <b className="text-white">{orphanAsks.length}</b>
+                      {t("orders")} <b className="text-white">{orphanAsks.length}</b>
                     </p>
                   </Link>
                 ) : null}

@@ -1,28 +1,30 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { ASSETS } from "@/constants/assets";
 import { HomeHeroSearch } from "@/components/home/HomeHeroSearch";
 
 const HERO_POINTS = [
   {
-    title: "Authenticated",
-    copy: "PSA and BGS certified",
+    titleKey: "authenticated",
+    copyKey: "authenticatedCopy",
     icon: ASSETS.home.heroIconGraded,
   },
   {
-    title: "Vaulted",
-    copy: "Stored and insured",
+    titleKey: "vaulted",
+    copyKey: "vaultedCopy",
     icon: ASSETS.home.heroIconVaulted,
   },
   {
-    title: "On-chain",
-    copy: "Instant settlement",
+    titleKey: "onChain",
+    copyKey: "onChainCopy",
     icon: ASSETS.home.heroIconOnchain,
   },
 ] as const;
 
 export function HomeHero() {
+  const t = useTranslations("Home");
   return (
     <section className="home-hero">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -34,29 +36,29 @@ export function HomeHero() {
       <div className="home-hero__content">
         <div className="home-hero__inner">
           <h1 className="home-hero__title home-hero__reveal">
-            Safest. Fastest.
+            {t("heroLine1")}
             <br />
-            Collectibles Trading.
+            {t("heroLine2")}
           </h1>
 
           <HomeHeroSearch />
 
           <ul className="home-hero__points home-hero__reveal home-hero__reveal--3">
-            {HERO_POINTS.map(({ title, copy, icon }) => (
-              <li key={title} className="home-hero__point">
+            {HERO_POINTS.map(({ titleKey, copyKey, icon }) => (
+              <li key={titleKey} className="home-hero__point">
                 <span className="home-hero__point-icon">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={icon} alt="" />
                 </span>
-                <span className="home-hero__point-title">{title}</span>
-                <span className="home-hero__point-copy">{copy}</span>
+                <span className="home-hero__point-title">{t(titleKey)}</span>
+                <span className="home-hero__point-copy">{t(copyKey)}</span>
               </li>
             ))}
           </ul>
 
           <div className="home-hero__cta home-hero__reveal home-hero__reveal--4">
             <Link href="/markets" className="home-hero__browse">
-              Browse all markets →
+              {t("browse")}
             </Link>
           </div>
         </div>

@@ -1,5 +1,14 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import type { TxLifecycle } from "@/lib/portfolio/portfolioTypes";
-import { txLifecycleLabel } from "@/lib/portfolio/buildPortfolioTxRows";
+
+const LIFE_KEY = {
+  in_progress: "inProgress",
+  failed: "failed",
+  canceled: "canceled",
+  completed: "completed",
+} as const;
 
 /** Lifecycle chips — In progress amber · Completed green · Failed red · Canceled gray. */
 export function PortfolioHistoryStatusBadge({
@@ -7,7 +16,8 @@ export function PortfolioHistoryStatusBadge({
 }: {
   status?: TxLifecycle;
 }) {
-  const label = txLifecycleLabel(status);
+  const t = useTranslations("Status");
+  const label = t(LIFE_KEY[status]);
   if (status === "in_progress") {
     return (
       <span className="pf-hbadge pf-hbadge--pending">

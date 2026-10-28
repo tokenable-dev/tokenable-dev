@@ -278,6 +278,7 @@ export function PortfolioPageView({
     mintPreviewByToken,
     valuesPending,
     costBasisByTokenId,
+    costBasisSourceByTokenId,
     acquiredAtByTokenId,
     mintTxHashByTokenId,
     hiddenSet,
@@ -1043,6 +1044,7 @@ export function PortfolioPageView({
               assetRows={holdingsDisplayRows}
               metadataByTokenId={holdingsMetadataByTokenId}
               costBasisByTokenId={costBasisByTokenId}
+              costBasisSourceByTokenId={costBasisSourceByTokenId}
               acquiredAtByTokenId={acquiredAtByTokenId}
               valuesPending={valuesPending}
               onSetPrice={openPortfolioSetPriceModal}

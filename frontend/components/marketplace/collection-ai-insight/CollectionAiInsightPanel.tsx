@@ -9,7 +9,9 @@ import type {
   CollectionListMarketSnapshot,
   MarketplaceCollectionSummary,
 } from "@/lib/core";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import { formatReferencePercentChange, formatUsdCompact } from "@/lib/market";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { useCollectionAiInsight } from "@/hooks/collection-ai-insight/useCollectionAiInsight";
 import {
   AI_INSIGHT_THEME_DARK,
@@ -199,7 +201,7 @@ function InsightSections({ sections }: { sections: CollectionAiInsightSections }
               sections.marketStructure.tokenableFloorUsd != null
                 ? {
                     label: "Tokenable floor",
-                    value: formatUsdCompact(sections.marketStructure.tokenableFloorUsd),
+                    value: formatUsdcAmount(sections.marketStructure.tokenableFloorUsd),
                   }
                 : null,
               sections.marketStructure.floorPremiumPct != null
@@ -837,6 +839,7 @@ export function CollectionAiInsightPanel({
   enabled: boolean;
   variant?: "light" | "dark";
 }) {
+  useDisplayFx();
   const theme = variant === "light" ? AI_INSIGHT_THEME_LIGHT : AI_INSIGHT_THEME_DARK;
   const { loading, error, insight } = useCollectionAiInsight(row.collectionKey, { enabled });
 

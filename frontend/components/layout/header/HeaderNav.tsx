@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/ds/cn";
 import { isMarketplaceCollectionDetailPath } from "@/constants/layout";
@@ -45,9 +46,9 @@ function isMarketsPrimaryNavActive(pathname: string | null | undefined): boolean
 }
 
 export const HEADER_NAV_ITEMS = [
-  { href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
-  { href: "/portfolio?tab=assets", label: "Collection", minLevel: 1 as HeaderNavMinLevel },
-  { href: "/vault", label: "Sell", minLevel: 0 as HeaderNavMinLevel },
+  { id: "markets", href: "/markets", label: "Markets", minLevel: 0 as HeaderNavMinLevel },
+  { id: "collection", href: "/portfolio?tab=assets", label: "Collection", minLevel: 1 as HeaderNavMinLevel },
+  { id: "sell", href: "/vault", label: "Sell", minLevel: 0 as HeaderNavMinLevel },
 ] as const;
 
 export function navItemActive(pathname: string | null | undefined, href: string): boolean {
@@ -90,11 +91,11 @@ function HeaderNavLink({
 }
 
 function resolveNavHref(
-  label: string,
+  id: string,
   href: string,
   portfolioHref: string,
 ): string {
-  return label === "Collection" ? portfolioHref : href;
+  return id === "collection" ? portfolioHref : href;
 }
 
 /** Desktop primary nav — visible above GNB mobile breakpoint. */
@@ -102,16 +103,17 @@ export function HeaderDesktopNav() {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
   const portfolioHref = usePortfolioNavHref();
+  const t = useTranslations("Nav");
 
   return (
-    <nav className="gnb-nav" aria-label="Main">
-      {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
-        const itemHref = resolveNavHref(label, href, portfolioHref);
+    <nav className="gnb-nav" aria-label={t("aria")}>
+      {HEADER_NAV_ITEMS.map(({ id, href, minLevel }) => {
+        const itemHref = resolveNavHref(id, href, portfolioHref);
         return (
           <HeaderNavLink
-            key={label}
+            key={id}
             href={itemHref}
-            label={label}
+            label={t(id)}
             minLevel={minLevel}
             active={navItemActive(pathname, itemHref)}
             onNavigate={navigate}
@@ -130,6 +132,7 @@ export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
   const pathname = usePathname();
   const navigate = useHeaderNavGate();
   const portfolioHref = usePortfolioNavHref();
+  const t = useTranslations("Nav");
 
   if (!mounted || !initialized || loading) {
     return null;
@@ -137,13 +140,13 @@ export function HeaderMobileNav({ onClose }: { onClose: () => void }) {
 
   return (
     <>
-      {HEADER_NAV_ITEMS.map(({ href, label, minLevel }) => {
-        const itemHref = resolveNavHref(label, href, portfolioHref);
+      {HEADER_NAV_ITEMS.map(({ id, href, minLevel }) => {
+        const itemHref = resolveNavHref(id, href, portfolioHref);
         return (
           <HeaderNavLink
-            key={label}
+            key={id}
             href={itemHref}
-            label={label}
+            label={t(id)}
             minLevel={minLevel}
             active={navItemActive(pathname, itemHref)}
             onNavigate={(h, level) => {

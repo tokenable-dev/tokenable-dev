@@ -203,6 +203,23 @@ export const REQUIRED_SCHEMA: SchemaRequirement[] = [
     name: 'sealed_box_mints',
     fix: DEPLOY_SYNC_FIX,
   },
+  {
+    kind: 'table',
+    name: 'fx_rates',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'column',
+    table: 'users',
+    column: 'preferred_locale',
+    fix: DEPLOY_SYNC_FIX,
+  },
+  {
+    kind: 'column',
+    table: 'users',
+    column: 'preferred_currency',
+    fix: DEPLOY_SYNC_FIX,
+  },
 ];
 
 export function formatSchemaAssertFailure(missing: SchemaRequirement[]): string {

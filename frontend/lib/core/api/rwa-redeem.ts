@@ -1,4 +1,5 @@
 import { backendFetch, getApiUrl } from "./client";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { CHAIN_ID_HEADER } from "@/lib/chains/apiHeader";
 import type { SupportedChainId } from "@/lib/chains/types";
 
@@ -131,8 +132,7 @@ export type RedeemCustodyResult = {
 };
 
 function moneyUsd(n: number): string {
-  if (!Number.isFinite(n)) return "—";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  return formatUsdcAmount(n);
 }
 
 export { moneyUsd as formatRedeemUsd };

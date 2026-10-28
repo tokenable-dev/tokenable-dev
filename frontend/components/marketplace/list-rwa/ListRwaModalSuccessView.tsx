@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   feePercent,
   type AskSettlementPolicy,
@@ -25,6 +27,7 @@ export function ListRwaModalSuccessView({
   settlementPolicy?: AskSettlementPolicy;
   onClose: () => void;
 }) {
+  const t = useTranslations("Complete");
   const priceNum = parseFloat(price);
   const fee = feePercent(settlementPolicy);
   const net =
@@ -58,23 +61,23 @@ export function ListRwaModalSuccessView({
 
   const saleSub = successMeta?.matched ? undefined : null;
 
+  const money = (value: number) => formatUsdcAmount(value);
   const listedSub =
     !successMeta?.matched && !fillFailed && !instantOnlyFailed && !softMatchNote
       ? isReplaceListing
         ? priceUsdc != null
-          ? `Listed at $${Math.round(priceUsdc).toLocaleString("en-US")}.`
+          ? t("listedAtShort", { price: money(priceUsdc) })
           : undefined
         : net != null
-          ? `You get $${Math.round(Number(net)).toLocaleString("en-US")} when it sells.`
+          ? t("youGet", { price: money(Number(net)) })
           : priceUsdc != null
-            ? `You get $${Math.round(priceUsdc).toLocaleString("en-US")} when it sells.`
-            : `Asset #${tokenId} is now listed for ${price} USDC.`
+            ? t("youGet", { price: money(priceUsdc) })
+            : t("listedAsset", { tokenId, price })
       : undefined;
 
-  const fillFailedSub = fillFailed ? "Your price is unchanged." : undefined;
+  const fillFailedSub = fillFailed ? t("priceUnchanged") : undefined;
   const instantOnlySub = instantOnlyFailed
-    ? successMeta?.hint?.trim() ??
-      "The bid couldn't be filled. Nothing is listed now."
+    ? successMeta?.hint?.trim() || t("instantFallback")
     : undefined;
 
   const sub =
@@ -88,9 +91,7 @@ export function ListRwaModalSuccessView({
             ? saleSub
             : listedSub;
 
-  const titleOverride = instantOnlyFailed
-    ? "Instant sale didn't complete"
-    : undefined;
+  const titleOverride = instantOnlyFailed ? t("instantFailed") : undefined;
 
   return (
     <ActionCompleteModal
@@ -99,7 +100,6 @@ export function ListRwaModalSuccessView({
       title={titleOverride}
       priceUsdc={priceUsdc}
       sub={sub}
-      primaryLabel="Done"
       onClose={onClose}
     />
   );

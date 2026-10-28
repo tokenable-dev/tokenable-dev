@@ -1,10 +1,11 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { COLLECTION_DETAILS_BG_CLASS } from "@/components/marketplace/collectionOverviewChrome";
 import { orderBookRowValueCls } from "@/components/marketplace/price-metrics-strip/theme";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   formatCollectionDetailBookPriceUsdc,
-  formatCollectionDetailSpreadLabel,
   type BookCenterModel,
 } from "@/lib/marketplace/unified-order-book";
 
@@ -30,6 +31,7 @@ export function OrderBookCenterStrip({
   bestBidUsdc?: number | null;
   bestAskUsdc?: number | null;
 }) {
+  const t = useTranslations("CollectionDetail");
   const isSpreadPrimary = model.primary.includes("Spread value:");
   const isNaPlaceholder = model.primary === "N/A";
   const isLastTrade = model.tone === "last";
@@ -67,7 +69,10 @@ export function OrderBookCenterStrip({
         ? bestBidUsdc
         : null;
     const leftUsd = asksEmptyBidsLive ? bid : ask;
-    const spreadLabel = formatCollectionDetailSpreadLabel(ask, bid);
+    const spread =
+      ask != null && bid != null && ask > bid ? ask - bid : null;
+    const spreadLabel =
+      spread == null ? t("noSpread") : t("spread", { amount: formatUsdcAmount(spread) });
 
     return (
       <div className="cd-ob-book-center__strip">
@@ -80,7 +85,7 @@ export function OrderBookCenterStrip({
         </span>
         <span
           className={`cd-ob-book-center__spread${
-            spreadLabel === "No live spread" ? " cd-ob-book-center__spread--muted" : ""
+            spread == null ? " cd-ob-book-center__spread--muted" : ""
           }`}
         >
           {spreadLabel}

@@ -29,8 +29,8 @@ export function PortfolioCancelBidConfirmModal({
   const description = isClearAll
     ? "This cancels every offer that is no longer the highest bid on its collection. Sellers will no longer see them."
     : isRemoveOutbid
-      ? `${confirm.collectionLabel.trim() || "Collection"} · ${confirm.priceLabel} USDC — cancels your offer so it leaves Active Bids and the listings.`
-      : `${confirm.collectionLabel.trim() || "Collection bid"} · ${confirm.priceLabel} USDC`;
+      ? `${confirm.collectionLabel.trim() || "Collection"} · ${confirm.priceLabel} — cancels your offer so it leaves Active Bids and the listings.`
+      : `${confirm.collectionLabel.trim() || "Collection bid"} · ${confirm.priceLabel}`;
 
   const confirmLabel = isClearAll
     ? pending

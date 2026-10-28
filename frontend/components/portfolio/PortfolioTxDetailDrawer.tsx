@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { TxRow } from "@/lib/portfolio/portfolioTypes";
 import { formatPortfolioUsd } from "@/lib/portfolio/portfolioTableHelpers";
-import { txAmountIsNonTrade, txKindClass, txKindLabel } from "@/lib/portfolio/buildPortfolioTxRows";
+import { txAmountIsNonTrade, txKindClass } from "@/lib/portfolio/buildPortfolioTxRows";
 import { getChainContracts } from "@/lib/chains";
 import { useAppChain } from "@/providers/AppChainProvider";
 import { PortfolioHistoryStatusBadge } from "./PortfolioHistoryStatusBadge";
@@ -94,6 +95,23 @@ export function PortfolioTxDetailDrawer({
   onClose: () => void;
 }) {
   const { chain } = useAppChain();
+  const t = useTranslations("PortfolioTable");
+  const tStatus = useTranslations("Status");
+  const kindKey = {
+    BUY: "buy",
+    SELL: "sell",
+    MINT: "mint",
+    REDEEM: "redeem",
+    TRANSFER: "transfer",
+  } as const;
+  const chainTxLabel = (label: string) =>
+    label === "Trade"
+      ? t("trade")
+      : label === "Payment"
+        ? t("payment")
+        : label === "Custody transfer"
+          ? t("custody")
+          : label;
   const [displayTx, setDisplayTx] = useState<TxRow | null>(tx);
   const [open, setOpen] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -168,20 +186,20 @@ export function PortfolioTxDetailDrawer({
       <button
         type="button"
         className={`pf-tx-drawer-overlay${open ? " pf-tx-drawer-overlay--open" : ""}`}
-        aria-label="Close transaction detail"
+        aria-label={t("closeDetail")}
         onClick={onClose}
       />
       <aside
         className={`pf-tx-drawer${open ? " pf-tx-drawer--open" : ""}`}
-        aria-label="Transaction detail"
+        aria-label={t("txDetail")}
       >
         <div className="pf-tx-drawer__head">
-          <span className="pf-tx-drawer__title">Transaction Detail</span>
+          <span className="pf-tx-drawer__title">{t("txDetailTitle")}</span>
           <button
             type="button"
             className="pf-tx-drawer__close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t("close")}
           >
             ✕
           </button>
@@ -204,19 +222,19 @@ export function PortfolioTxDetailDrawer({
 
           <div className="pf-tx-drawer__meta">
             <div className="pf-tx-drawer__row">
-              <span className="pf-tx-drawer__k">Type</span>
+              <span className="pf-tx-drawer__k">{t("type")}</span>
               <span className={`pf-tx-drawer__v pf-table-type ${txKindClass(displayTx)}`}>
-                {txKindLabel(displayTx)}
+                {tStatus(kindKey[displayTx.type])}
               </span>
             </div>
             <div className="pf-tx-drawer__row">
-              <span className="pf-tx-drawer__k">Date</span>
+              <span className="pf-tx-drawer__k">{t("date")}</span>
               <span className="pf-tx-drawer__v tkl-mono pf-table-muted">
                 {displayTx.dateTimeLabel ?? displayTx.date}
               </span>
             </div>
             <div className="pf-tx-drawer__row">
-              <span className="pf-tx-drawer__k">Status</span>
+              <span className="pf-tx-drawer__k">{t("status")}</span>
               <PortfolioHistoryStatusBadge status={status} />
             </div>
           </div>
@@ -229,27 +247,27 @@ export function PortfolioTxDetailDrawer({
                   <>
                     <div className="pf-tx-drawer__row">
                       <span className="pf-tx-drawer__k">
-                        {isSell ? "Asking Price" : "Purchase Price"}
+                        {isSell ? t("askingPrice") : t("purchasePrice")}
                       </span>
                       <span className="pf-tx-drawer__v tkl-mono">
                         {formatPortfolioUsd(displayTx.price)}
                       </span>
                     </div>
                     <p className="pf-tx-drawer__note pf-tx-drawer__note--danger tkl-mono">
-                      Failed. No funds moved. Retry from the listing.
+                      {t("failedNote")}
                     </p>
                   </>
                 ) : isPending ? (
                   <>
                     <div className="pf-tx-drawer__row">
-                      <span className="pf-tx-drawer__k">Listed Price</span>
+                      <span className="pf-tx-drawer__k">{t("listedPrice")}</span>
                       <span className="pf-tx-drawer__v tkl-mono">
                         {formatPortfolioUsd(displayTx.price)}
                       </span>
                     </div>
                     <div className="pf-tx-drawer__row">
                       <span className="pf-tx-drawer__k">
-                        Platform Fee ({FEE_PCT}%)
+                        {t("platformFee", { pct: FEE_PCT })}
                       </span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__fee">
                         -{formatPortfolioUsd(fee)}
@@ -257,26 +275,26 @@ export function PortfolioTxDetailDrawer({
                     </div>
                     <div className="pf-tx-drawer__divider pf-tx-drawer__divider--tight" />
                     <div className="pf-tx-drawer__row pf-tx-drawer__row--total">
-                      <span className="pf-tx-drawer__k">Estimated Net</span>
+                      <span className="pf-tx-drawer__k">{t("estimatedNet")}</span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__total pf-tx-drawer__total--pending">
                         {formatPortfolioUsd(displayTx.price - fee)}
                       </span>
                     </div>
                     <p className="pf-tx-drawer__note tkl-mono">
-                      Settlement usually completes within a few minutes.
+                      {t("settleNote")}
                     </p>
                   </>
                 ) : isSell ? (
                   <>
                     <div className="pf-tx-drawer__row">
-                      <span className="pf-tx-drawer__k">Settled Price</span>
+                      <span className="pf-tx-drawer__k">{t("settledPrice")}</span>
                       <span className="pf-tx-drawer__v tkl-mono">
                         {formatPortfolioUsd(displayTx.price)}
                       </span>
                     </div>
                     <div className="pf-tx-drawer__row">
                       <span className="pf-tx-drawer__k">
-                        Platform Fee ({FEE_PCT}%)
+                        {t("platformFee", { pct: FEE_PCT })}
                       </span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__fee">
                         -{formatPortfolioUsd(fee)}
@@ -284,7 +302,7 @@ export function PortfolioTxDetailDrawer({
                     </div>
                     <div className="pf-tx-drawer__divider pf-tx-drawer__divider--tight" />
                     <div className="pf-tx-drawer__row pf-tx-drawer__row--total">
-                      <span className="pf-tx-drawer__k">Net Received</span>
+                      <span className="pf-tx-drawer__k">{t("netReceived")}</span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__total pf-tx-drawer__total--pos">
                         {formatPortfolioUsd(displayTx.price - fee)}
                       </span>
@@ -293,14 +311,14 @@ export function PortfolioTxDetailDrawer({
                 ) : (
                   <>
                     <div className="pf-tx-drawer__row">
-                      <span className="pf-tx-drawer__k">Purchase Price</span>
+                      <span className="pf-tx-drawer__k">{t("purchasePrice")}</span>
                       <span className="pf-tx-drawer__v tkl-mono">
                         {formatPortfolioUsd(displayTx.price)}
                       </span>
                     </div>
                     <div className="pf-tx-drawer__row">
                       <span className="pf-tx-drawer__k">
-                        Platform Fee ({FEE_PCT}%)
+                        {t("platformFee", { pct: FEE_PCT })}
                       </span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__fee">
                         -{formatPortfolioUsd(fee)}
@@ -308,7 +326,7 @@ export function PortfolioTxDetailDrawer({
                     </div>
                     <div className="pf-tx-drawer__divider pf-tx-drawer__divider--tight" />
                     <div className="pf-tx-drawer__row pf-tx-drawer__row--total">
-                      <span className="pf-tx-drawer__k">Total Paid</span>
+                      <span className="pf-tx-drawer__k">{t("totalPaid")}</span>
                       <span className="pf-tx-drawer__v tkl-mono pf-tx-drawer__total">
                         {formatPortfolioUsd(displayTx.price + fee)}
                       </span>
@@ -324,7 +342,7 @@ export function PortfolioTxDetailDrawer({
               <div className="pf-tx-drawer__divider" />
               <div className="pf-tx-drawer__money">
                 <div className="pf-tx-drawer__row">
-                  <span className="pf-tx-drawer__k">Minted</span>
+                  <span className="pf-tx-drawer__k">{t("minted")}</span>
                   <span className="pf-tx-drawer__v tkl-mono">
                     {displayTx.dateTimeLabel ?? displayTx.date}
                   </span>
@@ -336,12 +354,12 @@ export function PortfolioTxDetailDrawer({
           <div className="pf-tx-drawer__divider" />
           <div className="pf-tx-drawer__tx">
             <div className="pf-tx-drawer__row">
-              <span className="pf-tx-drawer__k">Chain</span>
+              <span className="pf-tx-drawer__k">{t("chain")}</span>
               <span className="pf-tx-drawer__v tkl-mono">{chain.shortLabel}</span>
             </div>
             {tokenId != null ? (
               <OnchainValue
-                label="Token"
+                label={t("token")}
                 value={`#${tokenId}`}
                 href={tokenHref}
                 copied={copiedKey === "token"}
@@ -350,7 +368,7 @@ export function PortfolioTxDetailDrawer({
             ) : null}
             {isAddress(tokenContract) ? (
               <OnchainValue
-                label="Contract"
+                label={t("contract")}
                 value={tokenContract}
                 href={`${scan}/address/${tokenContract}`}
                 copied={copiedKey === "contract"}
@@ -368,7 +386,7 @@ export function PortfolioTxDetailDrawer({
             ) : null}
             {isAddress(displayTx.sellerWallet) ? (
               <OnchainValue
-                label="Seller"
+                label={t("seller")}
                 value={displayTx.sellerWallet}
                 href={`${scan}/address/${displayTx.sellerWallet}`}
                 copied={copiedKey === "seller"}
@@ -377,7 +395,7 @@ export function PortfolioTxDetailDrawer({
             ) : null}
             {isAddress(displayTx.buyerWallet) ? (
               <OnchainValue
-                label="Buyer"
+                label={t("buyer")}
                 value={displayTx.buyerWallet}
                 href={`${scan}/address/${displayTx.buyerWallet}`}
                 copied={copiedKey === "buyer"}
@@ -390,7 +408,7 @@ export function PortfolioTxDetailDrawer({
               return (
                 <OnchainValue
                   key={`${tx.label}:${hash}`}
-                  label={tx.label}
+                  label={chainTxLabel(tx.label)}
                   value={hash}
                   href={href}
                   copied={copiedKey === hash}
@@ -400,7 +418,7 @@ export function PortfolioTxDetailDrawer({
             })}
             {seaportOrder ? (
               <OnchainValue
-                label="Seaport order"
+                label={t("seaportOrder")}
                 value={seaportOrder}
                 copied={copiedKey === "seaport"}
                 onCopy={() => void copyText("seaport", seaportOrder)}

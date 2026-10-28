@@ -17,7 +17,7 @@ const GNB_SEARCH_FIT_SLACK_PX = 8;
  * Markets / Portfolio / Sell, reports `compact` so the header can switch
  * to the mobile magnifier + overlay.
  *
- * `measureRightRef` must wrap `.gnb-right` only (auth cluster). Do not include
+ * `measureRightRef` must wrap `.tk-header__account` (locale + auth). Do not include
  * `.gnb-search-desktop-fallback` — counting the magnifier shrinks “available”
  * and can leave desktop stuck in compact mode on wide viewports.
  */

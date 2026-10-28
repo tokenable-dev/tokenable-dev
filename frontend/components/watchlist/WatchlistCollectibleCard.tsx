@@ -1,6 +1,7 @@
 "use client";
 
 import { memo } from "react";
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { CollectionPsaSlabFrame } from "@/components/marketplace/collection-cover";
 import { TkButton } from "@/components/ds";
@@ -116,6 +117,7 @@ export const WatchlistCollectibleCard = memo(function WatchlistCollectibleCard({
   resolvedCoverUrl?: string;
   changeLoading?: boolean;
 }) {
+  useDisplayFx();
   const row = buildWatchlistRowModel(
     collection,
     snapshot,

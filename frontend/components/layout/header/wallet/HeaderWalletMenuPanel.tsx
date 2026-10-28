@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useHeaderNavGate } from "@/hooks/auth/useHeaderNavGate";
 import { useHeaderWalletMenuData } from "@/hooks/auth/useHeaderWalletMenuData";
@@ -57,6 +58,7 @@ export function HeaderWalletMenuPanel({
   onNavigate?: () => void;
   onOpenNotifications?: () => void;
 }) {
+  const t = useTranslations("Nav");
   const navigate = useHeaderNavGate();
   const logout = useAuthStore((s) => s.logout);
   const { walletAddress, displayAddress, kyc, balanceLabel, refetchBalance, user } =
@@ -147,13 +149,11 @@ export function HeaderWalletMenuPanel({
             onClick={handleAddFunds}
             disabled={!walletAddress || fundingInFlight || fundingConfigLoading}
             title={
-              canStartFunding
-                ? "Buy USDC with card, Apple Pay, or Google Pay"
-                : "MoonPay setup required in Privy Dashboard"
+              canStartFunding ? t("buyUsdc") : t("moonpaySetup")
             }
           >
             <WalletAddFundsIcon />
-            {fundingInFlight ? "Opening checkout…" : "Add funds"}
+            {fundingInFlight ? t("openingCheckout") : t("addFunds")}
           </button>
           {fundingError ? (
             <p className="tk-wd-funds-error" role="alert">
@@ -172,7 +172,7 @@ export function HeaderWalletMenuPanel({
         onClick={() => setCollectionOpen((open) => !open)}
       >
         <WalletPortfolioIcon />
-        Collection
+        {t("collection")}
         <WalletChevronIcon
           className={`tk-wd-item__chevron${collectionOpen ? " tk-wd-item__chevron--open" : ""}`}
           aria-hidden
@@ -186,7 +186,7 @@ export function HeaderWalletMenuPanel({
             onClick={() => go(portfolioHref, 1)}
           >
             <WalletPortfolioIcon />
-            Items
+            {t("items")}
           </button>
           <button
             type="button"
@@ -194,7 +194,7 @@ export function HeaderWalletMenuPanel({
             onClick={() => go(portfolioUrl(portfolioBase, "tab=bids"), 1)}
           >
             <WalletBidsIcon />
-            Bids
+            {t("bids")}
           </button>
           <button
             type="button"
@@ -202,13 +202,13 @@ export function HeaderWalletMenuPanel({
             onClick={() => go(portfolioUrl(portfolioBase, "tab=history"), 1)}
           >
             <WalletHistoryIcon />
-            Transactions
+            {t("transactions")}
           </button>
         </>
       ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/watchlist")}>
         <WalletWatchlistIcon />
-        Watchlist
+        {t("watchlist")}
       </button>
       {showVerifyIdentity ? (
         <button
@@ -221,7 +221,7 @@ export function HeaderWalletMenuPanel({
           }}
         >
           <WalletVerifyIcon />
-          Verify Identity
+          {t("verifyIdentity")}
         </button>
       ) : null}
       <button
@@ -233,7 +233,7 @@ export function HeaderWalletMenuPanel({
         }}
       >
         <WalletNotificationsIcon />
-        <span className="tk-notif-menu-label">Notifications</span>
+        <span className="tk-notif-menu-label">{t("notifications")}</span>
         <NotificationUnreadBadge count={unreadCount} />
       </button>
       {isActivePartner ? (
@@ -243,12 +243,12 @@ export function HeaderWalletMenuPanel({
           onClick={() => go("/partner/shipments", 1)}
         >
           <WalletRedeemRequestsIcon />
-          Redeem requests
+          {t("redeemRequests")}
         </button>
       ) : null}
       <button type="button" className={itemClass(variant)} onClick={() => go("/settings")}>
         <WalletSettingsIcon />
-        Settings
+        {t("settings")}
       </button>
       <div className="tk-wd-divider" />
       <button
@@ -258,7 +258,7 @@ export function HeaderWalletMenuPanel({
         disabled={signingOut}
       >
         <WalletSignOutIcon />
-        {signingOut ? "Signing out…" : "Sign Out"}
+        {signingOut ? t("signingOut") : t("signOut")}
       </button>
     </>
   );

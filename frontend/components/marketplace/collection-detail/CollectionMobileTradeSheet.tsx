@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 
 /**
  * Card.html `#tt-sheet` — mobile bottom sheet that hosts `#tk-trade`
@@ -16,6 +17,7 @@ export function CollectionMobileTradeSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const t = useTranslations("CollectionDetail");
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
@@ -41,7 +43,7 @@ export function CollectionMobileTradeSheet({
       id="tt-sheet"
       role="dialog"
       aria-modal="true"
-      aria-label="Trade"
+      aria-label={t("tradeSheet")}
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

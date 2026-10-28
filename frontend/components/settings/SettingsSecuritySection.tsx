@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { TkDialog } from "@/components/ds";
 import { deleteAccount } from "@/lib/auth/auth";
@@ -8,24 +9,28 @@ import { completeSignOut } from "@/lib/auth";
 import { useAuthStore } from "@/store/authStore";
 import { SettingsBtn } from "./SettingsBtn";
 
-function describeThisSession(): { title: string; detail: string } {
+function describeThisSession(device: string, active: string, browserLabel: string): { title: string; detail: string } {
   if (typeof navigator === "undefined") {
-    return { title: "This device", detail: "active now" };
+    return { title: device, detail: active };
   }
   const ua = navigator.userAgent;
-  let browser = "Browser";
+  let browser = browserLabel;
   if (/Edg\//i.test(ua)) browser = "Edge";
   else if (/Chrome\//i.test(ua) && !/Edg\//i.test(ua)) browser = "Chrome";
   else if (/Safari\//i.test(ua) && !/Chrome\//i.test(ua)) browser = "Safari";
   else if (/Firefox\//i.test(ua)) browser = "Firefox";
 
-  return { title: "This device", detail: `${browser} · active now` };
+  return { title: device, detail: `${browser} · ${active}` };
 }
 
 export function SettingsSecuritySection() {
+  const t = useTranslations("Settings");
   const router = useRouter();
   const logout = useAuthStore((s) => s.logout);
-  const session = useMemo(() => describeThisSession(), []);
+  const session = useMemo(
+    () => describeThisSession(t("ui.thisDevice"), t("ui.activeNow"), t("ui.browser")),
+    [t],
+  );
   const [signingOut, setSigningOut] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -52,7 +57,7 @@ export function SettingsSecuritySection() {
       setDeleteOpen(false);
       router.replace("/");
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : "Could not delete account.");
+      setDeleteError(err instanceof Error ? err.message : t("ui.deleteFailed"));
     } finally {
       setDeletePending(false);
     }
@@ -60,32 +65,30 @@ export function SettingsSecuritySection() {
 
   return (
     <section className="tk-settings__sec">
-      <h1 className="tk-settings__sec-h">Security</h1>
+      <h1 className="tk-settings__sec-h">{t("nav.security")}</h1>
       <p className="tk-settings__sec-sub">
-        Protect your account and manage where you&rsquo;re signed in.
+        {t("ui.securitySub")}
       </p>
 
       <div className="tk-settings__card">
         <div className="tk-settings__row">
           <div>
-            <div className="tk-settings__row-t">Two-factor authentication</div>
-            <div className="tk-settings__row-d">
-              Require a code from your authenticator app or SMS at sign-in.
-            </div>
+            <div className="tk-settings__row-t">{t("ui.twoFactor")}</div>
+            <div className="tk-settings__row-d">{t("ui.twoFactorDesc")}</div>
           </div>
           <SettingsBtn
             variant="primary"
             size="sm"
-            onClick={() => setHint("2FA setup is coming soon.")}
+            onClick={() => setHint(t("ui.twoFactorSoon"))}
           >
-            Set up 2FA
+            {t("ui.setup2fa")}
           </SettingsBtn>
         </div>
       </div>
 
       <div className="tk-settings__card">
         <div className="tk-settings__lbl" style={{ marginBottom: 4 }}>
-          Active sessions
+          {t("ui.sessions")}
         </div>
         <div className="tk-settings__row">
           <div>
@@ -95,7 +98,7 @@ export function SettingsSecuritySection() {
                 className="tk-settings__chip tk-settings__chip--muted"
                 style={{ marginLeft: 6 }}
               >
-                THIS DEVICE
+                {t("ui.thisDeviceChip")}
               </span>
             </div>
             <div className="tk-settings__row-d">{session.detail}</div>
@@ -107,10 +110,10 @@ export function SettingsSecuritySection() {
         <div className="tk-settings__row">
           <div>
             <div className="tk-settings__row-t" style={{ color: "#FF6B7A" }}>
-              Sign out everywhere
+              {t("ui.signOutEverywhere")}
             </div>
             <div className="tk-settings__row-d">
-              Ends every active session, including this one.
+              {t("ui.signOutEverywhereDesc")}
             </div>
           </div>
           <SettingsBtn
@@ -119,7 +122,7 @@ export function SettingsSecuritySection() {
             disabled={signingOut}
             onClick={() => void handleSignOutEverywhere()}
           >
-            {signingOut ? "Signing out…" : "Sign out"}
+            {signingOut ? t("ui.signingOut") : t("ui.signOut")}
           </SettingsBtn>
         </div>
       </div>
@@ -128,14 +131,14 @@ export function SettingsSecuritySection() {
         <div className="tk-settings__row">
           <div>
             <div className="tk-settings__row-t" style={{ color: "#FF6B7A" }}>
-              Delete account
+              {t("ui.deleteAccount")}
             </div>
             <div className="tk-settings__row-d">
-              Permanently remove your account, watchlist, addresses, and linked wallets.
+              {t("ui.deleteAccountDesc")}
             </div>
           </div>
           <SettingsBtn variant="danger" size="sm" onClick={() => setDeleteOpen(true)}>
-            Delete
+            {t("ui.delete")}
           </SettingsBtn>
         </div>
       </div>
@@ -152,8 +155,8 @@ export function SettingsSecuritySection() {
           setDeleteError(null);
           setDeleteOpen(false);
         }}
-        title="Delete account"
-        description="This permanently removes your account, watchlist, addresses, and linked wallets. This cannot be undone."
+        title={t("ui.deleteAccount")}
+        description={t("ui.deleteDialog")}
         footer={
           <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
             <SettingsBtn
@@ -164,7 +167,7 @@ export function SettingsSecuritySection() {
                 setDeleteOpen(false);
               }}
             >
-              Cancel
+              {t("ui.cancel")}
             </SettingsBtn>
             <SettingsBtn
               variant="danger"
@@ -172,7 +175,7 @@ export function SettingsSecuritySection() {
               disabled={deletePending}
               onClick={() => void handleDelete()}
             >
-              {deletePending ? "Deleting…" : "Delete account"}
+              {deletePending ? t("ui.deleting") : t("ui.deleteAccount")}
             </SettingsBtn>
           </div>
         }

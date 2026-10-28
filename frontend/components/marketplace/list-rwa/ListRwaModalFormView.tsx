@@ -15,6 +15,7 @@ import { resolveCardDisplayGrade } from "@/lib/marketplace/cardDisplayName";
 import type { ListRwaModalStep } from "@/lib/seaport/listing/listRwaModalTypes";
 import { ListRwaPriceInput } from "./ListRwaPriceInput";
 import { formatUsdListing } from "@/lib/market/collectionMarketPricing";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 export function ListRwaModalFormView({
   tokenId,
@@ -252,8 +253,7 @@ export function ListRwaModalFormView({
                     />
                     <span className="text-[12px] text-zinc-200">
                       <span className="mr-2 font-mono tabular-nums text-mint">
-                        {Math.round(usdc).toLocaleString("en-US")}{" "}
-                        USDC
+                        {formatUsdcAmount(usdc)}
                       </span>
                       Buyer{" "}
                       <span className="font-mono text-mint/90">

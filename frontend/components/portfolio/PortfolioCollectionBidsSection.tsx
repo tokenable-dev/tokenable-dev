@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { CollectionMarketStats, Order } from "@/lib/core";
 import type { PortfolioBidCollectionMeta, PortfolioBidRow } from "@/lib/portfolio/portfolioBidTypes";
 import { compareSortNum, compareSortText } from "@/lib/portfolio/portfolioTableHelpers";
@@ -21,11 +22,11 @@ import {
 type BidsSortKey = "name" | "bid" | "top" | "ask" | "expires";
 type BidsStatusFilter = "" | "highest" | "outbid" | "expired";
 
-const BIDS_STATUS_OPTIONS: { id: BidsStatusFilter; label: string }[] = [
-  { id: "", label: "All" },
-  { id: "highest", label: "Highest" },
-  { id: "outbid", label: "Outbid" },
-  { id: "expired", label: "Expired" },
+const BIDS_STATUS_OPTIONS: { id: BidsStatusFilter; key: "all" | "highest" | "outbid" | "expired" }[] = [
+  { id: "", key: "all" },
+  { id: "highest", key: "highest" },
+  { id: "outbid", key: "outbid" },
+  { id: "expired", key: "expired" },
 ];
 
 function isOutbidByBook(
@@ -50,33 +51,35 @@ function expiresMsRemaining(endTimeIso?: string | null): number | null {
 function formatExpiresLong(
   endTimeIso: string | null | undefined,
   expired: boolean,
+  label: (count: number, unit: "day" | "hour" | "expired") => string,
 ): string {
-  if (expired) return "Expired";
+  if (expired) return label(0, "expired");
   const ms = expiresMsRemaining(endTimeIso);
-  if (ms == null || ms <= 0) return "Expired";
+  if (ms == null || ms <= 0) return label(0, "expired");
   const hours = Math.max(1, Math.floor(ms / 3_600_000));
   if (hours >= 48) {
     const days = Math.max(1, Math.floor(hours / 24));
-    return `Ends in ${days} day${days === 1 ? "" : "s"}`;
+    return label(days, "day");
   }
-  return `Ends in ${hours} hour${hours === 1 ? "" : "s"}`;
+  return label(hours, "hour");
 }
 
 /** Portfolio.html: "In 5d" / "In 21h" / "Expired". */
 function formatExpiresLabel(
   endTimeIso: string | null | undefined,
   expired: boolean,
+  label: (count: number, unit: "day" | "hour" | "expired") => string,
 ): { text: string; urgent: boolean } {
-  if (expired) return { text: "Expired", urgent: false };
+  if (expired) return { text: label(0, "expired"), urgent: false };
   const ms = expiresMsRemaining(endTimeIso);
   if (ms == null) return { text: "—", urgent: false };
-  if (ms <= 0) return { text: "Expired", urgent: false };
+  if (ms <= 0) return { text: label(0, "expired"), urgent: false };
   const hours = Math.max(0, Math.floor(ms / 3_600_000));
   if (hours >= 48) {
     const days = Math.max(1, Math.floor(hours / 24));
-    return { text: `In ${days}d`, urgent: false };
+    return { text: label(days, "day"), urgent: false };
   }
-  return { text: `In ${Math.max(1, hours)}h`, urgent: true };
+  return { text: label(Math.max(1, hours), "hour"), urgent: true };
 }
 
 function askUsdForToken(
@@ -143,11 +146,13 @@ function BidRowActions({
   onCancel: () => void;
   onRebid: () => void;
 }) {
+  const t = useTranslations("PortfolioTable");
+  const tPortfolio = useTranslations("Portfolio");
   if (expired) {
     return (
       <div className="pf-ux-acts">
         <button type="button" className="pf-ux-btn" disabled={busy} onClick={onRebid}>
-          {changing ? "Opening…" : "Re-bid"}
+          {changing ? t("opening") : t("rebid")}
         </button>
       </div>
     );
@@ -155,10 +160,10 @@ function BidRowActions({
   return (
     <div className="pf-ux-acts">
       <button type="button" className="pf-ux-btn" disabled={busy} onClick={onChange}>
-        {changing ? "Opening…" : "Change"}
+        {changing ? t("opening") : t("change")}
       </button>
       <button type="button" className="pf-ux-btn" disabled={busy} onClick={onCancel}>
-        {cancelling ? "Cancelling…" : "Cancel"}
+        {cancelling ? tPortfolio("cancelling") : t("cancel")}
       </button>
     </div>
   );
@@ -197,6 +202,17 @@ export function PortfolioCollectionBidsSection({
   onChangeBid: (bid: PortfolioBidRow) => void;
   onRebid: (bid: PortfolioBidRow) => void;
 }) {
+  const t = useTranslations("PortfolioTable");
+  const tStatus = useTranslations("Status");
+  const tTrade = useTranslations("Trade");
+  const tPortfolio = useTranslations("Portfolio");
+  const shortWhen = (count: number, unit: "day" | "hour" | "expired") =>
+    unit === "expired" ? tStatus("expired") : unit === "day" ? t("inDays", { count }) : t("inHours", { count });
+  const longWhen = (count: number, unit: "day" | "hour" | "expired") => {
+    if (unit === "expired") return tStatus("expired");
+    if (unit === "day") return count === 1 ? t("endsInDay", { count }) : t("endsInDays", { count });
+    return count === 1 ? t("endsInHour", { count }) : t("endsInHours", { count });
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BidsStatusFilter>("");
   const dockSlot = useDockPortfolioToolbar(1024);
@@ -301,12 +317,10 @@ export function PortfolioCollectionBidsSection({
   if (bids.length === 0) {
     return (
       <div className="pf-empty pf-empty--panel">
-        <p>No bids yet</p>
-        <p className="pf-empty__sub">
-          Place an offer from a card listing — your bids will appear here.
-        </p>
+        <p>{t("noBids")}</p>
+        <p className="pf-empty__sub">{t("noBidsSub")}</p>
         <Link href="/markets" className="pf-empty__cta">
-          Browse collections
+          {t("browse")}
         </Link>
       </div>
     );
@@ -317,15 +331,15 @@ export function PortfolioCollectionBidsSection({
       {placePortfolioToolbar(
       <div className="pf-tbar" id="bids-tbar">
         <label className="pf-tdrop">
-          <span className="pf-tdrop__k">Filter:</span>
+          <span className="pf-tdrop__k">{tPortfolio("filter")}</span>
           <select
-            aria-label="Filter bids by status"
+            aria-label={t("filterBids")}
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as BidsStatusFilter)}
           >
             {BIDS_STATUS_OPTIONS.map((opt) => (
               <option key={opt.id || "all"} value={opt.id}>
-                {opt.label}
+                {tStatus(opt.key)}
               </option>
             ))}
           </select>
@@ -336,8 +350,8 @@ export function PortfolioCollectionBidsSection({
         <PortfolioToolbarSearch
           value={searchQuery}
           onChange={setSearchQuery}
-          placeholder="Search your bids"
-          aria-label="Search your bids"
+          placeholder={t("searchBids")}
+          aria-label={t("searchBids")}
         />
         <div className="pf-tbar__spacer" />
       </div>,
@@ -345,15 +359,15 @@ export function PortfolioCollectionBidsSection({
       )}
 
       {sortedBids.length === 0 ? (
-        <p className="pf-empty pf-empty--panel">No bids match your search.</p>
+        <p className="pf-empty pf-empty--panel">{t("noBidsMatch")}</p>
       ) : (
       <TkTable wrapClassName="pf-table-wrap" className="pf-table--bids pf-ux">
         <thead>
           <tr>
-            <th>Item</th>
-            <th>Action</th>
-            <th>Date</th>
-            <th>Status</th>
+            <th>{t("item")}</th>
+            <th>{t("action")}</th>
+            <th>{t("date")}</th>
+            <th>{t("status")}</th>
             <th className="pf-ux-r" />
           </tr>
         </thead>
@@ -376,11 +390,11 @@ export function PortfolioCollectionBidsSection({
               (expiresMsRemaining(bid.endTime) != null &&
                 (expiresMsRemaining(bid.endTime) as number) <= 0);
             const outbid = !expired && isOutbidByBook(bid.priceUsdc, top);
-            const expires = formatExpiresLabel(bid.endTime, expired);
-            const expiresLong = formatExpiresLong(bid.endTime, expired);
+            const expires = formatExpiresLabel(bid.endTime, expired, shortWhen);
+            const expiresLong = formatExpiresLong(bid.endTime, expired, longWhen);
             const busy =
               cancellingHash === bid.orderHash || changingHash === bid.orderHash;
-            const statusLabel = expired ? "Expired" : outbid ? "Outbid" : "Highest";
+            const statusLabel = expired ? tStatus("expired") : outbid ? tStatus("outbid") : tStatus("highest");
             const statusClass = expired ? "pf-ux-mute" : outbid ? "pf-ux-warn" : "pf-ux-pos";
             const bidUsd = formatUsdListing(bid.priceUsdc);
             const topUsd = top != null ? formatUsdListing(top) : "—";
@@ -431,8 +445,8 @@ export function PortfolioCollectionBidsSection({
                     </span>
                   </div>
                 </td>
-                <td data-label="Action">
-                  <span className="pf-ux-v">Bid</span>
+                <td data-label={t("action")}>
+                  <span className="pf-ux-v">{tTrade("bid")}</span>
                 </td>
                 <td data-label="Date">
                   <span className={`pf-ux-d${expires.urgent ? " pf-ux-warn" : ""}`}>
@@ -444,7 +458,7 @@ export function PortfolioCollectionBidsSection({
                     {expiresLong}
                   </span>
                 </td>
-                <td data-label="Status">
+                <td data-label={t("status")}>
                   <span className={`pf-ux-v ${statusClass}`}>{statusLabel}</span>
                 </td>
                 <td data-label="Trail" className="pf-ux-r">

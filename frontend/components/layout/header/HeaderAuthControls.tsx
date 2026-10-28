@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useTranslations } from "next-intl";
 import { usePathname, useSearchParams } from "next/navigation";
 import { TkButton } from "@/components/ds";
 import { usePrivyInitGate } from "@/hooks/auth/usePrivyInitGate";
@@ -25,6 +26,7 @@ export function HeaderAuthControls({
 }: {
   onOpenNotifications?: () => void;
 }) {
+  const t = useTranslations("Auth");
   const openSignIn = useAuthUiStore((s) => s.openSignIn);
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -50,7 +52,7 @@ export function HeaderAuthControls({
         className="tk-btn--gnb tk-connect"
         onClick={() => openSignIn({ returnTo: signInReturnTo })}
       >
-        Sign up
+        {t("signUp")}
       </TkButton>
     );
   }

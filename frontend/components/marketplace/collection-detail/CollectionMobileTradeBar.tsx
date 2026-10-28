@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useTranslations } from "next-intl";
 import { TkButton } from "@/components/ds";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 
 /**
  * Card.html `#ob-bottom-bar` — viewport-fixed Buy / Bid strip
@@ -27,6 +29,8 @@ export function CollectionMobileTradeBar({
   buyDisabled?: boolean;
   bidDisabled?: boolean;
 }) {
+  const t = useTranslations("Trade");
+  const tDetail = useTranslations("CollectionDetail");
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
     setMounted(true);
@@ -35,8 +39,8 @@ export function CollectionMobileTradeBar({
   const hasAsk = lowestAskUsd != null && lowestAskUsd > 0;
   const buyLabel =
     hasAsk && lowestAskUsd != null
-      ? `Buy $${Math.round(lowestAskUsd).toLocaleString("en-US")}`
-      : "Buy";
+      ? t("buyAt", { amount: formatUsdcAmount(lowestAskUsd) })
+      : t("buy");
 
   if (!mounted) return null;
 
@@ -45,7 +49,7 @@ export function CollectionMobileTradeBar({
       className="cd-mobile-trade-bar min-[1141px]:hidden"
       id="ob-bottom-bar"
       role="region"
-      aria-label="Trade actions"
+      aria-label={tDetail("tradeActions")}
     >
       <div className="cd-mobile-trade-bar__actions">
         <TkButton
@@ -64,7 +68,7 @@ export function CollectionMobileTradeBar({
           disabled={bidDisabled}
           onClick={onBid}
         >
-          Bid
+          {t("bid")}
         </TkButton>
       </div>
     </div>,

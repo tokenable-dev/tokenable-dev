@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { FAQ_GROUPS, FAQ_SUPPORT_EMAIL } from "./faqContent";
+import { useTranslations } from "next-intl";
+import { FAQ_SUPPORT_EMAIL, useFaqGroups } from "./faqContent";
 
 function FaqChevron() {
   return (
@@ -22,6 +23,8 @@ export type FaqDrawerProps = {
  * Opened by any `[data-faq-open]` click (see FaqDrawerHost).
  */
 export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
+  const t = useTranslations("Faq");
+  const groups = useFaqGroups();
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState(0);
   const bodyRef = useRef<HTMLDivElement>(null);
@@ -66,25 +69,25 @@ export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
       aria-hidden="false"
     >
       <div className="tkfd-scrim" data-faq-close onClick={onClose} />
-      <div className="tkfd-sheet" role="dialog" aria-modal="true" aria-label="FAQ">
+      <div className="tkfd-sheet" role="dialog" aria-modal="true" aria-label={t("drawerLabel")}>
         <div className="tkfd-top">
           <div className="tkfd-grip" aria-hidden />
           <div className="tkfd-head">
-            <h3>Frequently asked questions</h3>
-            <button type="button" className="tkfd-close" data-faq-close aria-label="Close" onClick={onClose}>
+            <h3>{t("title")}</h3>
+            <button type="button" className="tkfd-close" data-faq-close aria-label={t("close")} onClick={onClose}>
               ✕
             </button>
           </div>
           <p className="tkfd-sub">
-            Vaults, fees, custody and redemption · for sellers and buyers. Still stuck?{" "}
+            {t("drawerSub")}{" "}
             <a className="tkfd-mail" href={FAQ_SUPPORT_EMAIL}>
-              Email us ↗
+              {t("emailUs")}
             </a>
           </p>
-          <div className="tkfd-tabs" role="tablist" aria-label="FAQ categories">
-            {FAQ_GROUPS.map((group, i) => (
+          <div className="tkfd-tabs" role="tablist" aria-label={t("categories")}>
+            {groups.map((group, i) => (
               <button
-                key={group.heading}
+                key={group.id}
                 type="button"
                 role="tab"
                 aria-selected={activeTab === i}
@@ -98,9 +101,9 @@ export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
           </div>
         </div>
         <div className="tkfd-body" ref={bodyRef}>
-          {FAQ_GROUPS.map((group, gi) => (
+          {groups.map((group, gi) => (
             <div
-              key={group.heading}
+              key={group.id}
               className="tkfd-group"
               id={`tkfd-g${gi}`}
               ref={(el) => {
@@ -109,10 +112,10 @@ export function FaqDrawer({ open, onClose }: FaqDrawerProps) {
             >
               <div className="tkfd-group__h">{group.heading}</div>
               {group.items.map((item) => {
-                const id = `${group.heading}:${item.q}`;
+                const id = `${group.id}:${item.id}`;
                 const isOpen = Boolean(expanded[id]);
                 return (
-                  <div key={item.q} className={`tkfd-item${isOpen ? " open" : ""}`}>
+                  <div key={item.id} className={`tkfd-item${isOpen ? " open" : ""}`}>
                     <button
                       type="button"
                       className="tkfd-q"

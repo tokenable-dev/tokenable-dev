@@ -21,7 +21,8 @@ import {
   BidCrossesLiveAskError,
   pickCrossingAskForBid,
 } from "@/lib/seaport/criteria/collectionCriteriaBidAsk";
-import { formatTradeTicketUsdcPrice } from "@/lib/marketplace/collection-trading/orderUsdcFormat";
+import { useTranslations } from "next-intl";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { isLiveAskListing } from "@/lib/marketplace/collectionListingModalHelpers";
 import { runCollectionInstantAskPurchase } from "@/lib/seaport/criteria/runCollectionInstantAskPurchase";
 import {
@@ -76,6 +77,10 @@ export function useTokenOffer(input: {
   onPurchaseFilled?: () => void;
   onInstantBuyFillUsdc?: (usdc: number) => void;
 }) {
+  const tDetail = useTranslations("CollectionDetail");
+  const tTrade = useTranslations("TradePanel");
+  const tNav = useTranslations("Nav");
+  const tAuth = useTranslations("Auth");
   const {
     collectionKey,
     tokenId,
@@ -266,13 +271,13 @@ export function useTokenOffer(input: {
     // makes bidLimitReached true while still on the form — suppress that flash.
     if (bidLimitReached && !busy && step !== "success") {
       return {
-        text: `You already have an active bid on this collection. Cancel or edit it to place a new one.`,
+        text: tDetail("bidExists"),
         tone: "error" as const,
       };
     }
     if (insufficientFunds) {
       return {
-        text: `Insufficient funds — add $${formatTradeTicketUsdcPrice(shortfallUsdc)} to cover this bid.`,
+        text: tDetail("shortfall", { amount: formatUsdcAmount(shortfallUsdc) }),
         tone: "error" as const,
       };
     }
@@ -289,16 +294,17 @@ export function useTokenOffer(input: {
     insufficientFunds,
     shortfallUsdc,
     errorMsg,
+    tDetail,
   ]);
 
   const busyLabel =
     step === "buying"
-      ? "Buying…"
+      ? tTrade("buying")
       : step === "signing" || step === "submitting"
-        ? "Placing bid…"
+        ? tTrade("placing")
         : fiatOnramp.inFlight
-          ? "Opening Add Funds…"
-          : "Place bid";
+          ? tNav("openingCheckout")
+          : tTrade("placeBid");
 
   const walletSignerMissing = Boolean(address) && !signSeaportOrder;
 
@@ -470,18 +476,18 @@ export function useTokenOffer(input: {
   };
 
   const ctaLabel = !address
-    ? "Connect wallet"
+    ? tAuth("connectWallet")
     : walletSignerMissing
-      ? "Open wallet…"
+      ? tDetail("openWallet")
       : busy
         ? busyLabel
         : ctaMode === "addfunds"
-          ? "Add funds"
+          ? tNav("addFunds")
           : ctaMode === "blocked"
-            ? "Maximum bids reached"
+            ? tDetail("maxBids")
             : crossesAsk
-              ? "Buy now"
-              : "Place bid";
+              ? tTrade("buyNow")
+              : tTrade("placeBid");
 
   return {
     address,
