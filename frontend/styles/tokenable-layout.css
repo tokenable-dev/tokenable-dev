@@ -761,11 +761,15 @@
 }
 
 .gnb-burger.is-open .burger-lines span:first-child {
-  transform: translateY(4px) rotate(45deg);
+  transform: translateY(8px) rotate(45deg);
+}
+
+.gnb-burger.is-open .burger-lines span:nth-child(2) {
+  opacity: 0;
 }
 
 .gnb-burger.is-open .burger-lines span:last-child {
-  transform: translateY(-4px) rotate(-45deg);
+  transform: translateY(-8px) rotate(-45deg);
 }
 
 .gnb-search-mobile {
@@ -1383,7 +1387,7 @@
 
   .burger-lines {
     width: 22px;
-    gap: 7px;
+    gap: 4px;
   }
 
   .burger-lines span {
@@ -1391,11 +1395,11 @@
   }
 
   .gnb-burger.is-open .burger-lines span:first-child {
-    transform: translateY(4.25px) rotate(45deg);
+    transform: translateY(5.5px) rotate(45deg);
   }
 
   .gnb-burger.is-open .burger-lines span:last-child {
-    transform: translateY(-4.25px) rotate(-45deg);
+    transform: translateY(-5.5px) rotate(-45deg);
   }
 }
 

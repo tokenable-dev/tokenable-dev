@@ -175,6 +175,7 @@ export function TkHeader() {
                 <span className="burger-lines">
                   <span />
                   <span />
+                  <span />
                 </span>
                 {!drawerOpen ? (
                   <NotificationUnreadBadge count={unreadCount} floating />
