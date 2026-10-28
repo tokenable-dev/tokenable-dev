@@ -214,7 +214,9 @@ Preview reason `cardhedger_no_sales_for_grade` is this 404, not a Tokenable wiri
 
 ### Same card_id, mixed parallel comps
 
-Cert → `card_id` can be the right Pink Refractor row while PSA 10 comps on that id are PINK slabs (eBay titles omit `Refractor`; a sibling grade's titles include it). Collection create still keeps the card. Before publishing that grade, `compTitlesMissParallelTokenSeenOnSibling` drops the grade's price, history, and trades. If no grade's titles spell the parallel word, the price stays — sellers often shorten titles.
+Cert → `card_id` can still mix a cheaper parallel's sales onto the right row. Before publishing a grade, `compTitlesMissParallelTokenSeenOnSibling` drops that grade's price, history, and trades when a sibling grade's titles spell a non-color parallel (`xfractor`) and this grade's titles omit it. If no grade's titles spell the word, the price stays.
+
+**Chrome color + Refractor is not that case.** CardHedger files Pink and Pink Refractor sales on one card (`1689035408937x540407672389821900`) because every Chrome color parallel is a refractor. PSA 10 titles that say `Pink` (certs 82573835, 86796129, 87883216) stay on the Pink Refractor collection. The collection name stays PSA / CardHedger `Pink Refractor`. Do not split a second Pink collection and do not hide PSA 10.
 
 ### 관련 코드 (참고)
 

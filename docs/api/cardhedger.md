@@ -76,7 +76,7 @@ collection_market_snapshots     hot reads (UI)
 
 `POST /v1/cards/prices-by-cert` is **mint image / optional estimate**, not the collection comps tape. Comps always use `/v1/cards/comps` with the gated `card_id`. Empty comps on a correct overlay (no CardHedge sales) stay empty — do not substitute sibling Base rows.
 
-A correct `card_id` can still carry another parallel's sales. When PSA Variety has a non-color parallel token (`refractor` on `PINK REFRACTOR`) and this grade's comp titles omit it while PSA 10/9/8 on the same card spell it, that grade's spot, history, grade-catalog price, and trades are left empty (`parallel_comps_mismatch`). Titles that omit the word on every grade are kept. `X-Fractor` and `xfractor` are the same token. A PSA abbreviation matches the spelled word (`STMP` and `stamp`). Pokemon rarity slots (`SPECIAL ART RARE`, `SAR`) are not parallel tokens.
+A correct `card_id` can still carry another parallel's sales. When PSA Variety has a non-color parallel token (`xfractor` on `X-FRACTOR`) and this grade's comp titles omit it while PSA 10/9/8 on the same card spell it, that grade's spot, history, grade-catalog price, and trades are left empty (`parallel_comps_mismatch`). Titles that omit the word on every grade are kept. Chrome color + `refractor` (`PINK REFRACTOR`) is one CardHedger card — `Pink` sale titles are kept. `X-Fractor` and `xfractor` are the same token. A PSA abbreviation matches the spelled word (`STMP` and `stamp`). Pokemon rarity slots (`SPECIAL ART RARE`, `SAR`) are not parallel tokens.
 
 Do not drop a sale because the title adds a photo pose. PSA prints both `X-FRACTOR` and `PITCHING-X-FRACTOR` on the same 2018 Topps Chrome Ohtani #150 photo, and CardHedger files that photo as one `Pitching X-Fractor` card.
 

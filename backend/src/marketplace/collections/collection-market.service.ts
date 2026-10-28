@@ -361,9 +361,9 @@ export class CollectionMarketService {
   }
 
   /**
-   * Cardhedger sometimes files a cheaper parallel's sales on the right card_id
-   * (PINK slabs on a PINK REFRACTOR card). Drop that grade's published price
-   * when a sibling grade's titles spell the parallel word and this grade does not.
+   * Drop a grade's published price when sibling-grade titles spell a real
+   * parallel (`xfractor`) and this grade's titles omit it. Chrome color +
+   * Refractor is one CardHedger card — those titles are not a mismatch.
    */
   private async withoutParallelMismatchedGrades(
     col: MarketplaceCollection,

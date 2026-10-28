@@ -832,9 +832,10 @@ describe('cardhedgerRowMatchesPsaVariety — Pokémon RGB Rare channel lines', (
 });
 
 describe('compTitlesMissParallelTokenSeenOnSibling', () => {
-  it('treats refractor as the parallel token on a color refractor', () => {
-    expect(parallelTokensBeyondColor('PINK REFRACTOR')).toEqual(['refractor']);
+  it('does not treat refractor as a second product on a Chrome color parallel', () => {
+    expect(parallelTokensBeyondColor('PINK REFRACTOR')).toEqual([]);
     expect(parallelTokensBeyondColor('PINK')).toEqual([]);
+    expect(parallelTokensBeyondColor('REFRACTOR')).toEqual(['refractor']);
   });
 
   it('does not treat a Pokemon rarity slot as a parallel token', () => {
@@ -850,7 +851,7 @@ describe('compTitlesMissParallelTokenSeenOnSibling', () => {
     ).toBe(false);
   });
 
-  it('drops a grade whose titles omit refractor when a sibling grade spells it', () => {
+  it('keeps Chrome Pink PSA 10 titles on a Pink Refractor card', () => {
     expect(
       compTitlesMissParallelTokenSeenOnSibling(
         'PINK REFRACTOR',
@@ -860,7 +861,7 @@ describe('compTitlesMissParallelTokenSeenOnSibling', () => {
         ],
         ['2023 TOPPS CHROME PINK REFRACTOR #17 SHOHEI OHTANI PSA 9'],
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('keeps the grade when every grade omits the parallel word', () => {

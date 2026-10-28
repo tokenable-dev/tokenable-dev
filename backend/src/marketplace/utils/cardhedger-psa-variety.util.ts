@@ -231,9 +231,13 @@ export function normalizePsaVarietyForMatch(
 }
 
 /**
- * Variety tokens that name a parallel beyond color (`refractor` on
- * `PINK REFRACTOR`). Color, print-finish, pose, and years are not enough
+ * Variety tokens that name a parallel beyond color (`xfractor` on
+ * `X-FRACTOR`). Color, print-finish, pose, and years are not enough
  * to reject a grade's comps — those words show up on the cheaper sibling too.
+ *
+ * Chrome color + `refractor` is not a second product. CardHedger files Pink
+ * and Pink Refractor sales on one card because every Chrome color parallel is
+ * a refractor. eBay titles often say only `Pink`.
  */
 export function parallelTokensBeyondColor(
   psaVariety: string | null | undefined,
@@ -243,10 +247,12 @@ export function parallelTokensBeyondColor(
   // SAR / SIR / IR are the card slot. Sellers write "SAR" or skip the words.
   // One sibling title that pastes "SPECIAL ART RARE" is not a cheaper parallel.
   if (psaVarietyIsPokemonRarityLabel(pv)) return [];
+  const chromeColor = chromeColorTokensIn(pv).length > 0;
   return varietyMatchChunks(pv).filter(
     (token) =>
       token.length >= 4 &&
       token !== 'base' &&
+      !(chromeColor && token === 'refractor') &&
       !PRINT_FINISH_TOKENS.has(token) &&
       !CHROME_COLOR_TOKEN_SET.has(token) &&
       !SPORT_POSE_TOKENS.has(token) &&
@@ -268,8 +274,8 @@ function titleContainsMatchToken(title: string, token: string): boolean {
 
 /**
  * This grade's sale titles omit a non-color parallel token that another grade
- * on the same card spells (`PINK` PSA 10 comps vs `PINK REFRACTOR` PSA 9).
- * No titles, or no sibling that spells the token, is not evidence — keep the price.
+ * on the same card spells (`X-FRACTOR` vs titles that drop it). No titles, or
+ * no sibling that spells the token, is not evidence — keep the price.
  */
 export function compTitlesMissParallelTokenSeenOnSibling(
   psaVariety: string | null | undefined,
