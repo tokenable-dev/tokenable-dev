@@ -5,6 +5,7 @@ import { readBackendErrorMessage } from "./parseBackendError";
 import type { Order } from "./orders";
 import type { CollectionListMarketSnapshot } from "./marketplace-market-data";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
+import { catalogSearchQuery } from "@/lib/marketplace/localizePokemonCardName";
 
 export type CollectionReviewStatus =
   | "pending_review"
@@ -54,7 +55,7 @@ export async function getMarketplaceSearch(opts: {
   collections: MarketplaceCollectionSummary[];
 }> {
   const sp = new URLSearchParams();
-  const q = opts.q.trim();
+  const q = catalogSearchQuery(opts.q);
   if (!q) return { cards: [], collections: [] };
   sp.set("q", q);
   if (opts.cardLimit != null) sp.set("cardLimit", String(opts.cardLimit));
@@ -94,7 +95,8 @@ export async function getMarketplaceCollectionsPage(opts?: {
   const sp = new URLSearchParams();
   if (opts?.cursor) sp.set("cursor", opts.cursor);
   if (opts?.limit != null) sp.set("limit", String(opts.limit));
-  if (opts?.q?.trim()) sp.set("q", opts.q.trim());
+  const searchQ = opts?.q ? catalogSearchQuery(opts.q) : "";
+  if (searchQ) sp.set("q", searchQ);
   if (opts?.reviewStatus) sp.set("reviewStatus", opts.reviewStatus);
   if (opts?.kind) sp.set("kind", opts.kind);
   const q = sp.toString();

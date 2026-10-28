@@ -5,6 +5,7 @@ import {
   resetCatalogTranslations,
 } from "@/lib/marketplace/catalogNameTranslation";
 import {
+  catalogSearchQuery,
   localizePokemonCardName,
   setDisplayLocaleSnapshot,
 } from "@/lib/marketplace/localizePokemonCardName";
@@ -27,6 +28,15 @@ describe("pokemon card name display", () => {
 
   it("keeps the English name, number, and grade", () => {
     expect(formatCardDisplayLine1(PARTS)).toBe("Mega Gengar ex · 240 · PSA 10");
+  });
+
+  it("searches a localized species name as the stored English name", () => {
+    expect(catalogSearchQuery("ピカチュウ")).toBe("pikachu");
+    expect(catalogSearchQuery("皮卡丘")).toBe("pikachu");
+    expect(catalogSearchQuery("メガゲンガー")).toBe("mega gengar");
+    expect(catalogSearchQuery("ピカチュウ 25")).toBe("pikachu 25");
+    expect(catalogSearchQuery("Pikachu")).toBe("Pikachu");
+    expect(catalogSearchQuery("ピカ")).toBe("pikachu");
   });
 
   it("translates only the species and form prefix", () => {

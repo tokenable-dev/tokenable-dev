@@ -79,3 +79,77 @@ export function localizePokemonCardName(name: string, locale: AppLocale = getDis
 
   return out.join(" ");
 }
+
+const SEARCH_LOCALES = ["ja", "zh-CN", "zh-TW"] as const;
+
+/**
+ * Official localized names → the English words stored on the card.
+ * Prefix+species is concatenated on screen (`メガゲンガー`) and spaced in the catalog (`mega gengar`).
+ */
+function buildSearchAliases(): { local: string; english: string }[] {
+  const byLocal = new Map<string, string>();
+  const put = (local: string, english: string) => {
+    const key = local.trim();
+    if (key.length < 2 || byLocal.has(key)) return;
+    byLocal.set(key, english);
+  };
+  for (const [english, row] of Object.entries(SPECIES)) {
+    for (const locale of SEARCH_LOCALES) put(row[locale], english);
+  }
+  for (const [prefixEn, prefixRow] of Object.entries(PREFIX)) {
+    for (const [english, row] of Object.entries(SPECIES)) {
+      for (const locale of SEARCH_LOCALES) {
+        put(`${prefixRow[locale]}${row[locale]}`, `${prefixEn} ${english}`);
+      }
+    }
+  }
+  return [...byLocal.entries()]
+    .map(([local, english]) => ({ local, english }))
+    .sort((a, b) => b.local.length - a.local.length);
+}
+
+const SEARCH_ALIASES = buildSearchAliases();
+
+/**
+ * Search queries hit stored English catalog text. A known species name is
+ * rewritten (`ピカチュウ` → `pikachu`). Anything else is unchanged.
+ */
+export function catalogSearchQuery(raw: string): string {
+  const q = raw.trim();
+  if (q.length < 2 || !/[\u3040-\u30ff\u3400-\u9fff]/.test(q)) return q;
+
+  const hits: { start: number; end: number; english: string }[] = [];
+  for (const alias of SEARCH_ALIASES) {
+    let from = 0;
+    while (from < q.length) {
+      const at = q.indexOf(alias.local, from);
+      if (at < 0) break;
+      const end = at + alias.local.length;
+      const overlaps = hits.some((hit) => at < hit.end && end > hit.start);
+      if (!overlaps) hits.push({ start: at, end, english: alias.english });
+      from = end;
+    }
+  }
+
+  if (hits.length === 0) {
+    if (/\s/.test(q)) return q;
+    const matched = new Set<string>();
+    for (const alias of SEARCH_ALIASES) {
+      if (!alias.local.startsWith(q)) continue;
+      matched.add(alias.english);
+      if (matched.size > 1) return q;
+    }
+    if (matched.size === 1) return [...matched][0]!;
+    return q;
+  }
+
+  hits.sort((a, b) => a.start - b.start);
+  let cursor = 0;
+  let result = "";
+  for (const hit of hits) {
+    if (hit.start < cursor) continue;
+    result += q.slice(cursor, hit.start) + hit.english;
+    cursor = hit.end;
+  }
+  return (result + q.slice(cursor)).replace(/\s+/g, " ").trim();
+}
