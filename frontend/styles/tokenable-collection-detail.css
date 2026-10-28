@@ -1474,17 +1474,22 @@
   line-height: normal;
 }
 
-/* Card.html `#hero-stats-grid`: content-sized cells, not five equal columns.
-   Mkt cap / Vol stay wide for full dollars; Velocity / Pop / Gem rate stay tight. */
+/* Card.html `#hero-stats-grid`: one row on desktop, even when a currency amount is long. */
 .cd-hero-stats__grid,
 #hero-stats-grid {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 16px 36px;
+  gap: 16px 24px;
   height: auto;
   width: 100%;
   max-width: none;
+}
+
+.cd-hero-stats__grid .cd-hero-stats__cell,
+#hero-stats-grid .cd-hero-stats__cell {
+  max-width: none;
+  white-space: nowrap;
 }
 
 @media (max-width: 560px) {
@@ -5210,8 +5215,8 @@
 /* Trades tab — Card.html `#tab-trades` / `#trades-scroll` */
 .collection-detail-page .cd-ob-trades-hdr {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
-  column-gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 0;
   align-items: center;
   height: 26px;
   min-height: 0;
@@ -5262,8 +5267,8 @@
 
 .collection-detail-page .cd-ob-trades-row {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.05fr) minmax(0, 0.95fr) minmax(0, 1.05fr);
-  column-gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  column-gap: 0;
   align-items: center;
   height: 26px;
   min-height: 0;
@@ -5332,10 +5337,9 @@
   text-overflow: clip;
 }
 
-/* Card.html: Source column nudge — `#trades-scroll > div > span:nth-child(3){padding-left:16px}` */
 .collection-detail-page .cd-ob-trades-hdr span:nth-child(3),
 .collection-detail-page .cd-ob-trades-source {
-  padding-left: 16px;
+  padding-left: 0;
   text-align: left;
   justify-self: stretch;
   justify-content: flex-start;

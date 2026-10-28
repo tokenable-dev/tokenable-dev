@@ -66,6 +66,8 @@
   "Home": {
     "heroLine1": "Safest. Fastest.",
     "heroLine2": "Collectibles Trading.",
+    "tickerIndices": "Indices 1Y",
+    "tickerReturn": " return",
     "authenticated": "Authenticated",
     "authenticatedCopy": "PSA and BGS certified",
     "vaulted": "Vaulted",

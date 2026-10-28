@@ -1,5 +1,5 @@
 import type { DisplayCurrency } from "@/lib/i18n/preferences";
-import { CURRENCY_OPTIONS, SUPPORTED_CURRENCIES } from "@/lib/i18n/preferences";
+import { CURRENCY_OPTIONS } from "@/lib/i18n/preferences";
 
 export type DisplayFx = {
   currency: DisplayCurrency;
@@ -105,8 +105,4 @@ export function formatUsdcAmount(n: number | null | undefined): string {
   const rounded = Math.round(n);
   const body = Math.abs(rounded).toLocaleString("en-US");
   return rounded < 0 ? `-$${body}` : `$${body}`;
-}
-
-export function isDisplayCurrency(value: string): value is DisplayCurrency {
-  return (SUPPORTED_CURRENCIES as readonly string[]).includes(value);
 }

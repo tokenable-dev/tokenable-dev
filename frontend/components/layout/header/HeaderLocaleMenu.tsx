@@ -162,7 +162,9 @@ export function HeaderLocaleMenu() {
   }, [close, open]);
 
   useEffect(() => {
-    if (open && view === "currency") searchRef.current?.focus();
+    if (!open || view !== "currency") return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    searchRef.current?.focus();
   }, [open, view]);
 
   function choose(code: DisplayCurrency) {

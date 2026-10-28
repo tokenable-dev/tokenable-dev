@@ -66,6 +66,8 @@
   "Home": {
     "heroLine1": "最安全。最快速。",
     "heroLine2": "收藏品交易。",
+    "tickerIndices": "指数 1年",
+    "tickerReturn": " 回报",
     "authenticated": "已鉴定",
     "authenticatedCopy": "PSA 与 BGS 认证",
     "vaulted": "已入库",

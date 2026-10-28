@@ -61,6 +61,11 @@
   white-space: nowrap;
 }
 
+.home-ticker__label-text--plain {
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .home-ticker__viewport {
   overflow: hidden;
   flex: 1;

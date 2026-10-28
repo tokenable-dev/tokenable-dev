@@ -1,3 +1,5 @@
+import fs from "fs";
+import path from "path";
 import {
   formatDisplayMoney,
   formatUsdcAmount,
@@ -13,6 +15,10 @@ import {
   resolveLocale,
   SUPPORTED_LOCALES,
 } from "@/lib/i18n/preferences";
+import {
+  SUPPORTED_DISPLAY_CURRENCIES,
+  SUPPORTED_LOCALES as BACKEND_LOCALES,
+} from "./supported-currencies";
 
 const KRW: DisplayFx = {
   currency: "KRW",
@@ -165,6 +171,20 @@ describe("currency picker catalog", () => {
     expect(new Set(CURRENCY_OPTIONS.map((row) => row.name)).size).toBe(
       CURRENCY_OPTIONS.length,
     );
+  });
+
+  it("matches the backend allowlist and the unapplied SQL checks", () => {
+    expect(new Set(SUPPORTED_CURRENCIES)).toEqual(new Set(SUPPORTED_DISPLAY_CURRENCIES));
+    expect(new Set(SUPPORTED_LOCALES)).toEqual(new Set(BACKEND_LOCALES));
+    for (const rel of ["sql/schema/080_fx.sql", "sql/maintenance/deploy-sync.sql"]) {
+      const sql = fs.readFileSync(path.join(process.cwd(), rel), "utf8");
+      for (const code of SUPPORTED_DISPLAY_CURRENCIES) {
+        expect(sql).toContain(`'${code}'`);
+      }
+      for (const code of BACKEND_LOCALES) {
+        expect(sql).toContain(`'${code}'`);
+      }
+    }
   });
 });
 

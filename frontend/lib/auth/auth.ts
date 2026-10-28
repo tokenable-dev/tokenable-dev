@@ -1,3 +1,4 @@
+import type { AppLocale, DisplayCurrency } from "../i18n/preferences";
 import { backendFetch, getApiUrl } from "../core/api/client";
 import type { AuthProviderLink, LinkedWallet } from "./wallets";
 
@@ -42,24 +43,8 @@ export type UpdateProfileInput = {
   marketingEmailsOptIn?: boolean;
   emailNotificationsEnabled?: boolean;
   emailNotifPrefs?: Partial<EmailNotifPrefs>;
-  preferredLocale?: "en" | "zh-CN" | "ja" | "zh-TW";
-  preferredCurrency?:
-    | "USD"
-    | "EUR"
-    | "GBP"
-    | "KRW"
-    | "JPY"
-    | "SGD"
-    | "CAD"
-    | "AUD"
-    | "CHF"
-    | "HKD"
-    | "CNY"
-    | "IDR"
-    | "MYR"
-    | "PHP"
-    | "VND"
-    | "THB";
+  preferredLocale?: AppLocale;
+  preferredCurrency?: DisplayCurrency;
 };
 
 /** Returns null when unauthenticated (`/auth/session` → `{ user: null }`). */

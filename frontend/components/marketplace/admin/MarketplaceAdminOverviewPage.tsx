@@ -5,7 +5,7 @@ import Link from "next/link";
 import type { AdminAnalyticsPeriod } from "@/lib/core";
 import { useMarketplaceAdminAnalytics } from "@/hooks/marketplace-admin/useMarketplaceAdminAnalytics";
 import { useCardhedgerPriceInfraAdmin } from "@/hooks/marketplace-admin/useCardhedgerPriceInfraAdmin";
-import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import { ADMIN_ARTICLE, ADMIN_LINK_SM, ADMIN_TABLE, ADMIN_TABLE_HEAD, ADMIN_TABLE_TD, ADMIN_TABLE_TH, ADMIN_TABLE_WRAP, ADMIN_TEXT_EMPTY, ADMIN_TEXT_META, ADMIN_TEXT_SECONDARY } from "./adminUi";
 import {
   AdminAnalyticsMiniChart,
@@ -66,8 +66,8 @@ export function MarketplaceAdminOverviewPage() {
               />
               <AdminStatTile
                 label="GMV (all time)"
-                value={formatUsdcPricePrimary(o.trades.gmvUsdcTotal)}
-                hint={`${formatUsdcPricePrimary(o.trades.gmvUsdcInPeriod)} in period`}
+                value={formatUsdcAmount(o.trades.gmvUsdcTotal)}
+                hint={`${formatUsdcAmount(o.trades.gmvUsdcInPeriod)} in period`}
               />
               <AdminStatTile
                 label="Active listings"
@@ -255,7 +255,7 @@ export function MarketplaceAdminOverviewPage() {
                   label="Avg sale"
                   value={
                     o.trades.avgSaleUsdc != null
-                      ? formatUsdcPricePrimary(o.trades.avgSaleUsdc)
+                      ? formatUsdcAmount(o.trades.avgSaleUsdc)
                       : "—"
                   }
                 />
@@ -356,7 +356,7 @@ export function MarketplaceAdminOverviewPage() {
                         </span>
                         <span className="shrink-0 font-semibold text-zinc-900">
                           {row.gmvUsdc != null
-                            ? formatUsdcPricePrimary(row.gmvUsdc)
+                            ? formatUsdcAmount(row.gmvUsdc)
                             : row.count.toLocaleString()}
                         </span>
                       </li>
@@ -399,7 +399,7 @@ export function MarketplaceAdminOverviewPage() {
                           )}
                         </td>
                         <td className={`${ADMIN_TABLE_TD} font-medium text-zinc-900`}>
-                          {formatUsdcPricePrimary(t.priceUsdc)}
+                          {formatUsdcAmount(t.priceUsdc)}
                         </td>
                         <td className={`${ADMIN_TABLE_TD} text-xs ${ADMIN_TEXT_META}`}>
                           {new Date(t.fulfilledAt).toLocaleString()}

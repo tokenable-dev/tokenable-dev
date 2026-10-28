@@ -508,7 +508,8 @@
   background: transparent;
   color: #111;
   font-family: var(--font-sans);
-  font-size: 16px;
+  /* iOS Safari zooms a focused field whose used size is under 16px. */
+  font-size: 16px !important;
   font-weight: 500;
 }
 
@@ -1556,7 +1557,8 @@
   background: transparent;
   color: #111;
   font-family: var(--font-sans);
-  font-size: 16px;
+  /* iOS Safari zooms a focused field whose used size is under 16px. */
+  font-size: 16px !important;
   font-weight: 500;
 }
 

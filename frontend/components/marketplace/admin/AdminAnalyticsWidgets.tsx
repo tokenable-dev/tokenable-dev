@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { DailyAmount, DailyCount } from "@/lib/core";
-import { formatUsdcPricePrimary } from "@/lib/market/usdcKrwDisplay";
+import { formatUsdcAmount } from "@/lib/market/displayMoney";
 import {
   ADMIN_CHART_BAR,
   ADMIN_LINK,
@@ -40,7 +40,7 @@ export function AdminAnalyticsMiniChart({
   const fmt =
     formatValue ??
     ((n: number) =>
-      valueKey === "amountUsdc" ? formatUsdcPricePrimary(n) : n.toLocaleString());
+      valueKey === "amountUsdc" ? formatUsdcAmount(n) : n.toLocaleString());
 
   return (
     <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 sm:p-4">

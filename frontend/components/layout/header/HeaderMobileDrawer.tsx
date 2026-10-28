@@ -278,7 +278,9 @@ export function HeaderMobileDrawer({
   }, [open, pathname, searchParams]);
 
   useEffect(() => {
-    if (open && pane === "currency") currencySearchRef.current?.focus();
+    if (!open || pane !== "currency") return;
+    if (window.matchMedia("(pointer: coarse)").matches) return;
+    currencySearchRef.current?.focus();
   }, [open, pane]);
 
   const go = useCallback(

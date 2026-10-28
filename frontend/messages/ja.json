@@ -66,6 +66,8 @@
   "Home": {
     "heroLine1": "いちばん安全に。いちばん速く。",
     "heroLine2": "コレクティブル取引。",
+    "tickerIndices": "指数 1年",
+    "tickerReturn": " リターン",
     "authenticated": "鑑定済み",
     "authenticatedCopy": "PSA・BGS 認証",
     "vaulted": "保管庫",

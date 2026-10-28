@@ -1,4 +1,6 @@
 import type { MarketplaceCollectionSummary } from "@/lib/core";
+import type { AppLocale } from "@/lib/i18n/preferences";
+import { localizeDisplayedCardName } from "@/lib/marketplace/catalogNameTranslation";
 import {
   buildAssetDetailHeadlineParts,
   cardDisplayPartsFromAssetDetail,
@@ -158,20 +160,23 @@ export function buildMarketsCollectionTitle(
 export function buildHomeTickerCollectionTitle(params: {
   collection: MarketsCollectionTitleCollection;
   comp: CollectionComponents;
+  locale?: AppLocale;
 }): string {
+  const show = (text: string) =>
+    text ? localizeDisplayedCardName(text, params.locale) : "";
   const parts = buildMarketsCollectionHeadlineParts(params);
   if (params.comp.assetKind === "sealed_box") {
-    const set = parts.cardName?.trim() || "";
-    const product = params.comp.productName?.trim() || "";
+    const set = show(parts.cardName?.trim() || "");
+    const product = show(params.comp.productName?.trim() || "");
     const out = [set, product].filter(Boolean).join(" ");
     if (out) return out;
-    return collectionDisplayLabelFallback(params.collection);
+    return show(collectionDisplayLabelFallback(params.collection));
   }
-  const name = parts.cardName?.trim() || "";
+  const name = show(parts.cardName?.trim() || "");
   const number = parts.cardNumber?.trim() || "";
   const out = [name, number].filter(Boolean).join(" ");
   if (out) return out;
-  return collectionDisplayLabelFallback(params.collection);
+  return show(collectionDisplayLabelFallback(params.collection));
 }
 
 /** GNB search / self-contained surfaces — full Line 2 under Line 1 title. */

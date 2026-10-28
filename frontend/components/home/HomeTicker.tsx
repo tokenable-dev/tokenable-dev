@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
+import { resolveLocale } from "@/lib/i18n/preferences";
 import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import { buildHomeTickerCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 import { resolveReferencePercentChangeDisplay } from "@/lib/market/priceChangePeriod";
@@ -18,6 +19,7 @@ import "@/styles/tokenable-home.css";
  */
 export function HomeTicker() {
   const locale = useLocale();
+  const t = useTranslations("Home");
   const catalogNames = useCatalogNameRevision();
   const { tickerItems, isPending, snapshotsPending } = useHomeMarketplaceGrids();
 
@@ -27,6 +29,7 @@ export function HomeTicker() {
       const shortTitle = buildHomeTickerCollectionTitle({
         collection,
         comp: collection.components,
+        locale: resolveLocale(locale),
       });
       const name =
         shortTitle.length > 28 ? `${shortTitle.slice(0, 26)}…` : shortTitle;
@@ -85,8 +88,11 @@ export function HomeTicker() {
     <div className="home-ticker" data-loading={loading ? "true" : undefined}>
       <span className="home-ticker__label">
         <span className="home-ticker__dot" aria-hidden />
-        <span className="mono home-ticker__label-text">
-          Indices 1Y<span className="home-ticker__label-full"> return</span>
+        <span
+          className={`mono home-ticker__label-text${locale === "en" ? "" : " home-ticker__label-text--plain"}`}
+        >
+          {t("tickerIndices")}
+          <span className="home-ticker__label-full">{t("tickerReturn")}</span>
         </span>
       </span>
       <div className="home-ticker__viewport">
