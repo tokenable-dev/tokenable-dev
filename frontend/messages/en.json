@@ -488,7 +488,8 @@
     "redeemFinish": "Redeeming — finish transfer",
     "valueHeroAria": "Portfolio value",
     "collectionValue": "Collection value",
-    "redeemRequests": "Redeem requests"
+    "redeemRequests": "Redeem requests",
+    "lastPrice": "Last price"
   },
   "AuthGate": {
     "signIn": "Sign in",

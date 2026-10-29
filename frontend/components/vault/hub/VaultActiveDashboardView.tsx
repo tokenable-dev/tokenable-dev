@@ -95,6 +95,7 @@ function PackageRow({
   const t = useTranslations("Sell");
   const units = useTranslations("RedeemUi");
   const pill: Record<VaultHubVState, string> = {
+    pending: t("shipPending"),
     transit: t("shipped"),
     verify: t("verifying"),
     vaulted: t("vaulted"),
@@ -104,7 +105,9 @@ function PackageRow({
   const more = pkg.cards.length - shown.length;
 
   return (
-    <article className={cn("vault-dash-sb", open && "vault-dash-sb--open")}>
+    <article
+      className={cn("vault-dash-sb", `vault-dash-sb--${pkg.status}`, open && "vault-dash-sb--open")}
+    >
       <span className="vault-dash-stack" aria-hidden>
         {pkg.cards.slice(0, 3).map((card, i) => (
           <span key={card.id} className="vault-dash-stack__slot" style={{ "--i": i } as CSSProperties}>
@@ -114,23 +117,7 @@ function PackageRow({
       </span>
       <div className="vault-dash-sb__t">
         <div className="vault-dash-sb__title">{pkg.title}</div>
-        <div className="vault-dash-sb__meta">{pkg.meta}</div>
-        {pkg.certLine ? (
-          <div className="mono vault-dash-sb__cert">{pkg.certLine}</div>
-        ) : null}
-      </div>
-      <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{pill[pkg.status]}</span>
-      <div className="vault-dash-bot">
-        {pkg.cards.length > 1 ? (
-          <button type="button" className="vault-dash-tog" aria-expanded={open} onClick={onToggle}>
-            <span className="vault-dash-mono">{pkg.cards.length}</span>{" "}
-            {units(pkg.cards.length === 1 ? "cardOne" : "cardMany")} <Chevron open={open} />
-          </button>
-        ) : (
-          <span className="vault-dash-one">
-            <span className="vault-dash-mono">1</span> {units("cardOne")}
-          </span>
-        )}
+        {pkg.cards.length > 1 && pkg.status !== "pending" && pkg.status !== "transit" ? <div className="vault-dash-sb__meta">{pkg.meta}</div> : null}
         {pkg.vaultedCount > 0 || pkg.rejectedCount > 0 ? (
           <div className="vault-dash-sum">
             {pkg.vaultedCount > 0 ? (
@@ -146,8 +133,16 @@ function PackageRow({
             ) : null}
           </div>
         ) : null}
+      </div>
+      <span className={cn("vault-dash-pill", `vault-dash-pill--${pkg.status}`)}>{pill[pkg.status]}</span>
+      <div className="vault-dash-bot">
+        <button type="button" className="vault-dash-tog" aria-expanded={open} onClick={onToggle}>
+          <span className="vault-dash-mono">({pkg.cards.length})</span>{" "}
+          {units(pkg.cards.length === 1 ? "cardOne" : "cardMany")} <Chevron open={open} />
+        </button>
         <div className="vault-dash-eta">
-          {pkg.eta.filter(Boolean).map((part, i, parts) => {
+          {pkg.status === "pending" ? <span>-</span> : null}
+          {(pkg.status === "pending" ? [] : pkg.eta.filter(Boolean)).map((part, i, parts) => {
             const isCarrierLine =
               Boolean(pkg.trackingUrl) && pkg.status === "transit" && i === parts.length - 1;
             if (isCarrierLine && pkg.trackingUrl) {
@@ -180,12 +175,17 @@ function PackageRow({
           <PackageAction pkg={pkg} />
         </div>
       </div>
-      {open && pkg.cards.length > 1 ? (
+      {open && pkg.cards.length > 0 ? (
         <div className="vault-dash-list">
           {shown.map((card) => (
             <div key={card.id} className="vault-dash-c">
               <VaultThumb src={vaultDashImage(card.imageUrl)} width={28} height={40} className="vault-dash-c__img" alt="" />
-              <span className="vault-dash-c__name">{card.title}</span>
+              <span className="vault-dash-c__name">
+                {card.title}
+                {pkg.cards.length === 1 && card.detail ? (
+                  <span className="vault-dash-c__detail">{card.detail}</span>
+                ) : null}
+              </span>
               <span className="vault-dash-c__cert">{card.cert ? `Cert #${card.cert}` : ""}</span>
               <span className={cn("vault-dash-c__st", `vault-dash-c__st--${card.state}`)}>{card.statusLabel}</span>
             </div>
@@ -231,6 +231,7 @@ export function VaultActiveDashboardView() {
   );
   const tabs: { id: TabFilter; label: string }[] = [
     { id: "all", label: t("all") },
+    { id: "pending", label: t("shipPending") },
     { id: "transit", label: t("shipped") },
     { id: "verify", label: t("verifying") },
     { id: "vaulted", label: t("vaulted") },

@@ -4,7 +4,7 @@ import type { SellCardDisplaySource } from "@/lib/sell/sellFlowDraft";
  * Sell hub row — Vault-Dashboard-Active.html (design system-22) per-card card.
  */
 
-export type VaultHubVState = "transit" | "verify" | "vaulted" | "reject";
+export type VaultHubVState = "pending" | "transit" | "verify" | "vaulted" | "reject";
 
 export type VaultHubReject = {
   label: string;

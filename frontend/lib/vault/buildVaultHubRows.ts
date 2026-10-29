@@ -264,6 +264,7 @@ function shouldShowProgressPackage(s: VaultSubmissionApi): boolean {
 }
 
 const VSTATE_ORDER: Record<VaultHubVState, number> = {
+  pending: 0,
   transit: 0,
   verify: 1,
   vaulted: 2,
@@ -322,6 +323,8 @@ export type VaultHubPackageCard = {
   id: string;
   imageUrl: string;
   title: string;
+  /** Year · set · variant line (shown in single-card dropdown). */
+  detail?: string;
   cert: string;
   state: VaultHubVState;
   statusLabel: string;
@@ -351,6 +354,7 @@ export type VaultHubPackage = {
 };
 
 const PACKAGE_STATUS_LABEL: Record<VaultHubVState, string> = {
+  pending: "Pending",
   transit: "Shipped",
   verify: "Verifying",
   vaulted: "Vaulted",
@@ -358,7 +362,10 @@ const PACKAGE_STATUS_LABEL: Record<VaultHubVState, string> = {
 };
 
 function packageStatus(s: VaultSubmissionApi): VaultHubVState {
-  if (s.status === "awaiting_shipment" || s.status === "in_transit") return "transit";
+  if (s.status === "awaiting_shipment" || s.status === "in_transit") {
+    // No carrier tracking yet → not actually shipped.
+    return hasShipmentTracking(s) ? "transit" : "pending";
+  }
   if (s.status === "psa_reviewing") return "verify";
   const rejected = s.items.filter((item) => isIssueItem(item)).length;
   const completed = s.items.filter((item) => itemStatus(item) === "completed").length;
@@ -373,12 +380,13 @@ function cardState(item: VaultSubmissionApiItem, pkg: VaultHubVState): VaultHubV
   if (isIssueItem(item)) return "reject";
   if (itemStatus(item) === "completed") return "vaulted";
   if (pkg === "transit") return "transit";
+  if (pkg === "pending") return "pending";
   if (pkg === "reject") return "reject";
   return "verify";
 }
 
 function packageEta(s: VaultSubmissionApi, status: VaultHubVState, rejectLabel: string): string[] {
-  if (status === "transit") {
+  if (status === "transit" || status === "pending") {
     const shipped = formatDay(s.shipDate) || formatDay(s.shippedAt) || formatDay(s.createdAt);
     const tracking = s.trackingNumber?.trim();
     if (tracking) {
@@ -416,7 +424,7 @@ export function buildVaultHubPackages(
     const href = detailHref(s.publicId);
     const cards: VaultHubPackageCard[] = s.items.map((item) => {
       const display = itemMeta(item, enrichment);
-      const { line1 } = formatSellCardDisplay(display);
+      const { line1, line2 } = formatSellCardDisplay(display);
       const state = cardState(item, status);
       const reject =
         state === "reject" ? resolveReject(item.rejectionReason, itemStatus(item) === "failed", s) : null;
@@ -424,6 +432,7 @@ export function buildVaultHubPackages(
         id: item.id,
         imageUrl: display.imageUrl,
         title: line1 || display.name,
+        detail: line2 || undefined,
         cert: display.cert,
         state,
         statusLabel: reject?.label ?? PACKAGE_STATUS_LABEL[state],
@@ -431,10 +440,8 @@ export function buildVaultHubPackages(
     });
     const first = cards[0];
     const firstDisplay = s.items[0] ? formatSellCardDisplay(itemMeta(s.items[0], enrichment)) : null;
-    const title =
-      cards.length === 1 && first
-        ? first.title
-        : `Submission · ${formatDay(s.createdAt) ?? "package"}`;
+    const submissionNo = s.publicId?.trim();
+    const title = submissionNo ? `Submission #${submissionNo}` : "Submission";
     const certLine =
       cards.length === 1 && first?.cert ? `Cert #${first.cert}` : undefined;
     const meta =
@@ -448,15 +455,16 @@ export function buildVaultHubPackages(
     let actionHref = href;
     let actionTone: VaultHubPackage["actionTone"] = "subtle";
     let actionExternal = false;
-    if (status === "transit" && !tracked) {
+    if (status === "pending" || (status === "transit" && !tracked)) {
       actionLabel = "Add tracking";
       actionHref = sellSubmissionAddTrackingHref(s.publicId);
       actionTone = "primary";
     } else if (status === "transit" && tracked) {
-      // Track CTA → submission detail (In Transit). Carrier link lives on the eta line.
+      // Track CTA → carrier tracking page in a new tab (fallback: submission detail).
       actionLabel = "Track →";
-      actionHref = href;
-      actionExternal = false;
+      const carrierUrl = trackingHref(s);
+      actionHref = carrierUrl ?? href;
+      actionExternal = Boolean(carrierUrl);
     } else if (status === "vaulted") {
       actionHref = "/portfolio";
     } else if (status === "reject") {
@@ -499,7 +507,7 @@ export function packageMatchesTab(
 }
 
 export function countVaultHubPackages(packages: VaultHubPackage[]) {
-  const tabs = ["all", "transit", "verify", "vaulted", "reject"] as const;
+  const tabs = ["all", "pending", "transit", "verify", "vaulted", "reject"] as const;
   return Object.fromEntries(
     tabs.map((tab) => [tab, packages.filter((pkg) => packageMatchesTab(pkg, tab)).length]),
   ) as Record<(typeof tabs)[number], number>;
@@ -508,6 +516,7 @@ export function countVaultHubPackages(packages: VaultHubPackage[]) {
 export function countVaultHubByState(rows: VaultHubRow[]) {
   const counts = {
     all: rows.length,
+    pending: 0,
     transit: 0,
     verify: 0,
     vaulted: 0,

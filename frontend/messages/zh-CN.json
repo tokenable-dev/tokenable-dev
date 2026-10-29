@@ -488,7 +488,8 @@
     "redeemFinish": "赎回中 — 完成转移",
     "valueHeroAria": "投资组合价值",
     "collectionValue": "收藏价值",
-    "redeemRequests": "赎回申请"
+    "redeemRequests": "赎回申请",
+    "lastPrice": "最新价格"
   },
   "AuthGate": {
     "signIn": "登录",

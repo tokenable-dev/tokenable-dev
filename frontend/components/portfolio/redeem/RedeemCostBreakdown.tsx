@@ -1,13 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import {
   formatRedeemUsd,
   type RedeemEstimate,
   type RedeemShipmentEstimate,
 } from "@/lib/core/api/rwa-redeem";
-import { formatDisplayMoney } from "@/lib/market/displayMoney";
 
 function shipmentGroups(
   est: RedeemEstimate,
@@ -64,7 +62,6 @@ export function RedeemCostBreakdown({
   totalLabel?: string;
 }) {
   const t = useTranslations("RedeemUi");
-  const fx = useDisplayFx();
   const resolvedTitle = title === undefined ? t("totalCharged") : title;
   const resolvedTotal = totalLabel ?? t("total");
   const dash = loading ? "…" : "—";
@@ -124,14 +121,6 @@ export function RedeemCostBreakdown({
               {formatRedeemUsd(est.totalUsd)}
             </span>
           </div>
-          {fx.currency !== "USD" && !fx.fallbackToUsd ? (
-            <div className="pf-redeem-cost__line">
-              <span className="pf-redeem-cost__label">{t("reference")}</span>
-              <span className="tkl-mono pf-redeem-cost__val">
-                {formatDisplayMoney(est.totalUsd, fx)}
-              </span>
-            </div>
-          ) : null}
         </div>
         {!embed ? (
           <p className="pf-redeem-cost__copy">

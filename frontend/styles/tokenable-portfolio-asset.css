@@ -1007,3 +1007,28 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Restore ▲▼ to the previous size (same as the % text). */
+.pa-page .mval-chg__dir {
+  font-size: inherit;
+  line-height: inherit;
+  display: inline;
+  position: static;
+  top: auto;
+}
+
+/* Market value change — Figma: Inter Semi Bold 13px, line-height normal. */
+.pa-page .mval-chg {
+  font-family: var(--font-sans, Inter), Inter, sans-serif;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: normal;
+  color: var(--semantic-text-positive-default, #00c864);
+}
+.pa-page .mval-chg.neg {
+  color: var(--neg);
+}
+.pa-page .mval-chg.mval-chg--muted {
+  color: var(--t3);
+}

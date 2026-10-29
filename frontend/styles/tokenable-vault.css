@@ -7350,3 +7350,133 @@
     display: none;
   }
 }
+
+/* Sell dashboard — design refresh (header row, fixed action column) */
+.vault-dash-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  row-gap: 0;
+}
+.vault-dash-head .vault-dash-sec { grid-column: 1 / -1; }
+.vault-dash-add,
+.vault-dash-add:hover {
+  margin-top: 0;
+  height: 44px;
+  min-width: 160px;
+  padding: 0 28px;
+  justify-content: center;
+  gap: 0;
+  border-radius: 12px;
+  background: #a990ff;
+  box-shadow: 0 4px 14px 0 rgba(151, 125, 255, 0.38);
+  color: #fff;
+}
+.vault-dash-add:hover { filter: brightness(1.06); transform: translateY(-1px); }
+.vault-dash-add__t { flex: none; font-size: 15px; font-weight: 600; }
+.vault-dash-tab__n { font-family: inherit; color: rgba(255, 255, 255, 0.45); }
+.vault-dash-tab { color: rgba(255, 255, 255, 0.65); font-weight: 500; }
+.vault-dash-tab--on { font-weight: 600; }
+
+.vault-dash-sb {
+  grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr) 188px;
+  column-gap: 20px;
+  row-gap: 14px;
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: #16161b;
+}
+.vault-dash-sb__t { gap: 3px; }
+.vault-dash-sb__title { font-size: 15px; }
+.vault-dash-sb__cert { font-family: inherit; font-weight: 400; color: rgba(255, 255, 255, 0.5); letter-spacing: 0; }
+.vault-dash-sb__t .vault-dash-sum { font-size: 13px; margin-top: 2px; }
+.vault-dash-sum b { font-family: inherit; font-weight: 700; }
+.vault-dash-pill { padding: 4px 12px; border-radius: 8px; min-width: 92px; text-align: center; box-sizing: border-box; }
+
+.vault-dash-bot {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr) minmax(0, 1fr) 188px;
+  column-gap: 20px;
+}
+.vault-dash-one { color: rgba(255, 255, 255, 0.6); font-weight: 400; cursor: default; }
+.vault-dash-mono { font-family: inherit; }
+.vault-dash-eta { display: contents; font-size: 14px; }
+.vault-dash-eta > * { grid-column: 2; text-align: left; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: #fff; }
+.vault-dash-eta > * + * { grid-column: 3; color: rgba(255, 255, 255, 0.5) !important; }
+.vault-dash-eta span + span::before,
+.vault-dash-eta span + a::before,
+.vault-dash-eta a + span::before { content: none; }
+.vault-dash-act { grid-column: 4; margin-left: 0; width: 188px; flex-wrap: nowrap; }
+.vault-dash-act .vault-dash-btn { flex: 1 1 0; }
+.vault-dash-btn { height: 36px; border-radius: 10px; font-size: 14.5px; }
+.vault-dash-btn--subtle { background: #232328; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12); }
+.vault-dash-btn--primary { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12), 0 2px 8px rgba(26, 111, 255, 0.3); }
+
+@media (max-width: 600px) {
+  .vault-dash-add, .vault-dash-add:hover { min-width: 0; height: 40px; padding: 0 18px; }
+  .vault-dash-sb { grid-template-columns: 64px minmax(0, 1fr); }
+  .vault-dash-pill { min-width: 0; }
+  .vault-dash-bot { grid-template-columns: auto minmax(0, 1fr); row-gap: 10px; column-gap: 12px; }
+  .vault-dash-eta > * { grid-column: 2; }
+  .vault-dash-eta > * + * { grid-column: 1 / -1; }
+  .vault-dash-act { grid-column: 1 / -1; width: auto; }
+}
+.vault-dash-c__detail { display: block; margin-top: 2px; font-size: 12.5px; color: rgba(255, 255, 255, 0.5); white-space: normal; }
+.vault-dash-pill--pending { color: rgba(255, 255, 255, 0.72); }
+.vault-dash-c__st--pending { color: rgba(255, 255, 255, 0.6); }
+
+/* Mobile: keep Sell cards right-aligned, but breathe a little from the edge. */
+@media (max-width: 768px) {
+  .vault-dash-head .vault-dash-add { margin-right: 6px; }
+}
+
+/* Pending row — Figma: "-" info, Remove + Add tracking at natural width */
+.vault-dash-sb--pending .vault-dash-act { grid-column: 3 / 5; justify-self: end; width: auto; gap: 8px; }
+.vault-dash-sb--pending .vault-dash-act .vault-dash-btn { flex: none; padding: 0 16px; }
+.vault-dash-sb--pending .vault-dash-eta > * { color: rgba(255, 255, 255, 0.6); }
+.vault-dash-c__st--pending { font-weight: 600; }
+@media (max-width: 600px) {
+  .vault-dash-sb--pending .vault-dash-act { grid-column: 1 / -1; justify-self: stretch; }
+  .vault-dash-sb--pending .vault-dash-act .vault-dash-btn { flex: 1 1 0; }
+}
+
+/* Pending info slot: exactly one "-" — no separators / secondary line at any width. */
+.vault-dash-sb--pending .vault-dash-eta > * + * { display: none; }
+.vault-dash-sb--pending .vault-dash-eta *::before,
+.vault-dash-sb--pending .vault-dash-eta *::after { content: none !important; }
+
+/* Mobile pending (designer view): pill above title · 50/50 buttons · centered "-" · centered toggle */
+@media (max-width: 600px) {
+  .vault-dash-sb--pending { grid-template-areas: "st p" "st t" "bot bot"; }
+  .vault-dash-sb--pending .vault-dash-pill { justify-self: start; align-self: end; }
+  .vault-dash-sb--pending .vault-dash-bot { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .vault-dash-sb--pending .vault-dash-act { order: 1; width: 100%; display: flex; gap: 10px; }
+  .vault-dash-sb--pending .vault-dash-act .vault-dash-btn { flex: 1 1 0; height: 44px; }
+  .vault-dash-sb--pending .vault-dash-eta { display: block; order: 2; text-align: center; }
+  .vault-dash-sb--pending .vault-dash-eta > * { display: inline; }
+  .vault-dash-sb--pending .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
+}
+
+/* Shipped row — Figma desktop: natural-width Track button, muted carrier line */
+.vault-dash-sb--transit .vault-dash-act { justify-self: end; width: auto; }
+.vault-dash-sb--transit .vault-dash-act .vault-dash-btn { flex: none; padding: 0 14px; height: 36px; border-radius: 10px; }
+.vault-dash-sb--transit .vault-dash-eta__track { color: rgba(255, 255, 255, 0.5); font-weight: 400; }
+.vault-dash-sb--transit .vault-dash-eta__track:hover { color: rgba(255, 255, 255, 0.75); }
+.vault-dash-c__st--transit { font-weight: 600; }
+@media (max-width: 600px) {
+  .vault-dash-sb--transit .vault-dash-act { justify-self: stretch; width: auto; }
+  .vault-dash-sb--transit .vault-dash-act .vault-dash-btn { flex: 1 1 0; }
+}
+
+/* Mobile shipped (designer view): pill above title · full-width Track · centered one-line info · centered toggle */
+@media (max-width: 600px) {
+  .vault-dash-sb--transit { grid-template-areas: "st p" "st t" "bot bot"; }
+  .vault-dash-sb--transit .vault-dash-pill { justify-self: start; align-self: end; }
+  .vault-dash-sb--transit .vault-dash-bot { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .vault-dash-sb--transit .vault-dash-act { order: 1; width: 100%; display: flex; }
+  .vault-dash-sb--transit .vault-dash-act .vault-dash-btn { flex: 1 1 0; height: 44px; border-radius: 12px; }
+  .vault-dash-sb--transit .vault-dash-eta { display: block; order: 2; text-align: center; line-height: 1.5; }
+  .vault-dash-sb--transit .vault-dash-eta > * { display: inline; white-space: normal; overflow: visible; }
+  .vault-dash-sb--transit .vault-dash-eta > * + *::before { content: "·"; margin: 0 4px 0 6px; color: rgba(255, 255, 255, 0.5); }
+  .vault-dash-sb--transit .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
+}

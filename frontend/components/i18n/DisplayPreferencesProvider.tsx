@@ -96,6 +96,13 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
   const [fx, setFx] = useState<DisplayFx>(USD_DISPLAY_FX);
   const ratesRef = useRef<RatesBody | null>(null);
   const savingRef = useRef(false);
+  /**
+   * Last explicit picker choice in this tab. Any auth store update (session sync,
+   * KYC merge, a /auth/me that started before the PATCH) carries the *old* profile
+   * value, and profile beats cookie for signed-in users — so without this the effect
+   * below silently reverted the choice. Cleared once the profile catches up.
+   */
+  const choiceRef = useRef<{ locale?: AppLocale; currency?: DisplayCurrency }>({});
 
   const publish = useCallback((next: DisplayFx) => {
     setDisplayFxSnapshot(next);
@@ -128,7 +135,12 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
 
   useEffect(() => {
     if (!initialized || savingRef.current) return;
-    const currency = resolveDisplayCurrency({
+    const choice = choiceRef.current;
+    if (choice.locale && (!user || user.preferredLocale === choice.locale)) choice.locale = undefined;
+    if (choice.currency && (!user || user.preferredCurrency === choice.currency)) {
+      choice.currency = undefined;
+    }
+    const currency = choice.currency ?? resolveDisplayCurrency({
       authenticated: Boolean(user),
       profile: user?.preferredCurrency,
       cookie: readCookie(CURRENCY_COOKIE),
@@ -136,7 +148,7 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
     if (user?.preferredCurrency === currency) {
       writeCookie(CURRENCY_COOKIE, currency);
     }
-    const locale = resolveAppLocale({
+    const locale = choice.locale ?? resolveAppLocale({
       authenticated: Boolean(user),
       profile: user?.preferredLocale,
       cookie: readCookie(LOCALE_COOKIE),
@@ -151,6 +163,7 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
   const selectCurrency = useCallback(
     (currency: DisplayCurrency) => {
       savingRef.current = true;
+      choiceRef.current.currency = currency;
       writeCookie(CURRENCY_COOKIE, currency);
       publish(composeFx(currency, ratesRef.current));
       const current = useAuthStore.getState().user;
@@ -175,6 +188,7 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
   const selectLocale = useCallback(
     (locale: AppLocale) => {
       savingRef.current = true;
+      choiceRef.current.locale = locale;
       writeCookie(LOCALE_COOKIE, locale);
       router.refresh();
       const current = useAuthStore.getState().user;

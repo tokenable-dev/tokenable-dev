@@ -488,7 +488,8 @@
     "redeemFinish": "贖回中 — 完成轉移",
     "valueHeroAria": "投資組合價值",
     "collectionValue": "收藏價值",
-    "redeemRequests": "贖回申請"
+    "redeemRequests": "贖回申請",
+    "lastPrice": "最新價格"
   },
   "AuthGate": {
     "signIn": "登入",

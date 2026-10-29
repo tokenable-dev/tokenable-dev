@@ -488,7 +488,8 @@
     "redeemFinish": "償還中 — 移転を完了",
     "valueHeroAria": "ポートフォリオ評価額",
     "collectionValue": "コレクション評価額",
-    "redeemRequests": "償還リクエスト"
+    "redeemRequests": "償還リクエスト",
+    "lastPrice": "最新価格"
   },
   "AuthGate": {
     "signIn": "ログイン",

@@ -4996,3 +4996,17 @@ button.pf-table-card-cell--activate {
     color: rgba(255, 255, 255, 0.5);
   }
 }
+
+/* Partner Redeem requests — purple CTA. */
+.pf-value-hero__redeem.tk-btn.tk-btn--primary,
+.pf-value-hero__redeem.tk-btn.tk-btn--primary:hover,
+.pf-value-hero__redeem.tk-btn.tk-btn--primary:focus-visible,
+.pf-value-hero__redeem.tk-btn.tk-btn--primary:active {
+  border-radius: 12px;
+  background: #a990ff;
+  border-color: #a990ff;
+  box-shadow: 0 4px 14px 0 rgba(151, 125, 255, 0.38);
+}
+.pf-value-hero__redeem.tk-btn.tk-btn--primary:hover {
+  filter: brightness(1.06);
+}
