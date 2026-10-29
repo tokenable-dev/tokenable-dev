@@ -97,7 +97,7 @@ export function SellShippingView() {
     if (trackingSeeded.current || !ship.ready || !ship.isTrackingEdit) return;
     if (!ship.trackingNumber.trim()) return;
     trackingSeeded.current = true;
-    setTrackingAdded(true);
+    setTrackingAdded(false);
   }, [ship.ready, ship.isTrackingEdit, ship.trackingNumber]);
 
   if (!ship.ready) {
@@ -120,7 +120,9 @@ export function SellShippingView() {
     label: countryLabel(value, locale, t("countryOther")),
   }));
   const trackingReady = ship.trackingNumber.trim().length > 0 && !ship.trackingErr;
-  const doneDisabled = !trackingAdded || !ship.canConfirm || ship.confirming;
+  const doneDisabled = ship.isTrackingEdit
+    ? !trackingReady || !ship.canConfirm || ship.confirming
+    : !trackingAdded || !ship.canConfirm || ship.confirming;
 
   return (
     <VaultAuthGate>
@@ -331,7 +333,7 @@ export function SellShippingView() {
 
           <article className="psa-ship-card">
             <h2>
-              <span>3</span>{t("addTracking")}
+              <span>3</span>{ship.isTrackingEdit ? t("editTracking") : t("addTracking")}
             </h2>
             {trackingAdded ? (
               <div className="psa-ship-track-done">
@@ -412,8 +414,18 @@ export function SellShippingView() {
               void ship.confirmShipment();
             }}
           >
-            {ship.confirming ? t("saving") : t("done")}
+            {ship.confirming ? t("saving") : ship.isTrackingEdit ? t("save") : t("done")}
           </button>
+          {ship.isTrackingEdit ? (
+            <button
+              type="button"
+              className="psa-ship-link psa-ship-cancel-edit"
+              disabled={ship.confirming}
+              onClick={ship.backToCards}
+            >
+              {t("cancel")}
+            </button>
+          ) : null}
         </section>
       </div>
     </VaultAuthGate>

@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useLocale, useTranslations } from "next-intl";
 import { TkButton, TkInput, TkSelect } from "@/components/ds";
 import { VaultBreadcrumb } from "@/components/vault/VaultBreadcrumb";
 import { VaultStepper } from "@/components/vault/VaultStepper";
 import { VaultThumb } from "@/components/vault/VaultThumb";
 import {
   VAULT_DETAIL_SCENARIOS,
-  withLiveHero,
+  liveHeroSub,
   type VaultDetailScenario,
   type VaultDetailScenarioKey,
   type VaultPackageCard,
@@ -17,8 +18,40 @@ import { vaultDetailCardLines } from "@/lib/vault/vaultSubmissionDisplay";
 import { formatSellCardDisplay } from "@/lib/sell/sellFlowDraft";
 import { cn } from "@/lib/ds/cn";
 
-function formatSubmitDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-US", {
+type T = ReturnType<typeof useTranslations>;
+
+/** Scenario copy holds `VaultDetail.*` keys — resolve them for the active locale. */
+function localizeScenario(
+  t: T,
+  base: VaultDetailScenario,
+  sub: { key: string; values?: Record<string, string | number> } | null,
+): VaultDetailScenario {
+  return {
+    ...base,
+    hero: {
+      ...base.hero,
+      title: t(base.hero.title),
+      sub: sub ? t(sub.key, sub.values) : t(base.hero.sub),
+    },
+    steps: base.steps.map((st) => ({
+      ...st,
+      label: t(st.label),
+      sub: st.sub ? t(st.sub) : st.sub,
+    })),
+    cta: base.cta.map((c) => ({ ...c, label: t(c.label) })),
+  };
+}
+
+const REASON_KEY: Record<string, string> = {
+  "Cert mismatch": "rejectCertMismatch",
+  "PSA declined": "rejectPsaDeclined",
+  "Grade ineligible": "rejectGradeIneligible",
+  "Damaged in transit": "rejectDamaged",
+  "Not received": "rejectNotReceived",
+};
+
+function formatSubmitDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -116,21 +149,23 @@ function PackageInfoCard({
   cards: VaultPackageCard[];
   submittedAt?: string | null;
 }) {
+  const t = useTranslations("VaultDetail");
+  const locale = useLocale();
   const count = cards.length;
   return (
     <div className="vault-card-box vault-detail-package">
       <div className="vault-detail-package__head">
         <span className="vault-detail-package__title">
-          <span className="mono">({count})</span> Card{count === 1 ? "" : "s"}
+          <span className="mono">({count})</span> {t("cardsWord", { count })}
         </span>
         {submittedAt ? (
           <span className="vault-detail-package__date">
-            Submitted {formatSubmitDate(submittedAt)}
+            {t("submittedOn", { date: formatSubmitDate(submittedAt, locale) })}
           </span>
         ) : null}
       </div>
       {count === 0 ? (
-        <p className="px-1 py-3 text-sm text-white/40">No cards in this submission.</p>
+        <p className="px-1 py-3 text-sm text-white/40">{t("noCards")}</p>
       ) : (
         <ul className="vault-detail-package__list">
           {cards.map((c, i) => {
@@ -146,7 +181,7 @@ function PackageInfoCard({
                 <div className="vault-detail-package__copy">
                   <div className="vault-detail-package__name">{line1}</div>
                   {line2 ? <div className="mono vault-detail-package__line2">{line2}</div> : null}
-                  <div className="mono vault-detail-package__cert-m">Cert #{c.cert}</div>
+                  <div className="mono vault-detail-package__cert-m">{t("certNo", { cert: c.cert })}</div>
                 </div>
                 <span className="mono vault-detail-package__cert">#{c.cert}</span>
               </li>
@@ -167,24 +202,25 @@ function TrackingCard({
   tracking: { label: string; url: string } | null;
   submissionId: string;
 }) {
+  const t = useTranslations("VaultDetail");
   const shippingHref = `/sell/shipping?submission=${encodeURIComponent(submissionId)}`;
 
   if (ship === "pending") {
     return (
       <div className="vault-card-box vault-detail-tracking">
-        <h2 className="vault-detail-tracking__title">Add tracking</h2>
+        <h2 className="vault-detail-tracking__title">{t("addTracking")}</h2>
         <div className="vault-detail-tracking-form">
-          <TkSelect defaultValue="fedex" disabled aria-label="Carrier">
+          <TkSelect defaultValue="fedex" disabled aria-label={t("carrier")}>
             <option value="fedex">FedEx</option>
             <option value="dhl">DHL Express</option>
             <option value="ups">UPS</option>
             <option value="ems">Korea Post EMS</option>
           </TkSelect>
-          <TkInput placeholder="Tracking number" disabled aria-label="Tracking number" />
+          <TkInput placeholder={t("trackingNumber")} disabled aria-label={t("trackingNumber")} />
         </div>
         <div className="vault-detail-tracking-cta-wrap">
           <Link href={shippingHref} className="tk-btn tk-btn--primary vault-detail-tracking-cta">
-            Continue
+            {t("ctaContinue")}
           </Link>
         </div>
       </div>
@@ -193,7 +229,7 @@ function TrackingCard({
 
   return (
     <div className="vault-card-box vault-detail-tracking">
-      <h2 className="vault-detail-tracking__title">Add tracking</h2>
+      <h2 className="vault-detail-tracking__title">{t("addTracking")}</h2>
       <div className="vault-detail-tracking-done">
         <svg
           width="18"
@@ -209,7 +245,7 @@ function TrackingCard({
           <polyline points="20 6 9 17 4 12" />
         </svg>
         <div className="vault-detail-tracking-done__body">
-          In transit
+          {t("inTransit")}
           {tracking ? (
             <>
               {" · "}
@@ -218,7 +254,7 @@ function TrackingCard({
           ) : null}
         </div>
         <Link href={shippingHref} className="vault-detail-tracking-done__edit">
-          Edit
+          {t("edit")}
         </Link>
       </div>
     </div>
@@ -247,13 +283,13 @@ function CtaRow({ ctas }: { ctas: VaultDetailScenario["cta"] }) {
   );
 }
 
-function cardStatusLabel(card: VaultPackageCard) {
+function cardStatusLabel(t: T, card: VaultPackageCard) {
   const map: Record<VaultPackageCard["status"], [string, string, string]> = {
-    completed: ["Live", "var(--pos)", "rgba(0,200,100,0.14)"],
-    approved: ["Approved", "var(--pos)", "rgba(0,200,100,0.14)"],
-    reviewing: ["Reviewing", "var(--azure)", "rgba(26,111,255,0.14)"],
-    rejected: ["Rejected", "var(--neg)", "rgba(245,51,44,0.14)"],
-    failed: ["Failed", "var(--neg)", "rgba(245,51,44,0.14)"],
+    completed: ["stLive", "var(--pos)", "rgba(0,200,100,0.14)"],
+    approved: ["stApproved", "var(--pos)", "rgba(0,200,100,0.14)"],
+    reviewing: ["stReviewing", "var(--azure)", "rgba(26,111,255,0.14)"],
+    rejected: ["stRejected", "var(--neg)", "rgba(245,51,44,0.14)"],
+    failed: ["stFailed", "var(--neg)", "rgba(245,51,44,0.14)"],
   };
   const s = map[card.status];
   if (!s) return null;
@@ -262,7 +298,7 @@ function cardStatusLabel(card: VaultPackageCard) {
       className="mono vault-lm-row__status-pill"
       style={{ color: s[1], background: s[2] }}
     >
-      {s[0]}
+      {t(s[0])}
     </span>
   );
 }
@@ -275,19 +311,25 @@ function LayoutB({
   scenario: VaultDetailScenario;
   cards: VaultPackageCard[];
 }) {
+  const t = useTranslations("VaultDetail");
+  const tSell = useTranslations("Sell");
   const stage = scenario.stage ?? "vault";
   const tabDefs =
     stage === "vault"
       ? [
-          { key: "all" as const, label: "All" },
-          { key: "approved" as const, label: "✅ Approved" },
-          { key: "reviewing" as const, label: "⏳ Reviewing" },
-          { key: "rejected" as const, label: "🔴 Rejected" },
+          { key: "all", label: t("tabAll") },
+          { key: "approved", label: `✅ ${t("stApproved")}` },
+          { key: "reviewing", label: `⏳ ${t("stReviewing")}` },
+          { key: "rejected", label: `🔴 ${t("stRejected")}` },
+          // Mint failures in an all-failed (rejected) package — hidden when 0.
+          { key: "failed", label: `🔴 ${t("stFailed")}` },
         ]
       : [
-          { key: "all" as const, label: "All" },
-          { key: "completed" as const, label: "✅ Completed" },
-          { key: "failed" as const, label: "🔴 Failed" },
+          { key: "all", label: t("tabAll") },
+          { key: "completed", label: `✅ ${t("tabCompleted")}` },
+          { key: "failed", label: `🔴 ${t("stFailed")}` },
+          // PSA-rejected cards in a partial (failed) package — hidden when 0.
+          { key: "rejected", label: `🔴 ${t("stRejected")}` },
         ];
 
   const [filter, setFilter] = useState<string>("all");
@@ -335,7 +377,7 @@ function LayoutB({
                 <div className="vault-lm-row__body">
                   <div className="vault-lm-row__name-line">
                     <span className="vault-lm-row__name">{line1}</span>
-                    {cardStatusLabel(card)}
+                    {cardStatusLabel(t, card)}
                   </div>
                   {listLine2 ? (
                     <div className="vault-lm-row__subline mono">{listLine2}</div>
@@ -345,12 +387,12 @@ function LayoutB({
                   ) : null}
                   {card.status === "completed" ? (
                     <div className="vault-lm-row__under">
-                      <span className="vault-lm-row__listing">View listing →</span>
+                      <span className="vault-lm-row__listing">{t("viewListing")}</span>
                     </div>
                   ) : null}
                   {card.status === "rejected" && card.reason ? (
                     <div className="vault-lm-row__under vault-lm-row__under--neg">
-                      {card.reason}
+                      {REASON_KEY[card.reason] ? tSell(REASON_KEY[card.reason]) : card.reason}
                     </div>
                   ) : null}
                 </div>
@@ -364,15 +406,16 @@ function LayoutB({
 }
 
 function EarlyRejectView() {
+  const t = useTranslations("VaultDetail");
   return (
     <>
       <VaultBreadcrumb
         variant="flow"
-        items={[{ label: "Sell", href: "/vault" }, { label: "Submission" }]}
+        items={[{ label: t("crumbSell"), href: "/vault" }, { label: t("crumbSubmission") }]}
       />
       <div className="vault-detail-grid">
         <div className="vault-detail-main">
-          <h1 className="vault-detail-page-title">Submission Detail</h1>
+          <h1 className="vault-detail-page-title">{t("detailTitle")}</h1>
           <div className="vault-detail-status-hero vault-detail-status-hero--rejected">
             <div className="vault-detail-status-hero__head">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2" aria-hidden>
@@ -380,10 +423,10 @@ function EarlyRejectView() {
                 <line x1="12" y1="8" x2="12" y2="12" />
                 <line x1="12" y1="16" x2="12.01" y2="16" />
               </svg>
-              <div className="vault-detail-status-hero__title">Not Eligible for Vault</div>
+              <div className="vault-detail-status-hero__title">{t("earlyTitle")}</div>
             </div>
             <p className="vault-detail-status-hero__desc">
-              We currently accept PSA 9 and PSA 10 only. Ineligible cards are returned to the submitter.
+              {t("earlyDesc")}
             </p>
           </div>
           <VaultStepper variant="rejected" active={1} />
@@ -391,15 +434,15 @@ function EarlyRejectView() {
 
         <aside className="vault-detail-aside">
           <div className="vault-card-box">
-            <span className="vault-detail-section-label vault-detail-section-label--box">What Happened</span>
+            <span className="vault-detail-section-label vault-detail-section-label--box">{t("whatHappened")}</span>
             <p className="vault-detail-what-happened">
-              We currently accept PSA 9 and PSA 10 graded cards. Cards below that grade are returned.
+              {t("whatHappenedBody")}
             </p>
           </div>
           <div className="vault-detail-aside-actions">
             <Link href="/vault/submit" className="inline-flex w-full">
               <TkButton decorative variant="primary" size="md" className="h-12 w-full justify-center text-sm">
-                Submit Another Card →
+                {t("ctaSubmitAnother")} →
               </TkButton>
             </Link>
           </div>
@@ -424,6 +467,7 @@ export function VaultDetailDesignView({
   tracking?: { label: string; url: string } | null;
   submittedAt?: string | null;
 }) {
+  const t = useTranslations("VaultDetail");
   const scenarioKey: Exclude<VaultDetailScenarioKey, "early"> =
     initialScenario === "early" ? "C" : (initialScenario as Exclude<VaultDetailScenarioKey, "early">);
 
@@ -432,7 +476,11 @@ export function VaultDetailDesignView({
   }
 
   const base = VAULT_DETAIL_SCENARIOS[scenarioKey] ?? VAULT_DETAIL_SCENARIOS.C;
-  const scenario = withLiveHero(base, submissionId, livePackageCards.length);
+  const scenario = localizeScenario(
+    t,
+    base,
+    liveHeroSub(scenarioKey, submissionId, livePackageCards),
+  );
   const shellClass = cn(
     scenario.layout === "A" ? "vault-detail-page--layout-a" : "vault-detail-page--layout-b",
     `vault-detail-page--${scenarioKey.toLowerCase()}`,
@@ -444,10 +492,10 @@ export function VaultDetailDesignView({
     <div className={shellClass}>
       <VaultBreadcrumb
         variant="flow"
-        items={[{ label: "Sell", href: "/vault" }, { label: submissionId }]}
+        items={[{ label: t("crumbSell"), href: "/vault" }, { label: submissionId }]}
       />
 
-      <h1 className="vault-detail-page-title">PSA Vault Submission</h1>
+      <h1 className="vault-detail-page-title">{t("pageTitle")}</h1>
 
       {scenario.layout === "A" ? (
         <LayoutAContent

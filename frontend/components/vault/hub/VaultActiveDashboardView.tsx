@@ -23,6 +23,7 @@ import {
   countVaultHubPackages,
   packageMatchesTab,
   type VaultHubPackage,
+  type VaultHubText,
 } from "@/lib/vault/buildVaultHubRows";
 import type { VaultHubVState } from "@/lib/vault/vaultHubTypes";
 import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
@@ -49,6 +50,21 @@ function Chevron({ open }: { open: boolean }) {
   return (
     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <polyline points={open ? "18 15 12 9 6 15" : "6 9 12 15 18 9"} />
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path d="M7 11.666H12.25" stroke="currentColor" strokeWidth="1.16583" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M9.625 2.04212C9.85706 1.81006 10.1718 1.67969 10.5 1.67969C10.8282 1.67969 11.1429 1.81006 11.375 2.04212C11.6071 2.27419 11.7374 2.58894 11.7374 2.91712C11.7374 3.24531 11.6071 3.56006 11.375 3.79212L4.08333 11.0838L1.75 11.6671L2.33333 9.33379L9.625 2.04212Z"
+        stroke="currentColor"
+        strokeWidth="1.16583"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -94,8 +110,18 @@ function PackageRow({
 }) {
   const t = useTranslations("Sell");
   const units = useTranslations("RedeemUi");
+  const locale = useLocale();
+  const fmtDay = (iso: string | null | undefined): string => {
+    if (!iso) return "-";
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime())
+      ? "-"
+      : d.toLocaleDateString(locale, { month: "short", day: "numeric" });
+  };
+  const text = (part: VaultHubText): string =>
+    "raw" in part ? part.raw : t(part.key, { date: fmtDay(part.date) });
   const pill: Record<VaultHubVState, string> = {
-    pending: t("shipPending"),
+    pending: t("statusPending"),
     transit: t("shipped"),
     verify: t("verifying"),
     vaulted: t("vaulted"),
@@ -116,8 +142,9 @@ function PackageRow({
         ))}
       </span>
       <div className="vault-dash-sb__t">
-        <div className="vault-dash-sb__title">{pkg.title}</div>
-        {pkg.cards.length > 1 && pkg.status !== "pending" && pkg.status !== "transit" ? <div className="vault-dash-sb__meta">{pkg.meta}</div> : null}
+        <div className="vault-dash-sb__title">
+          {pkg.submissionNo ? t("submissionNo", { id: pkg.submissionNo }) : t("submission")}
+        </div>
         {pkg.vaultedCount > 0 || pkg.rejectedCount > 0 ? (
           <div className="vault-dash-sum">
             {pkg.vaultedCount > 0 ? (
@@ -141,24 +168,37 @@ function PackageRow({
           {units(pkg.cards.length === 1 ? "cardOne" : "cardMany")} <Chevron open={open} />
         </button>
         <div className="vault-dash-eta">
-          {pkg.status === "pending" ? <span>-</span> : null}
-          {(pkg.status === "pending" ? [] : pkg.eta.filter(Boolean)).map((part, i, parts) => {
-            const isCarrierLine =
-              Boolean(pkg.trackingUrl) && pkg.status === "transit" && i === parts.length - 1;
-            if (isCarrierLine && pkg.trackingUrl) {
-              return (
-                <a
-                  key={part}
-                  href={pkg.trackingUrl}
-                  className="vault-dash-eta__track"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {part}
-                </a>
-              );
-            }
-            return <span key={part}>{part}</span>;
+          {pkg.eta.map((part, i, parts) => {
+            const label = text(part);
+            if (!label) return null;
+            const isCarrierLine = pkg.status === "transit" && i === parts.length - 1;
+            if (!isCarrierLine) return <span key={i}>{label}</span>;
+            return (
+              <span key={i} className="vault-dash-eta__carrier">
+                {pkg.trackingUrl ? (
+                  <a
+                    href={pkg.trackingUrl}
+                    className="vault-dash-eta__track"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  label
+                )}
+                {pkg.editTrackingHref ? (
+                  <Link
+                    href={pkg.editTrackingHref}
+                    className="vault-dash-eta__edit"
+                    aria-label={t("editTracking")}
+                    title={t("editTracking")}
+                  >
+                    <EditIcon />
+                  </Link>
+                ) : null}
+              </span>
+            );
           })}
         </div>
         <div className="vault-dash-act">
@@ -180,14 +220,9 @@ function PackageRow({
           {shown.map((card) => (
             <div key={card.id} className="vault-dash-c">
               <VaultThumb src={vaultDashImage(card.imageUrl)} width={28} height={40} className="vault-dash-c__img" alt="" />
-              <span className="vault-dash-c__name">
-                {card.title}
-                {pkg.cards.length === 1 && card.detail ? (
-                  <span className="vault-dash-c__detail">{card.detail}</span>
-                ) : null}
-              </span>
-              <span className="vault-dash-c__cert">{card.cert ? `Cert #${card.cert}` : ""}</span>
-              <span className={cn("vault-dash-c__st", `vault-dash-c__st--${card.state}`)}>{card.statusLabel}</span>
+              <span className="vault-dash-c__name">{card.title}</span>
+              <span className="vault-dash-c__cert">{card.cert ? t("certNo", { cert: card.cert }) : ""}</span>
+              <span className={cn("vault-dash-c__st", `vault-dash-c__st--${card.state}`)}>{t(card.statusKey)}</span>
             </div>
           ))}
           {more > 0 ? (
@@ -231,7 +266,7 @@ export function VaultActiveDashboardView() {
   );
   const tabs: { id: TabFilter; label: string }[] = [
     { id: "all", label: t("all") },
-    { id: "pending", label: t("shipPending") },
+    { id: "pending", label: t("statusPending") },
     { id: "transit", label: t("shipped") },
     { id: "verify", label: t("verifying") },
     { id: "vaulted", label: t("vaulted") },

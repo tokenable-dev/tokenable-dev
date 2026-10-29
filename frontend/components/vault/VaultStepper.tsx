@@ -2,6 +2,7 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { TkStepper } from "@/components/ds";
 import { cn } from "@/lib/ds/cn";
 import {
@@ -88,12 +89,13 @@ function richConnectorClass(prev: VaultStepState): string {
 
 /** Vault-Detail.html `stepBar` — circle stepper with subs (Submit / Ship / PSA / Live). */
 function RichVaultStepper({ steps }: { steps: VaultStepDef[] }) {
+  const t = useTranslations("VaultDetail");
   const extras = steps.filter((s) => s.detail || s.cta);
   const hasCta = steps.some((s) => s.cta);
 
   return (
     <div className={cn("vault-stepper-wrap vault-stepper-wrap--rich", hasCta && "vault-stepper-wrap--rich-cta")}>
-      <div className="vault-stepper vault-stepper--rich" role="list" aria-label="Vault submission progress">
+      <div className="vault-stepper vault-stepper--rich" role="list" aria-label={t("progressAria")}>
         {steps.map((step, i) => (
           <Fragment key={`${step.label}-${i}`}>
             {i > 0 ? (
@@ -138,13 +140,14 @@ export function VaultStepper({
   compact?: boolean;
   size?: "sm" | "md";
 }) {
+  const t = useTranslations("VaultDetail");
   const resolvedSteps =
     variant === "rejected"
       ? [
-          { label: "Submit", state: "failed" as const, sub: "Ineligible" },
-          { label: "Ship", state: "inactive" as const },
-          { label: "Vault", state: "inactive" as const },
-          { label: "Mint", state: "inactive" as const },
+          { label: t("stepSubmitShort"), state: "failed" as const, sub: t("subIneligible") },
+          { label: t("stepShip"), state: "inactive" as const },
+          { label: t("stepVault"), state: "inactive" as const },
+          { label: t("stepMint"), state: "inactive" as const },
         ]
       : (steps ?? (active != null ? buildSimpleVaultSteps(active) : buildSimpleVaultSteps(1)));
 
@@ -159,7 +162,7 @@ export function VaultStepper({
       <TkStepper
         theme="dark"
         size={size}
-        aria-label="Vault submission progress"
+        aria-label={t("progressAria")}
         steps={resolvedSteps.map((s) => ({
           label: s.label,
           sub: s.sub,

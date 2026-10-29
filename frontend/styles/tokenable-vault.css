@@ -7462,3 +7462,140 @@
   .vault-dash-sb--transit .vault-dash-eta > * + *::before { content: "·"; margin: 0 4px 0 6px; color: rgba(255, 255, 255, 0.5); }
   .vault-dash-sb--transit .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
 }
+
+/* Verifying row — Figma: same structure as Shipped (natural-width View, muted ETA) */
+.vault-dash-sb--verify .vault-dash-act { justify-self: end; width: auto; }
+.vault-dash-sb--verify .vault-dash-act .vault-dash-btn { flex: none; padding: 0 16px; height: 36px; border-radius: 12px; }
+.vault-dash-c__st--verify { font-weight: 600; }
+@media (max-width: 600px) {
+  .vault-dash-sb--verify { grid-template-areas: "st p" "st t" "bot bot"; }
+  .vault-dash-sb--verify .vault-dash-pill { justify-self: start; align-self: end; }
+  .vault-dash-sb--verify .vault-dash-bot { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .vault-dash-sb--verify .vault-dash-act { order: 1; width: 100%; display: flex; justify-self: stretch; }
+  .vault-dash-sb--verify .vault-dash-act .vault-dash-btn { flex: 1 1 0; height: 44px; }
+  .vault-dash-sb--verify .vault-dash-eta { display: block; order: 2; text-align: center; line-height: 1.5; }
+  .vault-dash-sb--verify .vault-dash-eta > * { display: inline; white-space: normal; overflow: visible; }
+  .vault-dash-sb--verify .vault-dash-eta > * + *::before { content: "·"; margin: 0 4px 0 6px; color: rgba(255, 255, 255, 0.5); }
+  .vault-dash-sb--verify .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
+}
+
+/* Status card type scale — title 15px; everything below 13.5px desktop / 13px mobile. */
+.vault-dash-sb .vault-dash-sb__title { font-size: 15px; }
+.vault-dash-sb .vault-dash-sb__meta,
+.vault-dash-sb .vault-dash-sb__cert,
+.vault-dash-sb .vault-dash-sum,
+.vault-dash-sb .vault-dash-pill,
+.vault-dash-sb .vault-dash-tog,
+.vault-dash-sb .vault-dash-one,
+.vault-dash-sb .vault-dash-eta,
+.vault-dash-sb .vault-dash-btn,
+.vault-dash-sb .vault-dash-c__name,
+.vault-dash-sb .vault-dash-c__cert,
+.vault-dash-sb .vault-dash-c__st,
+.vault-dash-sb .vault-dash-more { font-size: 13.5px; }
+.vault-dash-sb .vault-dash-c__detail { font-size: 12.5px; }
+@media (max-width: 600px) {
+  .vault-dash-sb .vault-dash-sb__meta,
+  .vault-dash-sb .vault-dash-sb__cert,
+  .vault-dash-sb .vault-dash-sum,
+  .vault-dash-sb .vault-dash-pill,
+  .vault-dash-sb .vault-dash-tog,
+  .vault-dash-sb .vault-dash-one,
+  .vault-dash-sb .vault-dash-eta,
+  .vault-dash-sb .vault-dash-btn,
+  .vault-dash-sb .vault-dash-c__name,
+  .vault-dash-sb .vault-dash-c__cert,
+  .vault-dash-sb .vault-dash-c__st,
+  .vault-dash-sb .vault-dash-more { font-size: 13px; }
+  .vault-dash-sb .vault-dash-c__detail { font-size: 12px; }
+}
+
+/* Vaulted row — Figma: summary "48 vaulted · 2 rejected" (counts bold; words muted), natural-width View */
+.vault-dash-sb .vault-dash-sum { color: rgba(255, 255, 255, 0.5); }
+.vault-dash-sb .vault-dash-sum b { color: #fff; font-weight: 700; }
+.vault-dash-sb .vault-dash-sum b.vault-dash-sum__neg { color: #ff6b6b; }
+.vault-dash-sb--vaulted .vault-dash-act { justify-self: end; width: auto; }
+.vault-dash-sb--vaulted .vault-dash-act .vault-dash-btn { flex: none; padding: 0 16px; height: 36px; border-radius: 12px; }
+@media (max-width: 600px) {
+  .vault-dash-sb--vaulted { grid-template-areas: "st p" "st t" "bot bot"; }
+  .vault-dash-sb--vaulted .vault-dash-pill { justify-self: start; align-self: end; }
+  .vault-dash-sb--vaulted .vault-dash-bot { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .vault-dash-sb--vaulted .vault-dash-act { order: 1; width: 100%; display: flex; justify-self: stretch; }
+  .vault-dash-sb--vaulted .vault-dash-act .vault-dash-btn { flex: 1 1 0; height: 44px; }
+  .vault-dash-sb--vaulted .vault-dash-eta { display: block; order: 2; text-align: center; line-height: 1.5; }
+  .vault-dash-sb--vaulted .vault-dash-eta > * { display: inline; white-space: normal; overflow: visible; }
+  .vault-dash-sb--vaulted .vault-dash-eta > * + *::before { content: "·"; margin: 0 4px 0 6px; color: rgba(255, 255, 255, 0.5); }
+  .vault-dash-sb--vaulted .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
+}
+
+/* Shipped: edit-tracking pencil right after "FedEx · FX…" (same muted color). */
+.vault-dash-eta__carrier { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.vault-dash-eta__edit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: -3px 0;
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.6);
+  text-decoration: none;
+}
+.vault-dash-eta__edit:hover { color: #fff; background: rgba(255, 255, 255, 0.08); }
+.vault-dash-eta__edit:focus-visible { outline: 2px solid #1a6fff; outline-offset: 1px; }
+@media (max-width: 600px) {
+  .vault-dash-sb--transit .vault-dash-eta > .vault-dash-eta__carrier { display: inline-flex; vertical-align: middle; gap: 2px; }
+  /* ≥32px tap target without changing the line height visually. */
+  .vault-dash-eta__edit { width: 32px; height: 32px; margin: -9px -8px -9px 0; }
+}
+.psa-ship-cancel-edit { display: block; margin: 12px auto 0; }
+
+/* Rejected row — Figma: "1 rejected" summary, natural-width blue Contact support */
+.vault-dash-sb--reject .vault-dash-act { justify-self: end; width: auto; }
+.vault-dash-sb--reject .vault-dash-act .vault-dash-btn { flex: none; padding: 0 16px; height: 36px; border-radius: 12px; }
+@media (max-width: 600px) {
+  /* Mobile Figma: no summary line under the title for Vaulted / Rejected. */
+  .vault-dash-sb--vaulted .vault-dash-sum,
+  .vault-dash-sb--reject .vault-dash-sum { display: none; }
+  .vault-dash-sb--reject { grid-template-areas: "st p" "st t" "bot bot"; }
+  .vault-dash-sb--reject .vault-dash-pill { justify-self: start; align-self: end; }
+  .vault-dash-sb--reject .vault-dash-bot { display: flex; flex-direction: column; align-items: stretch; gap: 12px; }
+  .vault-dash-sb--reject .vault-dash-act { order: 1; width: 100%; display: flex; justify-self: stretch; }
+  .vault-dash-sb--reject .vault-dash-act .vault-dash-btn { flex: 1 1 0; height: 44px; }
+  .vault-dash-sb--reject .vault-dash-eta { display: block; order: 2; text-align: center; line-height: 1.5; }
+  .vault-dash-sb--reject .vault-dash-eta > * { display: inline; white-space: normal; overflow: visible; }
+  .vault-dash-sb--reject .vault-dash-eta > * + *::before { content: "·"; margin: 0 4px 0 6px; color: rgba(255, 255, 255, 0.5); }
+  .vault-dash-sb--reject .vault-dash-tog { order: 3; align-self: center; justify-content: center; }
+}
+
+/* Submission Detail redesign (Vault-Detail.html v2): single 640px column at every width,
+   matching the Sell flow. Layout B (per-card list) no longer uses the 1400px split. */
+.vault-page--detail > .vault-page__shell {
+  max-width: calc(640px + 2 * clamp(16px, 4vw, 40px));
+}
+.vault-detail-page--layout-a,
+.vault-detail-page--layout-b {
+  max-width: 640px;
+  margin-inline: auto;
+}
+.vault-page--detail .vault-detail-grid { grid-template-columns: 1fr; gap: 32px; }
+.vault-page--detail .vault-detail-layout-b .vault-lm-list {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+}
+/* CTA row: 240px pills on ≥768, flexible (min 240 basis, wraps) below. */
+@media (min-width: 768px) {
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--primary,
+  .vault-page--detail .vault-detail-main-actions .vault-detail-cta--subtle {
+    flex: 0 0 240px;
+    width: 240px;
+    min-width: 0;
+    max-width: 240px;
+    padding: 0 24px;
+  }
+}
+@media (max-width: 640px) {
+  .vault-page--detail .vault-card-box { padding-left: 16px; padding-right: 16px; }
+}

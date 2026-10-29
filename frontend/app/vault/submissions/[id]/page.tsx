@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useParams, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { VaultShell } from "@/components/vault/VaultShell";
 import { VaultDetailDesignView } from "@/components/vault/detail/VaultDetailDesignView";
 import { useVaultSubmissionDisplayByCert } from "@/hooks/vault/useVaultSubmissionDisplayByCert";
@@ -81,6 +82,7 @@ function VaultSubmissionDetailBody({
 }: {
   previewScenario: Exclude<VaultDetailScenarioKey, "early"> | null;
 }) {
+  const t = useTranslations("VaultDetail");
   const params = useParams<{ id: string }>();
   const paramId = typeof params.id === "string" ? decodeURIComponent(params.id) : "";
 
@@ -165,13 +167,13 @@ function VaultSubmissionDetailBody({
   }
 
   if (!loaded) {
-    return <div className="text-sm text-white/40 py-16 text-center">Loading submission…</div>;
+    return <div className="text-sm text-white/40 py-16 text-center">{t("loading")}</div>;
   }
 
   if (!apiSub) {
     return (
       <div className="text-sm text-white/50 py-16 text-center">
-        Submission not found.
+        {t("notFound")}
       </div>
     );
   }

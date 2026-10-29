@@ -229,13 +229,17 @@ export class VaultSubmissionService {
     }
 
     const statuses = items.map((i) => i.status);
-    if (statuses.some((s) => s === 'rejected') && statuses.every((s) => s === 'rejected')) {
-      return 'F';
+    // Final outcome (every card done): all minted → G, none minted → F, mixed → H.
+    const terminal = (s: string) => s === 'completed' || s === 'rejected' || s === 'failed';
+    if (statuses.every(terminal)) {
+      const minted = statuses.filter((s) => s === 'completed').length;
+      if (minted === statuses.length) return 'G';
+      if (minted === 0) return 'F';
+      return 'H';
     }
     if (statuses.some((s) => s === 'failed') && statuses.some((s) => s === 'completed')) {
       return 'H';
     }
-    if (statuses.every((s) => s === 'completed')) return 'G';
     if (statuses.every((s) => s === 'approved' || s === 'completed' || s === 'minting')) {
       return 'E';
     }
@@ -266,6 +270,8 @@ export class VaultSubmissionService {
       shipDate: sub.shipDate,
       shippedAt: this.isoOrNull(sub.shippedAt),
       packingSlipDownloadedAt: this.isoOrNull(sub.packingSlipDownloadedAt),
+      arrivedAt: this.isoOrNull(sub.arrivedAt),
+      vaultedAt: this.isoOrNull(sub.vaultedAt),
       chainId: sub.chainId,
       tokenContract: sub.tokenContract,
       createdAt: this.isoOrNull(sub.createdAt) ?? new Date(0).toISOString(),
@@ -579,10 +585,12 @@ export class VaultSubmissionService {
     }
 
     const cleaned = dto.trackingNumber.replace(/\s+/g, '').toUpperCase();
+    // Editing tracking while still in_transit keeps the original ship timestamps.
+    const isEdit = sub.status === 'in_transit' && Boolean(sub.trackingNumber?.trim());
     sub.carrier = dto.carrier;
     sub.trackingNumber = cleaned;
-    sub.shipDate = dto.shipDate ?? new Date().toISOString().slice(0, 10);
-    sub.shippedAt = new Date();
+    sub.shipDate = dto.shipDate ?? (isEdit && sub.shipDate ? sub.shipDate : new Date().toISOString().slice(0, 10));
+    if (!isEdit || !sub.shippedAt) sub.shippedAt = new Date();
     sub.status = 'in_transit';
     if (!sub.packingSlipDownloadedAt) {
       sub.packingSlipDownloadedAt = new Date();
@@ -646,6 +654,7 @@ export class VaultSubmissionService {
     if (!sub) return true;
     if (sub.status === 'in_transit') {
       sub.status = 'psa_reviewing';
+      sub.arrivedAt ??= new Date();
       await this.submissions.save(sub);
     }
     return true;
@@ -669,6 +678,8 @@ export class VaultSubmissionService {
     if (!sub?.items) return true;
     if (sub.items.every((i) => i.status === 'completed' || i.status === 'rejected')) {
       sub.status = 'completed';
+      // "Vaulted" date = minting finished for the whole package (first time only).
+      sub.vaultedAt ??= new Date();
       await this.submissions.save(sub);
     }
     return true;
@@ -892,6 +903,7 @@ export class VaultSubmissionService {
       );
     }
     sub.status = 'psa_reviewing';
+      sub.arrivedAt ??= new Date();
     await this.submissions.save(sub);
     for (const it of sub.items ?? []) {
       if (it.status === 'in_transit' || it.status === 'confirmed') {
@@ -1611,10 +1623,12 @@ export class VaultSubmissionService {
     const statuses = (refreshed.items ?? []).map((i) => i.status);
     if (statuses.length > 0 && statuses.every((s) => s === 'completed' || s === 'rejected')) {
       refreshed.status = 'completed';
+      if (statuses.includes('completed')) refreshed.vaultedAt ??= new Date();
       await this.submissions.save(refreshed);
     } else if (statuses.some((s) => s === 'reviewing' || s === 'approved' || s === 'rejected')) {
       if (refreshed.status === 'in_transit' || refreshed.status === 'awaiting_shipment') {
         refreshed.status = 'psa_reviewing';
+        refreshed.arrivedAt ??= new Date();
         await this.submissions.save(refreshed);
       }
     }

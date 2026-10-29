@@ -296,6 +296,41 @@ export function computeHeroTapeActivityStats(
 }
 
 
+/**
+ * Hero Vol 1Yr. One source renders as its own unit. Both sources stay
+ * labeled and are not added. External USD uses the display-currency formatter.
+ * Platform USDC uses the `$` presentation formatter.
+ */
+export function formatSplitHeroVolume(input: {
+  platformUsdc: number | null;
+  externalUsd: number | null;
+  formatPlatform: (n: number) => string;
+  formatExternal: (n: number) => string;
+  platformLabel: string;
+  externalLabel: string;
+}): string {
+  const platform =
+    input.platformUsdc != null &&
+    Number.isFinite(input.platformUsdc) &&
+    input.platformUsdc > 0
+      ? input.platformUsdc
+      : null;
+  const external =
+    input.externalUsd != null &&
+    Number.isFinite(input.externalUsd) &&
+    input.externalUsd > 0
+      ? input.externalUsd
+      : null;
+  if (platform != null && external != null) {
+    return `${input.externalLabel} ${input.formatExternal(external)} · ${input.platformLabel} ${input.formatPlatform(platform)}`;
+  }
+  if (external != null) return input.formatExternal(external);
+  if (platform != null) {
+    return `${input.platformLabel} ${input.formatPlatform(platform)}`;
+  }
+  return "—";
+}
+
 /** Sum notional over trades in the last 365 calendar days. */
 export function computeTradeVolume1yUsdc(
   trades: CollectionPlatformTapeFill[],

@@ -62,6 +62,14 @@ export class VaultSubmission {
   @Column({ name: 'packing_slip_downloaded_at', type: 'timestamptz', nullable: true })
   packingSlipDownloadedAt: Date | null;
 
+  /** First transition into psa_reviewing (PSA arrival mail / admin mark-arrived). */
+  @Column({ name: 'arrived_at', type: 'timestamptz', nullable: true })
+  arrivedAt: Date | null;
+
+  /** When minting finished for the whole package (all cards completed/rejected, ≥1 completed). */
+  @Column({ name: 'vaulted_at', type: 'timestamptz', nullable: true })
+  vaultedAt: Date | null;
+
   // Items are written explicitly in VaultSubmissionService (no cascade).
   // cascade:true + stale in-memory `items` caused NOT NULL on submission_id.
   @OneToMany(() => VaultSubmissionItem, (item) => item.submission)

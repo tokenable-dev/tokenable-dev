@@ -4,6 +4,7 @@ import {
   CARRIER_TRACK_URLS,
   formatSellCardDisplay,
   sellSubmissionAddTrackingHref,
+  sellSubmissionEditTrackingHref,
   type SellCardDisplaySource,
   type SellCarrier,
 } from "@/lib/sell/sellFlowDraft";
@@ -328,7 +329,35 @@ export type VaultHubPackageCard = {
   cert: string;
   state: VaultHubVState;
   statusLabel: string;
+  /** `Sell` message key for statusLabel (translated in the view). */
+  statusKey: VaultHubTextKey;
 };
+
+/** `Sell.*` keys used by the dashboard info line / statuses. */
+export type VaultHubTextKey =
+  | "statusPending"
+  | "shipped"
+  | "verifying"
+  | "vaulted"
+  | "rejected"
+  | "etaShippedOn"
+  | "etaArrivedOn"
+  | "etaBusinessDays"
+  | "etaVaultedOn"
+  | "etaTokensMinted"
+  | "etaNeedsAttention"
+  | "etaReturnedToSender"
+  | "rejectCertMismatch"
+  | "rejectPsaDeclined"
+  | "rejectGradeIneligible"
+  | "rejectDamaged"
+  | "rejectNotReceived"
+  | "rejectFailed";
+
+/** One info-line part: a translated key (optional ISO date → `{date}`) or literal text. */
+export type VaultHubText =
+  | { key: VaultHubTextKey; date?: string | null }
+  | { raw: string };
 
 export type VaultHubPackage = {
   id: string;
@@ -337,7 +366,9 @@ export type VaultHubPackage = {
   /** Own line under meta on mobile (e.g. Cert #123). */
   certLine?: string;
   status: VaultHubVState;
-  eta: string[];
+  /** Submission number for `Sell.submissionNo` ({id}); empty → `Sell.submission`. */
+  submissionNo: string;
+  eta: VaultHubText[];
   vaultedCount: number;
   rejectedCount: number;
   cards: VaultHubPackageCard[];
@@ -350,7 +381,27 @@ export type VaultHubPackage = {
   detailHref: string;
   /** Carrier tracking page — linked from the eta tracking line (not the Track CTA). */
   trackingUrl?: string;
+  /** Shipped only — edit carrier / tracking number (returns to dashboard). */
+  editTrackingHref?: string;
   createdAt: string;
+};
+
+const PACKAGE_STATUS_KEY: Record<VaultHubVState, VaultHubTextKey> = {
+  pending: "statusPending",
+  transit: "shipped",
+  verify: "verifying",
+  vaulted: "vaulted",
+  reject: "rejected",
+};
+
+const REJECT_LABEL_KEY: Record<string, VaultHubTextKey> = {
+  "Cert mismatch": "rejectCertMismatch",
+  "PSA declined": "rejectPsaDeclined",
+  "Grade ineligible": "rejectGradeIneligible",
+  "Damaged in transit": "rejectDamaged",
+  "Not received": "rejectNotReceived",
+  Failed: "rejectFailed",
+  Rejected: "rejected",
 };
 
 const PACKAGE_STATUS_LABEL: Record<VaultHubVState, string> = {
@@ -385,30 +436,37 @@ function cardState(item: VaultSubmissionApiItem, pkg: VaultHubVState): VaultHubV
   return "verify";
 }
 
-function packageEta(s: VaultSubmissionApi, status: VaultHubVState, rejectLabel: string): string[] {
-  if (status === "transit" || status === "pending") {
-    const shipped = formatDay(s.shipDate) || formatDay(s.shippedAt) || formatDay(s.createdAt);
-    const tracking = s.trackingNumber?.trim();
-    if (tracking) {
-      const carrier = s.carrier
-        ? (CARRIER_LABELS[s.carrier as SellCarrier] ?? s.carrier)
-        : null;
-      return [
-        shipped ? `Shipped ${shipped}` : "Shipped",
-        carrier ? `${carrier} · ${tracking}` : tracking,
-      ];
-    }
-    return [shipped ? `Packed ${shipped}` : "Ready to ship", "Add tracking"];
+function packageEta(
+  s: VaultSubmissionApi,
+  status: VaultHubVState,
+  rejectKey: VaultHubTextKey | null,
+): VaultHubText[] {
+  if (status === "pending") return [{ raw: "-" }];
+  if (status === "transit") {
+    const shipped = s.shipDate || s.shippedAt || s.createdAt;
+    const tracking = s.trackingNumber?.trim() ?? "";
+    const carrier = s.carrier
+      ? (CARRIER_LABELS[s.carrier as SellCarrier] ?? s.carrier)
+      : null;
+    return [
+      shipped ? { key: "etaShippedOn", date: shipped } : { key: "shipped" },
+      { raw: carrier ? `${carrier} · ${tracking}` : tracking },
+    ];
   }
   if (status === "verify") {
-    const arrived = formatDay(s.updatedAt) || formatDay(s.shippedAt);
-    return [arrived ? `Arrived ${arrived}` : "At PSA", "~14–16 business days"];
+    // Arrival = backend `arrivedAt` (set when PSA arrival mail flips to psa_reviewing).
+    return [
+      s.arrivedAt ? { key: "etaArrivedOn", date: s.arrivedAt } : { raw: "-" },
+      { key: "etaBusinessDays" },
+    ];
   }
   if (status === "vaulted") {
-    const day = formatDay(s.updatedAt);
-    return [day ? `Vaulted ${day}` : "Vaulted", "Tokens minted to Collection"];
+    return [
+      s.vaultedAt ? { key: "etaVaultedOn", date: s.vaultedAt } : { raw: "-" },
+      { key: "etaTokensMinted" },
+    ];
   }
-  return ["Rejected", rejectLabel || "Needs attention"];
+  return [{ key: "etaReturnedToSender" }, { key: rejectKey ?? "etaNeedsAttention" }];
 }
 
 /** One row per submission — Vault-Dashboard-Active.html. */
@@ -436,6 +494,9 @@ export function buildVaultHubPackages(
         cert: display.cert,
         state,
         statusLabel: reject?.label ?? PACKAGE_STATUS_LABEL[state],
+        statusKey: reject
+          ? (REJECT_LABEL_KEY[reject.label] ?? "rejected")
+          : PACKAGE_STATUS_KEY[state],
       };
     });
     const first = cards[0];
@@ -450,7 +511,7 @@ export function buildVaultHubPackages(
         : `${cards.length} cards`;
     const tracked = hasShipmentTracking(s);
     const trackUrl = trackingHref(s);
-    const rejectLabel = cards.find((c) => c.state === "reject")?.statusLabel ?? "";
+    const rejectKey = cards.find((c) => c.state === "reject")?.statusKey ?? null;
     let actionLabel = "View";
     let actionHref = href;
     let actionTone: VaultHubPackage["actionTone"] = "subtle";
@@ -465,8 +526,8 @@ export function buildVaultHubPackages(
       const carrierUrl = trackingHref(s);
       actionHref = carrierUrl ?? href;
       actionExternal = Boolean(carrierUrl);
-    } else if (status === "vaulted") {
-      actionHref = "/portfolio";
+      // Vaulted "View" → submission detail (`href`); the page picks minted / failed / rejected
+      // from item results (backend resolveScenario G / H / F).
     } else if (status === "reject") {
       actionLabel = "Contact support";
       actionHref = "mailto:dev@tokenable.io";
@@ -479,7 +540,8 @@ export function buildVaultHubPackages(
       meta,
       certLine,
       status,
-      eta: packageEta(s, status, rejectLabel),
+      submissionNo: submissionNo ?? "",
+      eta: packageEta(s, status, rejectKey),
       vaultedCount: cards.filter((c) => c.state === "vaulted").length,
       rejectedCount: cards.filter((c) => c.state === "reject").length,
       cards,
@@ -490,6 +552,10 @@ export function buildVaultHubPackages(
       actionExternal,
       detailHref: href,
       trackingUrl: status === "transit" ? trackUrl : undefined,
+      editTrackingHref:
+        status === "transit" && s.status === "in_transit"
+          ? sellSubmissionEditTrackingHref(s.publicId)
+          : undefined,
       createdAt: s.createdAt,
     });
   }

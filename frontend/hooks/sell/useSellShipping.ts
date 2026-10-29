@@ -40,6 +40,15 @@ import {
 } from "@/lib/core";
 import { listShippingAddresses } from "@/lib/core/api/shipping-addresses";
 import { useAuthStore } from "@/store/authStore";
+import { useToastStore } from "@/store/toastStore";
+import { useTranslations } from "next-intl";
+
+/** Internal path only (no protocol-relative / external redirects). */
+function safeReturnPath(raw: string | null): string | null {
+  const v = raw?.trim();
+  if (!v || !v.startsWith("/") || v.startsWith("//") || v.includes("\\")) return null;
+  return v;
+}
 
 export type ShipPanel = "pack" | "track";
 
@@ -171,6 +180,8 @@ export function useSellShipping() {
   const searchParams = useSearchParams();
   const submissionQuery = (searchParams.get("submission") ?? "").trim();
   const panelQuery = searchParams.get("panel");
+  const returnToQuery = safeReturnPath(searchParams.get("returnTo"));
+  const tSell = useTranslations("Sell");
   const userId = useAuthStore((s) => s.user?.id);
   const authInitialized = useAuthStore((s) => s.initialized);
   const [ready, setReady] = useState(false);
@@ -282,7 +293,7 @@ export function useSellShipping() {
             // Change Tracking — do not upsert (reopens package) or overwrite sell draft.
             isTrackingEditRef.current = true;
             setIsTrackingEdit(true);
-            setEditReturnPath(vaultPath);
+            setEditReturnPath(returnToQuery ?? vaultPath);
             setCards(packageCards);
             setChecked(
               Array.from({ length: PSA_PACK_CHECKLIST.length }, () => true),
@@ -451,7 +462,7 @@ export function useSellShipping() {
     return () => {
       cancelled = true;
     };
-  }, [router, authInitialized, userId, submissionQuery, panelQuery]);
+  }, [router, authInitialized, userId, submissionQuery, panelQuery, returnToQuery]);
 
   // Persist shipping form as the user fills it.
   useEffect(() => {
@@ -626,6 +637,7 @@ export function useSellShipping() {
           returnAddress,
           vaultChoice: "psa",
         });
+        useToastStore.getState().push({ tone: "positive", title: tSell("trackingUpdated") });
         router.push(
           editReturnPath ??
             `/vault/submissions/${encodeURIComponent(publicId)}`,
@@ -667,6 +679,7 @@ export function useSellShipping() {
     carrier,
     cards,
     editReturnPath,
+    tSell,
     returnAddress,
     router,
     shipDate,

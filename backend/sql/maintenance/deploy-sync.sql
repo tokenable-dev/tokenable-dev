@@ -1912,4 +1912,17 @@ CREATE TABLE IF NOT EXISTS fx_rates (
 COMMENT ON TABLE fx_rates IS
   'Latest ECB reference rate per display currency. quote_per_usd is foreign units per 1 USD. No history.';
 
+-- Sell dashboard "Arrived {date}": first in_transit → psa_reviewing transition.
+-- Nullable, no backfill (existing rows show "-").
+ALTER TABLE vault_submissions
+  ADD COLUMN IF NOT EXISTS arrived_at timestamptz;
 
+COMMENT ON COLUMN vault_submissions.arrived_at IS
+  'When the package first moved to psa_reviewing (PSA arrival mail or admin mark-arrived). Null for legacy rows.';
+
+-- Sell dashboard "Vaulted {date}": package minting finished. Nullable, no backfill.
+ALTER TABLE vault_submissions
+  ADD COLUMN IF NOT EXISTS vaulted_at timestamptz;
+
+COMMENT ON COLUMN vault_submissions.vaulted_at IS
+  'When minting finished for the whole package (PSA vaulted mail → mint). Null for legacy rows.';

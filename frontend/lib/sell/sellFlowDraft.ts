@@ -666,6 +666,11 @@ export function sellSubmissionAddTrackingHref(publicId: string): string {
   return `/sell/shipping?submission=${encodeURIComponent(publicId)}&panel=track`;
 }
 
+/** Shipped (in_transit) → edit carrier/number, then return to the given internal page. */
+export function sellSubmissionEditTrackingHref(publicId: string, returnTo = "/vault"): string {
+  return `${sellSubmissionAddTrackingHref(publicId)}&mode=edit&returnTo=${encodeURIComponent(returnTo)}`;
+}
+
 export async function downloadPackingSlip(cards: SellDraftCard[]) {
   const { jsPDF } = await import("jspdf");
   const doc = new jsPDF({ unit: "pt", format: "letter" });

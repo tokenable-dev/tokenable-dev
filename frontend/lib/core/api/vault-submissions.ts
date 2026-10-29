@@ -27,6 +27,10 @@ export type VaultSubmissionApi = {
   shipDate: string | null;
   shippedAt: string | null;
   packingSlipDownloadedAt: string | null;
+  /** First move to psa_reviewing (PSA arrival mail). Null for legacy rows. */
+  arrivedAt?: string | null;
+  /** First card reached completed (PSA vaulted). Null for legacy rows. */
+  vaultedAt?: string | null;
   createdAt: string;
   updatedAt: string;
   items: VaultSubmissionApiItem[];

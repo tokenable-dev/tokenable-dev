@@ -199,6 +199,8 @@ CREATE TABLE IF NOT EXISTS vault_submissions (
   ship_date date,
   shipped_at timestamptz,
   packing_slip_downloaded_at timestamptz,
+  arrived_at timestamptz,
+  vaulted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT vault_submissions_public_id_unique UNIQUE (public_id),

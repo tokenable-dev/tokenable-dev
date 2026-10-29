@@ -52,6 +52,7 @@ const DIM = "dim" as const;
 /**
  * Vault-Detail.html A~H — all keys are produced by
  * `VaultSubmissionService.resolveScenario` (draft→A … mint fail→H).
+ * `title`/`sub`/`label` values are `VaultDetail.*` translation keys.
  * Copy/layout aligned to the design HTML; routes stay app paths.
  * Hidden-in-HTML bits (lm-pills, notifBanner) are intentionally omitted.
  */
@@ -62,16 +63,16 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "muted",
       icon: "draft",
-      title: "Draft Submission",
-      sub: "These items have not been submitted yet.",
+      title: "heroATitle",
+      sub: "heroASub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "active", sub: "DRAFT", subColor: DIM },
-      { label: "Ship", state: P },
-      { label: "Received", state: P },
-      { label: "Complete", state: P },
+      { label: "stepSubmit", state: "active", sub: "subDraft", subColor: DIM },
+      { label: "stepShip", state: P },
+      { label: "stepReceived", state: P },
+      { label: "stepComplete", state: P },
     ],
-    cta: [{ label: "Continue", href: "/sell/flow", primary: true }],
+    cta: [{ label: "ctaContinue", href: "/sell/flow", primary: true }],
   },
   B: {
     key: "B",
@@ -79,14 +80,14 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "amber",
       icon: "clock",
-      title: "Awaiting Shipment",
-      sub: "Register a tracking number to move your submission forward.",
+      title: "heroBTitle",
+      sub: "heroBSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "SUBMITTED", subColor: POS },
-      { label: "Ship", state: "active", sub: "PENDING", subColor: DIM },
-      { label: "Received", state: P },
-      { label: "Complete", state: P },
+      { label: "stepSubmit", state: "done", sub: "subSubmitted", subColor: POS },
+      { label: "stepShip", state: "active", sub: "subPending", subColor: DIM },
+      { label: "stepReceived", state: P },
+      { label: "stepComplete", state: P },
     ],
     ship: "pending",
     cta: [],
@@ -97,14 +98,14 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "info",
       icon: "spin",
-      title: "In Transit",
-      sub: "Your package is on the way to PSA.",
+      title: "heroCTitle",
+      sub: "heroCSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "SUBMITTED", subColor: POS },
-      { label: "Ship", state: "active", sub: "IN TRANSIT", subColor: AZ },
-      { label: "Received", state: P },
-      { label: "Complete", state: P },
+      { label: "stepSubmit", state: "done", sub: "subSubmitted", subColor: POS },
+      { label: "stepShip", state: "active", sub: "subInTransit", subColor: AZ },
+      { label: "stepReceived", state: P },
+      { label: "stepComplete", state: P },
     ],
     ship: "intransit",
     cta: [],
@@ -116,14 +117,14 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "info",
       icon: "spin",
-      title: "PSA Reviewing Cards",
-      sub: "PSA is authenticating your cards",
+      title: "heroDTitle",
+      sub: "heroDSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
-      { label: "Ship", state: "done" },
-      { label: "Received", state: "active", sub: "REVIEWING", subColor: AZ },
-      { label: "Complete", state: P },
+      { label: "stepSubmit", state: "done", sub: "subVerified", subColor: POS },
+      { label: "stepShip", state: "done" },
+      { label: "stepReceived", state: "active", sub: "subReviewing", subColor: AZ },
+      { label: "stepComplete", state: P },
     ],
     cta: [],
   },
@@ -134,18 +135,18 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Cards approved and stored",
-      sub: "Verified and insured",
+      title: "heroETitle",
+      sub: "heroESub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
-      { label: "Ship", state: "done" },
-      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Complete", state: "active", sub: "QUEUED", subColor: AZ, spin: true },
+      { label: "stepSubmit", state: "done", sub: "subVerified", subColor: POS },
+      { label: "stepShip", state: "done" },
+      { label: "stepReceived", state: "done", sub: "subApproved", subColor: POS },
+      { label: "stepComplete", state: "active", sub: "subQueued", subColor: AZ, spin: true },
     ],
     cta: [
-      { label: "View in Collection", href: "/portfolio", primary: true },
-      { label: "Submit Another Card", href: "/sell/flow" },
+      { label: "ctaViewCollection", href: "/portfolio", primary: true },
+      { label: "ctaSubmitAnother", href: "/sell/flow" },
     ],
   },
   F: {
@@ -155,19 +156,16 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "danger",
       icon: "x",
-      title: "Cards Rejected",
-      sub: "Cards did not meet our requirements",
+      title: "heroFTitle",
+      sub: "heroFSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
-      { label: "Ship", state: "done" },
-      { label: "Received", state: "failed", sub: "REJECTED", subColor: NEG },
-      { label: "Complete", state: P },
+      { label: "stepSubmit", state: "done", sub: "subVerified", subColor: POS },
+      { label: "stepShip", state: "done" },
+      { label: "stepReceived", state: "failed", sub: "subRejected", subColor: NEG },
+      { label: "stepComplete", state: P },
     ],
-    cta: [
-      { label: "Contact Support", href: "/faq", primary: true },
-      { label: "Submit Another Card", href: "/sell/flow" },
-    ],
+    cta: [{ label: "ctaSubmitAnother", href: "/sell/flow" }],
   },
   G: {
     key: "G",
@@ -176,18 +174,18 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "success",
       icon: "check",
-      title: "Your cards are live",
-      sub: "Now in your portfolio",
+      title: "heroGTitle",
+      sub: "heroGSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
-      { label: "Ship", state: "done" },
-      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Complete", state: "done", sub: "LISTED", subColor: POS },
+      { label: "stepSubmit", state: "done", sub: "subVerified", subColor: POS },
+      { label: "stepShip", state: "done" },
+      { label: "stepReceived", state: "done", sub: "subApproved", subColor: POS },
+      { label: "stepComplete", state: "done", sub: "subListed", subColor: POS },
     ],
     cta: [
-      { label: "View in Collection", href: "/portfolio", primary: true },
-      { label: "Submit Another Card", href: "/sell/flow" },
+      { label: "ctaViewCollection", href: "/portfolio", primary: true },
+      { label: "ctaSubmitAnother", href: "/sell/flow" },
     ],
   },
   H: {
@@ -197,19 +195,16 @@ export const VAULT_DETAIL_SCENARIOS: Record<Exclude<VaultDetailScenarioKey, "ear
     hero: {
       tone: "danger",
       icon: "x",
-      title: "Something went wrong",
-      sub: "Some cards couldn't be listed",
+      title: "heroHTitle",
+      sub: "heroHSub",
     },
     steps: [
-      { label: "Submit to PSA vault", state: "done", sub: "VERIFIED", subColor: POS },
-      { label: "Ship", state: "done" },
-      { label: "Received", state: "done", sub: "APPROVED", subColor: POS },
-      { label: "Complete", state: "failed", sub: "FAILED", subColor: NEG },
+      { label: "stepSubmit", state: "done", sub: "subVerified", subColor: POS },
+      { label: "stepShip", state: "done" },
+      { label: "stepReceived", state: "done", sub: "subApproved", subColor: POS },
+      { label: "stepComplete", state: "failed", sub: "subFailed", subColor: NEG },
     ],
-    cta: [
-      { label: "Contact Support", href: "/faq", primary: true },
-      { label: "Submit Another Card", href: "/sell/flow" },
-    ],
+    cta: [{ label: "ctaSubmitAnother", href: "/sell/flow" }],
   },
 };
 
@@ -233,39 +228,28 @@ export function resolveDetailScenarioKey(
   return "C";
 }
 
-export function withLiveHero(
-  scenario: VaultDetailScenario,
+/** Translation key + values for the hero subline built from live counts. */
+export function liveHeroSub(
+  key: VaultDetailScenarioKey,
   submissionId: string,
-  cardCount: number,
-): VaultDetailScenario {
-  const n = Math.max(0, cardCount);
-  const word = n === 1 ? "card" : "cards";
-  let sub = scenario.hero.sub;
-  switch (scenario.key) {
+  cards: Pick<VaultPackageCard, "status">[],
+): { key: string; values?: Record<string, string | number> } | null {
+  const count = Math.max(0, cards.length);
+  if (count === 0) return null;
+  switch (key) {
     case "D":
-      sub = `${submissionId} · ${n} ${word}`;
-      break;
+      return { key: "heroDLive", values: { id: submissionId, count } };
     case "E":
-      sub = `${n} ${word} · verified and insured`;
-      break;
+      return { key: "heroELive", values: { count } };
     case "F":
-      sub = `${n} ${word} did not meet our requirements`;
-      break;
+      return { key: "heroFLive", values: { count } };
     case "G":
-      sub =
-        n === 1
-          ? "1 card is now in your collection"
-          : `${n} ${word} are now in your collection`;
-      break;
-    case "H":
-      sub =
-        n === 1
-          ? "1 card couldn't be listed"
-          : `Some of ${n} ${word} couldn't be listed`;
-      break;
+      return { key: "heroGLive", values: { count } };
+    case "H": {
+      const failed = cards.filter((c) => c.status !== "completed").length;
+      return { key: "heroHLive", values: { failed, count } };
+    }
     default:
-      break;
+      return null;
   }
-  if (sub === scenario.hero.sub) return scenario;
-  return { ...scenario, hero: { ...scenario.hero, sub } };
 }
