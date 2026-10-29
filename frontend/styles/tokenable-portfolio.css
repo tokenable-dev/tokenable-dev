@@ -2880,7 +2880,8 @@ button.pf-table-card-cell--activate {
 
 .pf-gallery {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr));
+  grid-template-columns: var(--listing-grid-columns);
+  justify-content: start;
   gap: 16px;
   margin-top: 24px;
 }
@@ -3408,7 +3409,6 @@ button.pf-table-card-cell--activate {
 
 @media (max-width: 560px) {
   .portfolio-page .pf-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
 
@@ -3498,7 +3498,6 @@ button.pf-table-card-cell--activate {
 
 @media (max-width: 560px) {
   .pf-gallery {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
     gap: 10px !important;
   }
 
@@ -4571,7 +4570,8 @@ button.pf-table-card-cell--activate {
 
 #portfolio-panel-bids .pf-table--bids.pf-ux tbody {
   display: grid !important;
-  grid-template-columns: repeat(auto-fill, minmax(min(210px, 100%), 1fr));
+  grid-template-columns: var(--listing-grid-columns);
+  justify-content: start;
   gap: 16px;
   width: 100%;
 }
@@ -4766,7 +4766,6 @@ button.pf-table-card-cell--activate {
 
 @media (max-width: 560px) {
   #portfolio-panel-bids .pf-table--bids.pf-ux tbody {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
   }
 

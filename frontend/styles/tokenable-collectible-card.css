@@ -24,7 +24,7 @@
   /* Markets / Watchlist / Search — fixed card width at 5-up (1240px shell, 40px gutters). */
   --listing-grid-gap: 22px;
   --listing-grid-row-gap: 32px;
-  /* Listing column width band — auto-fill drops 5→4→3→2 (no shrink-to-fit-5) */
+  /* Max listing card width (columns: --listing-cols below) */
   --listing-card-max: 214px;
   --listing-card-min: 168px;
   /* Figma listing tile (slab + title + price row) */
@@ -33,29 +33,36 @@
 }
 
 /**
- * Listing grids: auto-fill between min/max card width (5→4→3→2 as viewport narrows).
- * Also used on Home (Top movers / Just vaulted) via `HomeCardGrid` wrap layout.
+ * Listing column table (designer spec) — shared by every card-listing grid:
+ *   ≤599 → 2 · 600–899 → 3 · 900–1279 → 4 · ≥1280 → 5.
+ * Columns are fixed per band; cards cap at --listing-card-max and shrink to fit.
+ * Leftover space stays on the right (justify-content: start).
+ * Users: .markets-grid (Markets, Home, Search), .watchlist-grid, .cd-similar-items__grid,
+ * .pf-gallery, #portfolio-panel-bids bids card grid.
  */
+:root {
+  --listing-cols: 5;
+  --listing-grid-columns: repeat(var(--listing-cols), minmax(0, var(--listing-card-max)));
+}
+@media (max-width: 1279px) {
+  :root { --listing-cols: 4; }
+}
+@media (max-width: 899px) {
+  :root { --listing-cols: 3; }
+}
+@media (max-width: 599px) {
+  :root { --listing-cols: 2; }
+}
+
 .markets-grid,
 .watchlist-grid {
   display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(var(--listing-card-min), 100%), var(--listing-card-max))
-  );
+  grid-template-columns: var(--listing-grid-columns);
   gap: var(--listing-grid-gap);
   row-gap: var(--listing-grid-row-gap);
   justify-content: start;
   width: 100%;
   box-sizing: border-box;
-}
-
-/* Phone — 2 columns; cards scale to half row (auto-fill min was forcing 1-up on narrow viewports) */
-@media (max-width: 560px) {
-  .markets-grid,
-  .watchlist-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 /* Tablet / narrow desktop (≤1024) — type + Figma listing tile (287.22px shell) */

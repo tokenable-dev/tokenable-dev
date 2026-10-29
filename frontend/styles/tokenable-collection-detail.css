@@ -3945,29 +3945,17 @@
   color: #fff;
 }
 
-/* Card.html `#similar-row`: 5-up desktop, 3-up pad, 2-up phone. */
+/* Similar items — shared listing column table (tokenable-collectible-card.css). */
 .cd-similar-items__grid {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: var(--listing-grid-columns);
+  justify-content: start;
   gap: 20px;
 }
 
 @media (max-width: 1140px) {
   .cd-similar-items__grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (min-width: 601px) and (max-width: 1140px) {
-  .cd-similar-items__grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 14px;
-  }
-}
-
-@media (max-width: 560px) {
-  .cd-similar-items__grid {
-    grid-template-columns: 1fr 1fr !important;
   }
 }
 
