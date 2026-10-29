@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import { formatUsdCompact } from "@/lib/market";
 import { ADMIN_TEXT_BODY, ADMIN_TEXT_META } from "./adminUi";
 
@@ -17,6 +18,7 @@ export function AdminMarketPriceStrip({
   floorUsd?: number | null;
   compact?: boolean;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const chips = [
     askUsd !== undefined ? { label: "Ask", value: askUsd } : null,
     { label: "Ref", value: refUsd },

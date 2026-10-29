@@ -513,15 +513,3 @@ export function countVaultHubPackages(packages: VaultHubPackage[]) {
   ) as Record<(typeof tabs)[number], number>;
 }
 
-export function countVaultHubByState(rows: VaultHubRow[]) {
-  const counts = {
-    all: rows.length,
-    pending: 0,
-    transit: 0,
-    verify: 0,
-    vaulted: 0,
-    reject: 0,
-  };
-  for (const r of rows) counts[r.vstate] += 1;
-  return counts;
-}

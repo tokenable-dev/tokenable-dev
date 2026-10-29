@@ -109,29 +109,44 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
     setFx(next);
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
+  const ratesInflightRef = useRef<Promise<void> | null>(null);
+
+  /**
+   * Fetch FX rates (deduped). Re-run when a picked currency has no rate yet —
+   * the mount fetch can fail or still be in flight on slow mobile networks, and
+   * previously it was never retried, so the UI stayed on USD (fallbackToUsd).
+   */
+  const loadRates = useCallback(() => {
+    if (ratesInflightRef.current) return ratesInflightRef.current;
+    const run = (async () => {
       try {
         const res = await fetch("/api/fx/rates", { headers: { accept: "application/json" } });
         if (!res.ok) return;
         const body = (await res.json()) as RatesBody;
-        if (cancelled) return;
         ratesRef.current = body;
-        const currency = resolveDisplayCurrency({
-          authenticated: Boolean(useAuthStore.getState().user),
-          profile: useAuthStore.getState().user?.preferredCurrency,
-          cookie: readCookie(CURRENCY_COOKIE),
-        });
+        // A picker choice made while this was in flight must win over the (possibly
+        // stale) profile value — otherwise the late response reverted it.
+        const currency =
+          choiceRef.current.currency ??
+          resolveDisplayCurrency({
+            authenticated: Boolean(useAuthStore.getState().user),
+            profile: useAuthStore.getState().user?.preferredCurrency,
+            cookie: readCookie(CURRENCY_COOKIE),
+          });
         publish(composeFx(currency, body));
       } catch {
         /* Keep the last snapshot. USD stays available. */
+      } finally {
+        ratesInflightRef.current = null;
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+    ratesInflightRef.current = run;
+    return run;
   }, [publish]);
+
+  useEffect(() => {
+    void loadRates();
+  }, [loadRates]);
 
   useEffect(() => {
     if (!initialized || savingRef.current) return;
@@ -166,6 +181,9 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
       choiceRef.current.currency = currency;
       writeCookie(CURRENCY_COOKIE, currency);
       publish(composeFx(currency, ratesRef.current));
+      if (currency !== "USD" && ratesRef.current?.rates?.[currency] == null) {
+        void loadRates();
+      }
       const current = useAuthStore.getState().user;
       if (!current) {
         savingRef.current = false;
@@ -182,7 +200,7 @@ export function DisplayPreferencesProvider({ children }: { children: ReactNode }
           savingRef.current = false;
         });
     },
-    [publish],
+    [loadRates, publish],
   );
 
   const selectLocale = useCallback(

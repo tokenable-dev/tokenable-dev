@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { useHomeMarketplaceGrids } from "@/hooks/home";
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
@@ -38,6 +39,7 @@ function AdminHomePreviewTable({
   showChange: boolean;
   isPending: boolean;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   return (
     <div className={ADMIN_ARTICLE}>
       <div className="mb-4">

@@ -708,7 +708,6 @@
     "shipping": "运费和手续",
     "redemptionFee": "赎回费（{count} × {each}）",
     "early": "提前取出",
-    "reference": "参考金额",
     "multiShip": "卡牌来自不同保管库时会分成多票货。一笔 USDC 付款涵盖全部。",
     "partnerShip": "合作保管库运费为估算。启用后使用 FedEx Rate。",
     "psaRates": "与 PSA Vault 公布费率一致，不加价。",

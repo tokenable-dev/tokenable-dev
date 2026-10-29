@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { formatUsdCompact } from "@/lib/market";
@@ -20,6 +21,7 @@ import {
 import { buildMarketsCollectionTitle } from "@/lib/markets/marketsCollectionTitle";
 
 function SimilarCard({ item }: { item: SimilarCollectionItem }) {
+  useDisplayFx(); // re-render on display currency / FX change
   useCatalogNameRevision();
   const sealed = item.components.assetKind === "sealed_box";
   const name = (

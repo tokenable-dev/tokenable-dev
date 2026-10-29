@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +31,7 @@ export function PortfolioValuePanel({
   /** Partner portfolio — Redeem requests lives in this value row. */
   partnerRedeemHref?: string | null;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const t = useTranslations("Portfolio");
   const changeState = resolvePortfolioValueChangeState(dailyPnlUsd, dailyPnlPct);
   const changeLabel =

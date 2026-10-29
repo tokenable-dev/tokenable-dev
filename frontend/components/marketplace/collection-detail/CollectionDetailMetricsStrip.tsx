@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import { formatMarketCapUsd } from "@/lib/market";
 import type { CollectionComponents } from "@/lib/marketplace/collectionDetailComponents";
 import type { PsaPopulationMetrics } from "@/lib/market/gradedCardMarketCap";
@@ -58,6 +59,7 @@ export function CollectionDetailMetricsStrip({
   omitUnavailableMarket?: boolean;
   embedInChart?: boolean;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   return (
     <div className={`cd-metrics-strip${embedInChart ? " cd-metrics-strip--embed" : ""}`}>
       <CollectionDetailStatMain

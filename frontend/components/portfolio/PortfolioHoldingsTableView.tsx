@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { CARD_DISPLAY_LINE1_CLAMP_CLASS } from "@/components/marketplace/marketplace-shared";
@@ -55,6 +56,7 @@ export function PortfolioHoldingsTableView({
   isRowSelectable?: (row: AssetRow) => boolean;
   onOpenKbwMysteryCard?: () => void;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const t = useTranslations("PortfolioTable");
   return (
     <TkTable wrapClassName="pf-table-wrap pf-holdings-table-wrap" className="pf-table--holdings">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import {
   useState,
   useRef,
@@ -147,6 +148,7 @@ function SearchItemPrice({
   price: string | null;
   snapshot: CollectionListMarketSnapshot | undefined;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const pct = resolveMarketsListingMarketChangePct(snapshot);
   const change =
     pct != null && Number.isFinite(pct)

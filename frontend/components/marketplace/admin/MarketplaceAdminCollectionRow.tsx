@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { CollectionListMarketSnapshot, MarketplaceCollectionSummary } from "@/lib/core";
@@ -77,6 +78,7 @@ export function MarketplaceAdminCollectionRow({
   onReject?: () => void;
   onReopen?: () => void;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const currentCoverUrl = row.coverImageUrl ?? row.displayImageUrl ?? "";
   const [urlInput, setUrlInput] = useState(currentCoverUrl);
   const [tokenIdInput, setTokenIdInput] = useState("");

@@ -708,7 +708,6 @@
     "shipping": "送料と手数料",
     "redemptionFee": "償還手数料（{count} × {each}）",
     "early": "早期引き出し",
-    "reference": "参考額",
     "multiShip": "保管庫が違うカードは別配送になります。USDC の支払いは1回で全件を含みます。",
     "partnerShip": "パートナ保管庫の送料は見積です。有効時は FedEx Rate を使います。",
     "psaRates": "PSA Vault の公表料金に合わせ、上乗せはありません。",

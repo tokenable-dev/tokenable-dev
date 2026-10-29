@@ -6887,29 +6887,11 @@
   transform: translateY(-1px);
 }
 
-.vault-dash-add__ic {
-  width: 46px;
-  height: 46px;
-  border-radius: 12px;
-  background: #1a6fff;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: none;
-  box-shadow: 0 4px 12px rgba(26, 111, 255, 0.3);
-}
-
 .vault-dash-add__t {
   flex: 1;
   font-size: 17px;
   font-weight: 700;
   color: #fff;
-}
-
-.vault-dash-add__arr {
-  flex: none;
-  color: #5b9aff;
 }
 
 .vault-dash-sec {

@@ -708,7 +708,6 @@
     "shipping": "Shipping and handling",
     "redemptionFee": "Redemption fee ({count} × {each})",
     "early": "Early withdrawal",
-    "reference": "Reference value",
     "multiShip": "Separate shipments when cards come from different vaults. One USDC payment covers all.",
     "partnerShip": "Partner vault shipping estimate — FedEx Rate when enabled.",
     "psaRates": "Matches PSA Vault published rates — no markup.",

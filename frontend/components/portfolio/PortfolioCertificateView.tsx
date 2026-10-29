@@ -1,5 +1,6 @@
 "use client";
 
+import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
@@ -68,6 +69,7 @@ function PricingPanel({
   paid: number | null;
   costSource: PortfolioCostBasisSource | null;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const t = useTranslations("Portfolio");
   const locale = useLocale();
   const pricing = d.pricing;
@@ -198,6 +200,7 @@ export function PortfolioCertificateView({
   /** Sealed box: show the holding, without card list or redeem. */
   holdOnly?: boolean;
 }) {
+  useDisplayFx(); // re-render on display currency / FX change
   const t = useTranslations("Portfolio");
   const tNav = useTranslations("Nav");
   const locale = useLocale();
