@@ -31,9 +31,8 @@ export function setDisplayFxSnapshot(next: DisplayFx): void {
   snapshot = next;
 }
 
-/** Price prefix. The header chip for KRW stays W; amounts use ₩. */
+/** Price prefix (same as the header chip). */
 export function currencyNarrowSymbol(currency: DisplayCurrency): string {
-  if (currency === "KRW") return "₩";
   return CURRENCY_OPTIONS.find((row) => row.code === currency)?.chip ?? currency;
 }
 

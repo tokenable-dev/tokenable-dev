@@ -32,7 +32,7 @@ export const CURRENCY_OPTIONS: {
   { code: "EUR", name: "Euro", chip: "€" },
   { code: "GBP", name: "British Pound", chip: "£" },
   { code: "JPY", name: "Japanese Yen", chip: "¥" },
-  { code: "KRW", name: "South Korean Won", chip: "W" },
+  { code: "KRW", name: "South Korean Won", chip: "₩" },
   { code: "HKD", name: "Hong Kong Dollar", chip: "HK$" },
   { code: "CNY", name: "Chinese Yuan", chip: "CN¥" },
   { code: "SGD", name: "Singapore Dollar", chip: "S$" },
