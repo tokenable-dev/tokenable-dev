@@ -2334,3 +2334,33 @@ body.tk-dialog-open .mobile-page-root {
   line-height: 1.5;
   color: #ff6b7a;
 }
+
+/* Open state: stack the bars at the exact center so the X has no stray ends,
+   and fully collapse the middle bar (no leftover dots). */
+.gnb-burger.is-open .burger-lines {
+  position: relative;
+  height: 20px;
+}
+.gnb-burger.is-open .burger-lines span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  margin-top: -1px;
+}
+.gnb-burger.is-open .burger-lines span:first-child {
+  transform: rotate(45deg) !important;
+}
+.gnb-burger.is-open .burger-lines span:nth-child(2) {
+  opacity: 0;
+  transform: scaleX(0);
+  visibility: hidden;
+}
+.gnb-burger.is-open .burger-lines span:last-child {
+  transform: rotate(-45deg) !important;
+}
+@media (max-width: 1024px) {
+  .gnb-burger.is-open .burger-lines span {
+    margin-top: -0.75px;
+  }
+}

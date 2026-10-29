@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslations } from "next-intl";
 import { formatUsdCompact } from "@/lib/market";
 import { listPartnerRedeems, rq } from "@/lib/core";
 import { groupPartnerRedeems } from "@/lib/partner/partnerRedeemGroups";
@@ -29,6 +30,7 @@ export function PortfolioValuePanel({
   /** Partner portfolio — Redeem requests lives in this value row. */
   partnerRedeemHref?: string | null;
 }) {
+  const t = useTranslations("Portfolio");
   const changeState = resolvePortfolioValueChangeState(dailyPnlUsd, dailyPnlPct);
   const changeLabel =
     changeState === "nodata" || dailyPnlUsd == null || dailyPnlPct == null
@@ -51,9 +53,9 @@ export function PortfolioValuePanel({
   }, [redeemHref, partnerRedeemQuery.data?.items]);
 
   return (
-    <header className="pf-value-hero" aria-label="Portfolio value">
+    <header className="pf-value-hero" aria-label={t("valueHeroAria")}>
       <div className="pf-value-hero__main">
-        <div className="pf-value-hero__eyebrow">Collection value</div>
+        <div className="pf-value-hero__eyebrow">{t("collectionValue")}</div>
         <div className="pf-value-hero__row">
           {totalsPending ? (
             <span className="pf-value-hero__skeleton" aria-hidden />
@@ -91,7 +93,7 @@ export function PortfolioValuePanel({
           href={redeemHref}
           className="tk-btn tk-btn--primary pf-value-hero__redeem"
         >
-          <span className="pf-value-hero__redeem-label">Redeem requests</span>
+          <span className="pf-value-hero__redeem-label">{t("redeemRequests")}</span>
           {toShipCount > 0 ? (
             <span id="pf-redeem-n" className="tkl-mono pf-value-hero__redeem-count">
               ({toShipCount})

@@ -106,3 +106,26 @@ export function formatUsdcAmount(n: number | null | undefined): string {
   const body = Math.abs(rounded).toLocaleString("en-US");
   return rounded < 0 ? `-$${body}` : `$${body}`;
 }
+
+/** Compact money for narrow mobile cells — `$950`, `$12.3K`, `$2.29M`, `$1.2B`. */
+export function formatDisplayMoneyCompact(
+  usd: number | null | undefined,
+  fx: DisplayFx = getDisplayFx(),
+): string {
+  if (usd == null || !Number.isFinite(usd)) return "—";
+  const converted = convertUsdReference(usd, fx);
+  const abs = Math.abs(converted.amount);
+  const units: [number, string][] = [
+    [1e12, "T"],
+    [1e9, "B"],
+    [1e6, "M"],
+    [1e3, "K"],
+  ];
+  const unit = units.find(([v]) => abs >= v);
+  if (!unit) return formatDisplayAmount(converted.amount, converted.currency);
+  const scaled = converted.amount / unit[0];
+  const digits = Math.abs(scaled) >= 100 ? 0 : Math.abs(scaled) >= 10 ? 1 : 2;
+  const body = `${Number(scaled.toFixed(digits))}${unit[1]}`;
+  const symbol = currencyNarrowSymbol(converted.currency);
+  return symbol.length > 1 ? `${symbol} ${body}` : `${symbol}${body}`;
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useLocale, useTranslations } from "next-intl";
 import { TkField, TkInput, TkSelect } from "@/components/ds";
 import { AddressSearchField } from "@/components/shipping/AddressSearchField";
 
@@ -61,21 +62,38 @@ export function partnerCompanyAddressFormToInput(
   };
 }
 
+type PartnerAddressValidationKey =
+  | "addrErrContact"
+  | "addrErrStreet"
+  | "addrErrCountry"
+  | "addrErrRegion";
+
+const PARTNER_ADDRESS_VALIDATION_EN: Record<PartnerAddressValidationKey, string> = {
+  addrErrContact: "Company name, contact name, and phone are required.",
+  addrErrStreet: "Street, city, and postal code are required.",
+  addrErrCountry: "Country must be a 2-letter code (e.g. US).",
+  addrErrRegion: "State / province is required for US and Canada.",
+};
+
+/** `translate` (e.g. `useTranslations("Partner")`) localizes messages; English when omitted. */
 export function validatePartnerCompanyAddressForm(
   form: PartnerCompanyAddressFormState,
+  translate?: (key: PartnerAddressValidationKey) => string,
 ): string | null {
+  const msg = (key: PartnerAddressValidationKey) =>
+    translate ? translate(key) : PARTNER_ADDRESS_VALIDATION_EN[key];
   const v = partnerCompanyAddressFormToInput(form);
   if (!v.companyName || !v.contactName || !v.phone) {
-    return "Company name, contact name, and phone are required.";
+    return msg("addrErrContact");
   }
   if (!v.line1 || !v.city || !v.postal) {
-    return "Street, city, and postal code are required.";
+    return msg("addrErrStreet");
   }
   if (!/^[A-Z]{2}$/.test(v.country)) {
-    return "Country must be a 2-letter code (e.g. US).";
+    return msg("addrErrCountry");
   }
   if ((v.country === "US" || v.country === "CA") && !v.region) {
-    return "State / province is required for US and Canada.";
+    return msg("addrErrRegion");
   }
   return null;
 }
@@ -129,6 +147,15 @@ export function PartnerCompanyAddressFormFields({
   extrasAfter?: ReactNode;
   showCompanyName?: boolean;
 }) {
+  const t = useTranslations("Partner");
+  const locale = useLocale();
+  const countryName = (code: string, fallback: string) => {
+    try {
+      return new Intl.DisplayNames([locale], { type: "region" }).of(code) || fallback;
+    } catch {
+      return fallback;
+    }
+  };
   const set =
     (key: keyof PartnerCompanyAddressFormState) =>
     (next: string) =>
@@ -140,7 +167,7 @@ export function PartnerCompanyAddressFormFields({
 
       <div className="tk-ship-form__section">
         <AddressSearchField
-          label="Company origin"
+          label={t("addrCompanyOrigin")}
           disabled={disabled}
           line1FieldId={`${idPrefix}-line1`}
           onPick={(place) => {
@@ -165,13 +192,13 @@ export function PartnerCompanyAddressFormFields({
 
       {showCompanyName ? (
         <div className="tk-ship-form__section">
-          <TkField label="Company name" htmlFor={`${idPrefix}-company`}>
+          <TkField label={t("addrCompanyName")} htmlFor={`${idPrefix}-company`}>
             <TkInput
               id={`${idPrefix}-company`}
               value={value.companyName}
               onChange={(e) => set("companyName")(e.target.value)}
               autoComplete="organization"
-              placeholder="Company name"
+              placeholder={t("addrCompanyName")}
               disabled={disabled}
             />
           </TkField>
@@ -179,32 +206,32 @@ export function PartnerCompanyAddressFormFields({
       ) : null}
 
       <div className="tk-ship-form__section">
-        <TkField label="Contact name" htmlFor={`${idPrefix}-contact`}>
+        <TkField label={t("addrContactName")} htmlFor={`${idPrefix}-contact`}>
           <TkInput
             id={`${idPrefix}-contact`}
             value={value.contactName}
             onChange={(e) => set("contactName")(e.target.value)}
             autoComplete="name"
-            placeholder="Contact name"
+            placeholder={t("addrContactName")}
             disabled={disabled}
           />
         </TkField>
       </div>
 
       <div className="tk-ship-form__section">
-        <TkField label="Street address" htmlFor={`${idPrefix}-line1`}>
+        <TkField label={t("addrStreet")} htmlFor={`${idPrefix}-line1`}>
           <TkInput
             id={`${idPrefix}-line1`}
             value={value.line1}
             onChange={(e) => set("line1")(e.target.value)}
             autoComplete="address-line1"
-            placeholder="Street address"
+            placeholder={t("addrStreet")}
             className="tk-ship-form__street"
             disabled={disabled}
           />
         </TkField>
         <TkField
-          label="Apt, suite, unit (optional)"
+          label={t("addrApt")}
           htmlFor={`${idPrefix}-line2`}
           className="tk-ship-form__apt"
         >
@@ -213,7 +240,7 @@ export function PartnerCompanyAddressFormFields({
             value={value.line2}
             onChange={(e) => set("line2")(e.target.value)}
             autoComplete="address-line2"
-            placeholder="Apt, suite, unit (optional)"
+            placeholder={t("addrApt")}
             disabled={disabled}
           />
         </TkField>
@@ -221,25 +248,25 @@ export function PartnerCompanyAddressFormFields({
 
       <div className="tk-ship-form__row">
         <div className="tk-ship-form__section">
-          <TkField label="City" htmlFor={`${idPrefix}-city`}>
+          <TkField label={t("addrCity")} htmlFor={`${idPrefix}-city`}>
             <TkInput
               id={`${idPrefix}-city`}
               value={value.city}
               onChange={(e) => set("city")(e.target.value)}
               autoComplete="address-level2"
-              placeholder="City"
+              placeholder={t("addrCity")}
               disabled={disabled}
             />
           </TkField>
         </div>
         <div className="tk-ship-form__section">
-          <TkField label="State / region" htmlFor={`${idPrefix}-region`}>
+          <TkField label={t("addrRegion")} htmlFor={`${idPrefix}-region`}>
             <TkInput
               id={`${idPrefix}-region`}
               value={value.region}
               onChange={(e) => set("region")(e.target.value)}
               autoComplete="address-level1"
-              placeholder="State / region"
+              placeholder={t("addrRegion")}
               disabled={disabled}
             />
           </TkField>
@@ -248,20 +275,20 @@ export function PartnerCompanyAddressFormFields({
 
       <div className="tk-ship-form__row">
         <div className="tk-ship-form__section">
-          <TkField label="Postal code" htmlFor={`${idPrefix}-postal`}>
+          <TkField label={t("addrPostal")} htmlFor={`${idPrefix}-postal`}>
             <TkInput
               id={`${idPrefix}-postal`}
               value={value.postal}
               onChange={(e) => set("postal")(e.target.value)}
               autoComplete="postal-code"
-              placeholder="Postal code"
+              placeholder={t("addrPostal")}
               className="tk-ship-form__mono"
               disabled={disabled}
             />
           </TkField>
         </div>
         <div className="tk-ship-form__section">
-          <TkField label="Country" htmlFor={`${idPrefix}-country`}>
+          <TkField label={t("addrCountry")} htmlFor={`${idPrefix}-country`}>
             <TkSelect
               id={`${idPrefix}-country`}
               value={value.country}
@@ -270,7 +297,7 @@ export function PartnerCompanyAddressFormFields({
             >
               {PARTNER_COMPANY_COUNTRY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {countryName(o.value, o.label)}
                 </option>
               ))}
             </TkSelect>
@@ -279,7 +306,7 @@ export function PartnerCompanyAddressFormFields({
       </div>
 
       <div className="tk-ship-form__section">
-        <TkField label="Phone" htmlFor={`${idPrefix}-phone`}>
+        <TkField label={t("addrPhone")} htmlFor={`${idPrefix}-phone`}>
           <TkInput
             id={`${idPrefix}-phone`}
             type="tel"

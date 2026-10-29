@@ -22,7 +22,7 @@ import {
 } from "@/lib/partner/partnerRedeemStats";
 import { useCatalogNameRevision } from "@/lib/marketplace/catalogNameTranslation";
 import {
-  PARTNER_SHIPMENT_STATUS,
+  type PartnerShipmentStatusKey,
   partnerCardCertLine,
   partnerCardImageUrl,
   partnerRedeemCardTitle,
@@ -68,14 +68,31 @@ function openRedemptionIds(group: ShipmentGroup): string[] {
     .map((row) => row.id);
 }
 
-function notifyTrackingSaved(isEdit: boolean) {
+type PartnerT = ReturnType<typeof useTranslations<"Partner">>;
+
+function notifyTrackingSaved(isEdit: boolean, t: PartnerT) {
   useToastStore.getState().push({
     tone: "positive",
-    title: isEdit
-      ? "Tracking updated · buyer notified."
-      : "Tracking added · buyer notified.",
+    title: isEdit ? t("trackingUpdatedToast") : t("trackingAddedToast"),
     durationMs: 3000,
   });
+}
+
+function cardTitleLabels(t: PartnerT) {
+  return {
+    token: (id: string) => t("tokenFallback", { id }),
+    card: t("cardFallback"),
+  };
+}
+
+function deadlineText(
+  deadline: { text: string; days?: number; hours?: number },
+  t: PartnerT,
+): string {
+  if (deadline.hours == null) return deadline.text;
+  return deadline.days && deadline.days > 0
+    ? t("deadlineDaysLeft", { days: deadline.days, hours: deadline.hours })
+    : t("deadlineHoursLeft", { hours: deadline.hours });
 }
 
 function statusChipClass(key: string): string {
@@ -117,6 +134,7 @@ function TrackingModal({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations("Partner");
   const [trackingNumber, setTrackingNumber] = useState(
     group.trackingNumber ?? "",
   );
@@ -142,12 +160,12 @@ function TrackingModal({
         trackingCarrier: carrier,
       }),
     onSuccess: () => {
-      notifyTrackingSaved(isEdit);
+      notifyTrackingSaved(isEdit, t);
       onSaved();
       onClose();
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : "Failed to save tracking");
+      setError(err instanceof Error ? err.message : t("saveTrackingFailed"));
     },
   });
 
@@ -159,7 +177,7 @@ function TrackingModal({
   function submit() {
     const num = trackingNumber.replace(/\s+/g, "");
     if (num.length < 6) {
-      setError("Enter a valid tracking number");
+      setError(t("invalidTracking"));
       return;
     }
     mutation.mutate();
@@ -182,13 +200,13 @@ function TrackingModal({
         <div className="partner-ship-modal__head">
           <div>
             <h2 id="partner-ship-modal-title" className="partner-ship-modal__title">
-              {isEdit ? "Edit tracking" : "Add tracking"}
+              {isEdit ? t("editTracking") : t("addTracking")}
             </h2>
           </div>
           <button
             type="button"
             className="partner-ship__iconbtn"
-            aria-label="Close"
+            aria-label={t("close")}
             onClick={onClose}
           >
             ×
@@ -197,8 +215,7 @@ function TrackingModal({
 
         <div className="partner-ship-modal__panel">
           <div className="partner-ship-modal__plain">
-            ({group.items.length}) Card{group.items.length === 1 ? "" : "s"} to
-            be shipped
+            {t("cardsToShip", { count: group.items.length })}
           </div>
           <ul className="partner-ship-modal__cards">
             {group.items.map((item) => (
@@ -211,7 +228,7 @@ function TrackingModal({
                 <span className="partner-ship__cardtext">
                   <span className="partner-ship__cname partner-ship__cname--sm">
                     <span className="partner-ship__cname-t">
-                      {partnerRedeemCardTitle(item, metadataByTokenId)}
+                      {partnerRedeemCardTitle(item, metadataByTokenId, cardTitleLabels(t))}
                     </span>
                   </span>
                   {partnerCardCertLine(item, metadataByTokenId) ? (
@@ -224,27 +241,27 @@ function TrackingModal({
             ))}
           </ul>
           <p className="partner-ship-modal__hint">
-            One tracking number is used for the entire shipment
+            {t("oneTrackingHint")}
           </p>
           <hr className="partner-ship-modal__rule" />
-          <div className="partner-ship-modal__eyebrow">Ship to</div>
+          <div className="partner-ship-modal__eyebrow">{t("colShipTo")}</div>
           <div className="partner-ship-modal__addr">
             {partnerShipToAddressLines(group).map((line) => (
               <span key={line}>{line}</span>
             ))}
           </div>
           <div className="partner-ship-modal__deadline">
-            <span className="partner-ship-modal__plain">Deadline</span>
+            <span className="partner-ship-modal__plain">{t("colDeadline")}</span>
             <span
               className={`partner-ship__dl${deadline.warn ? " partner-ship__dl--warn" : ""}`}
             >
-              {deadline.text}
+              {deadlineText(deadline, t)}
             </span>
           </div>
         </div>
 
         <div className="partner-ship-modal__fields">
-          <TkField label="Carrier" htmlFor="partner-ship-carrier">
+          <TkField label={t("carrier")} htmlFor="partner-ship-carrier">
             <TkSelect
               id="partner-ship-carrier"
               value={carrier}
@@ -258,14 +275,14 @@ function TrackingModal({
             </TkSelect>
           </TkField>
           <TkField
-            label="Tracking number"
+            label={t("trackingNumber")}
             htmlFor="partner-ship-tracking"
             error={error || undefined}
           >
             <TkInput
               id="partner-ship-tracking"
               value={trackingNumber}
-              placeholder="e.g. 1Z999AA10123456784"
+              placeholder={t("trackingPlaceholder")}
               hasError={Boolean(error)}
               onChange={(e) => {
                 setTrackingNumber(e.target.value);
@@ -278,9 +295,7 @@ function TrackingModal({
         <div className="partner-ship-modal__callout">
           <CalloutIcon />
           <span>
-            {isEdit
-              ? "Editing the tracking number does not reverse the cancellation lock · the buyer still cannot cancel this redemption."
-              : "Once you add tracking, the buyer can no longer cancel this redemption. Make sure the parcel is on its way."}
+            {isEdit ? t("lockEditNote") : t("lockAddNote")}
           </span>
         </div>
 
@@ -294,11 +309,11 @@ function TrackingModal({
           >
             {mutation.isPending
               ? isEdit
-                ? "Saving…"
-                : "Adding tracking…"
+                ? t("saving")
+                : t("addingTracking")
               : isEdit
-                ? "Save tracking"
-                : "Add tracking no."}
+                ? t("saveTracking")
+                : t("addTrackingNo")}
           </TkButton>
           <TkButton
             type="button"
@@ -306,7 +321,7 @@ function TrackingModal({
             className="partner-ship-modal__cancel"
             onClick={onClose}
           >
-            Cancel
+            {t("cancel")}
           </TkButton>
         </div>
       </div>
@@ -421,6 +436,7 @@ function InlineTracking({
   group: ShipmentGroup;
   onSaved: () => void;
 }) {
+  const t = useTranslations("Partner");
   const [number, setNumber] = useState("");
   const [carrier, setCarrier] = useState("fedex");
   const [invalid, setInvalid] = useState(false);
@@ -436,11 +452,11 @@ function InlineTracking({
         trackingCarrier: carrier,
       }),
     onSuccess: () => {
-      notifyTrackingSaved(false);
+      notifyTrackingSaved(false, t);
       onSaved();
     },
     onError: (err) => {
-      setError(err instanceof Error ? err.message : "Failed to save tracking");
+      setError(err instanceof Error ? err.message : t("saveTrackingFailed"));
     },
   });
 
@@ -460,7 +476,7 @@ function InlineTracking({
         <span className="partner-ship__trk-car-wrap">
           <select
             className="partner-ship__trk-car"
-            aria-label="Carrier"
+            aria-label={t("carrier")}
             value={carrier}
             onChange={(e) => setCarrier(e.target.value)}
           >
@@ -476,7 +492,7 @@ function InlineTracking({
           type="text"
           className={`partner-ship__trk-in${invalid ? " partner-ship__trk-in--err" : ""}`}
           value={number}
-          placeholder="Tracking number"
+          placeholder={t("trackingNumber")}
           autoComplete="off"
           aria-invalid={invalid || undefined}
           onChange={(e) => {
@@ -497,7 +513,7 @@ function InlineTracking({
           disabled={mutation.isPending}
           onClick={submit}
         >
-          Add
+          {t("add")}
         </button>
       </div>
       {error ? <span className="partner-ship__trk-msg">{error}</span> : null}
@@ -526,10 +542,19 @@ function ShipmentRow({
   onEnterTracking: () => void;
   onSaved: () => void;
 }) {
+  const t = useTranslations("Partner");
+  const locale = useLocale();
   const first = group.items[0]!;
   const extra = group.items.length - 1;
   const statusKey = partnerShipmentStatusKey(group);
-  const status = PARTNER_SHIPMENT_STATUS[statusKey];
+  const statusLabel: Record<PartnerShipmentStatusKey, string> = {
+    new: t("statusNew"),
+    preparing: t("statusPreparing"),
+    shipped: t("tabShipped"),
+    delivered: t("tabDelivered"),
+    cancelled: t("tabCancelled"),
+  };
+  const status = { label: statusLabel[statusKey] };
   const soon =
     group.tab === "to_ship" && isPartnerRedeemDueSoon(group.requestedAt);
   const deadline = partnerRedeemDeadlineCountdown(
@@ -563,7 +588,7 @@ function ShipmentRow({
           <span className="partner-ship__cardtext">
             <span className="partner-ship__cname">
               <span className="partner-ship__cname-t">
-                {partnerRedeemCardTitle(first, metadataByTokenId)}
+                {partnerRedeemCardTitle(first, metadataByTokenId, cardTitleLabels(t))}
               </span>
               <span className={`partner-ship__st ${statusChipClass(statusKey)}`}>
                 {status.label}
@@ -580,36 +605,36 @@ function ShipmentRow({
                 className="partner-ship__more"
                 onClick={onToggleExpand}
               >
-                {expanded ? "Hide" : `＋${extra} more`}
+                {expanded ? t("hide") : t("moreCount", { count: extra })}
               </button>
             ) : null}
           </span>
         </div>
 
         <div>
-          <span className="partner-ship__cellk">Ship to</span>
+          <span className="partner-ship__cellk">{t("colShipTo")}</span>
           <span className="partner-ship__v">{shipName}</span>
           {shipCity ? <span className="partner-ship__vs">{shipCity}</span> : null}
         </div>
 
         <div>
-          <span className="partner-ship__cellk">Requested</span>
+          <span className="partner-ship__cellk">{t("colRequested")}</span>
           <span className="partner-ship__v partner-ship__v--mono">
-            {formatPartnerRedeemRequestedAt(group.requestedAt)}
+            {formatPartnerRedeemRequestedAt(group.requestedAt, locale)}
           </span>
         </div>
 
         <div>
-          <span className="partner-ship__cellk">Deadline</span>
+          <span className="partner-ship__cellk">{t("colDeadline")}</span>
           <span
             className={`partner-ship__dl${deadline.warn ? " partner-ship__dl--warn" : ""}`}
           >
-            {deadline.text}
+            {deadlineText(deadline, t)}
           </span>
         </div>
 
         <div>
-          <span className="partner-ship__cellk">Status</span>
+          <span className="partner-ship__cellk">{t("colStatus")}</span>
           <span className="partner-ship__status-pill">{status.label}</span>
         </div>
 
@@ -662,7 +687,7 @@ function ShipmentRow({
                 ) : null}
               </>
             ) : (
-              <span className="partner-ship__vs">No action needed</span>
+              <span className="partner-ship__vs">{t("noAction")}</span>
             )}
           </div>
         </div>
@@ -671,7 +696,7 @@ function ShipmentRow({
       {expanded ? (
         <div className="partner-ship__expand partner-ship__expand--open">
           <div className="partner-ship__kv">
-            <b>Ship to</b>
+            <b>{t("colShipTo")}</b>
             <span>
               {partnerShipToAddressLines(group).map((line, i) => (
                 <span key={line}>
@@ -693,7 +718,7 @@ function ShipmentRow({
                   <span className="partner-ship__cardtext">
                     <span className="partner-ship__cname partner-ship__cname--sm">
                       <span className="partner-ship__cname-t">
-                        {partnerRedeemCardTitle(item, metadataByTokenId)}
+                        {partnerRedeemCardTitle(item, metadataByTokenId, cardTitleLabels(t))}
                       </span>
                     </span>
                     {partnerCardCertLine(item, metadataByTokenId) ? (
@@ -723,6 +748,7 @@ function RowMenu({
   onViewAddress: () => void;
   onEditTracking?: () => void;
 }) {
+  const t = useTranslations("Partner");
   const wrapRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
@@ -739,7 +765,7 @@ function RowMenu({
       <button
         type="button"
         className="partner-ship__iconbtn"
-        aria-label="More actions"
+        aria-label={t("moreActions")}
         aria-expanded={open}
         onClick={(e) => {
           e.stopPropagation();
@@ -759,7 +785,7 @@ function RowMenu({
               onToggle();
             }}
           >
-            View address
+            {t("viewAddress")}
           </button>
           {onEditTracking ? (
             <button
@@ -771,7 +797,7 @@ function RowMenu({
                 onToggle();
               }}
             >
-              Edit tracking
+              {t("editTracking")}
             </button>
           ) : null}
         </span>
@@ -876,7 +902,7 @@ export function PartnerShipmentsView() {
       ) : null}
 
       <div className="partner-ship">
-        <div className="partner-ship__tabs" role="tablist" aria-label="Shipment status">
+        <div className="partner-ship__tabs" role="tablist" aria-label={t("shipmentStatus")}>
           {TAB_IDS.map((id) => (
             <button
               key={id}

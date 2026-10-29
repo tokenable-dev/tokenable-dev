@@ -137,10 +137,15 @@ function stripTrailingGradeFromTitle(title: string, grade: string | null): strin
 export function partnerRedeemCardTitle(
   item: PartnerRedeemRow,
   metadataByTokenId?: ReadonlyMap<string, RwaMetadata>,
+  labels?: { token: (id: string) => string; card: string },
 ): string {
   const fallback =
     item.displayName?.trim() ||
-    (item.tokenId?.trim() ? `Token #${item.tokenId}` : "Card");
+    (item.tokenId?.trim()
+      ? labels
+        ? labels.token(item.tokenId)
+        : `Token #${item.tokenId}`
+      : (labels?.card ?? "Card"));
   const tid = item.tokenId?.trim();
   const meta = tid ? metadataByTokenId?.get(tid) : undefined;
   const grade = partnerRedeemGrade(item, metadataByTokenId);

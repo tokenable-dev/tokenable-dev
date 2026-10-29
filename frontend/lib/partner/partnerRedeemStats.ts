@@ -42,10 +42,13 @@ const MS_HOUR = 60 * 60 * 1000;
 const MS_DAY = 24 * MS_HOUR;
 
 /** Partner-Shipments.html — "Aug 6 · 10:16 PM" */
-export function formatPartnerRedeemRequestedAt(requestedAt: string): string {
+export function formatPartnerRedeemRequestedAt(
+  requestedAt: string,
+  locale = "en-US",
+): string {
   const d = new Date(requestedAt);
-  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const time = d.toLocaleTimeString("en-US", {
+  const date = d.toLocaleDateString(locale, { month: "short", day: "numeric" });
+  const time = d.toLocaleTimeString(locale, {
     hour: "numeric",
     minute: "2-digit",
   });
@@ -57,12 +60,12 @@ export function partnerRedeemDeadlineCountdown(
   requestedAt: string,
   isOpen: boolean,
   now = Date.now(),
-): { text: string; warn: boolean } {
+): { text: string; warn: boolean; days?: number; hours?: number } {
   if (!isOpen) return { text: "—", warn: false };
   const left = partnerRedeemDeadlineMs(requestedAt) - now;
   if (left <= 0) return { text: "—", warn: false };
   const days = Math.floor(left / MS_DAY);
   const hours = Math.floor((left % MS_DAY) / MS_HOUR);
   const text = days > 0 ? `${days}d ${hours}h left` : `${hours}h left`;
-  return { text, warn: left <= MS_24H };
+  return { text, warn: left <= MS_24H, days, hours };
 }

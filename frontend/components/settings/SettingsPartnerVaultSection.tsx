@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   EMPTY_PARTNER_COMPANY_ADDRESS_FORM,
   PartnerCompanyAddressFormFields,
@@ -47,6 +48,7 @@ function formatPartnerOriginInline(addr: PartnerCompanyAddress): string {
  * Saved address is FedEx ship-from when buyers redeem Partner vault cards.
  */
 export function SettingsPartnerVaultSection() {
+  const tPartner = useTranslations("Partner");
   const qc = useQueryClient();
   const meQuery = useQuery({
     queryKey: rq.partnerMe(),
@@ -107,7 +109,7 @@ export function SettingsPartnerVaultSection() {
   }
 
   function onSave() {
-    const validationError = validatePartnerCompanyAddressForm(form);
+    const validationError = validatePartnerCompanyAddressForm(form, (k) => tPartner(k));
     if (validationError) {
       setError(validationError);
       return;

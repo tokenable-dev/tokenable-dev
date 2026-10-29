@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
-import { formatDisplayMoney, formatUsdcAmount } from "@/lib/market/displayMoney";
-import { formatSplitHeroVolume } from "@/lib/market/tradesVolume";
+import {
+  formatDisplayMoney,
+  formatDisplayMoneyCompact,
+} from "@/lib/market/displayMoney";
 import { TkTag } from "@/components/ds";
 import {
   computeGemRatePct,
@@ -300,7 +302,15 @@ function resolveHeroStatCells(input: {
   velocityPct?: number | null;
   psaPopulationMetrics?: PsaPopulationMetrics | null;
   totalPopulation?: number | null;
+  /** Mobile panel: `$2.29M` style for Mkt Cap / Vol 1Yr. */
+  compactMoney?: boolean;
 }): HeroStatCell[] {
+  const formatMoney = input.compactMoney
+    ? formatDisplayMoneyCompact
+    : formatDisplayMoney;
+  const formatMarketCap = input.compactMoney
+    ? (n: number | null | undefined) => formatDisplayMoneyCompact(n)
+    : input.formatMarketCap;
   const popMetrics = input.psaPopulationMetrics ?? {
     gradeLabel: "PSA 10",
     gradePop: null,
@@ -322,16 +332,11 @@ function resolveHeroStatCells(input: {
   const volumeKnown =
     input.volume1yPlatformUsdc != null || input.volume1yExternalUsd != null;
   const volumeDisplay =
-    input.tradeVolumeLoading && !volumeKnown
+    !volumeKnown
       ? "—"
-      : formatSplitHeroVolume({
-          platformUsdc: input.volume1yPlatformUsdc,
-          externalUsd: input.volume1yExternalUsd,
-          formatPlatform: formatUsdcAmount,
-          formatExternal: (n) => formatDisplayMoney(n),
-          platformLabel: input.labels.volPlatform,
-          externalLabel: input.labels.volExternal,
-        });
+      : formatMoney(
+          (input.volume1yPlatformUsdc ?? 0) + (input.volume1yExternalUsd ?? 0),
+        );
   const velocityDisplay =
     input.tradeVolumeLoading &&
     input.velocityPct == null &&
@@ -341,7 +346,7 @@ function resolveHeroStatCells(input: {
   return buildHeroStatCells(
     {
       labels: input.labels,
-      formatMarketCap: input.formatMarketCap,
+      formatMarketCap,
       marketCapUsd: input.marketCapUsd,
       volumeDisplay,
       velocityDisplay,
@@ -391,6 +396,7 @@ export function CollectionHeroMdPanel({
     velocityPct,
     psaPopulationMetrics,
     totalPopulation,
+    compactMoney: true,
   });
   return (
     <div className="cd-hero-md-panel" id="md-panel">

@@ -32,7 +32,8 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Card.html section.wrap — tkl-wrap already supplies max-width:1240 + gutters;
+/* Card.html section.wrap — tkl-wrap supplies gutters (max-width 1240; widened
+   to 1280 / 1200 content on desktop ≥1141 at the end of this file);
    only vertical rhythm here. */
 .collection-detail-page .collection-detail-page__shell {
   padding-top: 12px;
@@ -689,8 +690,8 @@
 
 .collection-detail-page .cd-detail-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 372px;
-  gap: 20px 32px;
+  grid-template-columns: minmax(0, 1fr) 392px;
+  gap: 20px 20px;
   align-items: stretch;
 }
 
@@ -3355,7 +3356,7 @@
 .cd-trade-panel {
   background: #191919;
   border-radius: 16px;
-  /* Figma `#tk-trade` shell — keep 372px rail width; spacing only here. */
+  /* Figma `#tk-trade` shell — rail width comes from `.cd-detail-grid` (392px); spacing only here. */
   padding: 6px 18px 12px;
   display: flex;
   flex-direction: column;
@@ -7553,3 +7554,109 @@ button.cd-listing-orderbook__thumb-link {
   }
 }
 
+
+/* Mobile hero: change chip (▲ +77% 1Y) on its own line under the price. */
+@media (max-width: 1140px) {
+  .cd-hero-bar #hero-priceblock .cd-hero-bar__price-row,
+  .cd-hero-bar .cd-hero-bar__priceblock .cd-hero-bar__price-row {
+    flex-wrap: wrap !important;
+    row-gap: 4px !important;
+  }
+
+  .cd-hero-bar #hero-priceblock .cd-hero-bar__price-row > .cd-hero-bar__price,
+  .cd-hero-bar .cd-hero-bar__priceblock .cd-hero-bar__price-row > .cd-hero-bar__price {
+    flex: 1 1 100% !important;
+  }
+
+  .cd-hero-bar:not(.is-stuck) #hero-priceblock #hero-chg,
+  .cd-hero-bar:not(.is-stuck) .cd-hero-bar__priceblock .cd-hero-bar__chg {
+    display: flex !important;
+    flex: 1 1 100% !important;
+    justify-content: flex-start !important;
+    margin-top: 0 !important;
+  }
+}
+
+/* Trades: no "…" truncation. Columns stay 4 equal parts while values fit;
+   a column grows to its widest value (measured in TradesTapeScrollList). */
+.collection-detail-page .cd-ob-trades-hdr,
+.collection-detail-page .cd-ob-trades-row {
+  /* Price: exactly as wide as the longest price in the selected currency.
+     Side / Source / Date share the remaining width equally. */
+  grid-template-columns:
+    var(--cd-trades-c1, max-content)
+    minmax(var(--cd-trades-c2, 0px), 1fr)
+    minmax(var(--cd-trades-c3, 0px), 1fr)
+    minmax(var(--cd-trades-c4, 0px), 1fr);
+  /* Not max-content: with 1fr tracks that sizes every column to the widest
+     one (4× the largest value) and pushed Date out of the panel. */
+  min-width: 0;
+  column-gap: 16px;
+}
+
+/* Safety net: if the four values together are wider than the panel,
+   scroll sideways instead of clipping Date. */
+.collection-detail-page .cd-ob-trades-scroll {
+  overflow-x: auto;
+}
+
+.collection-detail-page .cd-ob-trades-hdr span,
+.collection-detail-page .cd-ob-trades-price,
+.collection-detail-page .cd-ob-trades-side,
+.collection-detail-page .cd-ob-trades-source,
+.collection-detail-page .cd-ob-trades-time {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.collection-detail-page .cd-ob-trades-source__label {
+  display: inline;
+  width: auto;
+  overflow: visible;
+  text-overflow: clip;
+}
+
+/* Desktop: collection detail content 1200px (1280 incl. 40px gutters).
+   Grid: left 788 · gap 20 · right rail 392. */
+@media (min-width: 1141px) {
+  .collection-detail-page .collection-detail-page__shell.tkl-wrap {
+    max-width: 1280px;
+  }
+}
+
+/* Mobile/pad hero: name · number · grade as one title block, max 2 lines (SSOT line 1). */
+@media (max-width: 1140px) {
+  .cd-hero-bar--embed:not(.is-stuck) .cd-hero-bar__title,
+  .cd-hero-bar--embed:not(.is-stuck) #hero-title {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+  .cd-hero-bar--embed:not(.is-stuck) .cd-hero-bar__title > span:has(> .cd-hero-bar__title-grade) {
+    display: inline;
+  }
+  .cd-hero-bar--embed:not(.is-stuck) .cd-hero-bar__grade,
+  .cd-hero-bar--embed:not(.is-stuck) #hero-grade {
+    display: none;
+  }
+}
+
+/* Mobile/pad hero subtitle (year · set · variant): max 2 lines. */
+@media (max-width: 1140px) {
+  .cd-hero-bar--embed:not(.is-stuck) .cd-hero-bar__meta,
+  .cd-hero-bar--embed:not(.is-stuck) #hero-meta {
+    white-space: normal;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+}

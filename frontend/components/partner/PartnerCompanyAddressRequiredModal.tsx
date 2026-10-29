@@ -82,12 +82,14 @@ function writeDeferred(partnerId: string, deferred: boolean) {
 
 function Field({
   id,
+  requiredText,
   label,
   full,
   children,
   error,
 }: {
   id: string;
+  requiredText: string;
   label: string;
   full?: boolean;
   children: React.ReactNode;
@@ -100,7 +102,7 @@ function Field({
       </label>
       {children}
       <span className={`po-err${error ? " on" : ""}`} data-for={id}>
-        {error || "This field is required"}
+        {error || requiredText}
       </span>
     </div>
   );
@@ -137,7 +139,7 @@ export function PartnerCompanyAddressRequiredModal() {
     meQuery.data?.vaultLabel ??
     (meQuery.data?.displayName
       ? `${meQuery.data.displayName} Vault`
-      : "Partner Vault");
+      : t("vaultFallback"));
   const vaultLabel = vaultLabelRaw.replace(/\bvault\b/gi, "Vault");
 
   const [deferred, setDeferred] = useState(false);
@@ -193,7 +195,7 @@ export function PartnerCompanyAddressRequiredModal() {
       await qc.invalidateQueries({ queryKey: rq.partnerMe() });
     },
     onError: (e: unknown) => {
-      setSaveError(e instanceof Error ? e.message : "Save failed");
+      setSaveError(e instanceof Error ? e.message : t("saveFailed"));
     },
   });
 
@@ -210,24 +212,24 @@ export function PartnerCompanyAddressRequiredModal() {
   function validate(): boolean {
     const next: Partial<Record<FieldKey, string>> = {};
     const require = (key: FieldKey, label: string) => {
-      if (!form[key].trim()) next[key] = `${label} is required`;
+      if (!form[key].trim()) next[key] = t("fieldRequired", { field: label });
     };
-    require("companyName", "Sender / company name");
-    require("line1", "Address line 1");
-    require("city", "City");
-    require("region", "State / Region");
-    require("postal", "Postal code");
-    require("phone", "Contact phone");
+    require("companyName", t("senderCompany"));
+    require("line1", sell("line1"));
+    require("city", sell("city"));
+    require("region", sell("region"));
+    require("postal", sell("postal"));
+    require("phone", t("contactPhone"));
     if (!form.email.trim()) {
-      next.email = "Contact email is required";
+      next.email = t("emailRequired");
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
-      next.email = "Enter a valid email address";
+      next.email = t("emailInvalid");
     }
     if (
       (form.country === "US" || form.country === "CA") &&
       !form.region.trim()
     ) {
-      next.region = "State / region is required for US and Canada";
+      next.region = t("regionRequiredUsCa");
     }
     setFieldErrors(next);
     return Object.keys(next).length === 0;
@@ -321,7 +323,7 @@ export function PartnerCompanyAddressRequiredModal() {
                 </div>
 
                 <div className="po-grid">
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-name"
                     label={t("senderCompany")}
                     full
@@ -338,7 +340,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     />
                   </Field>
 
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-a1"
                     label={sell("line1")}
                     full
@@ -348,38 +350,38 @@ export function PartnerCompanyAddressRequiredModal() {
                       className={`po-in${fieldErrors.line1 ? " err" : ""}`}
                       id="po-a1"
                       value={form.line1}
-                      placeholder="Street address"
+                      placeholder={t("phStreet")}
                       disabled={saveMutation.isPending}
                       onChange={(e) => setField("line1", e.target.value)}
                       autoComplete="address-line1"
                     />
                   </Field>
 
-                  <Field id="po-a2" label={sell("line2")} full>
+                  <Field requiredText={t("fieldRequiredGeneric")} id="po-a2" label={sell("line2")} full>
                     <input
                       className="po-in"
                       id="po-a2"
                       value={form.line2}
-                      placeholder="Suite, unit, floor"
+                      placeholder={t("phSuite")}
                       disabled={saveMutation.isPending}
                       onChange={(e) => setField("line2", e.target.value)}
                       autoComplete="address-line2"
                     />
                   </Field>
 
-                  <Field id="po-city" label={sell("city")} error={fieldErrors.city}>
+                  <Field requiredText={t("fieldRequiredGeneric")} id="po-city" label={sell("city")} error={fieldErrors.city}>
                     <input
                       className={`po-in${fieldErrors.city ? " err" : ""}`}
                       id="po-city"
                       value={form.city}
-                      placeholder="City"
+                      placeholder={t("phCity")}
                       disabled={saveMutation.isPending}
                       onChange={(e) => setField("city", e.target.value)}
                       autoComplete="address-level2"
                     />
                   </Field>
 
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-state"
                     label={sell("region")}
                     error={fieldErrors.region}
@@ -388,14 +390,14 @@ export function PartnerCompanyAddressRequiredModal() {
                       className={`po-in${fieldErrors.region ? " err" : ""}`}
                       id="po-state"
                       value={form.region}
-                      placeholder="State or region"
+                      placeholder={t("phRegion")}
                       disabled={saveMutation.isPending}
                       onChange={(e) => setField("region", e.target.value)}
                       autoComplete="address-level1"
                     />
                   </Field>
 
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-zip"
                     label={sell("postal")}
                     error={fieldErrors.postal}
@@ -404,14 +406,14 @@ export function PartnerCompanyAddressRequiredModal() {
                       className={`po-in${fieldErrors.postal ? " err" : ""}`}
                       id="po-zip"
                       value={form.postal}
-                      placeholder="Postal code"
+                      placeholder={t("phPostal")}
                       disabled={saveMutation.isPending}
                       onChange={(e) => setField("postal", e.target.value)}
                       autoComplete="postal-code"
                     />
                   </Field>
 
-                  <Field id="po-country" label={sell("country")}>
+                  <Field requiredText={t("fieldRequiredGeneric")} id="po-country" label={sell("country")}>
                     <select
                       className="po-in"
                       id="po-country"
@@ -429,7 +431,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     </select>
                   </Field>
 
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-phone"
                     label={t("contactPhone")}
                     error={fieldErrors.phone}
@@ -446,7 +448,7 @@ export function PartnerCompanyAddressRequiredModal() {
                     />
                   </Field>
 
-                  <Field
+                  <Field requiredText={t("fieldRequiredGeneric")}
                     id="po-email"
                     label={t("contactEmail")}
                     error={fieldErrors.email}
@@ -467,7 +469,7 @@ export function PartnerCompanyAddressRequiredModal() {
                 <details className="po-acc">
                   <summary>{t("carrierOptional")}</summary>
                   <div className="po-grid" style={{ marginTop: 14 }}>
-                    <Field id="po-carrier" label={t("preferredCarrier")}>
+                    <Field requiredText={t("fieldRequiredGeneric")} id="po-carrier" label={t("preferredCarrier")}>
                       <input
                         className="po-in"
                         id="po-carrier"
@@ -477,7 +479,7 @@ export function PartnerCompanyAddressRequiredModal() {
                         onChange={(e) => setField("carrier", e.target.value)}
                       />
                     </Field>
-                    <Field id="po-acct" label={t("carrierAccount")}>
+                    <Field requiredText={t("fieldRequiredGeneric")} id="po-acct" label={t("carrierAccount")}>
                       <input
                         className="po-in"
                         id="po-acct"

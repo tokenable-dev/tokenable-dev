@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef } from "react";
+import { memo, useLayoutEffect, useRef, type RefObject } from "react";
 import { useDisplayFx } from "@/components/i18n/DisplayPreferencesProvider";
 import {
   ORDER_BOOK_TRADES_FOUR_COL_GRID,
@@ -157,6 +157,73 @@ const TradesTapeRow = memo(function TradesTapeRow({
   );
 });
 
+/**
+ * Collection detail Trades: keep the 4 equal columns while everything fits.
+ * When a value (e.g. a large price) is wider than its quarter, widen that
+ * column to its content instead of truncating with "…". Header and rows live
+ * in separate grids, so share the measured minimums via CSS variables.
+ */
+function useTradesColumnFit(
+  scrollRef: RefObject<HTMLDivElement | null>,
+  key: string | null,
+) {
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    if (key == null || !scroll) return;
+    let host: HTMLElement | null = scroll.parentElement;
+    while (host && !host.querySelector(".cd-ob-trades-hdr")) {
+      host = host.parentElement;
+    }
+    const target = host ?? scroll;
+
+    const measure = () => {
+      const rows = [
+        ...Array.from(target.querySelectorAll<HTMLElement>(".cd-ob-trades-hdr")),
+        ...Array.from(scroll.querySelectorAll<HTMLElement>(".cd-ob-trades-row")),
+      ];
+      const widths = [0, 0, 0, 0];
+      for (const row of rows) {
+        Array.from(row.children).forEach((cell, i) => {
+          if (i > 3) return;
+          const el = cell as HTMLElement;
+          const style = getComputedStyle(el);
+          // Content width + this cell's horizontal padding.
+          const range = document.createRange();
+          range.selectNodeContents(el);
+          const content = Math.ceil(range.getBoundingClientRect().width);
+          const pad =
+            parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+          widths[i] = Math.max(widths[i]!, content + pad);
+        });
+      }
+      widths.forEach((w, i) => {
+        target.style.setProperty(`--cd-trades-c${i + 1}`, `${w}px`);
+      });
+    };
+
+    measure();
+    const fonts = (document as Document & { fonts?: FontFaceSet }).fonts;
+    void fonts?.ready.then(measure);
+    // Re-measure when the text changes (e.g. currency switch → longer price)
+    // or the panel resizes, so the price column always fits its content.
+    let raf = 0;
+    const schedule = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(measure);
+    };
+    const mo = new MutationObserver(schedule);
+    mo.observe(target, { subtree: true, childList: true, characterData: true });
+    const ro = new ResizeObserver(schedule);
+    ro.observe(target);
+    return () => {
+      cancelAnimationFrame(raf);
+      mo.disconnect();
+      ro.disconnect();
+      for (let i = 1; i <= 4; i++) target.style.removeProperty(`--cd-trades-c${i}`);
+    };
+  }, [scrollRef, key]);
+}
+
 export function TradesTapeScrollList({
   tapeFills,
   flush,
@@ -184,6 +251,7 @@ export function TradesTapeScrollList({
   const scrollRef = useRef<HTMLDivElement>(null);
   const tapeKey = tapeFills.map((row) => row.orderHash).join(",");
   const fades = useOrderBookScrollFades(scrollRef, [tapeKey, collectionDetail]);
+  useTradesColumnFit(scrollRef, collectionDetail ? tapeKey : null);
 
   const list = (
     <div

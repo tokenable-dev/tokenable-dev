@@ -87,6 +87,13 @@ export function TkHeader() {
     const html = document.documentElement;
     const prevHtmlOverflow = html.style.overflow;
     const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlGutter = html.style.scrollbarGutter;
+    // Locking scroll removes a classic (non-overlay) scrollbar, which widens the
+    // viewport and shifts the fixed header (burger → X jumps right). Keep the
+    // gutter reserved while locked so the header width stays the same.
+    if (window.innerWidth - html.clientWidth > 0) {
+      html.style.scrollbarGutter = "stable";
+    }
 
     html.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
@@ -96,6 +103,7 @@ export function TkHeader() {
     return () => {
       html.style.overflow = prevHtmlOverflow;
       document.body.style.overflow = prevBodyOverflow;
+      html.style.scrollbarGutter = prevHtmlGutter;
       html.classList.remove("gnb-drawer-open");
       document.body.classList.remove("gnb-drawer-open");
     };

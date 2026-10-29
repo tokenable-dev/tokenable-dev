@@ -13,7 +13,11 @@ export const APP_MAIN_SHELL_CLASS = "tkl-wrap";
 export const MOBILE_PAGE_SHELL_CLASS =
   "mobile-page-root relative min-w-0 w-full max-w-full";
 
-/** `/marketplace/collections/[collectionKey]` — 헤더·본문 정렬용 (일반 셸과 동일) */
+/**
+ * `/marketplace/collections/[collectionKey]` — 일반 셸과 같은 클래스.
+ * 데스크톱(≥1141)에서는 tokenable-collection-detail.css가 max-width 1280(콘텐츠 1200)으로 넓힘.
+ * GNB·푸터는 전체 폭(full-bleed)이라 별도 정렬 불필요.
+ */
 export const COLLECTION_DETAIL_SHELL_CLASS = APP_MAIN_SHELL_CLASS;
 
 /** 컬렉션 상세·헤더 정렬 동기화용 */

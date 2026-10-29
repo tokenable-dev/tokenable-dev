@@ -3934,11 +3934,13 @@ button.pf-table-card-cell--activate {
 
   .pf-value-hero__row {
     margin-top: 8px;
-    gap: 12px;
+    gap: 6px 12px;
   }
 
+  /* Mobile: value alone on line 1; +$ · +% always on line 2. */
   .pf-value-hero__amount {
     font-size: clamp(32px, 8vw, 40px);
+    flex: 0 0 100%;
   }
 
   .pf-value-hero__chip {
